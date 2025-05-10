@@ -4,49 +4,62 @@ import localForage from 'localforage';
 // Configure localForage once
 if (browser) {
     localForage.config({
-        driver: [
-            localForage.INDEXEDDB,
-            localForage.WEBSQL,
-            localForage.LOCALSTORAGE
-        ],
+        driver: localForage.INDEXEDDB,
         name: 'budgic',
         storeName: 'data',
         description: 'Budget application data store'
     });
 }
 
-type StoreOptions<T> = {
+type StoreOptions<T, K extends string | number | symbol = string> = {
     validate?: (data: unknown) => data is T;
     onError?: (error: unknown) => void;
     debounce?: number;
+    isCollection?: boolean;
+    idKey?: K; // Key to use as ID for collections
+    pageSize?: number;
 };
 
-export function persistentStore<T>(
+interface PersistentStore<T> {
+    value: T;
+    isLoading: boolean;
+    error: Error | null;
+    clearError: () => void;
+    migrateFromLocalStorage: () => Promise<boolean>;
+    exportData: () => Promise<string>;
+}
+
+interface CollectionStore<T extends Record<string, unknown>, K extends keyof T> extends PersistentStore<T[]> {
+    getItem: (id: string) => Promise<T | undefined>;
+    addItem: (item: Omit<T, K>) => Promise<void>;
+    updateItem: (id: string, updates: Partial<T>) => Promise<void>;
+    removeItem: (id: string) => Promise<void>;
+    loadMore: (count?: number) => Promise<void>;
+    hasMore: () => Promise<boolean>;
+}
+
+export function persistentStore<T, K extends string = string>(
     key: string,
     initialValue: T,
-    options: StoreOptions<T> = {}
-) {
+    options: StoreOptions<T, K> = {}
+): T extends Array<unknown> ? CollectionStore<T[number] & Record<K, string>, K> : PersistentStore<T> {
     // State with loading indicator
     let value = $state(initialValue);
     let isLoading = $state(true);
     let error = $state<Error | null>(null);
+    const idKey = (options.isCollection ? options.idKey : undefined) as K;
 
     // Default validator
     const validate = options.validate || ((data: unknown): data is T => {
-        return data !== null && typeof data === 'object';
+        return data !== null;
     });
 
     // Safe serialization
     const serialize = (data: T): string => {
         try {
-            return JSON.stringify(data, (_, value) => {
-                // Convert Dates to ISO strings
-                if (value instanceof Date) return value.toISOString();
-                return value;
-            });
-        } catch (e) {
+            return JSON.stringify(data);
+        } catch (_err) {
             handleError(new Error('Serialization failed'));
-            console.log(e);
             return JSON.stringify(initialValue);
         }
     };
@@ -61,8 +74,8 @@ export function persistentStore<T>(
                 return parsed;
             }
             throw new Error('Data validation failed');
-        } catch (e) {
-            handleError(e instanceof Error ? e : new Error('Deserialization failed'));
+        } catch (err) {
+            handleError(err instanceof Error ? err : new Error('Deserialization failed'));
             return initialValue;
         }
     };
@@ -74,7 +87,7 @@ export function persistentStore<T>(
         console.error(`[persistentStore] Error (${key}):`, error);
     };
 
-    // Browser-compatible debounce implementation
+    // Debounced save
     let debounceTimeout: number | undefined;
     const save = (data: T) => {
         if (debounceTimeout !== undefined) {
@@ -82,31 +95,57 @@ export function persistentStore<T>(
         }
         debounceTimeout = window.setTimeout(async () => {
             try {
-                await localForage.setItem(key, serialize(data));
-            } catch (e) {
-                handleError(e);
+                if (options.isCollection && Array.isArray(data)) {
+                    await localForage.setItem(key, 'collection-marker');
+                    await Promise.all(
+                        data.map(item => {
+                            const itemId = idKey ? String(item[idKey as keyof typeof item]) : '';
+                            const itemKey = `${key}:${itemId}`;
+                            return localForage.setItem(itemKey, serialize(item as unknown as T));
+                        })
+                    );
+                } else {
+                    await localForage.setItem(key, serialize(data));
+                }
+            } catch (err) {
+                handleError(err);
             }
         }, options.debounce ?? 100);
     };
 
-    // Initial load
-    if (browser) {
-        (async () => {
-            try {
+    // Load data
+    const load = async () => {
+        try {
+            if (options.isCollection && Array.isArray(initialValue)) {
+                const keys = await localForage.keys();
+                const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
+                
+                const batch = collectionKeys.slice(0, 100);
+                const items = await Promise.all(
+                    batch.map(k => localForage.getItem<string>(k).then(deserialize))
+                );
+                
+                value = items.filter(Boolean) as T;
+            } else {
                 const stored = await localForage.getItem<string>(key);
                 value = deserialize(stored);
-            } catch (e) {
-                handleError(e);
-            } finally {
-                isLoading = false;
             }
-        })();
+        } catch (err) {
+            handleError(err);
+        } finally {
+            isLoading = false;
+        }
+    };
+
+    // Initial load
+    if (browser) {
+        load();
     } else {
         isLoading = false;
     }
 
-    // Return store API
-    return {
+    // Base store API
+    const baseStore = {
         get value() { return value; },
         set value(v: T) {
             value = v;
@@ -114,9 +153,8 @@ export function persistentStore<T>(
         },
         get isLoading() { return isLoading; },
         get error() { return error; },
-        clearError: () => error = null,
+        clearError: () => { error = null; },
         
-        // Migration helper
         async migrateFromLocalStorage() {
             if (!browser) return false;
             
@@ -128,10 +166,145 @@ export function persistentStore<T>(
                     await save(this.value);
                     return true;
                 }
-            } catch (e) {
-                handleError(e);
+            } catch (err) {
+                handleError(err);
             }
             return false;
+        },
+        
+        async exportData() {
+            try {
+                if (options.isCollection && Array.isArray(value)) {
+                    const keys = await localForage.keys();
+                    const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
+                    const items = await Promise.all(
+                        collectionKeys.map(k => localForage.getItem<string>(k))
+                    );
+                    return JSON.stringify(items.map(i => i && deserialize(i)));
+                }
+                const data = await localForage.getItem<string>(key);
+                return data || JSON.stringify(initialValue);
+            } catch (err) {
+                handleError(err);
+                return JSON.stringify(initialValue);
+            }
         }
     };
+
+    // Collection-specific methods
+    if (options.isCollection && Array.isArray(initialValue)) {
+        type ItemType = T extends Array<infer U> ? U & Record<K, string> : never;
+        
+        const collectionStore = {
+            ...baseStore,
+            async getItem(id: string) {
+                try {
+                    const stored = await localForage.getItem<string>(`${key}:${id}`);
+                    return stored ? deserialize(stored) as unknown as ItemType : undefined;
+                } catch (err) {
+                    handleError(err);
+                    return undefined;
+                }
+            },
+            
+            async addItem(item: Omit<ItemType, K>) {
+                try {
+                    if (!idKey) throw new Error('ID key not defined');
+                    const itemWithId = { 
+                        ...item as object, 
+                        [idKey]: crypto.randomUUID() 
+                    } as ItemType;
+                    
+                    await localForage.setItem(
+                        `${key}:${itemWithId[idKey]}`, 
+                        serialize(itemWithId as unknown as T)
+                    );
+                    
+                    if (Array.isArray(value)) {
+                        value = [...value, itemWithId] as T;
+                    }
+                } catch (err) {
+                    handleError(err);
+                }
+            },
+            
+            async updateItem(id: string, updates: Partial<ItemType>) {
+                try {
+                    const existing = await localForage.getItem<string>(`${key}:${id}`);
+                    if (!existing) throw new Error('Item not found');
+                    
+                    const current = deserialize(existing) as ItemType;
+                    const updated = { ...current, ...updates };
+                    await localForage.setItem(`${key}:${id}`, serialize(updated as unknown as T));
+                    
+                    if (Array.isArray(value)) {
+                        value = value.map(item => {
+                            const typedItem = item as ItemType;
+                            return typedItem[idKey] === id ? updated : item;
+                        }) as T;
+                    }
+                } catch (err) {
+                    handleError(err);
+                }
+            },
+            
+            async removeItem(id: string) {
+                try {
+                    await localForage.removeItem(`${key}:${id}`);
+                    if (Array.isArray(value)) {
+                        value = value.filter(item => {
+                            const typedItem = item as ItemType;
+                            return typedItem[idKey] !== id;
+                        }) as T;
+                    }
+                } catch (err) {
+                    handleError(err);
+                }
+            },
+            
+            async loadMore(count = 50) {
+                this.isLoading = true;
+                try {
+                    const keys = await localForage.keys();
+                    const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
+                    const loadedCount = Array.isArray(this.value) ? this.value.length : 0;
+                    
+                    // Check if we've loaded everything
+                    if (loadedCount >= collectionKeys.length) {
+                        this.isLoading = false;
+                        return;
+                    }
+                    
+                    const batch = collectionKeys.slice(loadedCount, loadedCount + count);
+                    const items = await Promise.all(
+                        batch.map(k => localForage.getItem<string>(k).then(deserialize))
+                    );
+                    
+                    if (Array.isArray(this.value)) {
+                        this.value = [...this.value, ...items.filter(Boolean)] as T;
+                    }
+                } catch (err) {
+                    handleError(err);
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+            
+            async hasMore() {
+                try {
+                    const keys = await localForage.keys();
+                    const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
+                    if (!Array.isArray(this.value)) return false;
+                    return this.value.length < collectionKeys.length;
+                } catch (err) {
+                    handleError(err);
+                    return false;
+                }
+            }
+        };
+        
+        return collectionStore as unknown as T extends Array<unknown> ? CollectionStore<T[number] & Record<K, string>, K> : PersistentStore<T>;
+    }
+
+    return baseStore as unknown as T extends Array<unknown> ? CollectionStore<T[number] & Record<K, string>, K> : PersistentStore<T>;
 }

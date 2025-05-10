@@ -1,3 +1,32 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@theme {
+    --bg-primary: var(--color-zinc-800);
+    --text-primary: var(--color-zinc-50);
+    --accent: var(--color-teal-500);
+    --color-expense: var(--color-rose-500);
+    --color-income: var(--color-emerald-500);
+    --color-savings: var(--color-cyan-500);
+}
+
+body {
+    @apply bg-[var(--color-zinc-900)] text-[var(--text-primary)];
+}
+
+.accent {
+    @apply text-[var(--accent)];
+}
+
+.expense {
+    @apply text-[var(--expense)];
+}
+
+.income {
+    @apply text-[var(--income)];
+}
+
+.savings {
+    @apply text-[var(--savings)];
+}
