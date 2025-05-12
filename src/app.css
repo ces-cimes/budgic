@@ -1,6 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
+
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+@config '../tailwind.config.ts';
 
 @theme {
     --bg-primary: var(--color-zinc-800);
@@ -9,24 +13,52 @@
     --color-expense: var(--color-rose-500);
     --color-income: var(--color-emerald-500);
     --color-savings: var(--color-cyan-500);
+    --color-highlight: var(--color-zinc-50);
 }
 
-body {
-    @apply bg-[var(--color-zinc-900)] text-[var(--text-primary)];
-}
+@layer base {
+    body {
+        @apply bg-[var(--color-zinc-900)] text-[var(--text-primary)];
+        font-family: 'Geist', sans-serif;
+    }
 
-.accent {
-    @apply text-[var(--accent)];
-}
+    .accent {
+        @apply text-[var(--accent)];
+    }
+    
+    .expense {
+        @apply text-[var(--expense)];
+    }
+    
+    .income {
+        @apply text-[var(--income)];
+    }
+    
+    .savings {
+        @apply text-[var(--savings)];
+    }
 
-.expense {
-    @apply text-[var(--expense)];
-}
+    @media (pointer: coarse) {
+        /* Make tooltips more visible on touch devices */
+        [class*="cursor-help"] {
+            position: relative;
+        }
+        
+        /* Show tooltip below the element on mobile */
+        .tooltip {
+            transform: translateX(-50%);
+            left: 50% !important;
+            top: auto !important;
+            bottom: -2.5rem;
+        }
+    }
 
-.income {
-    @apply text-[var(--income)];
-}
-
-.savings {
-    @apply text-[var(--savings)];
+    .tooltip {
+        animation: tooltipFadeIn 0.15s ease-out;
+    }
+    
+    @keyframes tooltipFadeIn {
+        from { opacity: 0; transform: translateY(-5px) translateX(-50%); }
+        to { opacity: 1; transform: translateY(0) translateX(-50%); }
+    }
 }

@@ -1,54 +1,60 @@
 import { z } from 'zod';
 
-// Zod schemas for validation
-const AccountSchema = z.object({
+// Base schemas
+export const BaseEntitySchema = z.object({
     id: z.string().uuid(),
-    name: z.string().min(1),
-    type: z.enum(['debit', 'credit', 'savings', 'investment']),
-    currentBalance: z.number(),
-    category: z.string().optional(),
-    createdAt: z.string().datetime().default(new Date().toISOString()),
-    updatedAt: z.string().datetime().default(new Date().toISOString())
+    createdAt: z.string().datetime().default(() => new Date().toISOString()),
+    updatedAt: z.string().datetime().default(() => new Date().toISOString())
 });
 
-const TransactionSchema = z.object({
-    id: z.string().uuid(),
+// Account Schema
+export const AccountSchema = BaseEntitySchema.extend({
+    name: z.string().min(1, "Account name is required"),
+    type: z.enum(['debit', 'credit', 'savings', 'investment']),
+    category: z.string().optional(),  // Removed currentBalance
+});
+
+// Transaction Schema
+export const TransactionSchema = BaseEntitySchema.extend({
     type: z.enum(['expense', 'income', 'saving']),
     accountId: z.string().uuid(),
-    category: z.string().min(1),
+    category: z.string().min(1, "Category is required"),
     plannedAmount: z.number().nonnegative().optional(),
     actualAmount: z.number().nonnegative().optional(),
     date: z.string().datetime(),
     description: z.string().optional(),
-    isCompleted: z.boolean().default(false),
-    createdAt: z.string().datetime().default(new Date().toISOString()),
-    updatedAt: z.string().datetime().default(new Date().toISOString())
+    isCompleted: z.boolean().default(false)
 });
 
-// Types inferred from schemas
-export type Account = z.infer<typeof AccountSchema>;
-export type Transaction = z.infer<typeof TransactionSchema>;
+// Type Definitions with branded types for additional type safety
+export type UUID = string & { readonly __brand: 'uuid' };
 
-// Helper functions with proper validation
-export function createAccount(account: Partial<Account> = {}): Account {
+export type Account = z.infer<typeof AccountSchema> & { id: UUID };
+export type Transaction = z.infer<typeof TransactionSchema> & { id: UUID };
+
+export type BalancesByType = {
+    income: number;
+    savings: number;
+    expenses: number;
+};
+
+// Creation helpers with validation
+export function createAccount(data: Partial<Account> = {}): Account {
     const now = new Date().toISOString();
-    const result = AccountSchema.parse({
+    return AccountSchema.parse({
         id: crypto.randomUUID(),
         name: 'New Account',
         type: 'debit',
         currentBalance: 0,
         createdAt: now,
         updatedAt: now,
-        ...account
-    });
-    return result;
+        ...data
+    }) as Account;
 }
 
-export function createTransaction(
-    transaction: Partial<Transaction> & { accountId: string }
-): Transaction {
+export function createTransaction(data: Partial<Transaction> & { accountId: string }): Transaction {
     const now = new Date().toISOString();
-    const result = TransactionSchema.parse({
+    return TransactionSchema.parse({
         id: crypto.randomUUID(),
         type: 'expense',
         category: 'Uncategorized',
@@ -57,12 +63,11 @@ export function createTransaction(
         isCompleted: false,
         createdAt: now,
         updatedAt: now,
-        ...transaction
-    });
-    return result;
+        ...data
+    }) as Transaction;
 }
 
-// Validation functions for persistent store
+// Validation functions
 export function validateAccount(data: unknown): data is Account {
     return AccountSchema.safeParse(data).success;
 }

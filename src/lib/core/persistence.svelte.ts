@@ -11,6 +11,14 @@ if (browser) {
     });
 }
 
+// Enhanced error handling
+export class PersistenceError extends Error {
+    constructor(message: string, public code?: string) {
+        super(message);
+        this.name = 'PersistenceError';
+    }
+}
+
 type StoreOptions<T, K extends string | number | symbol = string> = {
     validate?: (data: unknown) => data is T;
     onError?: (error: unknown) => void;
@@ -18,6 +26,8 @@ type StoreOptions<T, K extends string | number | symbol = string> = {
     isCollection?: boolean;
     idKey?: K; // Key to use as ID for collections
     pageSize?: number;
+    indexes?: string[]; // New: Define indexing strategy
+    maxCacheSize?: number; // New: LRU cache configuration
 };
 
 interface PersistentStore<T> {
@@ -27,14 +37,34 @@ interface PersistentStore<T> {
     clearError: () => void;
     migrateFromLocalStorage: () => Promise<boolean>;
     exportData: () => Promise<string>;
+    importData: (data: string) => Promise<void>;
+    diagnostics: () => Promise<{
+        totalEntries: number;
+        lastModified: string;
+        storageUsed: number;
+    }>;
+    ready: Promise<void>;
 }
 
-interface CollectionStore<T extends Record<string, unknown>, K extends keyof T> extends PersistentStore<T[]> {
+interface CollectionStoreMethods<T extends Record<string, unknown>, K extends keyof T> extends PersistentStore<T[]> {
     getItem: (id: string) => Promise<T | undefined>;
     addItem: (item: Omit<T, K>) => Promise<void>;
     updateItem: (id: string, updates: Partial<T>) => Promise<void>;
     removeItem: (id: string) => Promise<void>;
-    loadMore: (count?: number) => Promise<void>;
+
+    // New batch operation methods
+    batchUpdate: (updates: Array<{id: string, data: Partial<T>}>) => Promise<T[]>;
+    batchRemove: (ids: string[]) => Promise<void>;
+
+    // Enhanced loading and filtering
+    loadMore: (options?: {
+        cursor?: string; 
+        filter?: (item: T) => boolean;
+        limit?: number;
+    }) => Promise<T[]>;
+    
+    // New filtering methods
+    findBy: (predicate: (item: T) => boolean) => Promise<T[]>;
     hasMore: () => Promise<boolean>;
 }
 
@@ -42,12 +72,15 @@ export function persistentStore<T, K extends string = string>(
     key: string,
     initialValue: T,
     options: StoreOptions<T, K> = {}
-): T extends Array<unknown> ? CollectionStore<T[number] & Record<K, string>, K> : PersistentStore<T> {
+): T extends Array<unknown> ? CollectionStoreMethods<T[number] & Record<K, string>, K> : PersistentStore<T> {
     // State with loading indicator
     let value = $state(initialValue);
     let isLoading = $state(true);
     let error = $state<Error | null>(null);
     const idKey = (options.isCollection ? options.idKey : undefined) as K;
+
+    let resolveReady: () => void;
+    const readyPromise = new Promise<void>(r => resolveReady = r);
 
     // Default validator
     const validate = options.validate || ((data: unknown): data is T => {
@@ -82,7 +115,8 @@ export function persistentStore<T, K extends string = string>(
 
     // Error handling
     const handleError = (err: unknown) => {
-        error = err instanceof Error ? err : new Error(String(err));
+        const error = err instanceof Error ? err : new Error(String(err));
+        import('$lib/utils/error.store').then(({ reportError }) => reportError(error));
         options.onError?.(error);
         console.error(`[persistentStore] Error (${key}):`, error);
     };
@@ -96,7 +130,6 @@ export function persistentStore<T, K extends string = string>(
         debounceTimeout = window.setTimeout(async () => {
             try {
                 if (options.isCollection && Array.isArray(data)) {
-                    await localForage.setItem(key, 'collection-marker');
                     await Promise.all(
                         data.map(item => {
                             const itemId = idKey ? String(item[idKey as keyof typeof item]) : '';
@@ -134,6 +167,7 @@ export function persistentStore<T, K extends string = string>(
             handleError(err);
         } finally {
             isLoading = false;
+            resolveReady();
         }
     };
 
@@ -154,6 +188,8 @@ export function persistentStore<T, K extends string = string>(
         get isLoading() { return isLoading; },
         get error() { return error; },
         clearError: () => { error = null; },
+
+        ready: readyPromise,
         
         async migrateFromLocalStorage() {
             if (!browser) return false;
@@ -187,6 +223,42 @@ export function persistentStore<T, K extends string = string>(
             } catch (err) {
                 handleError(err);
                 return JSON.stringify(initialValue);
+            }
+        },
+
+        async importData(jsonData: string) {
+            try {
+                const parsedData = JSON.parse(jsonData);
+                // Validate imported data
+                if (options.validate && !options.validate(parsedData)) {
+                    throw new PersistenceError('Invalid data format', 'IMPORT_VALIDATION_FAILED');
+                }
+                
+                // Clear existing data and import
+                await localForage.removeItem(key);
+                await save(parsedData);
+            } catch (err) {
+                handleError(err);
+            }
+        },
+
+        async diagnostics() {
+            try {
+                const keys = await localForage.keys();
+                const storageEstimate = await navigator.storage?.estimate();
+                
+                return {
+                    totalEntries: keys.length,
+                    lastModified: new Date().toISOString(),
+                    storageUsed: storageEstimate?.usage ?? 0
+                };
+            } catch (err) {
+                handleError(err);
+                return {
+                    totalEntries: 0,
+                    lastModified: new Date().toISOString(),
+                    storageUsed: 0
+                };
             }
         }
     };
@@ -261,6 +333,29 @@ export function persistentStore<T, K extends string = string>(
                     handleError(err);
                 }
             },
+
+            async batchUpdate(updates: Array<{id: string, data: Partial<T>}>) {
+                const updatedItems = await Promise.all(
+                    updates.map(async ({ id, data }) => {
+                        const existing = await localForage.getItem<string>(`${key}:${id}`);
+                        if (!existing) throw new PersistenceError(`Item ${id} not found`);
+                        
+                        const current = deserialize(existing);
+                        const updated = { ...current, ...data };
+                        
+                        await localForage.setItem(`${key}:${id}`, serialize(updated));
+                        return updated;
+                    })
+                );
+                
+                return updatedItems;
+            },
+            
+            async batchRemove(ids: string[]) {
+                await Promise.all(
+                    ids.map(id => localForage.removeItem(`${key}:${id}`))
+                );
+            },
             
             async loadMore(count = 50) {
                 this.isLoading = true;
@@ -289,6 +384,20 @@ export function persistentStore<T, K extends string = string>(
                     this.isLoading = false;
                 }
             },
+
+            async findBy(predicate: (item: any) => boolean) {
+                const keys = await localForage.keys();
+                const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
+                
+                const results = await Promise.all(
+                    collectionKeys.map(k => 
+                        localForage.getItem<string>(k)
+                            .then(item => item ? deserialize(item) : null)
+                    )
+                );
+                
+                return results.filter(Boolean).filter(predicate);
+            },
             
             async hasMore() {
                 try {
@@ -303,8 +412,8 @@ export function persistentStore<T, K extends string = string>(
             }
         };
         
-        return collectionStore as unknown as T extends Array<unknown> ? CollectionStore<T[number] & Record<K, string>, K> : PersistentStore<T>;
+        return collectionStore as unknown as T extends Array<unknown> ? CollectionStoreMethods<T[number] & Record<K, string>, K> : PersistentStore<T>;
     }
 
-    return baseStore as unknown as T extends Array<unknown> ? CollectionStore<T[number] & Record<K, string>, K> : PersistentStore<T>;
+    return baseStore as unknown as T extends Array<unknown> ? CollectionStoreMethods<T[number] & Record<K, string>, K> : PersistentStore<T>;
 }
