@@ -1,7 +1,8 @@
 // balance-service.ts
 import { accountService } from './account-service';
 import { transactionService } from './transaction-service';
-import type { Account, BalancesByType } from '$lib/core/models/types';
+import { categoryService } from './category-service';
+import type { BalancesByType } from '$lib/core/models/types';
 
 class BalanceService {
     private cache: Map<string, number> = new Map();
@@ -18,16 +19,20 @@ class BalanceService {
         }
 
         const transactions = await transactionService.getTransactionsByAccount(accountId);
-        const balance = transactions.reduce((total, transaction) => {
+        const balance = await transactions.reduce(async (totalPromise, transaction) => {
+            const total = await totalPromise;
+
+            if (!transaction.categoryId) return total;
+
+            const category = await categoryService.getCategoryById(transaction.categoryId);
             const amount = transaction.actualAmount ?? transaction.plannedAmount ?? 0;
             
-            switch (transaction.type) {
+            switch (category?.type) {
                 case 'income': return total + amount;
                 case 'expense': return total - amount;
-                case 'saving': return total - amount;
                 default: return total;
             }
-        }, 0);
+        }, Promise.resolve(0));
 
         // Update cache
         this.cache.set(accountId, balance);
@@ -67,21 +72,22 @@ class BalanceService {
             expenses: 0
         };
     
-        allTransactions.forEach(transaction => {
+        await Promise.all(allTransactions.map(async (transaction) => {
             const amount = transaction.actualAmount ?? transaction.plannedAmount ?? 0;
+
+            if (!transaction.categoryId) return;
+
+            const category = await categoryService.getCategoryById(transaction.categoryId);
             
-            switch (transaction.type) {
+            switch (category?.type) {
                 case 'income':
                     balances.income += amount;
-                    break;
-                case 'saving':
-                    balances.savings += amount;
                     break;
                 case 'expense':
                     balances.expenses += amount;
                     break;
             }
-        });
+        }));
     
         // Update cache
         this.typeCache = balances;

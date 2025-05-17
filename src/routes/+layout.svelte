@@ -5,7 +5,7 @@
 	let { children } = $props();
 </script>
 
-<main class="p-4 w-full pb-24">
+<main class="p-2 w-full pb-24">
 	{@render children()}
 </main>
 

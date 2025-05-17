@@ -1,46 +1,147 @@
-import { addDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
+import { isWithinInterval, isAfter, isBefore } from 'date-fns';
 import { dateUtils } from './utils';
+import type { Transaction } from '../core/models/types.ts'; // Import your Transaction type
 
 export function createTransactionFilters() {
     return {
         /**
          * Filter transactions within the current week
          */
-        isInCurrentWeek: (transaction: { date: string }) => {
-            return dateUtils.isDateInCurrentWeek(transaction.date);
+        isInCurrentWeek: (transaction: Transaction) => {
+            return transaction.clearedDate 
+                ? dateUtils.isDateInCurrentWeek(transaction.clearedDate)
+                : false;
+        },
+
+        // Status filters with clear naming
+        /**
+         * Filter for all cleared transactions (both 'cleared' and 'unpending' statuses)
+         */
+        isCleared: (transaction: Transaction) => 
+            transaction.status === 'cleared',
+
+        /**
+         * Filter for pending transactions that haven't been cleared yet
+         */
+        isPendingPlan: (transaction: Transaction) => 
+            transaction.status === 'pending',
+
+        /**
+         * Filter for cancelled transactions
+         */
+        isCancelled: (transaction: Transaction) => 
+            transaction.status === 'cancelled',
+
+        /**
+         * Filter future pending transactions (pendingDate is in future)
+         */
+        isUpcoming: (transaction: Transaction) => {
+            if (transaction.status !== 'pending' || !transaction.pendingDate) return false;
+            return isAfter(new Date(transaction.pendingDate), new Date());
         },
 
         /**
-         * Filter completed transactions
+         * Filter overdue pending transactions (pendingDate is in past but not cleared)
          */
-        isCompletedTransaction: (reverse: boolean = false) => 
-            (transaction: { isCompleted: boolean }) => { return reverse !== transaction.isCompleted;
+        isOverdue: (transaction: Transaction) => {
+            if (transaction.status !== 'pending' || !transaction.pendingDate) return false;
+            return isBefore(new Date(transaction.pendingDate), new Date());
         },
 
         /**
-         * Filter future transactions
+         * Filter transactions by category type (expense, income, saving)
          */
-        isFutureTransaction: (transaction: { date: string }) => {
-            return new Date(transaction.date) > new Date();
+        byCategoryType: (type: 'expense' | 'income') => 
+            (transaction: Transaction & { category?: { type: string } }) => 
+                transaction.category?.type === type,
+
+        /**
+         * Filter transactions with variance (pending vs cleared difference)
+         */
+        hasVariance: (transaction: Transaction) => 
+            transaction.status === 'cleared' && 
+            transaction.pendingAmount !== undefined && 
+            transaction.clearedAmount !== undefined,
+
+        /**
+         * Filter transactions with positive variance (spent less than pending)
+         */
+        isUnderBudget: (transaction: Transaction) => {
+            if (transaction.status !== 'cleared' || 
+                transaction.pendingAmount === undefined || 
+                transaction.clearedAmount === undefined) {
+                return false;
+            }
+            return transaction.clearedAmount < transaction.pendingAmount;
         },
 
         /**
-         * Filter by transaction type
+         * Filter transactions with negative variance (spent more than pending)
          */
-        byType: (type: 'expense' | 'income' | 'saving') => 
-            (transaction: { type: string }) => transaction.type === type,
+        isOverBudget: (transaction: Transaction) => {
+            if (transaction.status !== 'cleared' || 
+                transaction.pendingAmount === undefined || 
+                transaction.clearedAmount === undefined) {
+                return false;
+            }
+            return transaction.clearedAmount > transaction.pendingAmount;
+        },
 
         /**
          * Filter by account ID
          */
         byAccountId: (accountId: string) => 
-            (transaction: { accountId: string }) => transaction.accountId === accountId,
+            (transaction: Transaction) => transaction.accountId === accountId,
+
+        /**
+         * Filter by category ID
+         */
+        byCategoryId: (categoryId: string) => 
+            (transaction: Transaction) => transaction.categoryId === categoryId,
+
+        /**
+         * Filter transactions within a date range
+         */
+        byDateRange: (startDate: Date, endDate: Date) => 
+            (transaction: Transaction) => {
+                if (!transaction.clearedDate) return false;
+                const date = new Date(transaction.clearedDate);
+                return isWithinInterval(date, { start: startDate, end: endDate });
+            },
+
+        /**
+         * Filter transactions above a certain amount
+         * Uses clearedAmount for cleared transactions, pendingAmount for pending
+         */
+        aboveAmount: (amount: number) => (transaction: Transaction) => {
+            const amountToCompare = transaction.status === 'cleared' 
+                ? transaction.clearedAmount 
+                : transaction.pendingAmount;
+            return amountToCompare !== undefined && amountToCompare > amount;
+        },
+
+        /**
+         * Filter transactions below a certain amount
+         * Uses clearedAmount for cleared transactions, pendingAmount for pending
+         */
+        belowAmount: (amount: number) => (transaction: Transaction) => {
+            const amountToCompare = transaction.status === 'cleared' 
+                ? transaction.clearedAmount 
+                : transaction.pendingAmount;
+            return amountToCompare !== undefined && amountToCompare < amount;
+        },
+
+        /**
+         * Filter transactions with recurrence
+         */
+        isRecurring: (transaction: Transaction) => 
+            transaction.recurrenceRule !== undefined,
 
         /**
          * Compose multiple filters
          */
-        compose: (...filters: Array<(item: any) => boolean>) => 
-            (item: any) => filters.every(filter => filter(item))
+        compose: (...filters: Array<(item: Transaction) => boolean>) => 
+            (item: Transaction) => filters.every(filter => filter(item))
     };
 }
 

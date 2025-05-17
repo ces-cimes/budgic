@@ -1,6 +1,6 @@
 <script lang="ts">
-    import Button from '$lib/components/ui/Button.svelte';
-    import Card from '$lib/components/ui/Card.svelte';
+    import Button from '$lib/components/primitives/Button.svelte';
+    import Card from '$lib/components/primitives/Card.svelte';
     import TransactionList from '$lib/components/TransactionList.svelte';
   
     // Form state
@@ -117,5 +117,5 @@
     </Card>
   
     <h2 class="text-2xl font-semibold">Planned Transactions</h2>
-    <TransactionList completed={false} />
+    <TransactionList filterName='future' />
   </div>

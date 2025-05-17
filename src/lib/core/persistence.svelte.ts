@@ -31,6 +31,7 @@ type StoreOptions<T, K extends string | number | symbol = string> = {
 };
 
 interface PersistentStore<T> {
+    set(newSettings: { updatedAt: string; id: string & { readonly __brand: "uuid"; }; createdAt: string; isDeleted: boolean; currency: string; theme: "light" | "dark"; language: "en" | "ru"; notificationsEnabled: boolean; firstDayOfWeek: number; }): unknown;
     value: T;
     isLoading: boolean;
     error: Error | null;
@@ -106,6 +107,7 @@ export function persistentStore<T, K extends string = string>(
             if (validate(parsed)) {
                 return parsed;
             }
+
             throw new Error('Data validation failed');
         } catch (err) {
             handleError(err instanceof Error ? err : new Error('Deserialization failed'));
@@ -116,7 +118,7 @@ export function persistentStore<T, K extends string = string>(
     // Error handling
     const handleError = (err: unknown) => {
         const error = err instanceof Error ? err : new Error(String(err));
-        import('$lib/utils/error.store').then(({ reportError }) => reportError(error));
+        // import('$lib/utils/error-store.svelte').then(({ reportError }) => reportError(error));
         options.onError?.(error);
         console.error(`[persistentStore] Error (${key}):`, error);
     };
@@ -356,6 +358,8 @@ export function persistentStore<T, K extends string = string>(
                     ids.map(id => localForage.removeItem(`${key}:${id}`))
                 );
             },
+
+            
             
             async loadMore(count = 50) {
                 this.isLoading = true;

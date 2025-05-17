@@ -1,5 +1,5 @@
 <script lang='ts'>
-	import Card from "../ui/Card.svelte";
+	import Card from "../primitives/Card.svelte";
 
     let {
         children = null,

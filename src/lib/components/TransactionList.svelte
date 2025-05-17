@@ -1,11 +1,15 @@
 <script lang="ts">
-	import { stores } from '$lib/stores.svelte';
-	import type { Transaction } from '$lib/core/models/types';
 	import { onMount } from 'svelte';
-	import Button from './ui/Button.svelte';
+	import Button from './primitives/Button.svelte';
+	import StatusLabel from './primitives/Label.svelte';
+	
+	import { transactionService } from '$lib/core/services/transaction-service';
+	import type { Transaction } from '$lib/core/models/types';
+
+	import { categoryService } from '$lib/core/services/category-service';
 
 	interface Props {
-		filterName?: 'all' | 'completed' | 'future' | 'current-week'
+		filterName?: 'all' | 'cleared' | 'future' | 'current-week'
 	}
 
 	// Props
@@ -26,50 +30,79 @@
 	// Function to load transactions based on the filter
 	const loadTransactions = async () => {
 		try {
-		isLoading = true;
-		error = null;
+			isLoading = true;
+			error = null;
 
-		switch (filterName) {
-			case 'completed':
-			transactions = await stores.transactions.getCompletedTransactions();
-			break;
-			case 'future':
-			transactions = await stores.transactions.getFutureTransactions();
-			break;
-			case 'current-week':
-			transactions = await stores.transactions.getCurrentWeekTransactions();
-			break;
-			case 'all':
-			default:
-			transactions = await stores.transactions.getAllTransactions();
-		}
+			switch (filterName) {
+				case 'cleared':
+					transactions = await transactionService.getClearedTransactions();
+					break;
+				case 'future':
+					transactions = await transactionService.getFutureTransactions();
+					break;
+				case 'current-week':
+					transactions = await transactionService.getCurrentWeekTransactions();
+					break;
+				case 'all':
+				default:
+					transactions = await transactionService.getAllTransactions();
+			}
+
+			// TODO: remove this dumb thing and implement
+			transactions.forEach(async tx => {
+				if (!tx.categoryId) {
+					tx.categoryId = undefined;
+					return
+				}
+				
+				const category = await categoryService.getCategoryById(tx.categoryId);
+
+				if (!category) {
+					tx.categoryId = undefined;
+					return
+				}
+
+				tx.categoryId = category.name;
+			}); 
 		} catch (err) {
-		error = err instanceof Error ? err : new Error('Failed to load transactions');
-		console.error('Error loading transactions:', error);
+			error = err instanceof Error ? err : new Error('Failed to load transactions');
+			console.error('Error loading transactions:', error);
 		} finally {
-		isLoading = false;
+			isLoading = false;
 		}
 	};
 
 	const groupedTransactions = $derived.by(() => {
 		const groups: Record<string, Transaction[]> = {};
-		
+
 		transactions.forEach(tx => {
-			const dateKey = new Date(tx.date).toDateString();
+			if (!tx.clearedDate && !tx.pendingDate) return;
+
+			let protoDateKey: string;
+
+			if (tx.pendingDate && tx.clearedDate) {
+				protoDateKey = new Date(tx.clearedDate!).toDateString();
+			} else if (tx.pendingDate) {
+				protoDateKey = new Date(tx.pendingDate!).toDateString();
+			} else {
+				protoDateKey = new Date(tx.clearedDate!).toDateString();
+			}
+
+			const dateKey = protoDateKey;
 			groups[dateKey] ??= [];
 			groups[dateKey].push(tx);
 		});
 
 		const sortedGroups = Object.entries(groups).map(([dateKey, txs]) => ({
 			date: new Date(dateKey),
-			transactions: filterName === 'completed' ? txs : [...txs].reverse() // Only reverse if completed is explicitly false
+			transactions: filterName === 'cleared' ? txs : [...txs].reverse()
 		})).sort((a, b) => b.date.getTime() - a.date.getTime());
 
-		return filterName === 'completed' ? sortedGroups : [...sortedGroups].reverse(); // Only reverse groups if completed is explicitly false
+		return filterName === 'cleared' ? sortedGroups : [...sortedGroups].reverse();
 	}) as TransactionGroup[];
 
 	// Load transactions when component mounts or filter changes
-	onMount (() => {
+	onMount(() => {
 		loadTransactions();
 	});
 
@@ -99,8 +132,17 @@
 					{#each group.transactions as tx (tx.id)}
 						<button class="flex w-full justify-between items-center px-2 py-1 rounded-lg hover:bg-zinc-100 focus:bg-zinc-50 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800/50 transition-colors">
 							<div class="flex items-center gap-3">
-								<div>
-									<p class="font-medium">{tx.category}</p>
+								{#if tx.clearedDate}
+									<StatusLabel class="bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-400">
+										Cleared
+									</StatusLabel>
+								{:else if tx.pendingDate}
+									<StatusLabel class="bg-blue-100 text-blue-800 dark:bg-blue-800/30 dark:text-blue-400">
+										Pending
+									</StatusLabel>
+								{/if}
+								<div class="text-left">
+									<p class="font-medium">{tx.categoryId}</p>
 									{#if tx.description}
 										<p class="text-sm text-gray-500 dark:text-gray-400">{tx.description}</p>
 									{/if}
@@ -108,13 +150,13 @@
 							</div>
 							
 							<div class="text-right">
-								<p class="
-									{tx.type === 'income' ? "font-bold text-income" : "" }
-									{tx.type === 'expense' ? "text-expense" : "" }">
-									${tx.plannedAmount ?? tx.actualAmount}
+								<p class={tx.type === 'payment' ? "font-bold text-income" : "text-expense"}>
+									${tx.pendingAmount ?? tx.clearedAmount}
 								</p>
 								<p class="text-xs text-gray-500 dark:text-gray-400">
-									{new Date(tx.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+									{#if tx.clearedDate}
+										{new Date(tx.clearedDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+									{/if}
 								</p>
 							</div>
 						</button>
@@ -123,21 +165,4 @@
 			</div>
 		{/each}
 	</div>
-
-	<!-- <div class="w-full flex justify-center py-4">
-		<Button 
-			element={loadMoreButton}
-			onclick={loadMore} 
-			disabled={isLoading || !hasMore}
-			class="min-w-[200px]"
-		>
-			{#if isLoading}
-				Loading...
-			{:else if hasMore}
-				Load More
-			{:else}
-				No more transactions...
-			{/if}
-		</Button>
-	</div> -->
 {/if}
