@@ -1,6 +1,6 @@
 import { persistentStore } from '$lib/core/persistence.svelte';
 import type { BudgetReport, CategoryBudget } from '$lib/core/models/types';
-import { transactionService } from './transaction-service';
+import { transactionService } from './transaction-service.svelte';
 import { categoryService } from './category-service';
 
 class BudgetService {

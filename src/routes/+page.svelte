@@ -4,11 +4,13 @@
 
 	import { formatNumberShort } from '$lib/utils/utils';
 
-    import { stores } from '$lib/stores.svelte';
-
 	import TransactionList from '$lib/components/TransactionList.svelte';
 	import Card from '$lib/components/primitives/Card.svelte';
 	import Button from '$lib/components/primitives/Button.svelte';
+	import { balanceService } from '$lib/core/services/balance-service';
+
+    import Fab from '$lib/components/primitives/Fab.svelte';
+    import { Plus } from '@lucide/svelte';
 
     let balances = $state({
         income: 0,
@@ -59,7 +61,7 @@
     onMount (async () => {
         try {
             loading = true;
-            balances = await stores.balances.getBalancesByType();
+            balances = await balanceService.getBalancesByType();
         } catch (err) {
             error = err instanceof Error ? err.message : "Failed to load balances";
         } finally {
@@ -71,7 +73,7 @@
     async function refreshBalances() {
         try {
             loading = true;
-            balances = await stores.balances.getBalancesByType(true); // true forces fresh data
+            balances = await balanceService.getBalancesByType(true); // true forces fresh data
         } catch (err) {
             error = err instanceof Error ? err.message : "Failed to refresh balances";
         } finally {
@@ -88,13 +90,17 @@
     }
 </script>
 
+<Fab onclick={() => console.log('FAB clicked!')} size='md'>
+    <Plus/>
+</Fab>
+
 <!-- Top Bar - Month Picker -->
 <Card class="mb-4 flex justify-between items-center" title='Dashboard'>
 	<h1 class="text-2xl font-semibold">Dashboard</h1>
     <div class="flex items-center gap-2">
-        <Button size="sm" variant="ghost">◄</Button>
+        <Button size="sm" variant='neutral'>◄</Button>
         <span class="font-medium whitespace-nowrap">{currentMonth}</span>
-        <Button size="sm" variant="ghost">►</Button>
+        <Button size="sm" variant='neutral'>►</Button>
     </div>
 </Card>
 
@@ -184,5 +190,5 @@
 
 <!-- Load More Button -->
 <div class="flex justify-center mb-4">
-    <Button variant="outline">Load More</Button>
+    <Button variant='neutral'>Load More</Button>
 </div>

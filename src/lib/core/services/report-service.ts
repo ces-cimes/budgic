@@ -1,6 +1,6 @@
 import { readable } from 'svelte/store';
 import { accountService } from './account-service';
-import { transactionService } from './transaction-service';
+import { transactionService } from './transaction-service.svelte';
 import { categoryService } from './category-service';
 import { budgetService } from './budget-service';
 import type { Category } from '$lib/core/models/types';
@@ -10,7 +10,7 @@ class ReportService {
     getNetWorthTrend(start: Date, end: Date) {
         return readable<{ date: string; value: number }[]>([], (set) => {
             const loadData = async () => {
-                const accounts = accountService.accounts;
+                const accounts = await accountService.getAccounts();
                 const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
                 const data: { date: string; value: number }[] = [];
 
@@ -54,11 +54,11 @@ class ReportService {
     getTopSpendingCategories(limit: number) {
         return readable<{ category: Category; amount: number }[]>([], (set) => {
             const loadData = async () => {
-                const categories = categoryService.categories.filter(c => c.type === 'expense');
+                const categories = (await categoryService.getCategories()).filter(c => c.type === 'expense');
                 const results = await Promise.all(
                     categories.map(async (category) => {
                         const transactions = await transactionService.getTransactionsByCategory(category.id);
-                        const amount = transactions.reduce((sum, tx) => sum + (tx.actualAmount || 0), 0);
+                        const amount = transactions.reduce((sum, tx) => sum + (tx.clearedAmount || 0), 0);
                         return { category, amount };
                     })
                 );
@@ -80,13 +80,13 @@ class ReportService {
         let rows: string[][] = [];
 
         if (dataType === 'transactions') {
-            const transactions = await transactionService.getAllTransactions();
+            const transactions = await transactionService.getTransactions();
             headers = ['Date', 'Description', 'Amount', 'Account', 'Category'];
-            rows = transactions.map(tx => [
-                tx.plannedDate,
+            rows = transactions.map(async tx => [
+                tx.pendingDate,
                 tx.description || '',
-                (tx.actualAmount || tx.plannedAmount || 0).toString(),
-                (await accountService.getAccountById(tx.accountId))?.name || '',
+                (tx.clearedAmount || tx.pendingAmount || 0).toString(),
+                ((await accountService.getAccountById(tx.accountId)))?.name || '',
                 tx.categoryId ? (await categoryService.getCategoryById(tx.categoryId))?.name || '' : ''
             ]);
         } else if (dataType === 'budgets') {

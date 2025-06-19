@@ -1,6 +1,6 @@
 // balance-service.ts
 import { accountService } from './account-service';
-import { transactionService } from './transaction-service';
+import { transactionService } from './transaction-service.svelte';
 import { categoryService } from './category-service';
 import type { BalancesByType } from '$lib/core/models/types';
 
@@ -25,7 +25,7 @@ class BalanceService {
             if (!transaction.categoryId) return total;
 
             const category = await categoryService.getCategoryById(transaction.categoryId);
-            const amount = transaction.actualAmount ?? transaction.plannedAmount ?? 0;
+            const amount = transaction.clearedAmount ?? transaction.pendingAmount ?? 0;
             
             switch (category?.type) {
                 case 'income': return total + amount;
@@ -42,7 +42,7 @@ class BalanceService {
     }
 
     async getAccountBalances(): Promise<Record<string, number>> {
-        const accounts = accountService.accounts;
+        const accounts = await accountService.getAccounts();
         const balances: Record<string, number> = {};
         
         await Promise.all(accounts.map(async (account) => {
@@ -64,7 +64,7 @@ class BalanceService {
             return this.typeCache;
         }
     
-        const allTransactions = await transactionService.getAllTransactions();
+        const allTransactions = await transactionService.getTransactions();
         
         const balances: BalancesByType = {
             income: 0,
@@ -73,7 +73,7 @@ class BalanceService {
         };
     
         await Promise.all(allTransactions.map(async (transaction) => {
-            const amount = transaction.actualAmount ?? transaction.plannedAmount ?? 0;
+            const amount = transaction.clearedAmount ?? transaction.pendingAmount ?? 0;
 
             if (!transaction.categoryId) return;
 

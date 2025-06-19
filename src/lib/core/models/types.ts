@@ -1,9 +1,8 @@
-import { isNodeVisible } from 'layerchart/utils/treemap';
 import { z } from 'zod';
 
 // Base Schema
 export const BaseEntitySchema = z.object({
-    id: z.string().uuid(),
+    id: z.string(),
     createdAt: z.string().datetime().default(() => new Date().toISOString()),
     updatedAt: z.string().datetime().default(() => new Date().toISOString()),
     isDeleted: z.boolean().default(false)
@@ -29,7 +28,7 @@ export const AccountSchema = BaseEntitySchema.extend({
 export const CategorySchema = BaseEntitySchema.extend({
     name: z.string().min(1),
     type: z.enum(['expense', 'income']), // Removed 'saving'
-    parentId: z.string().uuid().optional(),
+    parentId: z.string().optional(),
     isSystem: z.boolean().default(false) // For transfers/reconciliations
 });
 
@@ -51,11 +50,11 @@ export const TransactionSchema = BaseEntitySchema.extend({
     clearedDate: z.string().datetime().optional(),
     
     // Payment fields
-    accountId: z.string().uuid(),
-    categoryId: z.string().uuid().optional(),
+    accountId: z.string(),
+    categoryId: z.string().optional(),
     
     // Transfer fields
-    toAccountId: z.string().uuid().optional(),
+    toAccountId: z.string().optional(),
     
     // Recurrence
     recurrenceRule: z.string().optional(),
@@ -147,7 +146,7 @@ export const SettingsSchema = BaseEntitySchema.extend({
 });
 
 // Type Definitions
-export type UUID = string & { readonly __brand: 'uuid' };
+export type UUID = string;
 export type BaseEntity = z.infer<typeof BaseEntitySchema> & { id: UUID };
 export type Currency = z.infer<typeof CurrencySchema>;
 export type Account = z.infer<typeof AccountSchema> & { id: UUID };
@@ -193,7 +192,7 @@ export function createTransaction(data: {
     
     // Prepare the base transaction object
     const transaction: any = {
-        id: crypto.randomUUID(),
+        id: crypto.randomUUID() as UUID,
         createdAt: now,
         updatedAt: now,
         currency,
@@ -247,14 +246,14 @@ export function createTransaction(data: {
         throw new Error("Recurring transactions must be pending");
     }
     
-    return TransactionSchema.safeParse(transaction) as Transaction;
+    return TransactionSchema.parse(transaction) as Transaction;
 }
 
 // Account Creator
 export function createAccount(data: Partial<Account>): Account {
     const now = new Date().toISOString();
     return AccountSchema.parse({
-        id: crypto.randomUUID(),
+        id: crypto.randomUUID() as UUID,
         createdAt: now,
         updatedAt: now,
         isDeleted: false,
@@ -266,7 +265,7 @@ export function createAccount(data: Partial<Account>): Account {
 export function createCategory(data: Partial<Category>): Category {
     const now = new Date().toISOString();
     return CategorySchema.parse({
-        id: crypto.randomUUID(),
+        id: crypto.randomUUID() as UUID,
         createdAt: now,
         updatedNow: now,
         isDeleted: false,
@@ -278,6 +277,12 @@ export function createCategory(data: Partial<Category>): Category {
 // VALIDATION FUNCTIONS
 // ========================
 
+export function validateTransactionsSchema(data: unknown) {
+    if (!Array.isArray(data)) return validateTransaction(data);
+
+    return validateTransactionArray(data);
+}
+
 export function validateAccount(data: unknown): data is Account {
     return AccountSchema.safeParse(data).success;
 }
@@ -288,12 +293,12 @@ export function validateCategory(data: unknown): data is Category {
 
 export function validateTransaction(data: unknown): data is Transaction {
     const result = TransactionSchema.safeParse(data);
-    console.log("Bruh");
     if (!result.success) console.debug('Validation failed:', result.error);
     return result.success;
 }
 
 export function validateTransactionArray(data: unknown): data is Transaction[] {
+    console.debug('[Types] Validating transaction array:', data);
     return Array.isArray(data) && data.every(validateTransaction);
 }
 
@@ -302,6 +307,5 @@ export function validateAccountArray(data: unknown): data is Account[] {
 }
 
 export function validateCategoryArray(data: unknown): data is Category[] {
-    console.info("bruh");
     return Array.isArray(data) && data.every(validateCategory);
 }

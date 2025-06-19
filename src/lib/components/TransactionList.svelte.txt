@@ -1,94 +1,121 @@
 <script lang="ts">
-	import { transactions } from '$lib/utils/stores';
-	import Button from './ui/Button.svelte';
 	import { onMount } from 'svelte';
-	import type { Transaction } from '$lib/utils/types';
+	import Button from './primitives/Button.svelte';
+	import StatusLabel from './primitives/Label.svelte';
+	
+	import { transactionService } from '$lib/core/services/transaction-service.svelte';
+	import type { Transaction } from '$lib/core/models/types';
+	import { categoryService } from '$lib/core/services/category-service';
 
 	interface Props {
-		completed?: boolean;
+		filterName?: 'all' | 'cleared' | 'future' | 'current-week'
 	}
 
-	let { completed = false }: Props = $props();
-	let loading = $state(false);
-	let observer = $state<IntersectionObserver | null>(null);
-	let loadMoreButton = $state<HTMLElement | null>(null);
-	let hasMore = $state(false);
-
-	// Reactive derived state
-	const filteredTransactions = $derived(
-		transactions.value.filter(tx => tx.isCompleted === completed)
-	);
+	let {
+		filterName = 'all'
+	}: Props = $props();
 
 	interface TransactionGroup {
 		date: Date;
 		transactions: Transaction[];
 	}
 
+	// Reactive state
+	let isLoading = $state(true);
+	let error: Error | null = $state(null);
+	let transactions: Transaction[] = $state([]);
+	let processedTransactions: Transaction[] = $state([]);
+
+	// Load transactions and categories
+	const loadTransactions = async () => {
+		try {
+			isLoading = true;
+			error = null;
+			
+			console.debug(await transactionService.getTransactions());
+
+			// Load base transactions
+			const baseTransactions = await (async () => {
+				switch (filterName) {
+					case 'cleared': return transactionService.getClearedTransactions();
+					case 'future': return transactionService.getFutureTransactions();
+					case 'current-week': return transactionService.getCurrentWeekTransactions();
+					default: return transactionService.getTransactions();
+				}
+			})();
+
+			// Process categories
+			const withCategories = await Promise.all(
+				baseTransactions.map(async (tx: Transaction) => {
+					if (!tx.categoryId) return tx;
+					
+					const category = await categoryService.getCategoryById(tx.categoryId);
+					return { 
+						...tx, 
+						categoryId: category?.name || undefined 
+					};
+				})
+			);
+
+			transactions = withCategories;
+			processedTransactions = withCategories;
+		} catch (err) {
+			error = err instanceof Error ? err : new Error('Failed to load transactions');
+			console.error('Error loading transactions:', error);
+		} finally {
+			isLoading = false;
+		}
+	};
+
+	// Grouping logic
 	const groupedTransactions = $derived.by(() => {
 		const groups: Record<string, Transaction[]> = {};
-		
-		filteredTransactions.forEach(tx => {
-			const dateKey = new Date(tx.date).toDateString();
+
+		processedTransactions.forEach((tx: Transaction) => {
+			if (!tx.clearedDate && !tx.pendingDate) return;
+
+			let protoDateKey: string;
+			
+			if (tx.pendingDate && tx.clearedDate) {
+				protoDateKey = new Date(tx.clearedDate!).toDateString();
+			} else if (tx.pendingDate) {
+				protoDateKey = new Date(tx.pendingDate!).toDateString();
+			} else {
+				protoDateKey = new Date(tx.clearedDate!).toDateString();
+			}
+
+			const dateKey = protoDateKey;
 			groups[dateKey] ??= [];
 			groups[dateKey].push(tx);
 		});
 
 		const sortedGroups = Object.entries(groups).map(([dateKey, txs]) => ({
 			date: new Date(dateKey),
-			transactions: completed ? txs : [...txs].reverse() // Reverse transactions if not completed
+			transactions: filterName === 'cleared' ? txs : [...txs].reverse()
 		})).sort((a, b) => b.date.getTime() - a.date.getTime());
 
-		return completed ? sortedGroups : [...sortedGroups].reverse(); // Reverse groups if not completed
-	}) as TransactionGroup[];
+		return filterName === 'cleared' ? sortedGroups : [...sortedGroups].reverse();
+	});
 
-	async function loadMore() {
-		if (loading || !(await transactions.hasMore())) return;
-		loading = true;
-		hasMore = await transactions.hasMore();
-		await transactions.loadMore(50);
-		loading = false;
-		hasMore = await transactions.hasMore();
-	}
-
+	// Initial load and filter changes
 	onMount(() => {
-		// Initial load if no transactions are loaded yet
-		if (transactions.value.length === 0) {
-			loadMore();
-		}
-
-		// Set up intersection observer
-		observer = new IntersectionObserver(async (entries) => {
-			if (entries[0]?.isIntersecting && 
-				!(loading || transactions.isLoading) && 
-				await transactions.hasMore()) {
-				await loadMore();
-			}
-		}, { threshold: 0.1 });
-
-		if (loadMoreButton) observer.observe(loadMoreButton);
-
-		return () => {
-			if (observer) {
-				observer.disconnect();
-			}
-		};
+		loadTransactions();
 	});
 
 	$effect(() => {
-		if (loadMoreButton && observer) {
-			observer.disconnect();
-			observer.observe(loadMoreButton);
-		}
+		loadTransactions();
 	});
 </script>
 
-{#if transactions.isLoading && loading}
+{#if isLoading}
 	<p>Loading transactions...</p>
+{:else if error}
+	<p>Error: {error.message}</p>
 {:else}
-	<div class="mb-4 space-y-2 border-b border-zinc-800">
+	<div class="mb-2">
 		{#each groupedTransactions as group (group.date.toString())}
-			<div class="">
-				<div class="sticky top-0 bg-zinc-800 z-10 py-2 px-4 border-b border-zinc-800 rounded-t-xl">
+			<div class="border-b border-zinc-800">
+				<div class="sticky top-0 bg-zinc-800 z-10 py-2 px-8 rounded-t-xl">
 					<div class="flex items-center gap-2">
 						<span class="text-lg font-semibold">
 							{group.date.toLocaleDateString(undefined, { weekday: 'long' })}
@@ -99,12 +126,21 @@
 					</div>
 				</div>
 
-				<div class="">
+				<div class="space-y-1 my-1">
 					{#each group.transactions as tx (tx.id)}
-						<div class="flex justify-between items-center px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-2">
+						<button class="flex w-full justify-between items-center px-2 py-1 rounded-lg hover:bg-zinc-100 focus:bg-zinc-50 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800/50 transition-colors">
 							<div class="flex items-center gap-3">
-								<div>
-									<p class="font-medium">{tx.category}</p>
+								{#if tx.clearedDate}
+									<StatusLabel class="bg-green-100 text-green-800 dark:bg-green-800/30 dark:text-green-400">
+										Cleared
+									</StatusLabel>
+								{:else if tx.pendingDate}
+									<StatusLabel class="bg-blue-100 text-blue-800 dark:bg-blue-800/30 dark:text-blue-400">
+										Pending
+									</StatusLabel>
+								{/if}
+								<div class="text-left">
+									<p class="font-medium">{tx.categoryId}</p>
 									{#if tx.description}
 										<p class="text-sm text-gray-500 dark:text-gray-400">{tx.description}</p>
 									{/if}
@@ -112,36 +148,19 @@
 							</div>
 							
 							<div class="text-right">
-								<p class="
-									{tx.type === 'income' ? "font-bold text-income" : "" }
-									{tx.type === 'expense' ? "text-expense" : "" }">
-									${tx.plannedAmount ?? tx.actualAmount}
+								<p class={tx.type === 'payment' ? "font-bold text-income" : "text-expense"}>
+									${tx.pendingAmount ?? tx.clearedAmount}
 								</p>
 								<p class="text-xs text-gray-500 dark:text-gray-400">
-									{new Date(tx.date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+									{#if tx.clearedDate}
+										{new Date(tx.clearedDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+									{/if}
 								</p>
 							</div>
-						</div>
+						</button>
 					{/each}
 				</div>
 			</div>
 		{/each}
-	</div>
-
-	<div class="w-full flex justify-center py-4">
-		<Button 
-			element={loadMoreButton}
-			onclick={loadMore} 
-			disabled={loading || !hasMore}
-			class="min-w-[200px]"
-		>
-			{#if loading}
-				Loading...
-			{:else if hasMore}
-				Load More
-			{:else}
-				No more transactions...
-			{/if}
-		</Button>
 	</div>
 {/if}

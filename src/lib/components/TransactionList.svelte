@@ -3,67 +3,62 @@
 	import Button from './primitives/Button.svelte';
 	import StatusLabel from './primitives/Label.svelte';
 	
-	import { transactionService } from '$lib/core/services/transaction-service';
+	import { transactionService } from '$lib/core/services/transaction-service.svelte';
 	import type { Transaction } from '$lib/core/models/types';
-
 	import { categoryService } from '$lib/core/services/category-service';
+	import { base } from '$app/paths';
 
 	interface Props {
 		filterName?: 'all' | 'cleared' | 'future' | 'current-week'
 	}
 
-	// Props
 	let {
 		filterName = 'all'
 	}: Props = $props();
-
-	// Reactive values
-	let transactions: Transaction[] = $state([]);
-	let isLoading = $state(true);
-	let error: Error | null = null;
 
 	interface TransactionGroup {
 		date: Date;
 		transactions: Transaction[];
 	}
 
-	// Function to load transactions based on the filter
+	// Reactive state
+	let isLoading = $state(true);
+	let error: Error | null = $state(null);
+	let transactions: Transaction[] = $state([]);
+	let processedTransactions: Transaction[] = $state([]);
+
+	// Load transactions and categories
 	const loadTransactions = async () => {
 		try {
 			isLoading = true;
 			error = null;
 
-			switch (filterName) {
-				case 'cleared':
-					transactions = await transactionService.getClearedTransactions();
-					break;
-				case 'future':
-					transactions = await transactionService.getFutureTransactions();
-					break;
-				case 'current-week':
-					transactions = await transactionService.getCurrentWeekTransactions();
-					break;
-				case 'all':
-				default:
-					transactions = await transactionService.getAllTransactions();
-			}
-
-			// TODO: remove this dumb thing and implement
-			transactions.forEach(async tx => {
-				if (!tx.categoryId) {
-					tx.categoryId = undefined;
-					return
+			// Load base transactions
+			const baseTransactions = await (async () => {
+				switch (filterName) {
+					case 'cleared': return transactionService.getClearedTransactions();
+					case 'future': return transactionService.getFutureTransactions();
+					case 'current-week': return transactionService.getCurrentWeekTransactions();
+					default: return transactionService.getTransactions();
 				}
-				
-				const category = await categoryService.getCategoryById(tx.categoryId);
+			})();
 
-				if (!category) {
-					tx.categoryId = undefined;
-					return
-				}
+			// Process categories
+			const withCategories = await Promise.all(
+				baseTransactions.map(async (tx: Transaction) => {
+					if (!tx.categoryId) return tx;
+					
+					const category = await categoryService.getCategoryById(tx.categoryId);
+					return { 
+						...tx, 
+						categoryId: category?.name || undefined ,
+						categoryType: category?.type || undefined
+					};
+				})
+			);
 
-				tx.categoryId = category.name;
-			}); 
+			transactions = withCategories;
+			processedTransactions = withCategories;
 		} catch (err) {
 			error = err instanceof Error ? err : new Error('Failed to load transactions');
 			console.error('Error loading transactions:', error);
@@ -72,14 +67,15 @@
 		}
 	};
 
+	// Grouping logic
 	const groupedTransactions = $derived.by(() => {
 		const groups: Record<string, Transaction[]> = {};
 
-		transactions.forEach(tx => {
+		processedTransactions.forEach((tx: Transaction) => {
 			if (!tx.clearedDate && !tx.pendingDate) return;
 
 			let protoDateKey: string;
-
+			
 			if (tx.pendingDate && tx.clearedDate) {
 				protoDateKey = new Date(tx.clearedDate!).toDateString();
 			} else if (tx.pendingDate) {
@@ -99,20 +95,23 @@
 		})).sort((a, b) => b.date.getTime() - a.date.getTime());
 
 		return filterName === 'cleared' ? sortedGroups : [...sortedGroups].reverse();
-	}) as TransactionGroup[];
+	});
 
-	// Load transactions when component mounts or filter changes
+	// Initial load and filter changes
 	onMount(() => {
 		loadTransactions();
 	});
 
 	$effect(() => {
+		console.debug("[TransactionList] Effect: loading transactions...");
 		loadTransactions();
 	});
 </script>
 
 {#if isLoading}
 	<p>Loading transactions...</p>
+{:else if error}
+	<p>Error: {error.message}</p>
 {:else}
 	<div class="mb-2">
 		{#each groupedTransactions as group (group.date.toString())}

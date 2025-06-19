@@ -11,7 +11,6 @@ if (browser) {
     });
 }
 
-// Enhanced error handling
 export class PersistenceError extends Error {
     constructor(message: string, public code?: string) {
         super(message);
@@ -19,22 +18,23 @@ export class PersistenceError extends Error {
     }
 }
 
-type StoreOptions<T, K extends string | number | symbol = string> = {
+type StoreOptions<T> = {
     validate?: (data: unknown) => data is T;
     onError?: (error: unknown) => void;
     debounce?: number;
     isCollection?: boolean;
-    idKey?: K; // Key to use as ID for collections
+    idKey?: string;
     pageSize?: number;
-    indexes?: string[]; // New: Define indexing strategy
-    maxCacheSize?: number; // New: LRU cache configuration
+    indexes?: string[];
+    maxCacheSize?: number;
 };
 
 interface PersistentStore<T> {
-    set(newSettings: { updatedAt: string; id: string & { readonly __brand: "uuid"; }; createdAt: string; isDeleted: boolean; currency: string; theme: "light" | "dark"; language: "en" | "ru"; notificationsEnabled: boolean; firstDayOfWeek: number; }): unknown;
-    value: T;
-    isLoading: boolean;
-    error: Error | null;
+    getValue(): T;
+    setValue(v: T): void;
+    getIsLoading(): boolean;
+    getError(): Error | null;
+    
     clearError: () => void;
     migrateFromLocalStorage: () => Promise<boolean>;
     exportData: () => Promise<string>;
@@ -45,50 +45,43 @@ interface PersistentStore<T> {
         storageUsed: number;
     }>;
     ready: Promise<void>;
+    debugRawKeys: () => Promise<string[]>;
 }
 
-interface CollectionStoreMethods<T extends Record<string, unknown>, K extends keyof T> extends PersistentStore<T[]> {
+export interface CollectionStore<T> extends PersistentStore<T[]> {
     getItem: (id: string) => Promise<T | undefined>;
-    addItem: (item: Omit<T, K>) => Promise<void>;
+    addItem: (item: Omit<T, string>) => Promise<void>;
     updateItem: (id: string, updates: Partial<T>) => Promise<void>;
     removeItem: (id: string) => Promise<void>;
-
-    // New batch operation methods
     batchUpdate: (updates: Array<{id: string, data: Partial<T>}>) => Promise<T[]>;
     batchRemove: (ids: string[]) => Promise<void>;
-
-    // Enhanced loading and filtering
     loadMore: (options?: {
         cursor?: string; 
         filter?: (item: T) => boolean;
         limit?: number;
     }) => Promise<T[]>;
-    
-    // New filtering methods
     findBy: (predicate: (item: T) => boolean) => Promise<T[]>;
     hasMore: () => Promise<boolean>;
 }
 
-export function persistentStore<T, K extends string = string>(
+export function persistentStore<T>(
     key: string,
-    initialValue: T,
-    options: StoreOptions<T, K> = {}
-): T extends Array<unknown> ? CollectionStoreMethods<T[number] & Record<K, string>, K> : PersistentStore<T> {
-    // State with loading indicator
-    let value = $state(initialValue);
-    let isLoading = $state(true);
-    let error = $state<Error | null>(null);
-    const idKey = (options.isCollection ? options.idKey : undefined) as K;
+    initialValue: T | T[],
+    options: StoreOptions<T> = {}
+): PersistentStore<T> | CollectionStore<T> {
+    let _value: T | T[] = initialValue;
+    let _isLoading = true;
+    let _error: Error | null = null;
+
+    const idKey = options.isCollection ? options.idKey : undefined;
 
     let resolveReady: () => void;
     const readyPromise = new Promise<void>(r => resolveReady = r);
 
-    // Default validator
     const validate = options.validate || ((data: unknown): data is T => {
         return data !== null;
     });
 
-    // Safe serialization
     const serialize = (data: T): string => {
         try {
             return JSON.stringify(data);
@@ -98,49 +91,41 @@ export function persistentStore<T, K extends string = string>(
         }
     };
 
-    // Safe deserialization with validation
     const deserialize = (stored: string | null): T => {
-        if (stored === null) return initialValue;
-        
+        if (stored === null) {
+            console.debug("[Persistence] No stored data, using initial value");
+            return initialValue as T;
+        }
+
         try {
             const parsed = JSON.parse(stored);
-            if (validate(parsed)) {
-                return parsed;
-            }
-
-            throw new Error('Data validation failed');
+            if (!validate(parsed)) throw new Error('Validation failed');
+            return parsed as T;
         } catch (err) {
-            handleError(err instanceof Error ? err : new Error('Deserialization failed'));
-            return initialValue;
+            handleError(err);
+            return initialValue as T;
         }
     };
 
-    // Error handling
     const handleError = (err: unknown) => {
         const error = err instanceof Error ? err : new Error(String(err));
-        // import('$lib/utils/error-store.svelte').then(({ reportError }) => reportError(error));
         options.onError?.(error);
         console.error(`[persistentStore] Error (${key}):`, error);
+        _error = error;
     };
 
-    // Debounced save
     let debounceTimeout: number | undefined;
-    const save = (data: T) => {
-        if (debounceTimeout !== undefined) {
-            clearTimeout(debounceTimeout);
-        }
+    const save = (data: T | T[]) => {
+        if (debounceTimeout !== undefined) clearTimeout(debounceTimeout);
         debounceTimeout = window.setTimeout(async () => {
             try {
                 if (options.isCollection && Array.isArray(data)) {
-                    await Promise.all(
-                        data.map(item => {
-                            const itemId = idKey ? String(item[idKey as keyof typeof item]) : '';
-                            const itemKey = `${key}:${itemId}`;
-                            return localForage.setItem(itemKey, serialize(item as unknown as T));
-                        })
-                    );
+                    await Promise.all(data.map(item => {
+                        const itemId = (item as Record<string, unknown>)[idKey!] as string;
+                        return localForage.setItem(`${key}:${itemId}`, serialize(item));
+                    }));
                 } else {
-                    await localForage.setItem(key, serialize(data));
+                    await localForage.setItem(key, serialize(data as T));
                 }
             } catch (err) {
                 handleError(err);
@@ -148,80 +133,77 @@ export function persistentStore<T, K extends string = string>(
         }, options.debounce ?? 100);
     };
 
-    // Load data
     const load = async () => {
         try {
+            await localForage.ready();
+            
             if (options.isCollection && Array.isArray(initialValue)) {
                 const keys = await localForage.keys();
                 const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
                 
-                const batch = collectionKeys.slice(0, 100);
                 const items = await Promise.all(
-                    batch.map(k => localForage.getItem<string>(k).then(deserialize))
+                    collectionKeys.map(k => 
+                        localForage.getItem<string>(k).then(deserialize)
+                    )
                 );
-                
-                value = items.filter(Boolean) as T;
+
+                _value = items.filter(item => item !== null) as T[];
             } else {
-                const stored = await localForage.getItem<string>(key);
-                value = deserialize(stored);
+                _value = deserialize(await localForage.getItem<string>(key));
             }
         } catch (err) {
             handleError(err);
         } finally {
-            isLoading = false;
+            _isLoading = false;
             resolveReady();
         }
     };
 
-    // Initial load
-    if (browser) {
-        load();
-    } else {
-        isLoading = false;
-    }
+    if (browser) load();
 
-    // Base store API
-    const baseStore = {
-        get value() { return value; },
-        set value(v: T) {
-            value = v;
-            if (!isLoading && browser) save(v);
+    const baseStore: PersistentStore<T> = {
+        getValue: () => _value as T,
+        setValue: (v: T) => {
+            _value = v;
+            if (!_isLoading && browser) save(v);
         },
-        get isLoading() { return isLoading; },
-        get error() { return error; },
-        clearError: () => { error = null; },
-
+        getIsLoading: () => _isLoading,
+        getError: () => _error,
+        clearError: () => { _error = null; },
         ready: readyPromise,
+
+        async debugRawKeys() {
+            return localForage.keys();
+        },
         
         async migrateFromLocalStorage() {
             if (!browser) return false;
-            
             try {
                 const legacy = localStorage.getItem(key);
                 if (legacy) {
-                    this.value = deserialize(legacy);
+                    const data = deserialize(legacy);
+                    this.setValue(data);
                     localStorage.removeItem(key);
-                    await save(this.value);
                     return true;
                 }
+                return false;
             } catch (err) {
                 handleError(err);
+                return false;
             }
-            return false;
         },
         
         async exportData() {
             try {
-                if (options.isCollection && Array.isArray(value)) {
+                if (options.isCollection && Array.isArray(_value)) {
                     const keys = await localForage.keys();
-                    const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
                     const items = await Promise.all(
-                        collectionKeys.map(k => localForage.getItem<string>(k))
+                        keys.filter(k => k.startsWith(`${key}:`))
+                            .map(k => localForage.getItem<string>(k))
                     );
-                    return JSON.stringify(items.map(i => i && deserialize(i)));
+                    return JSON.stringify(items.map(deserialize));
                 }
-                const data = await localForage.getItem<string>(key);
-                return data || JSON.stringify(initialValue);
+                return JSON.stringify(deserialize(await localForage.getItem(key)));
             } catch (err) {
                 handleError(err);
                 return JSON.stringify(initialValue);
@@ -231,14 +213,43 @@ export function persistentStore<T, K extends string = string>(
         async importData(jsonData: string) {
             try {
                 const parsedData = JSON.parse(jsonData);
-                // Validate imported data
-                if (options.validate && !options.validate(parsedData)) {
-                    throw new PersistenceError('Invalid data format', 'IMPORT_VALIDATION_FAILED');
-                }
                 
-                // Clear existing data and import
-                await localForage.removeItem(key);
-                await save(parsedData);
+                if (options.isCollection) {
+                    if (!Array.isArray(parsedData)) {
+                        throw new PersistenceError('Collection data must be an array', 'IMPORT_INVALID_FORMAT');
+                    }
+        
+                    // Clear existing collection items
+                    const keys = await localForage.keys();
+                    await Promise.all(
+                        keys.filter(k => k.startsWith(`${key}:`))
+                            .map(k => localForage.removeItem(k))
+                    );
+        
+                    // Validate and store new items
+                    const itemsToSave = parsedData.map(item => {
+                        if (options.validate && !options.validate(item)) {
+                            throw new PersistenceError('Invalid item in collection data', 'IMPORT_ITEM_VALIDATION_FAILED');
+                        }
+                        const itemId = (item as Record<string, unknown>)[idKey!] as string;
+                        return { key: `${key}:${itemId}`, value: item };
+                    });
+        
+                    await Promise.all(
+                        itemsToSave.map(({ key, value }) => 
+                            localForage.setItem(key, serialize(value as T))
+                        )
+                    );
+                    
+                    // TODO: properly set the value
+                    //this.setValue(parsedData);
+                } else {
+                    if (options.validate && !options.validate(parsedData)) {
+                        throw new PersistenceError('Invalid data format', 'IMPORT_VALIDATION_FAILED');
+                    }
+                    await localForage.removeItem(key);
+                    this.setValue(parsedData);
+                }
             } catch (err) {
                 handleError(err);
             }
@@ -248,7 +259,6 @@ export function persistentStore<T, K extends string = string>(
             try {
                 const keys = await localForage.keys();
                 const storageEstimate = await navigator.storage?.estimate();
-                
                 return {
                     totalEntries: keys.length,
                     lastModified: new Date().toISOString(),
@@ -265,58 +275,51 @@ export function persistentStore<T, K extends string = string>(
         }
     };
 
-    // Collection-specific methods
     if (options.isCollection && Array.isArray(initialValue)) {
-        type ItemType = T extends Array<infer U> ? U & Record<K, string> : never;
-        
-        const collectionStore = {
+        const collectionStore: CollectionStore<T> = {
             ...baseStore,
+            getValue: () => _value as T[],
+            setValue: (v: T[]) => {
+                _value = v;
+                if (!_isLoading && browser) save(v);
+            },
+
             async getItem(id: string) {
                 try {
-                    const stored = await localForage.getItem<string>(`${key}:${id}`);
-                    return stored ? deserialize(stored) as unknown as ItemType : undefined;
+                    console.debug('[Persistence] Getting item: ', `${key}:${id}`);
+                    return deserialize(await localForage.getItem(`${key}:${id}`));
                 } catch (err) {
                     handleError(err);
                     return undefined;
                 }
             },
             
-            async addItem(item: Omit<ItemType, K>) {
+            async addItem(item: Omit<T, string>) {
                 try {
-                    if (!idKey) throw new Error('ID key not defined');
-                    const itemWithId = { 
-                        ...item as object, 
-                        [idKey]: crypto.randomUUID() 
-                    } as ItemType;
-                    
+                    // Preserve existing ID or generate new one
+                    const finalItem = { 
+                        ...item,
+                        [idKey!]: (item as Record<string, unknown>)[idKey!] || crypto.randomUUID()
+                    } as T;
+                
                     await localForage.setItem(
-                        `${key}:${itemWithId[idKey]}`, 
-                        serialize(itemWithId as unknown as T)
+                        `${key}:${(finalItem as Record<string, unknown>)[idKey!]}`, 
+                        serialize(finalItem)
                     );
-                    
-                    if (Array.isArray(value)) {
-                        value = [...value, itemWithId] as T;
-                    }
+                    this.setValue([...this.getValue(), finalItem]);
                 } catch (err) {
                     handleError(err);
                 }
             },
             
-            async updateItem(id: string, updates: Partial<ItemType>) {
+            async updateItem(id: string, updates: Partial<T>) {
                 try {
-                    const existing = await localForage.getItem<string>(`${key}:${id}`);
-                    if (!existing) throw new Error('Item not found');
-                    
-                    const current = deserialize(existing) as ItemType;
+                    const current = deserialize(await localForage.getItem(`${key}:${id}`));
                     const updated = { ...current, ...updates };
-                    await localForage.setItem(`${key}:${id}`, serialize(updated as unknown as T));
-                    
-                    if (Array.isArray(value)) {
-                        value = value.map(item => {
-                            const typedItem = item as ItemType;
-                            return typedItem[idKey] === id ? updated : item;
-                        }) as T;
-                    }
+                    await localForage.setItem(`${key}:${id}`, serialize(updated as T));
+                    this.setValue(this.getValue().map(item => 
+                        (item as Record<string, unknown>)[idKey!] === id ? updated : item
+                    ));
                 } catch (err) {
                     handleError(err);
                 }
@@ -325,99 +328,73 @@ export function persistentStore<T, K extends string = string>(
             async removeItem(id: string) {
                 try {
                     await localForage.removeItem(`${key}:${id}`);
-                    if (Array.isArray(value)) {
-                        value = value.filter(item => {
-                            const typedItem = item as ItemType;
-                            return typedItem[idKey] !== id;
-                        }) as T;
-                    }
+                    this.setValue(this.getValue().filter(item => 
+                        (item as Record<string, unknown>)[idKey!] !== id
+                    ));
                 } catch (err) {
                     handleError(err);
                 }
             },
 
             async batchUpdate(updates: Array<{id: string, data: Partial<T>}>) {
-                const updatedItems = await Promise.all(
-                    updates.map(async ({ id, data }) => {
-                        const existing = await localForage.getItem<string>(`${key}:${id}`);
-                        if (!existing) throw new PersistenceError(`Item ${id} not found`);
-                        
-                        const current = deserialize(existing);
-                        const updated = { ...current, ...data };
-                        
-                        await localForage.setItem(`${key}:${id}`, serialize(updated));
-                        return updated;
-                    })
-                );
-                
+                const updatedItems = await Promise.all(updates.map(async ({ id, data }) => {
+                    const current = deserialize(await localForage.getItem(`${key}:${id}`));
+                    const updated = { ...current, ...data };
+                    await localForage.setItem(`${key}:${id}`, serialize(updated as T));
+                    return updated;
+                }));
+                this.setValue(this.getValue().map(item => 
+                    updatedItems.find(u => (u as Record<string, unknown>)[idKey!] === 
+                        (item as Record<string, unknown>)[idKey!]) || item
+                ));
                 return updatedItems;
             },
             
             async batchRemove(ids: string[]) {
-                await Promise.all(
-                    ids.map(id => localForage.removeItem(`${key}:${id}`))
-                );
+                await Promise.all(ids.map(id => localForage.removeItem(`${key}:${id}`)));
+                this.setValue(this.getValue().filter(item => 
+                    !ids.includes((item as Record<string, unknown>)[idKey!] as string)
+                ));
             },
-
             
-            
-            async loadMore(count = 50) {
-                this.isLoading = true;
+            async loadMore(options = {}) {
+                const { limit = 50 } = options;
                 try {
                     const keys = await localForage.keys();
                     const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
-                    const loadedCount = Array.isArray(this.value) ? this.value.length : 0;
+                    const loadedCount = this.getValue().length;
                     
-                    // Check if we've loaded everything
-                    if (loadedCount >= collectionKeys.length) {
-                        this.isLoading = false;
-                        return;
-                    }
+                    if (loadedCount >= collectionKeys.length) return [];
                     
-                    const batch = collectionKeys.slice(loadedCount, loadedCount + count);
-                    const items = await Promise.all(
-                        batch.map(k => localForage.getItem<string>(k).then(deserialize))
-                    );
+                    const batch = collectionKeys.slice(loadedCount, loadedCount + limit);
+                    const items = await Promise.all(batch.map(k => 
+                        localForage.getItem<string>(k).then(deserialize)
+                    ));
                     
-                    if (Array.isArray(this.value)) {
-                        this.value = [...this.value, ...items.filter(Boolean)] as T;
-                    }
+                    this.setValue([...this.getValue(), ...items]);
+                    return items;
                 } catch (err) {
                     handleError(err);
-                } finally {
-                    this.isLoading = false;
+                    return [];
                 }
             },
 
-            async findBy(predicate: (item: any) => boolean) {
+            async findBy(predicate: (item: T) => boolean) {
                 const keys = await localForage.keys();
-                const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
-                
-                const results = await Promise.all(
-                    collectionKeys.map(k => 
-                        localForage.getItem<string>(k)
-                            .then(item => item ? deserialize(item) : null)
-                    )
+                const items = await Promise.all(
+                    keys.filter(k => k.startsWith(`${key}:`))
+                        .map(k => localForage.getItem<string>(k).then(deserialize))
                 );
-                
-                return results.filter(Boolean).filter(predicate);
+                return items.filter(predicate);
             },
             
             async hasMore() {
-                try {
-                    const keys = await localForage.keys();
-                    const collectionKeys = keys.filter(k => k.startsWith(`${key}:`));
-                    if (!Array.isArray(this.value)) return false;
-                    return this.value.length < collectionKeys.length;
-                } catch (err) {
-                    handleError(err);
-                    return false;
-                }
+                const keys = await localForage.keys();
+                return this.getValue().length < keys.filter(k => k.startsWith(`${key}:`)).length;
             }
         };
-        
-        return collectionStore as unknown as T extends Array<unknown> ? CollectionStoreMethods<T[number] & Record<K, string>, K> : PersistentStore<T>;
+        return collectionStore;
     }
 
-    return baseStore as unknown as T extends Array<unknown> ? CollectionStoreMethods<T[number] & Record<K, string>, K> : PersistentStore<T>;
+    return baseStore;
 }

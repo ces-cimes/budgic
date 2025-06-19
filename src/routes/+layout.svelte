@@ -1,6 +1,7 @@
 <script lang="ts">
 	import NavigationBar from '$lib/components/layout/NavigationBar.svelte';
 	import '../app.css';
+	//import { dataService } from '$lib/core/data-service';
 
 	let { children } = $props();
 </script>
