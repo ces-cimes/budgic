@@ -1,6 +1,6 @@
 import { isWithinInterval, isAfter, isBefore } from 'date-fns';
-import { dateUtils } from './utils';
-import type { Transaction } from '../core/models/types.ts'; // Import your Transaction type
+import { dateUtils } from './date-utils';
+import type { Transaction } from '../core/db';
 
 export function createTransactionFilters() {
     return {
@@ -33,19 +33,19 @@ export function createTransactionFilters() {
             transaction.status === 'cancelled',
 
         /**
-         * Filter future pending transactions (pendingDate is in future)
+         * Filter future pending transactions (plannedDate is in future)
          */
         isUpcoming: (transaction: Transaction) => {
-            if (transaction.status !== 'pending' || !transaction.pendingDate) return false;
-            return isAfter(new Date(transaction.pendingDate), new Date());
+            if (transaction.status !== 'pending' || !transaction.plannedDate) return false;
+            return isAfter(new Date(transaction.plannedDate), new Date());
         },
 
         /**
-         * Filter overdue pending transactions (pendingDate is in past but not cleared)
+         * Filter overdue pending transactions (plannedDate is in past but not cleared)
          */
         isOverdue: (transaction: Transaction) => {
-            if (transaction.status !== 'pending' || !transaction.pendingDate) return false;
-            return isBefore(new Date(transaction.pendingDate), new Date());
+            if (transaction.status !== 'pending' || !transaction.plannedDate) return false;
+            return isBefore(new Date(transaction.plannedDate), new Date());
         },
 
         /**
@@ -56,35 +56,35 @@ export function createTransactionFilters() {
                 transaction.category?.type === type,
 
         /**
-         * Filter transactions with variance (pending vs cleared difference)
+         * Filter transactions with variance (planned vs cleared difference)
          */
         hasVariance: (transaction: Transaction) => 
             transaction.status === 'cleared' && 
-            transaction.pendingAmount !== undefined && 
-            transaction.clearedAmount !== undefined,
+            transaction.plannedAmount !== undefined && 
+            transaction.amount !== undefined,
 
         /**
-         * Filter transactions with positive variance (spent less than pending)
+         * Filter transactions with positive variance (spent less than planned)
          */
         isUnderBudget: (transaction: Transaction) => {
             if (transaction.status !== 'cleared' || 
-                transaction.pendingAmount === undefined || 
-                transaction.clearedAmount === undefined) {
+                transaction.plannedAmount === undefined || 
+                transaction.amount === undefined) {
                 return false;
             }
-            return transaction.clearedAmount < transaction.pendingAmount;
+            return transaction.amount < transaction.plannedAmount;
         },
 
         /**
-         * Filter transactions with negative variance (spent more than pending)
+         * Filter transactions with negative variance (spent more than planned)
          */
         isOverBudget: (transaction: Transaction) => {
             if (transaction.status !== 'cleared' || 
-                transaction.pendingAmount === undefined || 
-                transaction.clearedAmount === undefined) {
+                transaction.plannedAmount === undefined || 
+                transaction.amount === undefined) {
                 return false;
             }
-            return transaction.clearedAmount > transaction.pendingAmount;
+            return transaction.amount > transaction.plannedAmount;
         },
 
         /**
@@ -94,10 +94,10 @@ export function createTransactionFilters() {
             (transaction: Transaction) => transaction.accountId === accountId,
 
         /**
-         * Filter by category ID
+         * Filter by what tag
          */
-        byCategoryId: (categoryId: string) => 
-            (transaction: Transaction) => transaction.categoryId === categoryId,
+        byWhatTag: (whatTag: string) => 
+            (transaction: Transaction) => transaction.whatTag === whatTag,
 
         /**
          * Filter transactions within a date range
@@ -111,23 +111,23 @@ export function createTransactionFilters() {
 
         /**
          * Filter transactions above a certain amount
-         * Uses clearedAmount for cleared transactions, pendingAmount for pending
+         * Uses amount for cleared transactions, plannedAmount for pending
          */
         aboveAmount: (amount: number) => (transaction: Transaction) => {
             const amountToCompare = transaction.status === 'cleared' 
-                ? transaction.clearedAmount 
-                : transaction.pendingAmount;
+                ? transaction.amount 
+                : transaction.plannedAmount;
             return amountToCompare !== undefined && amountToCompare > amount;
         },
 
         /**
          * Filter transactions below a certain amount
-         * Uses clearedAmount for cleared transactions, pendingAmount for pending
+         * Uses amount for cleared transactions, plannedAmount for pending
          */
         belowAmount: (amount: number) => (transaction: Transaction) => {
             const amountToCompare = transaction.status === 'cleared' 
-                ? transaction.clearedAmount 
-                : transaction.pendingAmount;
+                ? transaction.amount 
+                : transaction.plannedAmount;
             return amountToCompare !== undefined && amountToCompare < amount;
         },
 

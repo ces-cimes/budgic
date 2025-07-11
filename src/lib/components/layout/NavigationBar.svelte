@@ -1,29 +1,44 @@
 <script lang="ts">
     import { page } from '$app/state';
-    import { LayoutDashboard, ListMinus, PiggyBank, FileText, Sliders  } from '@lucide/svelte';
+    import { CalendarDays, ChartPie, Sliders, Sun, SquarePen } from '@lucide/svelte';
+
+    const pages = [
+        {
+            href: '/',
+            name: 'Home',
+            icon: Sun
+        },
+        {
+            href: '/transactions',
+            name: 'Trans.',
+            icon: SquarePen
+        },
+        {
+            href: '/plan',
+            name: 'Plan',
+            icon: CalendarDays
+        },
+        {
+            href: '/insights',
+            name: 'Insights',
+            icon: ChartPie
+        },
+        {
+            href: '/settings',
+            name: 'Setup',
+            icon: Sliders
+        }
+    ];
 </script>
 
-<nav class="z-50 rounded-t-xl fixed bottom-0 left-0 right-0 bg-zinc-800 p-2 flex justify-between sm:justify-center">
+<nav class="z-50 rounded-t-xl fixed bottom-0 left-0 right-0 p-2 flex justify-between sm:justify-center from-bg-primary/60 to-bg-primary bg-gradient-to-t backdrop-blur-sm border-t border-primary text-shadow-lg">
     <div class="flex w-full justify-evenly md:gap-8">
-        <a href="/" class="flex flex-col items-center p-2 flex-1 max-w-[20%] rounded-lg hover:bg-zinc-700 transition-all duration-100 {page.url.pathname === '/' ? 'text-[var(--accent)]' : ''}">
-            <LayoutDashboard class="size-8"/>
-            <p class="text-xs whitespace-nowrap">Home</p>
-        </a>
-        <a href="/transactions" class="flex flex-col items-center p-2 flex-1 max-w-[20%] rounded-lg hover:bg-zinc-700 transition-all duration-100 {page.url.pathname === '/transactions' ? 'text-[var(--accent)]' : ''}">
-            <ListMinus class="size-8"/>
-            <p class="text-xs whitespace-nowrap">Trans.</p>
-        </a>
-        <a href="/budgets" class="flex flex-col items-center p-2 flex-1 max-w-[20%] rounded-lg hover:bg-zinc-700 transition-all duration-100 {page.url.pathname === '/budgets' ? 'text-[var(--accent)]' : ''}">
-            <PiggyBank class="size-8"/>
-            <p class="text-xs whitespace-nowrap">Budgets</p>
-        </a>
-        <a href="/reports" class="flex flex-col items-center p-2 flex-1 max-w-[20%] rounded-lg hover:bg-zinc-700 transition-all duration-100 {page.url.pathname === '/reports' ? 'text-[var(--accent)]' : ''}">
-            <FileText class="size-8"/>
-            <p class="text-xs whitespace-nowrap">Reports</p>
-        </a>
-        <a href="/settings" class="flex flex-col items-center p-2 flex-1 max-w-[20%] rounded-lg hover:bg-zinc-700 transition-all duration-100 {page.url.pathname === '/settings' ? 'text-[var(--accent)]' : ''}">
-            <Sliders class="size-8"/>
-            <p class="text-xs whitespace-nowrap">Settings</p>
-        </a>
+        {#each pages as navbutton}
+            {@const Icon = navbutton.icon}
+            <a href={navbutton.href} class="flex flex-col items-center p-2 flex-1 max-w-[20%] rounded-lg hover:bg-bg-secondary/50 hover:backdrop-blur-sm transition-all duration-150 {page.url.pathname === navbutton.href ? 'text-[var(--accent)] font-semibold' : 'text-text-secondary tracking-tight'}">
+                <Icon class="size-8"/>
+                <p class="text-xs whitespace-nowrap">{navbutton.name}</p>
+            </a>
+        {/each}
     </div>
 </nav>

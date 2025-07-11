@@ -16,12 +16,12 @@
         ...rest
     } = $props();
 
-    // Variant classes with proper typing
+    // Variant classes with proper typing - updated for Warm Midnight
     const variantMap = {
-        primary: 'bg-teal-200 text-black hover:bg-teal-300',
-        secondary: 'bg-gray-700 text-white hover:bg-gray-600',
-        neutral: 'bg-white text-gray-800 border border-gray-300 hover:bg-gray-50',
-        danger: 'bg-red-600 text-white hover:bg-red-500'
+        primary: 'bg-golden-amber text-warm-charcoal hover:bg-golden-amber/90',
+        secondary: 'bg-bg-tertiary text-text-primary hover:bg-bg-surface',
+        neutral: 'bg-bg-secondary text-text-primary border border-primary hover:bg-bg-tertiary',
+        danger: 'bg-warm-coral text-warm-ivory hover:bg-warm-coral/90'
     } as const;
 
     // Size classes with proper typing
@@ -38,7 +38,7 @@
         'rounded-xl inline-flex items-center justify-center',
         'font-medium leading-none shadow hover:opacity-90',
         'transition-colors duration-200 focus-visible:outline-none',
-        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-teal-500',
+        'focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-golden-amber',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         variantClasses,
         sizeClasses,

@@ -7,19 +7,67 @@
 @config '../tailwind.config.ts';
 
 @theme {
-    --bg-primary: var(--color-zinc-800);
-    --text-primary: var(--color-zinc-50);
-    --accent: var(--color-teal-500);
-    --color-expense: var(--color-rose-500);
-    --color-income: var(--color-emerald-500);
-    --color-savings: var(--color-cyan-500);
-    --color-highlight: var(--color-zinc-50);
+    /* Warm Midnight Dark Mode Color System */
+    
+    /* Primary Colors */
+    --color-sage-green: #4A7C59;
+    --color-golden-amber: #FFB347;
+    --color-warm-coral: #FF8A80;
+    --color-warm-charcoal: #1A1D23;
+    --color-warm-ivory: #F5F1E8;
+    
+    /* Background Layers */
+    --color-bg-primary: #1A1D23;
+    --color-bg-secondary: #242831;
+    --color-bg-tertiary: #2D3339;
+    --color-bg-surface: #363C45;
+    
+    /* Text Hierarchy */
+    --color-text-primary: #F5F1E8;
+    --color-text-secondary: #B8BCC8;
+    --color-text-tertiary: #8A8F98;
+    --color-text-disabled: #5A5F68;
+    
+    /* Accent Colors */
+    --color-success: #4A7C59;
+    --color-warning: #E8B86D;
+    --color-alert: #FF8A80;
+    --color-info: #6B9BD1;
+    
+    /* Confidence-Based Colors */
+    --color-high-confidence: #4A7C59;
+    --color-high-confidence-accent: #D4AF37;
+    --color-medium-confidence: #C9A96E;
+    --color-borrowed-future: #FFAB91;
+    --color-overspent: #FF8A80;
+    
+    /* Daily Spending States */
+    --color-fresh-day: #242831;
+    --color-moderate-spending: #28252B;
+    --color-high-velocity: #FF8A80;
+    --color-cooldown: #2C3E50;
+    
+    /* Behavioral Psychology Colors */
+    --color-positive-reinforcement: #FFD700;
+    --color-momentum-alert: #FF8A80;
+    
+    /* Legacy Support - Map to new colors */
+    --bg-primary: var(--color-bg-primary);
+    --text-primary: var(--color-text-primary);
+    --accent: var(--color-golden-amber);
+    --color-expense: var(--color-warm-coral);
+    --color-income: var(--color-sage-green);
+    --color-savings: var(--color-info);
+    --color-highlight: var(--color-text-primary);
 }
 
 @layer base {
     body {
-        @apply bg-[var(--color-zinc-900)] text-[var(--text-primary)];
+        @apply bg-[var(--color-bg-primary)] text-[var(--color-text-primary)];
         font-family: 'Ubuntu', sans-serif;
+        /* Improve mobile touch scrolling */
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
     }
 
     .accent {
@@ -27,17 +75,32 @@
     }
     
     .expense {
-        @apply text-[var(--expense)];
+        @apply text-[var(--color-expense)];
     }
     
     .income {
-        @apply text-[var(--income)];
+        @apply text-[var(--color-income)];
     }
     
     .savings {
-        @apply text-[var(--savings)];
+        @apply text-[var(--color-savings)];
     }
 
+    /* New semantic color classes */
+    .text-primary { @apply text-[var(--color-text-primary)]; }
+    .text-secondary { @apply text-[var(--color-text-secondary)]; }
+    .text-tertiary { @apply text-[var(--color-text-tertiary)]; }
+    .text-disabled { @apply text-[var(--color-text-disabled)]; }
+    
+    .bg-primary { @apply bg-[var(--color-bg-primary)]; }
+    .bg-secondary { @apply bg-[var(--color-bg-secondary)]; }
+    .bg-tertiary { @apply bg-[var(--color-bg-tertiary)]; }
+    .bg-surface { @apply bg-[var(--color-bg-surface)]; }
+    
+    .border-primary { @apply border-[var(--color-bg-surface)]; }
+    .border-secondary { @apply border-[var(--color-text-tertiary)]; }
+
+    /* Mobile touch improvements */
     @media (pointer: coarse) {
         /* Make tooltips more visible on touch devices */
         [class*="cursor-help"] {
@@ -51,6 +114,34 @@
             top: auto !important;
             bottom: -2.5rem;
         }
+        
+        /* Improve touch targets for specific interactive elements */
+        .touch-target {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Apply to navigation and critical interactive elements */
+        nav button, .navigation-bar button, .fab {
+            min-height: 44px;
+            min-width: 44px;
+        }
+        
+        /* Better scrolling for transaction lists */
+        .transaction-list {
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+        
+        /* Prevent zoom on double tap */
+        * {
+            touch-action: manipulation;
+        }
+        
+        /* Allow scrolling on scrollable containers */
+        .scrollable {
+            touch-action: pan-y;
+        }
     }
 
     .tooltip {
@@ -60,5 +151,30 @@
     @keyframes tooltipFadeIn {
         from { opacity: 0; transform: translateY(-5px) translateX(-50%); }
         to { opacity: 1; transform: translateY(0) translateX(-50%); }
+    }
+}
+
+@layer components {
+    .glass {
+        @apply relative overflow-hidden rounded-[20px] border border-white/20 bg-[var(--color-bg-secondary)]/80
+               backdrop-blur-[5px] shadow-[0_8px_32px_rgba(0,0,0,0.2)];
+        
+        /* Subtle inset shadows for depth */
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+            inset 0 0 12px 6px rgba(255, 255, 255, 0.05);
+      
+        /* Glass edge highlights */
+        &::before {
+            @apply content-[''] absolute left-0 top-0 right-0 h-px
+                   bg-gradient-to-r from-transparent via-white/20 to-transparent;
+        }
+      
+        &::after {
+            @apply content-[''] absolute left-0 top-0 w-px h-full
+                   bg-gradient-to-b from-white/20 via-transparent to-white/10;
+        }
     }
 }

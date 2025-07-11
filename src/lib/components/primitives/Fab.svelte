@@ -37,13 +37,13 @@
     const classes = $derived([
         '!p-0 flex items-center justify-center',
         'shadow-lg hover:shadow-xl transition-all',
-        'fixed z-50',
+        'fixed',
         sizeDimensions,
         className
     ].join(' '));
 </script>
 
-<div class="fixed {positionClasses} {sizeDimensions}">
+<div class="fixed {positionClasses} {sizeDimensions} z-50">
     <Button
         variant={variant}
         size={size}

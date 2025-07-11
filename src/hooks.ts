@@ -1,3 +1,6 @@
 import { deLocalizeUrl } from '$lib/paraglide/runtime';
 
-export const reroute = (request) => deLocalizeUrl(request.url).pathname;
+export const reroute = (request: { url: string }) => deLocalizeUrl(request.url).pathname;
+
+// Export empty transport object to satisfy SvelteKit's expectations
+export const transport = {};
