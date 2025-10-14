@@ -1,3 +1,5 @@
+import { safeLocalStorage } from '$lib/utils/browser-utils';
+
 export interface CacheEntry<T = any> {
   key: string;
   value: T;
@@ -362,7 +364,7 @@ class CacheService {
         timestamp: Date.now()
       };
       
-      localStorage.setItem('budgic_cache', JSON.stringify(data));
+      safeLocalStorage.setItem('budgic_cache', JSON.stringify(data));
     } catch (error) {
       console.error('Failed to save cache to storage:', error);
     }
@@ -370,7 +372,7 @@ class CacheService {
 
   private loadFromStorage(): void {
     try {
-      const data = localStorage.getItem('budgic_cache');
+      const data = safeLocalStorage.getItem('budgic_cache');
       if (!data) return;
       
       const parsed = JSON.parse(data);

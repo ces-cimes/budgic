@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { RefreshCcw, Clock, CheckCircle, AlertCircle, XCircle, Split } from '@lucide/svelte';
+	import { RefreshCcw, Clock, CheckCircle, AlertCircle, XCircle, Split, ChevronDown } from '@lucide/svelte';
 	import type { Transaction } from '$lib/core/db';
 	import { settingsService } from '$lib/core/services/settings-service';
 	import { longpress } from '$lib/actions/longpress';
+	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { db } from '$lib/core/db';
 
 	interface Props {
 		transaction: Transaction;
@@ -11,6 +13,14 @@
 		isSelected?: boolean;
 		context?: 'main' | 'transactions' | 'plan';
 		showDate?: boolean;
+		// Split transaction props
+		isSplitGroup?: boolean;
+		splitTransactions?: Transaction[];
+		totalAmount?: number;
+		splitDescription?: string;
+		splitCategory?: string;
+		splitCurrency?: string;
+		defaultExpanded?: boolean;
 	}
 
 	let {
@@ -19,7 +29,15 @@
 		onLongPress = () => {},
 		isSelected = false,
 		context = 'main',
-		showDate = true
+		showDate = true,
+		// Split transaction props
+		isSplitGroup = false,
+		splitTransactions = [],
+		totalAmount = 0,
+		splitDescription = '',
+		splitCategory = '',
+		splitCurrency = 'USD',
+		defaultExpanded = false
 	}: Props = $props();
 
 	// Simplified date formatting
@@ -73,7 +91,7 @@
 				if (isOverdue()) {
 					return {
 						icon: AlertCircle,
-						containerClass: 'border-2 border-dashed border-alert bg-alert/5 shadow-alert/10',
+						containerClass: 'border-2 border-dashed border-alert bg-alert/10 shadow-alert/20 animate-pulse',
 						iconClass: 'text-alert',
 						urgency: 'high'
 					};
@@ -115,24 +133,125 @@
 		}
 	});
 
+	// Get transfer details for transfer transactions
+	const transferDetails = $derived(() => {
+		if (transaction.type === 'transfer' && transaction.transferDetails) {
+			return transaction.transferDetails;
+		}
+		return null;
+	});
+
+	// Check if this is a transfer transaction
+	const isTransfer = $derived(() => {
+		return transaction.type === 'transfer' && transaction.transferDetails;
+	});
+
+	// Get transaction description
+	const transactionDescription = $derived(() => {
+		if (isTransfer()) {
+			return 'Transfer';
+		}
+		if (isSplitGroup) {
+			return splitDescription || 'Split transaction';
+		}
+		return transaction.description || '';
+	});
+
+	// Get amount for display
+	const displayAmount = $derived(() => {
+		if (isTransfer()) {
+			return transferDetails()?.transferAmount || 0;
+		}
+		if (isSplitGroup) {
+			return totalAmount;
+		}
+		return transaction.amount || 0;
+	});
+
+	// Get currency for display
+	const displayCurrency = $derived(() => {
+		if (isTransfer()) {
+			return transaction.currency;
+		}
+		if (isSplitGroup) {
+			return splitCurrency;
+		}
+		return transaction.currency;
+	});
+
+	// Get account names for transfer display
+	let transferAccountNames = $state('Account Transfer');
+	
+	$effect(() => {
+		if (isTransfer() && transferDetails()) {
+			// Load account names asynchronously
+			(async () => {
+				try {
+					const fromAccount = await db.accounts.get(transaction.accountId);
+					const toAccount = await db.accounts.get(transferDetails()!.toAccountId);
+					
+					if (fromAccount && toAccount) {
+						transferAccountNames = `${fromAccount.name} → ${toAccount.name}`;
+					}
+				} catch (error) {
+					console.warn('Failed to load account names for transfer:', error);
+					transferAccountNames = 'Account Transfer';
+				}
+			})();
+		}
+	});
+
 	// Get primary tag for display
 	const primaryTag = $derived(() => {
-		if (transaction.whyTag) return transaction.whyTag;
+		if (isTransfer()) {
+			return 'Transfer';
+		}
+		if (isSplitGroup) {
+			return splitCategory || 'Uncategorized';
+		}
+		if (transaction.budgetCategoryId) return transaction.budgetCategoryId;
 		if (transaction.whatTag) return transaction.whatTag;
 		return 'Uncategorized';
 	});
 
+	// Get category icon for split groups
+	const getCategoryIcon = (category: string) => {
+		const icons: Record<string, string> = {
+			'Food & Dining': '🍕',
+			'Income': '💰',
+			'Transportation': '⛽',
+			'Shopping': '🛍️',
+			'Entertainment': '🎬',
+			'Healthcare': '🏥'
+		};
+		return icons[category] || '📊';
+	};
+
+	// Get subtle category accent color
+	const getCategoryAccent = (category: string) => {
+		const accents: Record<string, string> = {
+			'Food & Dining': 'border-l-orange-400',
+			'Income': 'border-l-green-400',
+			'Transportation': 'border-l-blue-400',
+			'Shopping': 'border-l-purple-400',
+			'Entertainment': 'border-l-pink-400',
+			'Healthcare': 'border-l-cyan-400'
+		};
+		return accents[category] || 'border-l-gray-400';
+	};
+
 	// Calculate the actual balance impact of the transaction
 	const calculateTransactionImpact = (transaction: Transaction): number => {
+		const amount = isSplitGroup ? displayAmount() : (transaction.amount || 0);
 		switch (transaction.type) {
 			case 'income':
-				return transaction.amount; // Positive adds, negative subtracts
+				return amount; // Positive adds, negative subtracts
 			case 'expense':
-				return -transaction.amount; // Positive subtracts, negative adds (like cashback)
+				return -amount; // Positive subtracts, negative adds (like cashback)
 			case 'transfer':
-				return transaction.amount; // Net change
+				return amount; // Net change
 			case 'adjustment':
-				return transaction.amount; // Direct modification
+				return amount; // Direct modification
 			default:
 				return 0;
 		}
@@ -142,11 +261,9 @@
 	const amountInfo = $derived(() => {
 		const balanceImpact = calculateTransactionImpact(transaction);
 		const isPositiveImpact = balanceImpact > 0;
-		const absAmount = Math.abs(transaction.amount);
 		
 		let textClass = '';
 		let glowClass = '';
-		let sign = '';
 		
 		// Color based on transaction type
 		if (transaction.type === 'income') {
@@ -166,17 +283,17 @@
 			}
 		}
 		
-		// Sign based on balance impact
-		sign = isPositiveImpact ? '+' : '-';
-		
 		// Adjust opacity for planned transactions
 		if (transaction.status === 'planned') {
 			textClass += ' opacity-80';
 			glowClass = ''; // Remove glow for planned transactions
 		}
 		
+		// Format amount with proper currency symbol and decimal places
+		const formattedAmount = formatTransactionAmount(displayAmount(), displayCurrency(), true);
+		
 		return {
-			text: `${sign}$${absAmount.toFixed(2)}`,
+			text: formattedAmount,
 			class: `${textClass} ${glowClass}`,
 			isIncome: transaction.type === 'income'
 		};
@@ -210,8 +327,11 @@
 
 	// Long press visual feedback
 	let isLongPressing = $state(false);
-	let buttonElement: HTMLButtonElement;
+	let buttonElement = $state<HTMLButtonElement | undefined>(undefined);
 	let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// Split transaction collapsible state
+	let isExpanded = $state(defaultExpanded);
 
 	const handleLongPressStart = () => {
 		// Add a small delay before showing visual feedback to prevent accidental triggers
@@ -257,7 +377,7 @@
 			buttonElement.addEventListener('longpress', handleLongPressEvent);
 			
 			return () => {
-				buttonElement.removeEventListener('longpress', handleLongPressEvent);
+				buttonElement?.removeEventListener('longpress', handleLongPressEvent);
 			};
 		}
 	});
@@ -284,13 +404,27 @@
 	const layoutClass = $derived(() => {
 		switch (context) {
 			case 'main':
-				return 'py-1 px-2'; // More generous spacing for main page
+				return 'py-3 px-4'; // More generous spacing for main page
 			case 'transactions':
-				return 'py-4 px-5'; // Compact for lists
+				return 'py-2 px-2'; // Compact for lists
 			case 'plan':
 				return 'py-4.5 px-5'; // Medium spacing for planning
 			default:
-				return 'py-1 px-2';
+				return 'py-3 px-4';
+		}
+	});
+
+	// Context-specific styling enhancements
+	const contextStyling = $derived(() => {
+		switch (context) {
+			case 'main':
+				return 'shadow-lg shadow-bg-primary/15'; // More prominent for main page
+			case 'transactions':
+				return 'shadow-sm shadow-bg-primary/10'; // Subtle for lists
+			case 'plan':
+				return 'shadow-md shadow-bg-primary/12 border-l-2 border-l-info/30'; // Planning-focused
+			default:
+				return 'shadow-sm shadow-bg-primary/10';
 		}
 	});
 
@@ -311,10 +445,12 @@
 			baseClass += ' bg-gradient-to-br from-bg-secondary to-bg-tertiary';
 		}
 		
-		// Add shadow effect for high-value transactions
-		const amount = Math.abs(transaction.amount);
-		if (amount > 100) {
-			baseClass += ' shadow-lg shadow-bg-primary/20';
+		// Add context-specific styling
+		baseClass += ` ${contextStyling()}`;
+		
+		// Add category accent for non-split transactions
+		if (!isSplitGroup) {
+			baseClass += ` ${getCategoryAccent(primaryTag())}`;
 		}
 		
 		return baseClass;
@@ -322,129 +458,305 @@
 </script>
 
 <div class="relative group">
-	<!-- Main transaction card -->
-	<div 
-		class="relative overflow-hidden rounded-xl transition-all duration-100 ease-out
-			   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
-			   hover:shadow-xl hover:shadow-bg-primary/30
-			   hover:scale-[1.008] hover:-translate-y-[0.5]
-			   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
-			   group-hover:border-golden-amber/50"
-	>
-		<!-- Subtle gradient overlay for depth -->
-		<div class="absolute inset-0 bg-gradient-to-br from-warm-ivory/[0.02] to-transparent pointer-events-none"></div>
-		
-		<!-- Main interactive button -->
-		<button
-			class="w-full text-left relative z-10 {layoutClass()}
-				   focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 focus:ring-offset-bg-primary
-				   transition-all duration-200
-				   touch-manipulation"
-			style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
-			onclick={handleClick}
-			use:longpress={{ 
-				duration: 500,
-				onStart: handleLongPressStart,
-				onCancel: handleLongPressCancel
-			}}
-			bind:this={buttonElement}
-			aria-label={ariaLabel()}
+	{#if isTransfer()}
+		<!-- Transfer Group Display -->
+		<div 
+			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
+				   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
+				   hover:shadow-xl hover:shadow-bg-primary/30
+				   hover:scale-[1.008] hover:-translate-y-[0.5]
+				   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
+				   group-hover:border-golden-amber/50
+				   border-l-2 border-l-blue-400"
 		>
-			<div class="flex items-center justify-between">
-				<!-- Left side: Status + Content -->
-				<div class="flex items-center space-x-4 min-w-0 flex-1">
-					<!-- Status indicator with enhanced styling -->
-					<div class="flex-shrink-0 relative">
-						<div class="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center
-									transition-all duration-200 group-hover:scale-110">
-							{#if statusInfo().icon === AlertCircle}
-								<AlertCircle class="w-5 h-5 {statusInfo().iconClass}" />
-							{:else if statusInfo().icon === Clock}
-								<Clock class="w-5 h-5 {statusInfo().iconClass}" />
-							{:else if statusInfo().icon === CheckCircle}
-								<CheckCircle class="w-5 h-5 {statusInfo().iconClass}" />
-							{:else if statusInfo().icon === XCircle}
-								<XCircle class="w-5 h-5 {statusInfo().iconClass}" />
+			<!-- Subtle gradient overlay for depth -->
+			<div class="absolute inset-0 bg-gradient-to-br from-warm-ivory/[0.02] to-transparent pointer-events-none"></div>
+			
+			<!-- Transfer content -->
+			<button
+				class="w-full text-left relative z-10 {layoutClass()}
+					focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 focus:ring-offset-bg-primary
+					transition-all duration-200
+					touch-manipulation cursor-pointer"
+				style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+				onclick={handleClick}
+				use:longpress={{ 
+					duration: 500,
+					onStart: handleLongPressStart,
+					onCancel: handleLongPressCancel
+				}}
+				bind:this={buttonElement}
+				aria-label={`${ariaLabel()}, click to view details`}
+			>
+				<div class="flex items-center justify-between">
+					<!-- Left side: Transfer Info -->
+					<div class="flex items-center space-x-4 min-w-0 flex-1">
+						<!-- Transfer icon -->
+						<div class="flex-shrink-0 relative">
+							<div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center
+										transition-all duration-200 group-hover:scale-110 group-hover:shadow-md">
+								<span class="text-lg">↔️</span>
+							</div>
+						</div>
+						
+						<!-- Transfer details -->
+						<div class="min-w-0 flex-1">
+							<div class="font-semibold text-text-primary text-base">
+								Transfer
+							</div>
+							<div class="text-sm text-text-secondary">
+								{transferAccountNames}
+							</div>
+							{#if transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
+								<div class="text-xs text-text-tertiary">
+									Fee: {formatTransactionAmount(transferDetails()!.feeAmount, displayCurrency(), true)}
+								</div>
+							{/if}
+						</div>
+					</div>
+					
+					<!-- Right side: Amount + Date -->
+					<div class="flex-shrink-0 text-right">
+						<!-- Transfer amount -->
+						<div class="font-bold text-lg text-blue-600 dark:text-blue-400 tracking-tight">
+							{formatTransactionAmount(displayAmount(), displayCurrency(), true)}
+						</div>
+						
+						<!-- Date -->
+						{#if displayDate()}
+							<div class="text-xs text-text-tertiary font-medium">
+								{displayDate()}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</button>
+		</div>
+	{:else if isSplitGroup}
+		<!-- Split Transaction Group -->
+		<div 
+			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
+				   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
+				   hover:shadow-xl hover:shadow-bg-primary/30
+				   hover:scale-[1.008] hover:-translate-y-[0.5]
+				   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
+				   group-hover:border-golden-amber/50
+				   {getCategoryAccent(primaryTag())}"
+		>
+			<!-- Subtle gradient overlay for depth -->
+			<div class="absolute inset-0 bg-gradient-to-br from-warm-ivory/[0.02] to-transparent pointer-events-none"></div>
+			
+			<!-- Split group content with two clickable areas -->
+			<div class="flex">
+				<!-- Main content area - clickable to open transaction -->
+				<button
+					class="flex-1 text-left relative z-10 {layoutClass()}
+						focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 focus:ring-offset-bg-primary
+						transition-all duration-200
+						touch-manipulation cursor-pointer
+						hover:bg-bg-tertiary/20"
+					style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+					onclick={handleClick}
+					use:longpress={{ 
+						duration: 500,
+						onStart: handleLongPressStart,
+						onCancel: handleLongPressCancel
+					}}
+					bind:this={buttonElement}
+					aria-label={`${ariaLabel()}, click to view details`}
+				>
+					<div class="flex items-center justify-between">
+						<div class="flex items-center space-x-3">
+							<div class="w-10 h-10 bg-muted rounded-full flex items-center justify-center text-lg">
+								{getCategoryIcon(primaryTag())}
+							</div>
+							<div class="flex-1">
+								<div class="font-medium text-primary">{transactionDescription()}</div>
+								<div class="text-sm text-muted-foreground">{primaryTag()}</div>
+								<div class="text-xs text-muted-foreground/70">
+									Split transaction ({splitTransactions.length} parts)
+								</div>
+							</div>
+						</div>
+						<div class="text-right">
+							<div class="font-bold text-lg {(displayAmount() ?? 0) >= 0 ? 'text-success' : 'text-alert'} tracking-tight">
+								{formatTransactionAmount(displayAmount(), displayCurrency(), true)}
+							</div>
+						</div>
+					</div>
+				</button>
+				
+				<!-- Separator -->
+				<div class="w-px bg-border/30"></div>
+				
+				<!-- Expand/collapse button area - full height -->
+				<button
+					class="flex-shrink-0 px-3 py-2 flex items-center justify-center
+						focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 focus:ring-offset-bg-primary
+						transition-all duration-200
+						touch-manipulation cursor-pointer
+						hover:bg-bg-tertiary/30 active:bg-bg-tertiary/50"
+					style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+					onclick={() => isExpanded = !isExpanded}
+					aria-label={isExpanded ? 'Collapse split details' : 'Expand split details'}
+					aria-expanded={isExpanded}
+					aria-controls="split-transactions-{transaction.id}"
+				>
+					<ChevronDown 
+						class="w-5 h-5 text-text-secondary transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}"
+					>
+					</ChevronDown>
+				</button>
+			</div>
+			
+			<!-- Individual split transactions -->
+			{#if isExpanded}
+				<div id="split-transactions-{transaction.id}" class="px-4 pb-4 space-y-2" role="region" aria-label="Split transaction details">
+					{#each splitTransactions as splitTransaction}
+						<div class="bg-bg-tertiary/50 rounded-lg p-3 border border-bg-surface {getCategoryAccent(splitTransaction.budgetCategoryId || splitTransaction.whatTag || 'Uncategorized')}">
+							<div class="flex items-center justify-between">
+								<div class="min-w-0 flex-1">
+									{#if splitTransaction.description}
+										<div class="text-xs text-text-secondary truncate mt-1">
+											{splitTransaction.description}
+										</div>
+									{/if}
+								</div>
+								<div class="text-right ml-3">
+									<div class="font-semibold text-sm {(splitTransaction.amount ?? 0) >= 0 ? 'text-success' : 'text-alert'}">
+										{formatTransactionAmount(splitTransaction.amount, splitTransaction.currency, true)}
+									</div>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{:else}
+		<!-- Single Transaction -->
+		<div 
+			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
+				   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
+				   hover:shadow-xl hover:shadow-bg-primary/30
+				   hover:scale-[1.008] hover:-translate-y-[0.5]
+				   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
+				   group-hover:border-golden-amber/50"
+		>
+			<!-- Subtle gradient overlay for depth -->
+			<div class="absolute inset-0 bg-gradient-to-br from-warm-ivory/[0.02] to-transparent pointer-events-none"></div>
+			
+			<!-- Main interactive button -->
+			<button
+				class="w-full text-left relative z-10 {layoutClass()}
+					focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 focus:ring-offset-bg-primary
+					transition-all duration-200
+					touch-manipulation cursor-pointer"
+				style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+				onclick={handleClick}
+				use:longpress={{ 
+					duration: 500,
+					onStart: handleLongPressStart,
+					onCancel: handleLongPressCancel
+				}}
+				bind:this={buttonElement}
+				aria-label={ariaLabel()}
+			>
+				<div class="flex items-center justify-between">
+					<!-- Left side: Status + Content -->
+					<div class="flex items-center space-x-4 min-w-0 flex-1">
+						<!-- Status indicator with enhanced styling -->
+						<div class="flex-shrink-0 relative">
+							<div class="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center
+										transition-all duration-200 group-hover:scale-110 group-hover:shadow-md">
+								{#if statusInfo().icon === AlertCircle}
+									<AlertCircle class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
+								{:else if statusInfo().icon === Clock}
+									<Clock class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
+								{:else if statusInfo().icon === CheckCircle}
+									<CheckCircle class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
+								{:else if statusInfo().icon === XCircle}
+									<XCircle class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
+								{/if}
+							</div>
+							
+							<!-- Confidence indicator ring for planned transactions -->
+							{#if confidenceInfo()}
+								<div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-bg-secondary
+										{confidenceInfo()?.color}"></div>
 							{/if}
 						</div>
 						
-						<!-- Confidence indicator ring for planned transactions -->
-						{#if confidenceInfo()}
-							<div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-bg-secondary
-									 {confidenceInfo()?.color}"></div>
-						{/if}
+						<!-- Content -->
+						<div class="min-w-0 flex-1">
+							<!-- Primary tag with enhanced styling -->
+							<div class="flex items-center space-x-2">
+								<!-- Split indicator -->
+								{#if transaction.splitId}
+									<div class="flex-shrink-0">
+										<Split class="w-4 h-4 text-golden-amber" />
+									</div>
+								{/if}
+								
+								<h3 class="font-semibold text-text-primary capitalize truncate text-base">
+									{primaryTag().toString().replace('_', ' ')}
+								</h3>
+							</div>
+							
+							<!-- Description with improved typography -->
+							{#if transactionDescription()}
+								<p class="text-sm text-text-secondary truncate leading-relaxed">
+									{transactionDescription()}
+								</p>
+							{/if}
+							
+							<!-- Confidence label for planned transactions -->
+							{#if confidenceInfo()}
+								<div class="flex items-center space-x-1 mt-1">
+									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
+										{confidenceInfo()?.label}
+									</span>
+								</div>
+							{/if}
+						</div>
 					</div>
 					
-					<!-- Content -->
-					<div class="min-w-0 flex-1">
-						<!-- Primary tag with enhanced styling -->
-						<div class="flex items-center space-x-2">
-							<!-- Split indicator -->
-							{#if transaction.splitId}
+					<!-- Right side: Amount + Date -->
+					<div class="flex-shrink-0 text-right">
+						<!-- Amount with enhanced styling -->
+						<div class="flex items-center justify-end space-x-2">
+							<!-- Recurring indicator -->
+							{#if transaction.recurrenceRule}
 								<div class="flex-shrink-0">
-									<Split class="w-4 h-4 text-golden-amber" />
+									<RefreshCcw class="w-4 h-4 text-info animate-pulse" />
 								</div>
 							{/if}
 							
-							<h3 class="font-semibold text-text-primary capitalize truncate text-base">
-								{primaryTag().toString().replace('_', ' ')}
-							</h3>
+							<div class="font-bold text-lg {amountInfo().class} tracking-tight">
+								{amountInfo().text}
+							</div>
 						</div>
 						
-						<!-- Description with improved typography -->
-						{#if transaction.description}
-							<p class="text-sm text-text-secondary truncate leading-relaxed">
-								{transaction.description}
-							</p>
-						{/if}
-						
-						<!-- Confidence label for planned transactions -->
-						<!-- {#if confidenceInfo()}
-							<div class="flex items-center space-x-1 mt-1">
-								<div class="w-2 h-2 rounded-full {confidenceInfo()?.color}"></div>
-								<span class="text-xs text-text-tertiary font-medium">
-									{confidenceInfo()?.label}
-								</span>
-							</div>
-						{/if} -->
-					</div>
-				</div>
-				
-				<!-- Right side: Amount + Date -->
-				<div class="flex-shrink-0 text-right">
-					<!-- Amount with enhanced styling -->
-					<div class="flex items-center justify-end space-x-2">
-						<!-- Recurring indicator -->
-						{#if transaction.recurrenceRule}
-							<div class="flex-shrink-0">
-								<RefreshCcw class="w-4 h-4 text-info animate-pulse" />
+						<!-- Date with improved styling -->
+						{#if displayDate()}
+							<div class="text-xs text-text-tertiary font-medium">
+								{displayDate()}
 							</div>
 						{/if}
 						
-						<div class="font-bold text-xl {amountInfo().class} tracking-tight">
-							{amountInfo().text}
-						</div>
+						<!-- Status badge -->
+						<!-- <div class="mt-3">
+							<span class="inline-block px-3 py-1.5 rounded-full text-xs font-medium
+										bg-bg-tertiary text-text-secondary
+										border border-bg-surface">
+								{transaction.status}
+							</span>
+						</div> -->
 					</div>
-					
-					<!-- Date with improved styling -->
-					{#if displayDate()}
-						<div class="text-xs text-text-tertiary font-medium">
-							{displayDate()}
-						</div>
-					{/if}
-					
-					<!-- Status badge -->
-					<!-- <div class="mt-3">
-						<span class="inline-block px-3 py-1.5 rounded-full text-xs font-medium
-									 bg-bg-tertiary text-text-secondary
-									 border border-bg-surface">
-							{transaction.status}
-						</span>
-					</div> -->
 				</div>
-			</div>
-		</button>
-	</div>
+			</button>
+		</div>
+	{/if}
 	
 	<!-- Enhanced long press hint -->
 	{#if isLongPressing}

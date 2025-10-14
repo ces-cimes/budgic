@@ -2,7 +2,7 @@ import { db, generateUUID } from '$lib/core/db';
 import { dateUtils } from '$lib/utils/date-utils';
 import type { Transaction, WhatTagType, WhyTagType, UserPreferences, UserAction } from '$lib/core/db';
 import { z } from 'zod';
-import { unifiedInsightsService } from './unified-insights-service';
+
 import { analyticsCoreService } from './analytics-core-service';
 import { settingsService } from './settings-service';
 import { budgetService } from './budget-service';
@@ -107,7 +107,7 @@ class UserActionsService {
 	 * Track a user action with metadata and context
 	 */
 	async track(
-		action: 'transaction_created' | 'budget_checked' | 'progress_viewed' | 'budget_modified',
+		action: 'transaction_created' | 'budget_checked' | 'progress_viewed' | 'budget_modified' | 'insight_dismissed',
 		metadata: Record<string, any>,
 		context?: Record<string, any>
 	): Promise<string> {
@@ -124,10 +124,10 @@ class UserActionsService {
 			action,
 			metadata: JSON.stringify(this.sanitizeMetadata(metadata)),
 			context: context ? JSON.stringify(context) : undefined,
-			timestamp: dateUtils.formatDate(new Date(), 'yyyy-MM-ddTHH:mm:ss.SSSZ'),
+			timestamp: dateUtils.formatDate(new Date(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
 			sessionId,
-			createdAt: dateUtils.formatDate(new Date(), 'yyyy-MM-ddTHH:mm:ss.SSSZ'),
-			updatedAt: dateUtils.formatDate(new Date(), 'yyyy-MM-ddTHH:mm:ss.SSSZ'),
+			createdAt: dateUtils.formatDate(new Date(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
+			updatedAt: dateUtils.formatDate(new Date(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
 			deletedAt: null
 		};
 
@@ -153,9 +153,9 @@ class UserActionsService {
 		let categoryBudgetRemaining: number | undefined;
 		
 		try {
-			if (transaction.whyTag) {
+			if (transaction.budgetCategoryId) {
 				const tagBudgets = await budgetService.getTagBudgets();
-				const tagBudget = tagBudgets.find(tb => tb.tagName === transaction.whyTag);
+				const tagBudget = tagBudgets.find(tb => tb.tagName === transaction.budgetCategoryId);
 				if (tagBudget) {
 					categoryBudgetRemaining = tagBudget.remaining;
 					if (tagBudget.spent > tagBudget.allocatedAmount) {
@@ -175,7 +175,7 @@ class UserActionsService {
 			entryMethod,
 			timeToComplete,
 			splitCount: transaction.splitId ? await this.getSplitCount(transaction.splitId) : undefined,
-			hasCustomTags: !!(transaction.whatTag || transaction.whyTag),
+			hasCustomTags: !!(transaction.whatTag || transaction.budgetCategoryId),
 			categoryChangeCount,
 			timeOfDay,
 			dayOfWeek,
@@ -185,7 +185,7 @@ class UserActionsService {
 			transactionAmount: Math.abs(transaction.amount),
 			transactionType: transaction.type,
 			whatTag: transaction.whatTag,
-			whyTag: transaction.whyTag
+			budgetCategoryId: transaction.budgetCategoryId
 		};
 
 		return this.track('transaction_created', metadata);
@@ -426,7 +426,7 @@ class UserActionsService {
 		}
 	}
 
-	private async getActionsByDateRange(startDate: string, endDate: string): Promise<UserAction[]> {
+	async getActionsByDateRange(startDate: string, endDate: string): Promise<UserAction[]> {
 		return await db.userActions
 			.where('timestamp')
 			.between(startDate, endDate)

@@ -1,4 +1,4 @@
-import { db, generateUUID } from '$lib/core/db';
+import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
 import type { Account } from '$lib/core/db';
 import { validationService } from './validation-service';
 import { accountCache } from './caching-service';
@@ -153,12 +153,18 @@ class AccountService {
         console.debug('[AccountService] Using', relevantTransactions.length, 'transactions for balance calculation');
 
         console.debug('[AccountService] Calculating balance...');
-        const balance = relevantTransactions.reduce((total, transaction) => {
+        const transactionBalance = relevantTransactions.reduce((total, transaction) => {
             console.debug('[AccountService] Processing transaction:', transaction.id, 'amount:', transaction.amount);
-            return total + transaction.amount;
+            // Use transfer impact calculation for transfers, regular amount for others
+            const impact = transaction.type === 'transfer' 
+                ? calculateTransferImpact(transaction, accountId)
+                : transaction.amount;
+            return total + impact;
         }, 0);
 
-        console.debug('[AccountService] Final balance calculated:', balance);
+        // Include initial balance in the calculation
+        const balance = account.initialBalance + transactionBalance;
+        console.debug('[AccountService] Final balance calculated:', balance, '(initial:', account.initialBalance, '+ transactions:', transactionBalance, ')');
         
         // Cache the result (only for non-pending balances)
         if (!includePending) {
@@ -186,11 +192,13 @@ class AccountService {
             ? transactions 
             : transactions.filter(t => t.status !== 'planned');
         
-        const balance = relevantTransactions.reduce((total, transaction) => {
+        const transactionBalance = relevantTransactions.reduce((total, transaction) => {
             return total + transaction.amount;
         }, 0);
 
-        console.debug('[AccountService] Real-time balance calculated:', balance);
+        // Include initial balance in the calculation
+        const balance = account.initialBalance + transactionBalance;
+        console.debug('[AccountService] Real-time balance calculated:', balance, '(initial:', account.initialBalance, '+ transactions:', transactionBalance, ')');
         return balance;
     }
 

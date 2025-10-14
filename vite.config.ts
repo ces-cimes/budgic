@@ -14,17 +14,42 @@ export default defineConfig({
 		}),
 		SvelteKitPWA({
 			registerType: 'autoUpdate',
+			workbox: {
+				globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+				cleanupOutdatedCaches: true,
+				sourcemap: true
+			},
 			manifest: {
-				name: 'Budget Planner',
-				short_name: 'Budget',
-				theme_color: '#ffffff',
+				name: 'Budgic - Smart Financial Management',
+				short_name: 'Budgic',
+				description: 'Intelligent personal finance management with emotional intelligence',
+				theme_color: '#3b82f6',
+				background_color: '#1a1d23',
+				display: 'standalone',
+				orientation: 'portrait',
+				scope: '/',
+				start_url: '/',
 				icons: [
 					{
-						src: '/pwa-192x192.png',
+						src: '/icon-192.png',
 						sizes: '192x192',
-						type: 'image/png'
+						type: 'image/png',
+						purpose: 'any maskable'
+					},
+					{
+						src: '/icon-512.png',
+						sizes: '512x512',
+						type: 'image/png',
+						purpose: 'any maskable'
 					}
-				]
+				],
+				categories: ['finance', 'productivity', 'utilities'],
+				lang: 'en',
+				dir: 'ltr'
+			},
+			devOptions: {
+				enabled: true,
+				type: 'module'
 			}
 		})
 	]

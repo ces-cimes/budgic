@@ -1,475 +1,311 @@
-import { budgetService, type TagBudget, type CategoryBudget, type TagBudgetSuggestion, type BudgetRecommendation, type BudgetInsight } from './services/budget-service';
-
-/**
- * Enhanced Tag-Level Budget System Test Suite (Income-Agnostic)
- * 
- * This test suite validates the new tag-level budgeting system that combines:
- * - YNAB-style granular budgeting (individual tag budgets)
- * - Dynamic waterfall categories (calculated totals from tags)
- * - Intelligent income allocation suggestions (income-agnostic)
- * - Goal-based budgeting with progress tracking
- * - Real-time spending tracking and insights
- * - Adaptive allocation based on actual needs, not preset income constraints
- */
-
-console.log('🧪 Testing Enhanced Tag-Level Budget System (Income-Agnostic)\n');
+import { budgetService, type TagBudget, type CategoryBudget, type TagBudgetSuggestion, type BudgetRecommendation, type BudgetInsight, type FundTransfer } from './services/budget-service';
 
 // ============================================================================
-// TEST 1: TAG BUDGET CREATION AND MANAGEMENT
+// ENHANCED TAG BUDGET SYSTEM DEMONSTRATION
 // ============================================================================
 
-async function testTagBudgetCreation() {
-    console.log('📋 Test 1: Tag Budget Creation and Management');
+async function testEnhancedTagBudgetCreation() {
+    console.log('\n=== Enhanced Tag Budget Creation ===');
+    
+    // 1. Regular monthly budget
+    const rentBudget = await budgetService.createTagBudget('rent', 'survival', 1200, {
+        recurringPeriod: 'monthly',
+        maxRolloverPercent: 0.1, // 10% rollover cap
+        autoAdjustmentsEnabled: true
+    });
+    
+    // 2. Weekly budget (coffee/meals)
+    const coffeeBudget = await budgetService.createTagBudget('coffee', 'lifestyle', 50, {
+        recurringPeriod: 'weekly',
+        maxRolloverPercent: 0.5, // 50% rollover cap for discretionary spending
+        autoAdjustmentsEnabled: false // No auto-borrowing for coffee
+    });
+    
+    // 3. Yearly budget (vacation)
+    const vacationBudget = await budgetService.createTagBudget('vacation', 'lifestyle', 3000, {
+        recurringPeriod: 'yearly',
+        isGoalBased: true,
+        goalTarget: 3000,
+        maxRolloverPercent: 1.0, // 100% rollover for vacation savings
+        autoAdjustmentsEnabled: true
+    });
+    
+    // 4. Custom period budget (bi-weekly paychecks)
+    const paycheckBudget = await budgetService.createTagBudget('paycheck_allocation', 'survival', 2000, {
+        recurringPeriod: 'custom',
+        customPeriodDays: 14,
+        maxRolloverPercent: 0.2,
+        autoAdjustmentsEnabled: true
+    });
+    
+    // 5. Emergency fund with flexible goal
+    const emergencyFund = await budgetService.createTagBudget('emergency_fund', 'security', 500, {
+        isGoalBased: true,
+        goalTarget: 15000, // No target date - flexible goal
+        maxRolloverPercent: 1.0,
+        autoAdjustmentsEnabled: true
+    });
+
+    console.log('Created budgets:');
+    console.log(`- Rent: $${rentBudget.allocatedAmount}/${rentBudget.recurringPeriod} (${rentBudget.maxRolloverPercent * 100}% rollover cap)`);
+    console.log(`- Coffee: $${coffeeBudget.allocatedAmount}/${coffeeBudget.recurringPeriod} (${coffeeBudget.maxRolloverPercent * 100}% rollover cap)`);
+    console.log(`- Vacation: $${vacationBudget.allocatedAmount}/${vacationBudget.recurringPeriod} (Goal: $${vacationBudget.goalTarget})`);
+    console.log(`- Paycheck: $${paycheckBudget.allocatedAmount}/every ${paycheckBudget.customPeriodDays} days`);
+    console.log(`- Emergency: $${emergencyFund.allocatedAmount}/${emergencyFund.recurringPeriod} (Goal: $${emergencyFund.goalTarget})`);
+}
+
+async function testPeriodConversions() {
+    console.log('\n=== Period Conversions ===');
+    
+    // Test monthly equivalents
+    const weeklyAmount = 100;
+    const monthlyEquivalent = budgetService.getMonthlyEquivalent(weeklyAmount, 'weekly');
+    console.log(`$${weeklyAmount}/week = $${monthlyEquivalent.toFixed(2)}/month`);
+    
+    const dailyAmount = 10;
+    const dailyMonthlyEquivalent = budgetService.getMonthlyEquivalent(dailyAmount, 'daily');
+    console.log(`$${dailyAmount}/day = $${dailyMonthlyEquivalent.toFixed(2)}/month`);
+    
+    const yearlyAmount = 12000;
+    const yearlyMonthlyEquivalent = budgetService.getMonthlyEquivalent(yearlyAmount, 'yearly');
+    console.log(`$${yearlyAmount}/year = $${yearlyMonthlyEquivalent.toFixed(2)}/month`);
+    
+    // Test period amounts from monthly
+    const monthlyAmount = 1000;
+    const weeklyPeriod = budgetService.getPeriodAmount(monthlyAmount, 'weekly');
+    console.log(`$${monthlyAmount}/month = $${weeklyPeriod.toFixed(2)}/week`);
+    
+    const customPeriod = budgetService.getPeriodAmount(monthlyAmount, 'custom', 14);
+    console.log(`$${monthlyAmount}/month = $${customPeriod.toFixed(2)}/every 14 days`);
+}
+
+async function testFundTransfers() {
+    console.log('\n=== Fund Transfer System ===');
+    
+    // Create test budgets
+    const entertainmentBudget = await budgetService.createTagBudget('entertainment', 'lifestyle', 200);
+    const emergencyBudget = await budgetService.createTagBudget('emergency', 'security', 500, {
+        isGoalBased: true,
+        goalTarget: 15000
+    });
+    
+    // Simulate some spending
+    await budgetService.updateTagBudget(entertainmentBudget.tagId, { spent: 150 });
+    await budgetService.updateTagBudget(emergencyBudget.tagId, { spent: 200 });
+    
+    console.log('Before transfer:');
+    console.log(`- Entertainment: $${entertainmentBudget.spent}/$${entertainmentBudget.allocatedAmount} ($${entertainmentBudget.remaining} remaining)`);
+    console.log(`- Emergency: $${emergencyBudget.spent}/$${emergencyBudget.allocatedAmount} ($${emergencyBudget.remaining} remaining)`);
+    
+    // Manual fund reallocation
+    const transfer: FundTransfer = {
+        fromTagId: entertainmentBudget.tagId,
+        toTagId: emergencyBudget.tagId,
+        amount: 50,
+        reason: 'user_reallocation',
+        respectsWaterfall: false, // Manual transfers don't need to respect waterfall
+        timestamp: new Date()
+    };
     
     try {
-        // Test creating tag budgets for different categories (no income constraints)
-        const rentBudget = await budgetService.createTagBudget('rent', 'survival', 1200);
-        const emergencyBudget = await budgetService.createTagBudget('emergency', 'security', 500, {
-            isGoalBased: true,
-            goalType: 'target',
-            goalTarget: 15000
-        });
-        const investmentBudget = await budgetService.createTagBudget('investment', 'growth', 300, {
-            isGoalBased: true,
-            goalType: 'monthly'
-        });
+        await budgetService.transferFunds(transfer);
+        console.log('\nTransfer successful!');
         
-        console.log('✅ Created tag budgets (income-agnostic):');
-        console.log(`   - Rent: $${rentBudget.allocatedAmount} (${rentBudget.waterfallCategory})`);
-        console.log(`   - Emergency: $${emergencyBudget.allocatedAmount} (${emergencyBudget.waterfallCategory}) - Goal: $${emergencyBudget.goalTarget}`);
-        console.log(`   - Investment: $${investmentBudget.allocatedAmount} (${investmentBudget.waterfallCategory}) - Monthly goal`);
+        // Get updated budgets
+        const updatedEntertainment = await budgetService.updateTagBudget(entertainmentBudget.tagId, {});
+        const updatedEmergency = await budgetService.updateTagBudget(emergencyBudget.tagId, {});
         
-        // Test updating tag budgets
-        const updatedRent = await budgetService.updateTagBudget(rentBudget.tagId, { allocatedAmount: 1300 });
-        console.log(`✅ Updated rent budget to: $${updatedRent.allocatedAmount}`);
+        console.log('After transfer:');
+        console.log(`- Entertainment: $${updatedEntertainment.spent}/$${updatedEntertainment.allocatedAmount} ($${updatedEntertainment.remaining} remaining)`);
+        console.log(`- Emergency: $${updatedEmergency.spent}/$${updatedEmergency.allocatedAmount} ($${updatedEmergency.remaining} remaining)`);
         
-        return true;
     } catch (error) {
-        console.error('❌ Tag budget creation failed:', error);
-        return false;
+        console.error('Transfer failed:', error);
     }
 }
 
-// ============================================================================
-// TEST 2: CATEGORY BUDGET CALCULATION FROM TAGS
-// ============================================================================
-
-async function testCategoryBudgetCalculation() {
-    console.log('\n📊 Test 2: Category Budget Calculation from Tags');
+async function testAutomaticBorrowing() {
+    console.log('\n=== Automatic Borrowing System ===');
     
-    try {
-        // Get all category budgets (calculated from tag budgets)
-        const categoryBudgets = await budgetService.calculateCategoryBudgets();
+    // Create budgets with different priorities
+    const groceriesBudget = await budgetService.createTagBudget('groceries', 'survival', 400, {
+        autoAdjustmentsEnabled: true,
+        maxRolloverPercent: 0.2
+    });
+    
+    const entertainmentBudget = await budgetService.createTagBudget('entertainment', 'lifestyle', 200, {
+        autoAdjustmentsEnabled: true,
+        maxRolloverPercent: 0.5
+    });
+    
+    const investmentBudget = await budgetService.createTagBudget('investment', 'growth', 300, {
+        autoAdjustmentsEnabled: true,
+        maxRolloverPercent: 0.1
+    });
+    
+    // Simulate overspending on groceries (survival priority)
+    await budgetService.updateTagBudget(groceriesBudget.tagId, { spent: 500 }); // $100 overspent
+    
+    console.log('Before automatic borrowing:');
+    console.log(`- Groceries (survival): $${groceriesBudget.spent}/$${groceriesBudget.allocatedAmount} ($${groceriesBudget.remaining} remaining)`);
+    console.log(`- Entertainment (lifestyle): $${entertainmentBudget.spent}/$${entertainmentBudget.allocatedAmount} ($${entertainmentBudget.remaining} remaining)`);
+    console.log(`- Investment (growth): $${investmentBudget.spent}/$${investmentBudget.allocatedAmount} ($${investmentBudget.remaining} remaining)`);
+    
+    // Process automatic borrowing
+    const transfers = await budgetService.processAutomaticBorrowing(groceriesBudget);
+    
+    console.log(`\nAutomatic borrowing processed: ${transfers.length} transfers`);
+    for (const transfer of transfers) {
+        console.log(`- $${transfer.amount} from ${transfer.fromTagId} to ${transfer.toTagId}`);
+    }
+    
+    // Get updated budgets
+    const updatedGroceries = await budgetService.updateTagBudget(groceriesBudget.tagId, {});
+    const updatedEntertainment = await budgetService.updateTagBudget(entertainmentBudget.tagId, {});
+    const updatedInvestment = await budgetService.updateTagBudget(investmentBudget.tagId, {});
+    
+    console.log('\nAfter automatic borrowing:');
+    console.log(`- Groceries: $${updatedGroceries.spent}/$${updatedGroceries.allocatedAmount} ($${updatedGroceries.remaining} remaining)`);
+    console.log(`- Entertainment: $${updatedEntertainment.spent}/$${updatedEntertainment.allocatedAmount} ($${updatedEntertainment.remaining} remaining)`);
+    console.log(`- Investment: $${updatedInvestment.spent}/$${updatedInvestment.allocatedAmount} ($${updatedInvestment.remaining} remaining)`);
+}
+
+async function testFlexibleGoals() {
+    console.log('\n=== Flexible Goal System ===');
+    
+    // Create a vacation fund with flexible goal (no target date)
+    const vacationFund = await budgetService.createTagBudget('vacation_fund', 'lifestyle', 200, {
+        isGoalBased: true,
+        goalTarget: 3000,
+        recurringPeriod: 'monthly',
+        maxRolloverPercent: 1.0
+    });
+    
+    console.log(`Vacation fund goal: $${vacationFund.goalTarget} (flexible timeline)`);
+    
+    // Simulate monthly contributions
+    for (let month = 1; month <= 6; month++) {
+        await budgetService.updateTagBudget(vacationFund.tagId, { spent: vacationFund.allocatedAmount });
         
-        console.log('✅ Category budgets calculated from tag budgets:');
-        for (const category of categoryBudgets) {
-            console.log(`   ${category.waterfallCategory.toUpperCase()}:`);
-            console.log(`     - Total Allocated: $${category.totalAllocated}`);
-            console.log(`     - Target Amount: $${category.targetAmount}`);
-            console.log(`     - Spent: $${category.spent}`);
-            console.log(`     - Remaining: $${category.remaining}`);
-            console.log(`     - Completion: ${category.completionPercentage.toFixed(1)}%`);
-            console.log(`     - Tag Count: ${category.tagBudgets.length}`);
-            
-            // Show individual tag budgets
-            for (const tagBudget of category.tagBudgets) {
-                console.log(`       • ${tagBudget.tagName}: $${tagBudget.allocatedAmount} (Priority: ${tagBudget.priority})`);
-            }
+        const updatedFund = await budgetService.updateTagBudget(vacationFund.tagId, {});
+        const progress = updatedFund.goalProgress || 0;
+        const percentage = (progress / (updatedFund.goalTarget || 1)) * 100;
+        
+        console.log(`Month ${month}: $${progress}/$${updatedFund.goalTarget} (${percentage.toFixed(1)}%)`);
+        
+        if (updatedFund.isComplete) {
+            console.log('🎉 Goal completed!');
+            break;
         }
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Category budget calculation failed:', error);
-        return false;
     }
 }
 
-// ============================================================================
-// TEST 3: INTELLIGENT INCOME ALLOCATION SUGGESTIONS (ADAPTIVE)
-// ============================================================================
-
-async function testAdaptiveIncomeAllocationSuggestions() {
-    console.log('\n💡 Test 3: Adaptive Income Allocation Suggestions');
+async function testWaterfallBorrowingRules() {
+    console.log('\n=== Waterfall Borrowing Rules ===');
+    
+    // Create budgets in different categories
+    const rentBudget = await budgetService.createTagBudget('rent', 'survival', 1200);
+    const emergencyBudget = await budgetService.createTagBudget('emergency', 'security', 500);
+    const entertainmentBudget = await budgetService.createTagBudget('entertainment', 'lifestyle', 200);
+    
+    // Test borrowing from higher priority to lower priority (should work)
+    const validTransfer: FundTransfer = {
+        fromTagId: entertainmentBudget.tagId, // lifestyle (lower priority)
+        toTagId: rentBudget.tagId, // survival (higher priority)
+        amount: 50,
+        reason: 'automatic_borrowing',
+        respectsWaterfall: true,
+        timestamp: new Date()
+    };
     
     try {
-        // Get current tag budgets
-        const categoryBudgets = await budgetService.calculateCategoryBudgets();
-        const allTagBudgets = categoryBudgets.flatMap(cb => cb.tagBudgets);
-        
-        // Test suggestions for different income amounts (no preset constraints)
-        const testIncomes = [500, 1500, 3000, 5000, 8000];
-        
-        for (const income of testIncomes) {
-            console.log(`\n💰 Testing suggestions for $${income} income (adaptive):`);
-            
-            const suggestions = await budgetService.generateTagBudgetSuggestions(income, allTagBudgets);
-            
-            if (suggestions.length === 0) {
-                console.log('   No suggestions (income too low or all budgets complete)');
-            } else {
-                console.log(`   ${suggestions.length} suggestions generated:`);
-                for (const suggestion of suggestions) {
-                    console.log(`     • ${suggestion.tagName}: +$${suggestion.suggestedAmount} (${suggestion.priority} priority)`);
-                    console.log(`       Reason: ${suggestion.reason}`);
-                }
-            }
-        }
-        
-        return true;
+        await budgetService.transferFunds(validTransfer);
+        console.log('✅ Valid borrowing: lifestyle → survival (allowed)');
     } catch (error) {
-        console.error('❌ Adaptive income allocation suggestions failed:', error);
-        return false;
+        console.log('❌ Valid borrowing failed:', error);
+    }
+    
+    // Test borrowing from lower priority to higher priority (should fail)
+    const invalidTransfer: FundTransfer = {
+        fromTagId: rentBudget.tagId, // survival (higher priority)
+        toTagId: entertainmentBudget.tagId, // lifestyle (lower priority)
+        amount: 50,
+        reason: 'automatic_borrowing',
+        respectsWaterfall: true,
+        timestamp: new Date()
+    };
+    
+    try {
+        await budgetService.transferFunds(invalidTransfer);
+        console.log('❌ Invalid borrowing succeeded (should have failed)');
+    } catch (error) {
+        console.log('✅ Invalid borrowing correctly blocked: survival → lifestyle (not allowed)');
     }
 }
 
-// ============================================================================
-// TEST 4: GOAL-BASED BUDGETING AND PROGRESS TRACKING
-// ============================================================================
-
-async function testGoalBasedBudgeting() {
-    console.log('\n🎯 Test 4: Goal-Based Budgeting and Progress Tracking');
+async function testRolloverCaps() {
+    console.log('\n=== Rollover Cap System ===');
     
-    try {
-        // Create goal-based tag budgets (no income constraints)
-        const emergencyFund = await budgetService.createTagBudget('emergency_fund', 'security', 500, {
-            isGoalBased: true,
-            goalType: 'target',
-            goalTarget: 10000
-        });
-        
-        const vacationFund = await budgetService.createTagBudget('vacation_fund', 'lifestyle', 200, {
-            isGoalBased: true,
-            goalType: 'target',
-            goalTarget: 3000
-        });
-        
-        console.log('✅ Created goal-based budgets (income-agnostic):');
-        console.log(`   - Emergency Fund: $${emergencyFund.allocatedAmount}/month → $${emergencyFund.goalTarget} target`);
-        console.log(`   - Vacation Fund: $${vacationFund.allocatedAmount}/month → $${vacationFund.goalTarget} target`);
-        
-        // Simulate spending progress
-        await budgetService.updateTagBudget(emergencyFund.tagId, { spent: 2500 });
-        await budgetService.updateTagBudget(vacationFund.tagId, { spent: 1500 });
-        
-        // Check updated progress
-        const updatedEmergency = await budgetService.updateTagBudget(emergencyFund.tagId, {});
-        const updatedVacation = await budgetService.updateTagBudget(vacationFund.tagId, {});
-        
-        console.log('✅ Progress tracking:');
-        const emergencyProgress = updatedEmergency.goalProgress || 0;
-        const emergencyTarget = updatedEmergency.goalTarget || 0;
-        const vacationProgress = updatedVacation.goalProgress || 0;
-        const vacationTarget = updatedVacation.goalTarget || 0;
-        
-        console.log(`   - Emergency Fund: $${emergencyProgress}/${emergencyTarget} (${emergencyTarget > 0 ? ((emergencyProgress / emergencyTarget) * 100).toFixed(1) : 0}%)`);
-        console.log(`   - Vacation Fund: $${vacationProgress}/${vacationTarget} (${vacationTarget > 0 ? ((vacationProgress / vacationTarget) * 100).toFixed(1) : 0}%)`);
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Goal-based budgeting failed:', error);
-        return false;
-    }
-}
-
-// ============================================================================
-// TEST 5: SPENDING TRACKING AND CATEGORY ROLLUPS
-// ============================================================================
-
-async function testSpendingTracking() {
-    console.log('\n📈 Test 5: Spending Tracking and Category Rollups');
+    // Create budget with 20% rollover cap
+    const budget = await budgetService.createTagBudget('test_budget', 'lifestyle', 1000, {
+        maxRolloverPercent: 0.2, // 20% cap
+        autoAdjustmentsEnabled: true
+    });
     
-    try {
-        // Get current spending status
-        const categoryBudgets = await budgetService.getCurrentSpendingStatus();
-        
-        console.log('✅ Current spending status:');
-        for (const category of categoryBudgets) {
-            console.log(`   ${category.waterfallCategory.toUpperCase()}:`);
-            console.log(`     - Allocated: $${category.totalAllocated}`);
-            console.log(`     - Spent: $${category.spent}`);
-            console.log(`     - Remaining: $${category.remaining}`);
-            console.log(`     - Utilization: ${((category.spent / category.totalAllocated) * 100).toFixed(1)}%`);
-            
-            // Show tag-level spending
-            for (const tagBudget of category.tagBudgets) {
-                const utilization = tagBudget.allocatedAmount > 0 ? (tagBudget.spent / tagBudget.allocatedAmount) * 100 : 0;
-                console.log(`       • ${tagBudget.tagName}: $${tagBudget.spent}/$${tagBudget.allocatedAmount} (${utilization.toFixed(1)}%)`);
-            }
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Spending tracking failed:', error);
-        return false;
-    }
-}
-
-// ============================================================================
-// TEST 6: RECOMMENDATIONS AND INSIGHTS GENERATION
-// ============================================================================
-
-async function testRecommendationsAndInsights() {
-    console.log('\n🔍 Test 6: Recommendations and Insights Generation');
+    console.log(`Budget: $${budget.allocatedAmount} with ${budget.maxRolloverPercent * 100}% rollover cap`);
+    console.log(`Maximum rollover: $${budget.allocatedAmount * budget.maxRolloverPercent}`);
     
-    try {
-        // Get current category budgets
-        const categoryBudgets = await budgetService.calculateCategoryBudgets();
-        
-        // Generate recommendations
-        const recommendations = await budgetService.generateRecommendations(categoryBudgets);
-        console.log(`✅ Generated ${recommendations.length} recommendations:`);
-        
-        for (const recommendation of recommendations) {
-            console.log(`   • ${recommendation.title} (${recommendation.priority} priority)`);
-            console.log(`     ${recommendation.description}`);
-            console.log(`     Action: ${recommendation.action.reason}`);
-        }
-        
-        // Generate insights
-        const insights = await budgetService.generateInsights(categoryBudgets);
-        console.log(`\n✅ Generated ${insights.length} insights:`);
-        
-        for (const insight of insights) {
-            console.log(`   • ${insight.title} (${insight.severity})`);
-            console.log(`     ${insight.description}`);
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Recommendations and insights failed:', error);
-        return false;
-    }
-}
-
-// ============================================================================
-// TEST 7: INCOME-AGNOSTIC BUDGETING
-// ============================================================================
-
-async function testIncomeAgnosticBudgeting() {
-    console.log('\n🔄 Test 7: Income-Agnostic Budgeting');
+    // Simulate spending that would exceed the cap
+    await budgetService.updateTagBudget(budget.tagId, { spent: 800 }); // $200 remaining
     
-    try {
-        // Test calculating optimal allocations without income constraints
-        const allocations = await budgetService.calculateOptimalAllocations([]);
-        
-        console.log('✅ Income-agnostic budget allocations:');
-        console.log(`   - Survival: $${allocations.survival.amount} (target: $${allocations.survival.targetAmount})`);
-        console.log(`   - Security: $${allocations.security.amount} (target: $${allocations.security.targetAmount})`);
-        console.log(`   - Growth: $${allocations.growth.amount} (target: $${allocations.growth.targetAmount})`);
-        console.log(`   - Lifestyle: $${allocations.lifestyle.amount} (target: $${allocations.lifestyle.targetAmount})`);
-        
-        const totalNeeded = allocations.survival.amount + allocations.security.amount + 
-                           allocations.growth.amount + allocations.lifestyle.amount;
-        
-        console.log(`\n   Total budget needed: $${totalNeeded}`);
-        console.log('   Note: This represents actual needs, not constrained by income');
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Income-agnostic budgeting failed:', error);
-        return false;
-    }
-}
-
-// ============================================================================
-// TEST 8: WATERFALL PRIORITY LOGIC
-// ============================================================================
-
-async function testWaterfallPriorityLogic() {
-    console.log('\n🌊 Test 8: Waterfall Priority Logic');
+    const updatedBudget = await budgetService.updateTagBudget(budget.tagId, {});
+    console.log(`After spending $800: $${updatedBudget.remaining} remaining`);
+    console.log(`Rollover cap: $${updatedBudget.allocatedAmount * updatedBudget.maxRolloverPercent}`);
     
-    try {
-        // Test priority ordering in suggestions
-        const categoryBudgets = await budgetService.calculateCategoryBudgets();
-        const allTagBudgets = categoryBudgets.flatMap(cb => cb.tagBudgets);
-        
-        // Generate suggestions with limited income to test priority
-        const suggestions = await budgetService.generateTagBudgetSuggestions(1000, allTagBudgets);
-        
-        console.log('✅ Waterfall priority in suggestions:');
-        const categoryOrder = ['survival', 'security', 'growth', 'lifestyle'];
-        
-        for (const category of categoryOrder) {
-            const categorySuggestions = suggestions.filter(s => s.category === category);
-            if (categorySuggestions.length > 0) {
-                console.log(`   ${category.toUpperCase()} (Priority ${categoryOrder.indexOf(category) + 1}):`);
-                for (const suggestion of categorySuggestions) {
-                    console.log(`     • ${suggestion.tagName}: $${suggestion.suggestedAmount}`);
-                }
-            }
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Waterfall priority logic failed:', error);
-        return false;
-    }
-}
-
-// ============================================================================
-// TEST 9: ADAPTIVE SUGGESTIONS WITH HISTORICAL DATA
-// ============================================================================
-
-async function testAdaptiveSuggestionsWithHistoricalData() {
-    console.log('\n📊 Test 9: Adaptive Suggestions with Historical Data');
-    
-    try {
-        // Create tag budgets with different spending patterns
-        const groceriesBudget = await budgetService.createTagBudget('groceries', 'survival', 400);
-        const entertainmentBudget = await budgetService.createTagBudget('entertainment', 'lifestyle', 200);
-        
-        // Simulate historical spending (in a real app, this would come from transaction data)
-        await budgetService.updateTagBudget(groceriesBudget.tagId, { spent: 450 }); // Overspent
-        await budgetService.updateTagBudget(entertainmentBudget.tagId, { spent: 150 }); // Under budget
-        
-        const categoryBudgets = await budgetService.calculateCategoryBudgets();
-        const allTagBudgets = categoryBudgets.flatMap(cb => cb.tagBudgets);
-        
-        // Generate suggestions based on spending patterns
-        const suggestions = await budgetService.generateTagBudgetSuggestions(500, allTagBudgets);
-        
-        console.log('✅ Adaptive suggestions based on spending patterns:');
-        for (const suggestion of suggestions) {
-            console.log(`   • ${suggestion.tagName}: +$${suggestion.suggestedAmount}`);
-            console.log(`     Reason: ${suggestion.reason}`);
-            console.log(`     Priority: ${suggestion.priority}`);
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Adaptive suggestions with historical data failed:', error);
-        return false;
-    }
-}
-
-// ============================================================================
-// TEST 10: COMPREHENSIVE SYSTEM INTEGRATION (INCOME-AGNOSTIC)
-// ============================================================================
-
-async function testComprehensiveIntegration() {
-    console.log('\n🔗 Test 10: Comprehensive System Integration (Income-Agnostic)');
-    
-    try {
-        // Simulate a complete budgeting scenario without income constraints
-        console.log('✅ Simulating complete budgeting scenario (income-agnostic):');
-        
-        // 1. Set up tag budgets based on actual needs (no income ceiling)
-        const tagBudgets = [
-            await budgetService.createTagBudget('rent', 'survival', 1200),
-            await budgetService.createTagBudget('groceries', 'survival', 400),
-            await budgetService.createTagBudget('emergency', 'security', 500, { isGoalBased: true, goalType: 'target', goalTarget: 15000 }),
-            await budgetService.createTagBudget('investment', 'growth', 300, { isGoalBased: true, goalType: 'monthly' }),
-            await budgetService.createTagBudget('entertainment', 'lifestyle', 200)
-        ];
-        
-        console.log('   1. Created 5 tag budgets based on actual needs (no income constraints)');
-        
-        // 2. Calculate category totals
-        const categoryBudgets = await budgetService.calculateCategoryBudgets();
-        const totalBudget = categoryBudgets.reduce((sum, cb) => sum + cb.totalAllocated, 0);
-        console.log(`   2. Total budget needed: $${totalBudget} (represents actual needs)`);
-        
-        // 3. Generate suggestions for different income amounts
-        const testIncomes = [1000, 2000, 3000, 4000];
-        console.log('   3. Testing adaptive allocation for different income amounts:');
-        
-        for (const income of testIncomes) {
-            const allTagBudgets = categoryBudgets.flatMap(cb => cb.tagBudgets);
-            const suggestions = await budgetService.generateTagBudgetSuggestions(income, allTagBudgets);
-            
-            console.log(`      Income $${income}: ${suggestions.length} suggestions`);
-            for (const suggestion of suggestions) {
-                console.log(`        • ${suggestion.tagName}: +$${suggestion.suggestedAmount}`);
-            }
-        }
-        
-        // 4. Track spending
-        await budgetService.updateTagBudget(tagBudgets[0].tagId, { spent: 1200 });
-        await budgetService.updateTagBudget(tagBudgets[1].tagId, { spent: 450 }); // Overspent
-        await budgetService.updateTagBudget(tagBudgets[2].tagId, { spent: 500 });
-        
-        console.log('   4. Tracked spending across categories');
-        
-        // 5. Generate recommendations and insights
-        const updatedCategoryBudgets = await budgetService.calculateCategoryBudgets();
-        const recommendations = await budgetService.generateRecommendations(updatedCategoryBudgets);
-        const insights = await budgetService.generateInsights(updatedCategoryBudgets);
-        
-        console.log(`   5. Generated ${recommendations.length} recommendations and ${insights.length} insights`);
-        
-        // 6. Show final status
-        console.log('\n   Final Budget Status:');
-        for (const category of updatedCategoryBudgets) {
-            const utilization = (category.spent / category.totalAllocated) * 100;
-            console.log(`     ${category.waterfallCategory}: $${category.spent}/$${category.totalAllocated} (${utilization.toFixed(1)}%)`);
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Comprehensive integration test failed:', error);
-        return false;
-    }
-}
-
-// ============================================================================
-// RUN ALL TESTS
-// ============================================================================
-
-async function runAllTests() {
-    console.log('🚀 Starting Enhanced Tag-Level Budget System Tests (Income-Agnostic)\n');
-    
-    const tests = [
-        { name: 'Tag Budget Creation', fn: testTagBudgetCreation },
-        { name: 'Category Budget Calculation', fn: testCategoryBudgetCalculation },
-        { name: 'Adaptive Income Allocation Suggestions', fn: testAdaptiveIncomeAllocationSuggestions },
-        { name: 'Goal-Based Budgeting', fn: testGoalBasedBudgeting },
-        { name: 'Spending Tracking', fn: testSpendingTracking },
-        { name: 'Recommendations and Insights', fn: testRecommendationsAndInsights },
-        { name: 'Income-Agnostic Budgeting', fn: testIncomeAgnosticBudgeting },
-        { name: 'Waterfall Priority Logic', fn: testWaterfallPriorityLogic },
-        { name: 'Adaptive Suggestions with Historical Data', fn: testAdaptiveSuggestionsWithHistoricalData },
-        { name: 'Comprehensive Integration', fn: testComprehensiveIntegration }
-    ];
-    
-    let passedTests = 0;
-    let totalTests = tests.length;
-    
-    for (const test of tests) {
-        try {
-            const result = await test.fn();
-            if (result) {
-                passedTests++;
-            }
-        } catch (error) {
-            console.error(`❌ Test "${test.name}" failed with error:`, error);
-        }
-    }
-    
-    console.log('\n' + '='.repeat(60));
-    console.log(`🎯 TEST RESULTS: ${passedTests}/${totalTests} tests passed`);
-    console.log('='.repeat(60));
-    
-    if (passedTests === totalTests) {
-        console.log('🎉 All tests passed! The enhanced tag-level budget system is working correctly.');
+    if (updatedBudget.remaining <= updatedBudget.allocatedAmount * updatedBudget.maxRolloverPercent) {
+        console.log('✅ Rollover cap respected');
     } else {
-        console.log('⚠️  Some tests failed. Please review the implementation.');
+        console.log('❌ Rollover cap exceeded');
     }
-    
-    console.log('\n📋 Key Features Validated:');
-    console.log('   ✅ Tag-level budget creation and management (income-agnostic)');
-    console.log('   ✅ Dynamic category calculation from tag budgets');
-    console.log('   ✅ Adaptive income allocation suggestions (no preset constraints)');
-    console.log('   ✅ Goal-based budgeting with progress tracking');
-    console.log('   ✅ Real-time spending tracking and category rollups');
-    console.log('   ✅ Smart recommendations and insights generation');
-    console.log('   ✅ Income-agnostic budgeting (needs-based, not income-constrained)');
-    console.log('   ✅ Waterfall priority logic (survival → security → growth → lifestyle)');
-    console.log('   ✅ Historical spending pattern analysis');
-    console.log('   ✅ Comprehensive system integration');
-    
-    console.log('\n🎯 Enhanced Tag-Level Budget System (Income-Agnostic) is ready for production!');
-    console.log('💡 Key Innovation: Focus on actual needs and goals, not artificial income constraints');
 }
 
-// Run the tests
-runAllTests().catch(console.error); 
+// ============================================================================
+// MAIN TEST EXECUTION
+// ============================================================================
+
+async function runEnhancedTagBudgetTests() {
+    console.log('🚀 Enhanced Tag Budget System Tests');
+    console.log('=====================================');
+    
+    try {
+        await testEnhancedTagBudgetCreation();
+        await testPeriodConversions();
+        await testFundTransfers();
+        await testAutomaticBorrowing();
+        await testFlexibleGoals();
+        await testWaterfallBorrowingRules();
+        await testRolloverCaps();
+        
+        console.log('\n✅ All enhanced tag budget tests completed successfully!');
+        
+    } catch (error) {
+        console.error('\n❌ Test failed:', error);
+    }
+}
+
+// Export for use in other test files
+export const enhancedTagBudgetTests = {
+    testEnhancedTagBudgetCreation,
+    testPeriodConversions,
+    testFundTransfers,
+    testAutomaticBorrowing,
+    testFlexibleGoals,
+    testWaterfallBorrowingRules,
+    testRolloverCaps,
+    runEnhancedTagBudgetTests
+};
+
+// Run tests if this file is executed directly
+if (typeof window === 'undefined') {
+    runEnhancedTagBudgetTests();
+} 

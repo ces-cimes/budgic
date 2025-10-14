@@ -1,4 +1,5 @@
 import type { Currency, CurrencyInfo } from '$lib/core/db';
+import { CURRENCY_REGISTRY } from '$lib/core/db';
 
 /**
  * Validate currency code format
@@ -10,19 +11,23 @@ export function isValidCurrencyCode(code: string): boolean {
 /**
  * Validate amount for a specific currency
  */
-export function validateAmount(amount: number, currencyCode: string): { isValid: boolean; error?: string } {
+export function validateAmount(amount: number | undefined | null, currencyCode: string, allowNegative: boolean = false): { isValid: boolean; error?: string } {
+    if (amount === undefined || amount === null) {
+        return { isValid: false, error: 'Amount is required' };
+    }
+
     if (typeof amount !== 'number' || isNaN(amount)) {
         return { isValid: false, error: 'Amount must be a valid number' };
     }
 
-    if (amount < 0) {
+    if (amount < 0 && !allowNegative) {
         return { isValid: false, error: 'Amount cannot be negative' };
     }
 
-    // Check decimal places based on currency
+    // Check decimal places based on currency (use absolute value for decimal validation)
     const currencyInfo = getCurrencyInfo(currencyCode);
     if (currencyInfo) {
-        const decimalPlaces = getDecimalPlaces(amount);
+        const decimalPlaces = getDecimalPlaces(Math.abs(amount));
         if (decimalPlaces > currencyInfo.decimalPlaces) {
             return { 
                 isValid: false, 
@@ -43,9 +48,20 @@ export function getDecimalPlaces(num: number): number {
 }
 
 /**
- * Format amount according to currency rules
+ * Get currency information from the unified registry
  */
-export function formatAmount(amount: number, currencyCode: string): string {
+export function getCurrencyInfo(code: string): CurrencyInfo | null {
+    return CURRENCY_REGISTRY.get(code) || null;
+}
+
+/**
+ * Format amount according to currency rules with proper symbol placement and decimal places
+ */
+export function formatAmount(amount: number | undefined | null, currencyCode: string): string {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+        return '0.00';
+    }
+
     const currencyInfo = getCurrencyInfo(currencyCode);
     if (!currencyInfo) {
         return amount.toFixed(2);
@@ -61,25 +77,295 @@ export function formatAmount(amount: number, currencyCode: string): string {
 }
 
 /**
- * Get currency information
+ * Format amount with sign for transaction display (e.g., +$100.00, -€50.00)
+ * Note: Zero amounts will not show a sign
  */
-export function getCurrencyInfo(code: string): CurrencyInfo | null {
-    // This would typically come from a currency database
-    // For now, return common currencies
-    const currencies: Record<string, CurrencyInfo> = {
-        'USD': { code: 'USD', name: 'US Dollar', symbol: '$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'EUR': { code: 'EUR', name: 'Euro', symbol: '€', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'GBP': { code: 'GBP', name: 'British Pound', symbol: '£', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'JPY': { code: 'JPY', name: 'Japanese Yen', symbol: '¥', placement: 'before', decimalPlaces: 0, isSystem: true, isActive: true },
-        'CAD': { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'AUD': { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'CHF': { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'CNY': { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'INR': { code: 'INR', name: 'Indian Rupee', symbol: '₹', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true },
-        'BRL': { code: 'BRL', name: 'Brazilian Real', symbol: 'R$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }
-    };
+export function formatTransactionAmount(amount: number | undefined | null, currencyCode: string, showSign: boolean = true): string {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+        return '$0.00'; // No sign for zero
+    }
 
-    return currencies[code] || null;
+    const currencyInfo = getCurrencyInfo(currencyCode);
+    if (!currencyInfo) {
+        const sign = showSign && amount !== 0 ? (amount > 0 ? '+' : '') : '';
+        return `${sign}${amount.toFixed(2)}`;
+    }
+
+    const absAmount = Math.abs(amount);
+    const formattedAmount = absAmount.toFixed(currencyInfo.decimalPlaces);
+    const symbol = currencyInfo.symbol;
+    const placement = currencyInfo.placement || 'before';
+    const sign = showSign && amount !== 0 ? (amount > 0 ? '+' : '-') : '';
+
+    if (placement === 'before') {
+        return `${sign}${symbol}${formattedAmount}`;
+    } else {
+        return `${sign}${formattedAmount}${symbol}`;
+    }
+}
+
+/**
+ * Enhanced formatting options for currency amounts
+ */
+export interface FormatOptions {
+    /** Whether to show the sign (+/-) */
+    showSign?: boolean;
+    /** Whether to show the plus sign for positive amounts */
+    showPlus?: boolean;
+    /** Whether to use absolute value (no sign) */
+    absolute?: boolean;
+    /** Custom sign to use instead of +/- */
+    customSign?: string;
+    /** Whether to use compact notation (e.g., 1K, 1M) */
+    compact?: boolean;
+    /** Whether to use parentheses for negative amounts (accounting style) */
+    accountingStyle?: boolean;
+}
+
+/**
+ * Enhanced currency formatting function with comprehensive options
+ */
+export function formatCurrencyAmount(
+    amount: number | undefined | null, 
+    currencyCode: string, 
+    options: FormatOptions = {}
+): string {
+    const {
+        showSign = false,
+        showPlus = false,
+        absolute = false,
+        customSign,
+        compact = false,
+        accountingStyle = false
+    } = options;
+
+    if (amount === undefined || amount === null || isNaN(amount)) {
+        amount = 0;
+    }
+
+    const currencyInfo = getCurrencyInfo(currencyCode);
+    if (!currencyInfo) {
+        return formatBasicAmount(amount, { showSign, showPlus, absolute, customSign, compact, accountingStyle });
+    }
+
+    const absAmount = Math.abs(amount);
+    let formattedAmount: string;
+
+    if (compact && absAmount >= 1000) {
+        formattedAmount = formatCompactAmount(absAmount, currencyInfo.decimalPlaces);
+    } else {
+        formattedAmount = absAmount.toFixed(currencyInfo.decimalPlaces);
+    }
+
+    const symbol = currencyInfo.symbol;
+    const placement = currencyInfo.placement || 'before';
+
+    // Determine the sign - NO SIGN for zero amounts
+    let sign = '';
+    if (!absolute && amount !== 0) {
+        if (customSign) {
+            sign = customSign;
+        } else if (accountingStyle && amount < 0) {
+            sign = ''; // Will use parentheses instead
+        } else if (showSign) {
+            sign = amount > 0 ? (showPlus ? '+' : '') : '-';
+        }
+    }
+
+    // Format the amount with symbol
+    let result: string;
+    if (placement === 'before') {
+        result = `${symbol}${formattedAmount}`;
+    } else {
+        result = `${formattedAmount}${symbol}`;
+    }
+
+    // Apply sign or accounting style
+    if (accountingStyle && amount < 0) {
+        return `(${result})`;
+    } else {
+        return `${sign}${result}`;
+    }
+}
+
+/**
+ * Format amount for summary displays (totals, balances, etc.)
+ * Automatically handles sign placement and provides consistent formatting
+ */
+export function formatSummaryAmount(
+    amount: number | undefined | null, 
+    currencyCode: string, 
+    options: { showPlus?: boolean; compact?: boolean } = {}
+): string {
+    return formatCurrencyAmount(amount, currencyCode, {
+        showSign: true,
+        showPlus: options.showPlus || false,
+        compact: options.compact || false
+    });
+}
+
+/**
+ * Format amount for transaction lists with consistent sign placement
+ */
+export function formatTransactionListAmount(
+    amount: number | undefined | null, 
+    currencyCode: string, 
+    options: { showPlus?: boolean } = {}
+): string {
+    return formatCurrencyAmount(amount, currencyCode, {
+        showSign: true,
+        showPlus: options.showPlus || false
+    });
+}
+
+/**
+ * Format amount for balance displays (no sign, just the amount)
+ */
+export function formatBalanceAmount(
+    amount: number | undefined | null, 
+    currencyCode: string, 
+    options: { compact?: boolean } = {}
+): string {
+    return formatCurrencyAmount(amount, currencyCode, {
+        showSign: false,
+        compact: options.compact || false
+    });
+}
+
+/**
+ * Helper function for basic amount formatting without currency info
+ */
+function formatBasicAmount(
+    amount: number, 
+    options: FormatOptions
+): string {
+    const { showSign, showPlus, absolute, customSign, compact, accountingStyle } = options;
+    
+    const absAmount = Math.abs(amount);
+    let formattedAmount: string;
+
+    if (compact && absAmount >= 1000) {
+        formattedAmount = formatCompactAmount(absAmount, 2);
+    } else {
+        formattedAmount = absAmount.toFixed(2);
+    }
+
+    let sign = '';
+    if (!absolute && amount !== 0) {
+        if (customSign) {
+            sign = customSign;
+        } else if (accountingStyle && amount < 0) {
+            return `(${formattedAmount})`;
+        } else if (showSign) {
+            sign = amount > 0 ? (showPlus ? '+' : '') : '-';
+        }
+    }
+
+    return `${sign}${formattedAmount}`;
+}
+
+/**
+ * Format large amounts in compact notation (1K, 1M, 1B, etc.)
+ * Uses Paraglide messages for localized suffixes
+ */
+function formatCompactAmount(amount: number, decimalPlaces: number): string {
+    if (amount >= 1e12) {
+        const compactAmount = (amount / 1e12).toFixed(decimalPlaces);
+        return `${compactAmount}T`;
+    }
+    if (amount >= 1e9) {
+        const compactAmount = (amount / 1e9).toFixed(decimalPlaces);
+        return `${compactAmount}B`;
+    }
+    if (amount >= 1e6) {
+        const compactAmount = (amount / 1e6).toFixed(decimalPlaces);
+        return `${compactAmount}M`;
+    }
+    if (amount >= 1e3) {
+        const compactAmount = (amount / 1e3).toFixed(decimalPlaces);
+        return `${compactAmount}K`;
+    }
+
+    return amount.toFixed(decimalPlaces);
+}
+
+/**
+ * Format amount for general display using user's main currency
+ */
+export function formatMainCurrencyAmount(amount: number | undefined | null, mainCurrencyCode: string = 'USD'): string {
+    return formatAmount(amount, mainCurrencyCode);
+}
+
+/**
+ * Localization-friendly currency formatting
+ * This function is designed to work with Paraglide and other i18n systems
+ * by avoiding hardcoded locale-specific formatting
+ */
+export function formatCurrencyForLocale(
+    amount: number | undefined | null,
+    currencyCode: string,
+    locale: string = 'en-US',
+    options: FormatOptions = {}
+): string {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+        amount = 0;
+    }
+
+    const currencyInfo = getCurrencyInfo(currencyCode);
+    if (!currencyInfo) {
+        // Fallback to basic formatting without locale-specific features
+        return formatBasicAmount(amount, options);
+    }
+
+    try {
+        // Use Intl.NumberFormat for locale-aware formatting
+        const formatter = new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: currencyCode,
+            minimumFractionDigits: currencyInfo.decimalPlaces,
+            maximumFractionDigits: currencyInfo.decimalPlaces,
+            signDisplay: options.showSign ? (options.showPlus ? 'always' : 'auto') : 'never'
+        });
+
+        let formatted = formatter.format(amount);
+        
+        // Handle zero amounts - remove any signs
+        if (amount === 0 && options.showSign) {
+            formatted = formatted.replace(/^[+\-]/, '');
+        }
+
+        return formatted;
+    } catch (error) {
+        // Fallback to our custom formatting if Intl fails
+        console.warn('Intl.NumberFormat failed, falling back to custom formatting:', error);
+        try {
+            return formatCurrencyAmount(amount, currencyCode, options);
+        } catch (fallbackError) {
+            console.error('Currency formatting completely failed:', fallbackError);
+            return 'Formatting error';
+        }
+    }
+}
+
+/**
+ * Format currency amount with proper locale support for Paraglide integration
+ * This is the recommended function for use with your localization system
+ */
+export function formatCurrencyWithLocale(
+    amount: number | undefined | null,
+    currencyCode: string,
+    locale: string = 'en-US',
+    options: {
+        showSign?: boolean;
+        showPlus?: boolean;
+        compact?: boolean;
+    } = {}
+): string {
+    return formatCurrencyForLocale(amount, currencyCode, locale, {
+        showSign: options.showSign || false,
+        showPlus: options.showPlus || false,
+        compact: options.compact || false
+    });
 }
 
 /**

@@ -141,6 +141,9 @@ class SettingsService {
     async createUserPreferences(data: Partial<UserPreferences>): Promise<UserPreferences> {
         const preferences: UserPreferences = {
             id: generateUUID(),
+            // User Profile
+            username: data.username || 'User',
+            
             // Income and Budget Preferences
             incomeMode: data.incomeMode || 'adaptive',
             incomeConfidenceThreshold: data.incomeConfidenceThreshold ?? 0.8,
@@ -239,6 +242,16 @@ class SettingsService {
     // ============================================================================
     // CONVENIENCE METHODS FOR COMMON SETTINGS
     // ============================================================================
+
+    // User Profile
+    async getUsername(): Promise<string> {
+        const prefs = await this.getUserPreferences();
+        return prefs?.username || 'User';
+    }
+
+    async setUsername(username: string): Promise<void> {
+        await this.updateUserPreferences({ username });
+    }
 
     // Income and Budget Preferences
     async getIncomeMode(): Promise<'pessimistic' | 'optimistic' | 'adaptive'> {

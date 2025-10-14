@@ -64,8 +64,8 @@ export function groupTransactions(transactions: Transaction[]): TransactionOrGro
         const sorted = [...groupTransactions].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
         const representative = sorted[0];
 
-        // Calculate total amount
-        const totalAmount = groupTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        // Calculate total amount (sum of actual amounts, not absolute values)
+        const totalAmount = groupTransactions.reduce((sum, t) => sum + t.amount, 0);
 
         // Get common fields (all transactions in a split should have the same values)
         const commonFields = {
@@ -117,7 +117,7 @@ export function normalizeGroupFields(transactions: Transaction[], splitName?: st
  * Calculate total amount for a group of transactions
  */
 export function calculateTotalAmount(transactions: Transaction[]): number {
-    return transactions.reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
+    return transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 }
 
 /**

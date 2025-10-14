@@ -112,14 +112,14 @@ class CurrencyService {
 	/**
 	 * Validate amount for a specific currency
 	 */
-	validateAmount(amount: number, currencyCode: string): { isValid: boolean; error?: string } {
+	validateAmount(amount: number | undefined | null, currencyCode: string): { isValid: boolean; error?: string } {
 		return validateAmount(amount, currencyCode);
 	}
 
 	/**
 	 * Format amount according to currency rules
 	 */
-	formatAmount(amount: number, currencyCode: string): string {
+	formatAmount(amount: number | undefined | null, currencyCode: string): string {
 		return formatAmount(amount, currencyCode);
 	}
 

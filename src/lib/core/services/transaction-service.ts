@@ -7,8 +7,9 @@ import { tagService } from './tag-service';
 import { currencyService } from './currency-service';
 import { validationService } from './validation-service';
 import { userActionsService, PrivacyUtils } from './user-actions-service';
-import { unifiedInsightsService } from './unified-insights-service';
+import { insightsService } from './insights-service';
 import { analyticsCoreService } from './analytics-core-service';
+import { budgetService } from './budget-service';
 
 // Import the type from transaction-utils
 import type { TransactionOrGroup } from '$lib/utils/transaction-utils';
@@ -75,7 +76,7 @@ class TransactionService {
         splitId: string,
         updates: {
             sharedFields?: Partial<Pick<Transaction, 
-                'type' | 'status' | 'currency' | 'whatTag' | 'whyTag' | 'plannedDate' | 'clearedDate' | 'recurrenceRule' | 'parentRecurrenceId' |
+                'type' | 'status' | 'currency' | 'whatTag' | 'budgetCategoryId' | 'plannedDate' | 'clearedDate' | 'recurrenceRule' | 'parentRecurrenceId' |
                 'reference' | 'notes' | 'importSource' | 'toAccountId' | 'splitName'
             >>;
             individualUpdates?: Array<{
@@ -288,7 +289,7 @@ class TransactionService {
     async createNewTransaction(transactionData: Partial<Transaction> & {
         accountId: string;
         whatTag?: WhatTagType;
-        whyTag?: WhyTagType;
+        budgetCategoryId?: string; // Unified budget system - replaces whyTag
         payeeId?: string;
         amount: number;
         type: 'income' | 'expense' | 'transfer' | 'adjustment';
@@ -312,7 +313,7 @@ class TransactionService {
             amount: transactionData.amount,
             currency,
             whatTag: transactionData.whatTag,
-            whyTag: transactionData.whyTag,
+            budgetCategoryId: transactionData.budgetCategoryId,
             payeeId: transactionData.payeeId,
             description: transactionData.description,
             plannedDate: transactionData.plannedDate,
@@ -337,34 +338,54 @@ class TransactionService {
         // Invalidate balance cache for the account
         accountService.clearBalanceCache(transactionData.accountId);
         
-        		// Track user action if tracking is enabled - now uses unified insights service
-		try {
-			// Use unified insights service for anomaly detection
-			const anomalies = await unifiedInsightsService.detectAnomalies();
-			const recentAnomalies = anomalies.filter(a => 
-				new Date(a.date).getTime() > Date.now() - 24 * 60 * 60 * 1000
-			);
-			
-			if (recentAnomalies.length > 0) {
-				console.log('Recent anomalies detected:', recentAnomalies);
-			}
-			
-			// Use analytics core service for spending analysis
-			const analysis = await analyticsCoreService.analyzeTransactions(
-				new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-				new Date().toISOString()
-			);
-			
-			// Check if this transaction is unusual based on analytics
-			const avgTransactionAmount = analysis.totalSpending / Math.max(analysis.transactionCount, 1);
-			if (Math.abs(newTransaction.amount) > avgTransactionAmount * 2) {
-				console.log('Unusual transaction amount detected:', newTransaction.amount);
-			}
-			
-		} catch (error) {
-			// Don't fail transaction creation if analytics fail
-			console.warn('Failed to analyze transaction:', error);
-		}
+        // Track budget spending for expenses (unified budget system)
+        if (transactionData.type === 'expense' && transactionData.budgetCategoryId) {
+            try {
+                await budgetService.trackTransactionSpending(newTransaction);
+            } catch (error) {
+                console.warn('Failed to track budget spending:', error);
+                // Don't fail transaction creation if budget tracking fails
+            }
+        }
+        
+        // Process income through waterfall system
+        if (transactionData.type === 'income') {
+            try {
+                await budgetService.processIncome(transactionData.amount);
+            } catch (error) {
+                console.warn('Failed to process income through waterfall system:', error);
+                // Don't fail transaction creation if income processing fails
+            }
+        }
+        
+        // Track user action if tracking is enabled - now uses unified insights service
+        try {
+            // Use unified insights service for anomaly detection
+            		const anomalies = await insightsService.detectAnomalies();
+            const recentAnomalies = anomalies.filter(a => 
+                new Date(a.date).getTime() > Date.now() - 24 * 60 * 60 * 1000
+            );
+            
+            if (recentAnomalies.length > 0) {
+                console.log('Recent anomalies detected:', recentAnomalies);
+            }
+            
+            // Use analytics core service for spending analysis
+            const analysis = await analyticsCoreService.analyzeTransactions(
+                new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+                new Date().toISOString()
+            );
+            
+            // Check if this transaction is unusual based on analytics
+            const avgTransactionAmount = analysis.totalSpending / Math.max(analysis.transactionCount, 1);
+            if (Math.abs(newTransaction.amount) > avgTransactionAmount * 2) {
+                console.log('Unusual transaction amount detected:', newTransaction.amount);
+            }
+            
+        } catch (error) {
+            // Don't fail transaction creation if analytics fail
+            console.warn('Failed to analyze transaction:', error);
+        }
         
         return newTransaction;
     }
@@ -504,6 +525,23 @@ class TransactionService {
         return groupTransactions(transactions);
     }
 
+    async getTransactionsRelatedToAccount(accountId: string): Promise<Transaction[]> {
+        // Get all active transactions and filter for those related to the account
+        const allTransactions = await db.getActiveTransactions();
+        
+        // Filter for transactions where account is either source (accountId) or destination (toAccountId)
+        const relatedTransactions = allTransactions.filter(transaction => 
+            transaction.accountId === accountId || transaction.toAccountId === accountId
+        );
+        
+        // Sort by date (most recent first)
+        return relatedTransactions.sort((a, b) => {
+            const dateA = a.clearedDate || a.plannedDate || a.createdAt;
+            const dateB = b.clearedDate || b.plannedDate || b.createdAt;
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+        });
+    }
+
     async getTransactionsByDateRange(startDate: string, endDate: string, separateSplits: boolean = false): Promise<Transaction[] | TransactionOrGroup[]> {
         const transactions = await db.getTransactionsByDateRange(startDate, endDate);
         
@@ -524,8 +562,8 @@ class TransactionService {
         return groupTransactions(transactions);
     }
 
-    async getTransactionsByWhyTag(whyTag: WhyTagType, separateSplits: boolean = false): Promise<Transaction[] | TransactionOrGroup[]> {
-        const transactions = await db.getTransactionsByWhyTag(whyTag);
+    async getTransactionsByBudgetCategory(budgetCategoryId: string, separateSplits: boolean = false): Promise<Transaction[] | TransactionOrGroup[]> {
+        const transactions = await db.getTransactionsByBudgetCategory(budgetCategoryId);
         
         if (separateSplits) {
             return transactions;
@@ -627,7 +665,7 @@ class TransactionService {
         const filtered = transactions.filter(tx => 
             tx.description?.toLowerCase().includes(query.toLowerCase()) ||
             tx.whatTag?.toLowerCase().includes(query.toLowerCase()) ||
-            tx.whyTag?.toLowerCase().includes(query.toLowerCase()) ||
+            tx.budgetCategoryId?.toLowerCase().includes(query.toLowerCase()) ||
             tx.notes?.toLowerCase().includes(query.toLowerCase()) ||
             tx.reference?.toLowerCase().includes(query.toLowerCase()) ||
             Math.abs(tx.amount).toString().includes(query)

@@ -7,7 +7,24 @@ export interface DateGroup {
 	label: string;
 }
 
-export function getGroupKey(date: Date): string {
+export type GroupingMode = 'smart' | 'simple';
+
+export function getGroupKey(date: Date, mode: GroupingMode = 'smart'): string {
+	if (mode === 'simple') {
+		return getSimpleGroupKey(date);
+	}
+	return getSmartGroupKey(date);
+}
+
+export function getSimpleGroupKey(date: Date): string {
+	// Simple grouping by exact date (YYYY-MM-DD)
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, '0');
+	const day = String(date.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+export function getSmartGroupKey(date: Date): string {
 	const today = new Date();
 	const yesterday = new Date(today);
 	yesterday.setDate(yesterday.getDate() - 1);
@@ -67,7 +84,52 @@ export function getGroupDate(groupKey: string): Date {
 	}
 }
 
-export function getGroupLabel(groupKey: string): string {
+export function getGroupLabel(groupKey: string, mode: GroupingMode = 'smart'): string {
+	if (mode === 'simple') {
+		return getSimpleGroupLabel(groupKey);
+	}
+	return getSmartGroupLabel(groupKey);
+}
+
+export function getSimpleGroupLabel(groupKey: string): string {
+	// Parse YYYY-MM-DD format and return formatted date
+	const date = new Date(groupKey + 'T00:00:00');
+	const today = new Date();
+	const yesterday = new Date(today);
+	yesterday.setDate(yesterday.getDate() - 1);
+	
+	// Reset time for comparison
+	const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+	const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+	const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+	
+	if (dateOnly.getTime() === todayOnly.getTime()) {
+		return 'Today';
+	} else if (dateOnly.getTime() === yesterdayOnly.getTime()) {
+		return 'Yesterday';
+	} else {
+		// Format as "Mon, Dec 25" or "Mon, Dec 25, 2023" if different year
+		const currentYear = today.getFullYear();
+		const dateYear = date.getFullYear();
+		
+		if (dateYear === currentYear) {
+			return date.toLocaleDateString(undefined, { 
+				weekday: 'short', 
+				month: 'short', 
+				day: 'numeric' 
+			});
+		} else {
+			return date.toLocaleDateString(undefined, { 
+				weekday: 'short', 
+				month: 'short', 
+				day: 'numeric',
+				year: 'numeric'
+			});
+		}
+	}
+}
+
+export function getSmartGroupLabel(groupKey: string): string {
 	switch (groupKey) {
 		case 'today':
 			return 'Today';

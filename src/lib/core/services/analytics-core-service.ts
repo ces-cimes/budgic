@@ -313,7 +313,7 @@ class AnalyticsCoreService {
 		accountId?: string
 	): Promise<SpendingVelocity[]> {
 		const velocityData: SpendingVelocity[] = [];
-		const whyTags = await budgetService.getWhyTagsWithCategories();
+		const budgetCategories = await budgetService.getBudgetCategories();
 
 		const now = new Date();
 		let currentStart: Date, currentEnd: Date, previousStart: Date, previousEnd: Date;
@@ -338,7 +338,7 @@ class AnalyticsCoreService {
 				previousEnd = new Date(currentStart.getTime() - (24 * 60 * 60 * 1000));
 		}
 
-		for (const whyTag of whyTags) {
+		for (const budgetCategory of budgetCategories) {
 			const currentAnalysis = await this.analyzeTransactions(
 				currentStart.toISOString(),
 				currentEnd.toISOString(),
@@ -351,14 +351,14 @@ class AnalyticsCoreService {
 				accountId
 			);
 
-			const currentSpending = currentAnalysis.spendingByWhyTag[whyTag.name] || 0;
-			const previousSpending = previousAnalysis.spendingByWhyTag[whyTag.name] || 0;
+			const currentSpending = currentAnalysis.spendingByWhyTag[budgetCategory.name] || 0;
+			const previousSpending = previousAnalysis.spendingByWhyTag[budgetCategory.name] || 0;
 			const velocityRatio = previousSpending > 0 ? currentSpending / previousSpending : 0;
 
 			if (currentSpending > 0) {
 				velocityData.push({
-					whyTagId: whyTag.id,
-					whyTagName: whyTag.name,
+					whyTagId: budgetCategory.id,
+					whyTagName: budgetCategory.name,
 					currentPeriodSpending: currentSpending,
 					previousPeriodSpending: previousSpending,
 					velocityRatio,
@@ -397,8 +397,8 @@ class AnalyticsCoreService {
 		if (categoryBudgets.length === 0) return 0;
 		
 		const adherenceScores = categoryBudgets.map(budget => {
-			if (budget.targetAmount === 0) return 100;
-			const percentage = budget.spent / budget.targetAmount;
+			if (budget.totalAllocated === 0) return 100;
+			const percentage = budget.spent / budget.totalAllocated;
 			return percentage <= 1 ? 100 - (percentage * 20) : Math.max(0, 100 - (percentage - 1) * 50);
 		});
 

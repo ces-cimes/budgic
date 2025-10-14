@@ -1,42 +1,38 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import NavigationBar from '$lib/components/layout/NavigationBar.svelte';
-	import Dialog from '$lib/components/primitives/Dialog.svelte';
-	import '../app.css';
-	//import { dataService } from '$lib/core/data-service';
+  import '../app.css';
+  import { registerServiceWorker, handleOfflineStatus } from '$lib/pwa';
+  import { onMount } from 'svelte';
+  import { ModeWatcher } from 'mode-watcher';
+  import { insightsService } from '$lib/core/services';
+  import { AppLayout } from '$lib/components/layouts';
 
-	let { children } = $props();
-	let navBarHeight = $state(0);
+  let { children } = $props();
 
-	onMount(() => {
-		// Find the actual nav element that's fixed positioned
-		const navElement = document.querySelector('nav.fixed.bottom-0') as HTMLElement;
-		
-		if (navElement) {
-			// Set initial height
-			navBarHeight = navElement.offsetHeight;
-			
-			// Set up ResizeObserver to watch for size changes
-			const resizeObserver = new ResizeObserver((entries) => {
-				for (const entry of entries) {
-					navBarHeight = entry.contentRect.height;
-				}
-			});
-			
-			resizeObserver.observe(navElement);
-			
-			// Fallback: measure again after a short delay
-			setTimeout(() => {
-				navBarHeight = navElement.offsetHeight;
-			}, 100);
-		}
-	});
+  onMount(() => {
+    registerServiceWorker();
+    handleOfflineStatus();
+    
+    // Start insights service auto-updates
+    insightsService.startAutoUpdates();
+    
+    // Cleanup on unmount
+    return () => {
+      insightsService.stopAutoUpdates();
+    };
+  });
 </script>
 
-<div class="w-full min-h-screen flex flex-col" style="margin-bottom: calc(var(--spacing) * 2 + {navBarHeight}px);">
-	{@render children()}
-</div>
+<svelte:head>
+  <title>Budgic - Smart Financial Management</title>
+  <meta name="description" content="Intelligent personal finance management with emotional intelligence" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#3b82f6" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+</svelte:head>
 
-<Dialog />
+<ModeWatcher />
 
-<NavigationBar />
+<AppLayout>
+  {@render children?.()}
+</AppLayout>

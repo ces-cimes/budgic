@@ -5,6 +5,7 @@ import { priorityLevelMappingService } from './priority-level-mapping-service';
 import { transactionService } from './transaction-service';
 import { settingsService } from './settings-service';
 import { validationService } from './validation-service';
+import { budgetService, type CategoryBudget } from './budget-service';
 
 // ============================================================================
 // ENHANCED BUDGET SYSTEM TYPES
@@ -661,15 +662,14 @@ class EnhancedBudgetService {
         };
     }
 
-    private async getCurrentBudgetStatus() {
-        // This would integrate with the existing budget service
-        // For now, return sample data structure
-        return [
-            { waterfallCategory: 'survival', totalAllocated: 0 },
-            { waterfallCategory: 'security', totalAllocated: 0 },
-            { waterfallCategory: 'growth', totalAllocated: 0 },
-            { waterfallCategory: 'lifestyle', totalAllocated: 0 }
-        ];
+    private async getCurrentBudgetStatus(): Promise<{ waterfallCategory: string; totalAllocated: number }[]> {
+        // Use the unified budget service to get real budget data
+        const categoryBudgets = await budgetService.calculateCategoryBudgets();
+        
+        return categoryBudgets.map(category => ({
+            waterfallCategory: category.waterfallCategory,
+            totalAllocated: category.totalAllocated
+        }));
     }
 
     private async generateSurplusRecommendations(
@@ -763,17 +763,32 @@ class EnhancedBudgetService {
     }
 
     private async analyzeOverridePatterns(transactions: Transaction[]): Promise<EmotionalIntelligence['overridePatterns']> {
-        // This would analyze when users consistently spend more than budgeted
-        // For now, return sample data
-        return [
-            {
-                category: 'lifestyle',
-                frequency: 3,
-                averageOverride: 150,
-                lastOverride: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-                suggestedAdjustment: 200
+        // Use the unified budget service to analyze real override patterns
+        const categoryBudgets = await budgetService.calculateCategoryBudgets();
+        const overridePatterns: EmotionalIntelligence['overridePatterns'] = [];
+        
+        for (const categoryBudget of categoryBudgets) {
+            for (const budgetCategory of categoryBudget.budgetCategories) {
+                // Check if this category is consistently overspent
+                if (budgetCategory.spent > budgetCategory.allocatedAmount) {
+                    const overrideAmount = budgetCategory.spent - budgetCategory.allocatedAmount;
+                    const overridePercentage = (overrideAmount / budgetCategory.allocatedAmount) * 100;
+                    
+                    // Only include significant overrides (more than 10% over budget)
+                    if (overridePercentage > 10) {
+                        overridePatterns.push({
+                            category: budgetCategory.name,
+                            frequency: 1, // This would be calculated from historical data
+                            averageOverride: overrideAmount,
+                            lastOverride: new Date().toISOString(),
+                            suggestedAdjustment: budgetCategory.allocatedAmount * 1.1 // Suggest 10% increase
+                        });
+                    }
+                }
             }
-        ];
+        }
+        
+        return overridePatterns;
     }
 
     private async analyzeStressIndicators(transactions: Transaction[]): Promise<EmotionalIntelligence['stressIndicators']> {
@@ -786,15 +801,37 @@ class EnhancedBudgetService {
     }
 
     private async analyzePreferenceRevelation(transactions: Transaction[]): Promise<EmotionalIntelligence['preferenceRevelation']> {
-        // This would analyze revealed preferences vs. suggested preferences
-        return [
-            {
-                category: 'lifestyle',
-                revealedPreference: 250,
-                suggestedPreference: 200,
-                confidence: 75
+        // Use the unified budget service to analyze real preference patterns
+        const categoryBudgets = await budgetService.calculateCategoryBudgets();
+        const preferenceRevelation: EmotionalIntelligence['preferenceRevelation'] = [];
+        
+        for (const categoryBudget of categoryBudgets) {
+            for (const budgetCategory of categoryBudget.budgetCategories) {
+                // Analyze revealed vs suggested preferences
+                const revealedPreference = budgetCategory.spent;
+                const suggestedPreference = budgetCategory.allocatedAmount;
+                
+                // Calculate confidence based on how consistent the spending is
+                const utilizationRate = revealedPreference / suggestedPreference;
+                let confidence = 75; // Base confidence
+                
+                // Adjust confidence based on utilization rate
+                if (utilizationRate >= 0.8 && utilizationRate <= 1.2) {
+                    confidence = 90; // High confidence for near-budget spending
+                } else if (utilizationRate < 0.5 || utilizationRate > 2.0) {
+                    confidence = 50; // Low confidence for extreme deviations
+                }
+                
+                preferenceRevelation.push({
+                    category: budgetCategory.name,
+                    revealedPreference: revealedPreference,
+                    suggestedPreference: suggestedPreference,
+                    confidence: confidence
+                });
             }
-        ];
+        }
+        
+        return preferenceRevelation;
     }
 
     private countSpendingSpikes(transactions: Transaction[]): number {
@@ -819,15 +856,48 @@ class EnhancedBudgetService {
     }
 
     private async countCategoryOverspends(): Promise<number> {
-        // This would check budget vs actual spending by category
-        // For now, return a placeholder
-        return 2;
+        // Use the unified budget service to check for overspent categories
+        const categoryBudgets = await budgetService.calculateCategoryBudgets();
+        
+        let overspendCount = 0;
+        for (const categoryBudget of categoryBudgets) {
+            // Check if the category is overspent (spent > allocated)
+            if (categoryBudget.spent > categoryBudget.totalAllocated) {
+                overspendCount++;
+            }
+            
+            // Also check individual budget categories within the category
+            for (const budgetCategory of categoryBudget.budgetCategories) {
+                if (budgetCategory.spent > budgetCategory.allocatedAmount) {
+                    overspendCount++;
+                }
+            }
+        }
+        
+        return overspendCount;
     }
 
     private async countGoalDeviations(): Promise<number> {
-        // This would check goal progress vs targets
-        // For now, return a placeholder
-        return 1;
+        // Use the unified budget service to check for goal deviations
+        const categoryBudgets = await budgetService.calculateCategoryBudgets();
+        
+        let deviationCount = 0;
+        for (const categoryBudget of categoryBudgets) {
+            // Check individual budget categories for goal-based deviations
+            for (const budgetCategory of categoryBudget.budgetCategories) {
+                if (budgetCategory.isGoalBased && budgetCategory.goalTarget) {
+                    const expectedProgress = budgetCategory.goalTarget * 0.1; // Assume 10% monthly progress expectation
+                    const actualProgress = budgetCategory.goalProgress || 0;
+                    
+                    // Count as deviation if progress is significantly behind expectation
+                    if (actualProgress < expectedProgress * 0.8) {
+                        deviationCount++;
+                    }
+                }
+            }
+        }
+        
+        return deviationCount;
     }
 
     // ============================================================================

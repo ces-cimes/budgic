@@ -1,180 +1,333 @@
-@import url('https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap');
+@import "tailwindcss";
 
-@import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
+@import "tw-animate-css";
 
-@config '../tailwind.config.ts';
+@custom-variant dark (&:is(.dark *));
 
-@theme {
-    /* Warm Midnight Dark Mode Color System */
-    
-    /* Primary Colors */
-    --color-sage-green: #4A7C59;
-    --color-golden-amber: #FFB347;
-    --color-warm-coral: #FF8A80;
-    --color-warm-charcoal: #1A1D23;
-    --color-warm-ivory: #F5F1E8;
-    
-    /* Background Layers */
-    --color-bg-primary: #1A1D23;
-    --color-bg-secondary: #242831;
-    --color-bg-tertiary: #2D3339;
-    --color-bg-surface: #363C45;
-    
-    /* Text Hierarchy */
-    --color-text-primary: #F5F1E8;
-    --color-text-secondary: #B8BCC8;
-    --color-text-tertiary: #8A8F98;
-    --color-text-disabled: #5A5F68;
-    
-    /* Accent Colors */
-    --color-success: #4A7C59;
-    --color-warning: #E8B86D;
-    --color-alert: #FF8A80;
-    --color-info: #6B9BD1;
-    
-    /* Confidence-Based Colors */
-    --color-high-confidence: #4A7C59;
-    --color-high-confidence-accent: #D4AF37;
-    --color-medium-confidence: #C9A96E;
-    --color-borrowed-future: #FFAB91;
-    --color-overspent: #FF8A80;
-    
-    /* Daily Spending States */
-    --color-fresh-day: #242831;
-    --color-moderate-spending: #28252B;
-    --color-high-velocity: #FF8A80;
-    --color-cooldown: #2C3E50;
-    
-    /* Behavioral Psychology Colors */
-    --color-positive-reinforcement: #FFD700;
-    --color-momentum-alert: #FF8A80;
-    
-    /* Legacy Support - Map to new colors */
-    --bg-primary: var(--color-bg-primary);
-    --text-primary: var(--color-text-primary);
-    --accent: var(--color-golden-amber);
-    --color-expense: var(--color-warm-coral);
-    --color-income: var(--color-sage-green);
-    --color-savings: var(--color-info);
-    --color-highlight: var(--color-text-primary);
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.967 0.001 286.375);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.92 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: var(--color-bg-secondary);
+  --sidebar-foreground: oklch(0.141 0.005 285.823);
+  --sidebar-primary: oklch(0.21 0.006 285.885);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.967 0.001 286.375);
+  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+  --sidebar-border: oklch(0.92 0.004 286.32);
+  --sidebar-ring: oklch(0.705 0.015 286.067);
+  
+  /* Warm Midnight Dark Mode Color System - Light Theme Adaptations */
+  --color-sage-green: oklch(0.678 0.12 142.5);
+  --color-golden-amber: oklch(0.678 0.12 75.31);
+  --color-warm-coral: oklch(0.65 0.18 25.0);
+  --color-warm-charcoal: oklch(0.15 0.005 285.823);
+  --color-warm-ivory: oklch(0.95 0.01 85.0);
+  
+  /* Background Layers - Light Theme */
+  --color-bg-primary: oklch(1 0 0);
+  --color-bg-secondary: oklch(0.967 0.001 286.375);
+  --color-bg-tertiary: oklch(0.92 0.004 286.32);
+  --color-bg-surface: oklch(0.95 0.002 286.32);
+  
+  /* Text Hierarchy - Light Theme */
+  --color-text-primary: oklch(0.141 0.005 285.823);
+  --color-text-secondary: oklch(0.35 0.01 285.823);
+  --color-text-tertiary: oklch(0.55 0.016 285.938);
+  --color-text-disabled: oklch(0.7 0.02 285.823);
+  
+  /* Accent Colors - Light Theme */
+  --color-success: oklch(0.45 0.12 142.5);
+  --color-warning: oklch(0.75 0.15 85.0);
+  --color-alert: oklch(0.65 0.18 25.0);
+  --color-info: oklch(0.55 0.12 220.0);
+  
+  /* Confidence-Based Colors - Light Theme */
+  --color-high-confidence: oklch(0.45 0.12 142.5);
+  --color-high-confidence-accent: oklch(0.65 0.18 85.0);
+  --color-medium-confidence: oklch(0.6 0.12 85.0);
+  --color-borrowed-future: oklch(0.7 0.15 25.0);
+  --color-overspent: oklch(0.65 0.18 25.0);
+  
+  /* Daily Spending States - Light Theme */
+  --color-fresh-day: oklch(0.967 0.001 286.375);
+  --color-moderate-spending: oklch(0.92 0.004 286.32);
+  --color-high-velocity: oklch(0.65 0.18 25.0);
+  --color-cooldown: oklch(0.3 0.05 220.0);
+  
+  /* Behavioral Psychology Colors - Light Theme */
+  --color-positive-reinforcement: oklch(0.8 0.2 85.0);
+  --color-momentum-alert: oklch(0.65 0.18 25.0);
+  
+  /* Legacy Support - Map to new colors */
+  --bg-primary: var(--color-bg-primary);
+  --text-primary: var(--color-text-primary);
+  --color-expense: var(--color-warm-coral);
+  --color-income: var(--color-sage-green);
+  --color-savings: var(--color-info);
+  --color-highlight: var(--color-text-primary);
+}
+
+.dark {
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.92 0.004 286.32);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.016 285.938);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.21 0.006 285.885);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.274 0.006 286.033);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.552 0.016 285.938);
+  
+  /* Warm Midnight Dark Mode Color System - Dark Theme */
+  --color-sage-green: oklch(0.678 0.12 142.5);
+  --color-golden-amber: oklch(0.75 0.15 85.0);
+  --color-warm-coral: oklch(0.678 0.12 25.1);
+  --color-warm-charcoal: oklch(0.15 0.005 285.823);
+  --color-warm-ivory: oklch(0.95 0.01 85.0);
+  
+  /* Background Layers - Dark Theme */
+  --color-bg-primary: oklch(0.141 0.005 285.823);
+  --color-bg-secondary: oklch(0.21 0.006 285.885);
+  --color-bg-tertiary: oklch(0.274 0.006 286.033);
+  --color-bg-surface: oklch(0.32 0.008 286.033);
+  
+  /* Text Hierarchy - Dark Theme */
+  --color-text-primary: oklch(0.95 0.01 85.0);
+  --color-text-secondary: oklch(0.75 0.02 85.0);
+  --color-text-tertiary: oklch(0.55 0.016 285.938);
+  --color-text-disabled: oklch(0.35 0.01 285.823);
+  
+  /* Accent Colors - Dark Theme */
+  --color-success: oklch(0.45 0.12 142.5);
+  --color-warning: oklch(0.75 0.15 85.0);
+  --color-alert: oklch(0.65 0.18 25.0);
+  --color-info: oklch(0.55 0.12 220.0);
+  
+  /* Confidence-Based Colors - Dark Theme */
+  --color-high-confidence: oklch(0.45 0.12 142.5);
+  --color-high-confidence-accent: oklch(0.65 0.18 85.0);
+  --color-medium-confidence: oklch(0.6 0.12 85.0);
+  --color-borrowed-future: oklch(0.7 0.15 25.0);
+  --color-overspent: oklch(0.65 0.18 25.0);
+  
+  /* Daily Spending States - Dark Theme */
+  --color-fresh-day: oklch(0.21 0.006 285.885);
+  --color-moderate-spending: oklch(0.18 0.005 285.823);
+  --color-high-velocity: oklch(0.65 0.18 25.0);
+  --color-cooldown: oklch(0.25 0.05 220.0);
+  
+  /* Behavioral Psychology Colors - Dark Theme */
+  --color-positive-reinforcement: oklch(0.8 0.2 85.0);
+  --color-momentum-alert: oklch(0.65 0.18 25.0);
+  
+  /* Legacy Support - Map to new colors */
+  --bg-primary: var(--color-bg-primary);
+  --text-primary: var(--color-text-primary);
+  --color-expense: var(--color-warm-coral);
+  --color-income: var(--color-sage-green);
+  --color-savings: var(--color-info);
+  --color-highlight: var(--color-text-primary);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
 
 @layer base {
-    body {
-        @apply bg-[var(--color-bg-primary)] text-[var(--color-text-primary)];
-        font-family: 'Ubuntu', sans-serif;
-        /* Improve mobile touch scrolling */
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-    }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-sidebar text-foreground;
+    font-family: 'Ubuntu', sans-serif;
+    /* Improve mobile touch scrolling */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
 
-    .accent {
-        @apply text-[var(--accent)];
-    }
-    
-    .expense {
-        @apply text-[var(--color-expense)];
-    }
-    
-    .income {
-        @apply text-[var(--color-income)];
-    }
-    
-    .savings {
-        @apply text-[var(--color-savings)];
-    }
+  .accent {
+    @apply text-[var(--accent)];
+  }
+  
+  .expense {
+    @apply text-[var(--color-expense)];
+  }
+  
+  .income {
+    @apply text-[var(--color-income)];
+  }
+  
+  .savings {
+    @apply text-[var(--color-savings)];
+  }
 
-    /* New semantic color classes */
-    .text-primary { @apply text-[var(--color-text-primary)]; }
-    .text-secondary { @apply text-[var(--color-text-secondary)]; }
-    .text-tertiary { @apply text-[var(--color-text-tertiary)]; }
-    .text-disabled { @apply text-[var(--color-text-disabled)]; }
-    
-    .bg-primary { @apply bg-[var(--color-bg-primary)]; }
-    .bg-secondary { @apply bg-[var(--color-bg-secondary)]; }
-    .bg-tertiary { @apply bg-[var(--color-bg-tertiary)]; }
-    .bg-surface { @apply bg-[var(--color-bg-surface)]; }
-    
-    .border-primary { @apply border-[var(--color-bg-surface)]; }
-    .border-secondary { @apply border-[var(--color-text-tertiary)]; }
+  /* New semantic color classes */
+  .text-primary { @apply text-[var(--color-text-primary)]; }
+  .text-secondary { @apply text-[var(--color-text-secondary)]; }
+  .text-tertiary { @apply text-[var(--color-text-tertiary)]; }
+  .text-disabled { @apply text-[var(--color-text-disabled)]; }
+  
+  .bg-primary { @apply bg-[var(--color-bg-primary)]; }
+  .bg-secondary { @apply bg-[var(--color-bg-secondary)]; }
+  .bg-tertiary { @apply bg-[var(--color-bg-tertiary)]; }
+  .bg-surface { @apply bg-[var(--color-bg-surface)]; }
+  
+  .border-primary { @apply border-[var(--color-bg-surface)]; }
+  .border-secondary { @apply border-[var(--color-text-tertiary)]; }
 
-    /* Mobile touch improvements */
-    @media (pointer: coarse) {
-        /* Make tooltips more visible on touch devices */
-        [class*="cursor-help"] {
-            position: relative;
-        }
-        
-        /* Show tooltip below the element on mobile */
-        .tooltip {
-            transform: translateX(-50%);
-            left: 50% !important;
-            top: auto !important;
-            bottom: -2.5rem;
-        }
-        
-        /* Improve touch targets for specific interactive elements */
-        .touch-target {
-            min-height: 44px;
-            min-width: 44px;
-        }
-        
-        /* Apply to navigation and critical interactive elements */
-        nav button, .navigation-bar button, .fab {
-            min-height: 44px;
-            min-width: 44px;
-        }
-        
-        /* Better scrolling for transaction lists */
-        .transaction-list {
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
-        }
-        
-        /* Prevent zoom on double tap */
-        * {
-            touch-action: manipulation;
-        }
-        
-        /* Allow scrolling on scrollable containers */
-        .scrollable {
-            touch-action: pan-y;
-        }
+  /* Mobile touch improvements */
+  @media (pointer: coarse) {
+    /* Make tooltips more visible on touch devices */
+    [class*="cursor-help"] {
+      position: relative;
     }
-
+    
+    /* Show tooltip below the element on mobile */
     .tooltip {
-        animation: tooltipFadeIn 0.15s ease-out;
+      transform: translateX(-50%);
+      left: 50% !important;
+      top: auto !important;
+      bottom: -2.5rem;
     }
     
-    @keyframes tooltipFadeIn {
-        from { opacity: 0; transform: translateY(-5px) translateX(-50%); }
-        to { opacity: 1; transform: translateY(0) translateX(-50%); }
+    /* Improve touch targets for specific interactive elements */
+    .touch-target {
+      min-height: 44px;
+      min-width: 44px;
     }
+    
+    /* Apply to navigation and critical interactive elements */
+    nav button, .navigation-bar button, .fab {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Better scrolling for transaction lists */
+    .transaction-list {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    
+    /* Prevent zoom on double tap */
+    * {
+      touch-action: manipulation;
+    }
+    
+    /* Allow scrolling on scrollable containers */
+    .scrollable {
+      touch-action: pan-y;
+    }
+  }
+
+  .tooltip {
+    animation: tooltipFadeIn 0.15s ease-out;
+  }
+  
+  @keyframes tooltipFadeIn {
+    from { opacity: 0; transform: translateY(-5px) translateX(-50%); }
+    to { opacity: 1; transform: translateY(0) translateX(-50%); }
+  }
 }
 
 @layer components {
-    .glass {
-        @apply relative overflow-hidden rounded-[20px] border border-white/20 bg-[var(--color-bg-secondary)]/80
-               backdrop-blur-[5px] shadow-[0_8px_32px_rgba(0,0,0,0.2)];
-        
-        /* Subtle inset shadows for depth */
-        box-shadow: 
-            0 8px 32px rgba(0, 0, 0, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.1),
-            inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-            inset 0 0 12px 6px rgba(255, 255, 255, 0.05);
-      
-        /* Glass edge highlights */
-        &::before {
-            @apply content-[''] absolute left-0 top-0 right-0 h-px
-                   bg-gradient-to-r from-transparent via-white/20 to-transparent;
-        }
-      
-        &::after {
-            @apply content-[''] absolute left-0 top-0 w-px h-full
-                   bg-gradient-to-b from-white/20 via-transparent to-white/10;
-        }
+  .glass {
+    @apply relative overflow-hidden rounded-[20px] border border-white/20 bg-[var(--color-bg-secondary)]/80
+           backdrop-blur-[5px] shadow-[0_8px_32px_rgba(0,0,0,0.2)];
+    
+    /* Subtle inset shadows for depth */
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+        inset 0 0 12px 6px rgba(255, 255, 255, 0.05);
+  
+    /* Glass edge highlights */
+    &::before {
+      @apply content-[''] absolute left-0 top-0 right-0 h-px
+             bg-gradient-to-r from-transparent via-white/20 to-transparent;
     }
+  
+    &::after {
+      @apply content-[''] absolute left-0 top-0 w-px h-full
+             bg-gradient-to-b from-white/20 via-transparent to-white/10;
+    }
+  }
 }

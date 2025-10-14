@@ -3,6 +3,7 @@ export { accountService } from './account-service';
 export { currencyService } from './currency-service';
 export { tagService } from './tag-service';
 export { transactionService } from './transaction-service';
+export { transferService } from './transfer-service';
 export { bankTransactionService } from './bank-transaction-service';
 export { settingsService } from './settings-service';
 export { payeeService } from './payee-service';
@@ -25,10 +26,13 @@ export { cacheService, transactionCache, accountCache, analyticsCache } from './
 
 // Consolidated Analytics Services
 export { analyticsCoreService } from './analytics-core-service';
-export { unifiedInsightsService } from './unified-insights-service';
+export { insightsService } from './insights-service';
 
 // User Actions & Behavior Tracking Services
 export { userActionsService, PrivacyUtils } from './user-actions-service';
+
+// Planning Service
+export { planningService } from './planning-service';
 
 // Re-export types from db for convenience
 export type {
@@ -64,7 +68,7 @@ export type {
 
 // Re-export budget service types
 export type {
-    WhyTag,
+    BudgetCategory,
     CategoryBudget,
     BudgetAllocation,
     BudgetRecommendation,
@@ -121,15 +125,8 @@ export type {
 } from './analytics-core-service';
 
 export type {
-    UnifiedAlert,
-    UnifiedInsight,
-    TodayWin,
-    SpendingPrediction as UnifiedSpendingPrediction,
-    AnomalyDetection as UnifiedAnomalyDetection,
-    BudgetForecast as UnifiedBudgetForecast,
-    QuickAction,
-    BudgetScenario
-} from './unified-insights-service';
+    Insight
+} from './insights-service';
 
 // Re-export user actions service types
 export type {
@@ -141,4 +138,12 @@ export type {
 } from './user-actions-service';
 
 // Re-export UserAction type from db.ts
-export type { UserAction } from '$lib/core/db'; 
+export type { UserAction } from '$lib/core/db';
+
+// Re-export planning service types
+export type {
+    DailyAllowance,
+    WeeklyProjection,
+    PlanningInsight,
+    PlanningData
+} from './planning-service'; 

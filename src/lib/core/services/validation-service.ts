@@ -1,4 +1,4 @@
-import { db, validateSplitTransaction, validateNewSplitTransaction, BalanceUtils } from '$lib/core/db';
+import { db, validateSplitTransaction, validateNewSplitTransaction, validateTransfer, BalanceUtils } from '$lib/core/db';
 import { isValidCurrencyCode, validateAmount, getCurrencyInfo, getDecimalPlaces } from '$lib/utils/currency-utils';
 import { dateUtils } from '$lib/utils/date-utils';
 import type { Transaction, Account, Currency, Tag, WhatTagType, WhyTagType } from '$lib/core/db';
@@ -81,8 +81,8 @@ class ValidationService {
     /**
      * Validate amount for a specific currency
      */
-    validateAmount(amount: number, currencyCode: string): AmountValidationResult {
-        return validateAmount(amount, currencyCode);
+    validateAmount(amount: number, currencyCode: string, allowNegative: boolean = false): AmountValidationResult {
+        return validateAmount(amount, currencyCode, allowNegative);
     }
 
     /**
@@ -270,11 +270,22 @@ class ValidationService {
         }
 
         if (transactionData.amount === undefined || transactionData.amount === null) {
-            errors.push('Amount is required');
+            // Amount is optional for transfers - they use transferDetails
+            if (transactionData.type !== 'transfer') {
+                errors.push('Amount is required for non-transfer transactions');
+            }
         }
 
-        if (!transactionData.type) {
-            errors.push('Transaction type is required');
+        // Transfer-specific validation
+        if (transactionData.type === 'transfer') {
+            if (!transactionData.transferDetails) {
+                errors.push('Transfer details are required for transfer transactions');
+            } else {
+                const transferValidation = validateTransfer(transactionData as Transaction);
+                if (!transferValidation.isValid) {
+                    errors.push(...transferValidation.errors);
+                }
+            }
         }
 
         if (!transactionData.status) {
@@ -291,10 +302,10 @@ class ValidationService {
             }
         }
 
-        // Amount validation
+        // Amount validation - allow negative amounts for transactions
         if (transactionData.amount !== undefined && transactionData.amount !== null) {
             const currency = transactionData.currency || 'USD';
-            const amountValidation = this.validateAmount(transactionData.amount, currency);
+            const amountValidation = this.validateAmount(transactionData.amount, currency, true);
             if (!amountValidation.isValid) {
                 errors.push(amountValidation.error!);
             }
@@ -354,10 +365,10 @@ class ValidationService {
             }
         }
 
-        // Amount validation
+        // Amount validation - allow negative amounts for transactions
         if (updates.amount !== undefined && updates.amount !== null) {
             const currency = updates.currency || transaction.currency;
-            const amountValidation = this.validateAmount(updates.amount, currency);
+            const amountValidation = this.validateAmount(updates.amount, currency, true);
             if (!amountValidation.isValid) {
                 errors.push(amountValidation.error!);
             }
@@ -854,6 +865,118 @@ class ValidationService {
         const validCategories = ['survival', 'security', 'growth', 'lifestyle'];
         if (!validCategories.includes(waterfallCategory)) {
             errors.push(`Invalid waterfall category. Must be one of: ${validCategories.join(', ')}`);
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            warnings
+        };
+    }
+
+    /**
+     * Validate budget category creation
+     */
+    async validateBudgetCategoryCreation(budgetData: {
+        name: string;
+        waterfallCategory: 'survival' | 'security' | 'growth' | 'lifestyle';
+        allocatedAmount: number;
+        priority?: number;
+        isGoalBased?: boolean;
+        goalTarget?: number;
+    }): Promise<EntityValidationResult> {
+        const errors: string[] = [];
+        const warnings: string[] = [];
+
+        // Required fields
+        if (!budgetData.name?.trim()) {
+            errors.push('Budget category name is required');
+        }
+
+        if (!budgetData.waterfallCategory) {
+            errors.push('Waterfall category is required');
+        }
+
+        if (budgetData.allocatedAmount === undefined || budgetData.allocatedAmount === null) {
+            errors.push('Allocated amount is required');
+        }
+
+        // Category validation
+        const validCategories = ['survival', 'security', 'growth', 'lifestyle'];
+        if (budgetData.waterfallCategory && !validCategories.includes(budgetData.waterfallCategory)) {
+            errors.push(`Invalid waterfall category. Must be one of: ${validCategories.join(', ')}`);
+        }
+
+        // Amount validation
+        if (budgetData.allocatedAmount !== undefined && budgetData.allocatedAmount < 0) {
+            errors.push('Allocated amount cannot be negative');
+        }
+
+        // Priority validation
+        if (budgetData.priority !== undefined && budgetData.priority < 1) {
+            errors.push('Priority must be at least 1');
+        }
+
+        // Goal validation
+        if (budgetData.isGoalBased && budgetData.goalTarget !== undefined) {
+            if (budgetData.goalTarget <= 0) {
+                errors.push('Goal target must be positive');
+            }
+        }
+
+        // Check for duplicate budget categories
+        if (budgetData.name) {
+            const existingCategory = await db.budgetCategories
+                ?.filter(cat => cat.name.toLowerCase() === budgetData.name!.toLowerCase())
+                ?.filter(cat => !cat.deletedAt)
+                ?.first();
+            
+            if (existingCategory) {
+                errors.push('A budget category with this name already exists');
+            }
+        }
+
+        return {
+            isValid: errors.length === 0,
+            errors,
+            warnings
+        };
+    }
+
+    /**
+     * Validate budget category update
+     */
+    async validateBudgetCategoryUpdate(categoryId: string, updates: {
+        allocatedAmount?: number;
+        priority?: number;
+        isGoalBased?: boolean;
+        goalTarget?: number;
+    }): Promise<EntityValidationResult> {
+        const errors: string[] = [];
+        const warnings: string[] = [];
+
+        // Check if category exists
+        const category = await db.budgetCategories?.get(categoryId);
+        if (!category) {
+            errors.push('Budget category not found');
+            return { isValid: false, errors };
+        }
+
+        // Amount validation
+        if (updates.allocatedAmount !== undefined && updates.allocatedAmount < 0) {
+            errors.push('Allocated amount cannot be negative');
+        }
+
+        // Priority validation
+        if (updates.priority !== undefined && updates.priority < 1) {
+            errors.push('Priority must be at least 1');
+        }
+
+        // Goal validation
+        if (updates.isGoalBased && updates.goalTarget !== undefined) {
+            if (updates.goalTarget <= 0) {
+                errors.push('Goal target must be positive');
+            }
         }
 
         return {

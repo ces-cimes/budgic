@@ -1,4 +1,12 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from en!"
+	"hello_world": "Hello, {name} from en!",
+	"currency_compact_k": "{amount}K",
+	"currency_compact_m": "{amount}M",
+	"currency_compact_b": "{amount}B",
+	"currency_compact_t": "{amount}T",
+	"currency_zero": "$0.00",
+	"currency_format_error": "Formatting error",
+	"currency_invalid_amount": "Invalid amount",
+	"currency_unknown_currency": "Unknown currency"
 }

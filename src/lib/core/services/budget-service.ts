@@ -6,45 +6,82 @@ import { transactionService } from './transaction-service';
 import { validationService } from './validation-service';
 
 // ============================================================================
-// ENHANCED BUDGET SYSTEM TYPES
+// UNIFIED BUDGET SYSTEM TYPES
 // ============================================================================
 
-export interface WhyTag {
+export type WaterfallCategory = 'survival' | 'security' | 'growth' | 'lifestyle';
+
+/**
+ * Unified Budget Category - replaces why tags entirely
+ * This is the single source of truth for both categorization and budgeting
+ */
+export interface BudgetCategory {
     id: string;
-    name: string;
-    waterfallCategory: 'survival' | 'security' | 'growth' | 'lifestyle';
+    name: string;                    // e.g., "rent", "groceries", "entertainment"
+    waterfallCategory: WaterfallCategory;
+    priority: number;                // Priority within waterfall category (1 = highest)
+    
+    // Budget settings
+    allocatedAmount: number;         // Monthly budget amount
+    recurringPeriod: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom';
+    customPeriodDays?: number;
+    
+    // Current period tracking
+    spent: number;                   // Current period spending
+    remaining: number;               // allocatedAmount - spent
+    
+    // Goal system (optional)
+    isGoalBased: boolean;
+    goalTarget?: number;             // Target amount (no date = flexible)
+    goalProgress: number;            // Total accumulated
+    isComplete: boolean;
+    
+    // Automatic adjustments
+    carryoverAmount: number;         // Rollover/borrowing amount
+    maxCarryoverPercent: number;     // User-adjustable cap (default 20%)
+    autoAdjustmentsEnabled: boolean;
+    
+    // Metadata
+    color?: string;
+    description?: string;
     isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    deletedAt: string | null;
 }
 
-export interface TagBudget {
-    tagId: string;
-    tagName: string;
-    waterfallCategory: 'survival' | 'security' | 'growth' | 'lifestyle';
+/**
+ * Simplified interface for transaction creation
+ * Users only need to select a budget category (or none for income)
+ */
+export interface TransactionBudgetCategory {
+    id: string;
+    name: string;
+    waterfallCategory: WaterfallCategory;
+    priority: number;
     allocatedAmount: number;
-    targetAmount?: number; // For goal-based tags like emergency fund
-    spent: number;
     remaining: number;
-    priority: number; // Priority within category (1 = highest)
-    isGoalBased: boolean;
-    goalType?: 'monthly' | 'target' | 'recurring';
-    goalTarget?: number; // For target-based goals
-    goalProgress?: number; // Current progress toward goal
-    isComplete: boolean;
-    rolloverAmount: number;
-    borrowedAmount: number;
+    color?: string;
+}
+
+export interface FundTransfer {
+    fromCategoryId: string;
+    toCategoryId: string;
+    amount: number;
+    reason: 'user_reallocation' | 'automatic_borrowing' | 'goal_completion';
+    respectsWaterfall: boolean;
+    timestamp: Date;
 }
 
 export interface CategoryBudget {
-    waterfallCategory: string;
+    waterfallCategory: WaterfallCategory;
     totalAllocated: number;
-    targetAmount: number;
     spent: number;
     remaining: number;
-    rolloverAmount: number;
-    borrowedAmount: number;
+    carryoverAmount: number;
     isComplete: boolean;
     completionPercentage: number;
-    tagBudgets: TagBudget[];
+    budgetCategories: BudgetCategory[];
 }
 
 export interface BudgetAllocation {
@@ -54,65 +91,20 @@ export interface BudgetAllocation {
     lifestyle: { amount: number; targetAmount: number; isComplete: boolean };
 }
 
-export interface FinancialNeeds {
-    survival: {
-        housing: number;
-        utilities: number;
-        food: number;
-        transport: number;
-        healthcare: number;
-        buffer: number;
-    };
-    security: {
-        emergencyFundTarget: number;
-        monthlyContribution: number;
-        insurance: number;
-        debtPayments: number;
-    };
-    growth: {
-        minimumInvestment: number;
-        education: number;
-        skills: number;
-    };
-    lifestyle: {
-        entertainment: number;
-        hobbies: number;
-        discretionary: number;
-    };
-}
-
-export interface IncomeLevel {
-    level: 'low' | 'medium' | 'high';
-    range: { min: number; max: number };
-    survivalBuffer: number;
-    securityMultiplier: number;
-    growthMultiplier: number;
-}
-
-export interface TagBudgetSuggestion {
-    tagId: string;
-    tagName: string;
-    suggestedAmount: number;
-    reason: string;
-    priority: 'high' | 'medium' | 'low';
-    category: 'survival' | 'security' | 'growth' | 'lifestyle';
-}
-
 export interface BudgetRecommendation {
-    type: 'reallocate' | 'boost_category' | 'reduce_category' | 'create_why_tag' | 'goal_complete' | 'tag_adjustment';
+    type: 'reallocate' | 'boost_category' | 'reduce_category' | 'create_category' | 'goal_complete' | 'category_adjustment';
     priority: 'low' | 'medium' | 'high';
     title: string;
     description: string;
     action: {
-        category?: string;
-        whyTagId?: string;
+        categoryId?: string;
         amount?: number;
         reason: string;
     };
 }
 
 export interface BudgetInsight {
-    type: 'spending_trend' | 'category_overspend' | 'surplus_detected' | 'rollover_opportunity' | 'goal_milestone' | 'tag_overspend';
+    type: 'spending_trend' | 'category_overspend' | 'surplus_detected' | 'carryover_opportunity' | 'goal_milestone' | 'category_overspend';
     title: string;
     description: string;
     severity: 'info' | 'warning' | 'alert' | 'success';
@@ -120,85 +112,41 @@ export interface BudgetInsight {
 }
 
 // ============================================================================
-// BUDGET SERVICE IMPLEMENTATION
+// UNIFIED BUDGET SERVICE IMPLEMENTATION
 // ============================================================================
 
 class BudgetService {
-    private readonly INCOME_LEVELS: IncomeLevel[] = [
-        {
-            level: 'low',
-            range: { min: 0, max: 3000 },
-            survivalBuffer: 0.05, // 5% buffer
-            securityMultiplier: 0.8, // 80% of standard
-            growthMultiplier: 0.6 // 60% of standard
-        },
-        {
-            level: 'medium',
-            range: { min: 3001, max: 8000 },
-            survivalBuffer: 0.1, // 10% buffer
-            securityMultiplier: 1.0, // Standard
-            growthMultiplier: 1.0 // Standard
-        },
-        {
-            level: 'high',
-            range: { min: 8001, max: Infinity },
-            survivalBuffer: 0.15, // 15% buffer
-            securityMultiplier: 1.2, // 120% of standard
-            growthMultiplier: 1.3 // 130% of standard
-        }
-    ];
-
-    private readonly DEFAULT_TAG_BUDGETS: Record<string, { amount: number; priority: number; isGoalBased: boolean; goalType?: 'monthly' | 'target' | 'recurring'; goalTarget?: number }> = {
-        // Survival tags
-        'rent': { amount: 1200, priority: 1, isGoalBased: false },
-        'utilities': { amount: 200, priority: 2, isGoalBased: false },
-        'groceries': { amount: 400, priority: 3, isGoalBased: false },
-        'transport': { amount: 300, priority: 4, isGoalBased: false },
-        'healthcare': { amount: 150, priority: 5, isGoalBased: false },
-        'essential': { amount: 200, priority: 6, isGoalBased: false },
+    private readonly DEFAULT_CATEGORIES: Record<string, {
+        waterfallCategory: WaterfallCategory;
+        priority: number;
+        allocatedAmount: number;
+        isGoalBased: boolean;
+        goalTarget?: number;
+        color: string;
+    }> = {
+        // Survival categories
+        'rent': { waterfallCategory: 'survival', priority: 1, allocatedAmount: 1200, isGoalBased: false, color: '#EF4444' },
+        'utilities': { waterfallCategory: 'survival', priority: 2, allocatedAmount: 200, isGoalBased: false, color: '#F97316' },
+        'groceries': { waterfallCategory: 'survival', priority: 3, allocatedAmount: 400, isGoalBased: false, color: '#EAB308' },
+        'transport': { waterfallCategory: 'survival', priority: 4, allocatedAmount: 300, isGoalBased: false, color: '#84CC16' },
+        'healthcare': { waterfallCategory: 'survival', priority: 5, allocatedAmount: 150, isGoalBased: false, color: '#06B6D4' },
+        'essential': { waterfallCategory: 'survival', priority: 6, allocatedAmount: 200, isGoalBased: false, color: '#8B5CF6' },
         
-        // Security tags
-        'emergency': { amount: 500, priority: 1, isGoalBased: true, goalType: 'target', goalTarget: 15000 },
-        'insurance': { amount: 200, priority: 2, isGoalBased: false },
-        'debt': { amount: 300, priority: 3, isGoalBased: false },
-        'savings': { amount: 200, priority: 4, isGoalBased: true, goalType: 'monthly' },
+        // Security categories
+        'emergency': { waterfallCategory: 'security', priority: 1, allocatedAmount: 500, isGoalBased: true, goalTarget: 15000, color: '#DC2626' },
+        'insurance': { waterfallCategory: 'security', priority: 2, allocatedAmount: 200, isGoalBased: false, color: '#EA580C' },
+        'debt': { waterfallCategory: 'security', priority: 3, allocatedAmount: 300, isGoalBased: false, color: '#D97706' },
+        'savings': { waterfallCategory: 'security', priority: 4, allocatedAmount: 200, isGoalBased: true, color: '#65A30D' },
         
-        // Growth tags
-        'investment': { amount: 300, priority: 1, isGoalBased: true, goalType: 'monthly' },
-        'education': { amount: 200, priority: 2, isGoalBased: false },
-        'skills': { amount: 100, priority: 3, isGoalBased: false },
+        // Growth categories
+        'investment': { waterfallCategory: 'growth', priority: 1, allocatedAmount: 300, isGoalBased: true, color: '#059669' },
+        'education': { waterfallCategory: 'growth', priority: 2, allocatedAmount: 200, isGoalBased: false, color: '#0D9488' },
+        'skills': { waterfallCategory: 'growth', priority: 3, allocatedAmount: 100, isGoalBased: false, color: '#7C3AED' },
         
-        // Lifestyle tags
-        'entertainment': { amount: 200, priority: 1, isGoalBased: false },
-        'hobbies': { amount: 100, priority: 2, isGoalBased: false },
-        'discretionary': { amount: 100, priority: 3, isGoalBased: false }
-    };
-
-    private readonly STANDARD_NEEDS: FinancialNeeds = {
-        survival: {
-            housing: 1200,
-            utilities: 200,
-            food: 400,
-            transport: 300,
-            healthcare: 150,
-            buffer: 0 // Will be calculated based on income level
-        },
-        security: {
-            emergencyFundTarget: 15000, // 6 months of $2500 expenses
-            monthlyContribution: 500,
-            insurance: 200,
-            debtPayments: 300
-        },
-        growth: {
-            minimumInvestment: 300,
-            education: 200,
-            skills: 100
-        },
-        lifestyle: {
-            entertainment: 200,
-            hobbies: 100,
-            discretionary: 100
-        }
+        // Lifestyle categories
+        'entertainment': { waterfallCategory: 'lifestyle', priority: 1, allocatedAmount: 200, isGoalBased: false, color: '#EC4899' },
+        'hobbies': { waterfallCategory: 'lifestyle', priority: 2, allocatedAmount: 100, isGoalBased: false, color: '#F43F5E' },
+        'discretionary': { waterfallCategory: 'lifestyle', priority: 3, allocatedAmount: 100, isGoalBased: false, color: '#A855F7' }
     };
 
     public get ready() {
@@ -206,26 +154,30 @@ class BudgetService {
     }
 
     // ============================================================================
-    // TAG-LEVEL BUDGET MANAGEMENT
+    // BUDGET CATEGORY MANAGEMENT (Unified why tag + budget)
     // ============================================================================
 
     /**
-     * Create or update a tag budget
+     * Create or update a budget category (unified why tag + budget)
      */
-    async createTagBudget(tagName: string, waterfallCategory: WhyTag['waterfallCategory'], amount: number, options?: {
+    async createBudgetCategory(name: string, waterfallCategory: WaterfallCategory, amount: number, options?: {
         priority?: number;
         isGoalBased?: boolean;
-        goalType?: 'monthly' | 'target' | 'recurring';
         goalTarget?: number;
-    }): Promise<TagBudget> {
+        recurringPeriod?: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom';
+        customPeriodDays?: number;
+        maxCarryoverPercent?: number;
+        autoAdjustmentsEnabled?: boolean;
+        color?: string;
+        description?: string;
+    }): Promise<BudgetCategory> {
         // Validate input data
-        const validation = await validationService.validateTagBudgetCreation({
-            tagName,
+        const validation = await validationService.validateBudgetCategoryCreation({
+            name,
             waterfallCategory,
             allocatedAmount: amount,
             priority: options?.priority,
             isGoalBased: options?.isGoalBased,
-            goalType: options?.goalType,
             goalTarget: options?.goalTarget
         });
 
@@ -233,678 +185,366 @@ class BudgetService {
             throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
         }
 
-        // Create the why tag if it doesn't exist
-        const whyTag = await this.createWhyTag(tagName, waterfallCategory);
-        
-        // Get default settings for this tag
-        const defaults = this.DEFAULT_TAG_BUDGETS[tagName.toLowerCase()] || {
-            amount: 0,
+        // Get default settings for this category
+        const defaults = this.DEFAULT_CATEGORIES[name.toLowerCase()] || {
+            waterfallCategory: 'lifestyle',
             priority: 999,
-            isGoalBased: false
+            allocatedAmount: 0,
+            isGoalBased: false,
+            color: '#6B7280'
         };
 
-        const tagBudget: TagBudget = {
-            tagId: whyTag.id,
-            tagName: whyTag.name,
+        const budgetCategory: BudgetCategory = {
+            id: generateUUID(),
+            name,
             waterfallCategory,
+            priority: options?.priority || defaults.priority,
             allocatedAmount: amount,
-            targetAmount: options?.goalTarget || defaults.goalTarget,
+            recurringPeriod: options?.recurringPeriod || 'monthly',
+            customPeriodDays: options?.customPeriodDays,
             spent: 0,
             remaining: amount,
-            priority: options?.priority || defaults.priority,
             isGoalBased: options?.isGoalBased ?? defaults.isGoalBased,
-            goalType: options?.goalType || defaults.goalType,
             goalTarget: options?.goalTarget || defaults.goalTarget,
             goalProgress: 0,
             isComplete: false,
-            rolloverAmount: 0,
-            borrowedAmount: 0
+            carryoverAmount: 0,
+            maxCarryoverPercent: options?.maxCarryoverPercent ?? 0.2,
+            autoAdjustmentsEnabled: options?.autoAdjustmentsEnabled ?? true,
+            color: options?.color || defaults.color,
+            description: options?.description,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            deletedAt: null
         };
 
-        // Store the tag budget (in a real implementation, this would be in the database)
-        await this.saveTagBudget(tagBudget);
+        // Store the budget category
+        await this.saveBudgetCategory(budgetCategory);
         
-        return tagBudget;
+        return budgetCategory;
     }
 
     /**
-     * Get all tag budgets for a category
+     * Get all budget categories, optionally filtered by waterfall category
      */
-    async getTagBudgets(category?: 'survival' | 'security' | 'growth' | 'lifestyle'): Promise<TagBudget[]> {
+    async getBudgetCategories(category?: WaterfallCategory): Promise<BudgetCategory[]> {
+        try {
+            // Get existing categories from the database
+            const existingCategories = await db.budgetCategories
+                .filter(cat => cat.isActive && !cat.deletedAt)
+                .toArray();
+            
+            // Filter by waterfall category if specified
+            const filtered = category 
+                ? existingCategories.filter(cat => cat.waterfallCategory === category)
+                : existingCategories;
+            
+            return filtered.sort((a, b) => a.priority - b.priority);
+        } catch (error) {
+            console.error('[BudgetService] Error getting budget categories:', error);
+            throw new Error(`Failed to get budget categories: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Get budget category by ID (active only)
+     */
+    async getBudgetCategoryById(categoryId: string): Promise<BudgetCategory | null> {
+        try {
+            const category = await db.budgetCategories.get(categoryId);
+            return category && category.isActive ? category : null;
+        } catch (error) {
+            console.error('[BudgetService] Error getting budget category by ID:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get budget category by ID (including inactive)
+     */
+    async getBudgetCategoryByIdAny(categoryId: string): Promise<BudgetCategory | null> {
+        try {
+            const category = await db.budgetCategories.get(categoryId);
+            return category && !category.deletedAt ? category : null;
+        } catch (error) {
+            console.error('[BudgetService] Error getting budget category by ID:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get budget category by name
+     */
+    async getBudgetCategoryByName(name: string): Promise<BudgetCategory | null> {
         // In a real implementation, this would fetch from database
-        // For now, return mock data based on default tag budgets
-        const tagBudgets: TagBudget[] = [];
-        
-        for (const [tagName, defaults] of Object.entries(this.DEFAULT_TAG_BUDGETS)) {
-            if (!category || this.getTagCategory(tagName) === category) {
-                const whyTag = await this.getWhyTagByName(tagName);
-                if (whyTag) {
-                    tagBudgets.push({
-                        tagId: whyTag.id,
-                        tagName: whyTag.name,
-                        waterfallCategory: whyTag.waterfallCategory,
-                        allocatedAmount: defaults.amount,
-                        targetAmount: defaults.goalTarget,
-                        spent: 0,
-                        remaining: defaults.amount,
-                        priority: defaults.priority,
-                        isGoalBased: defaults.isGoalBased,
-                        goalType: defaults.goalType,
-                        goalTarget: defaults.goalTarget,
-                        goalProgress: 0,
-                        isComplete: false,
-                        rolloverAmount: 0,
-                        borrowedAmount: 0
-                    });
-                }
-            }
-        }
-        
-        return tagBudgets.sort((a, b) => a.priority - b.priority);
+        const categories = await this.getBudgetCategories();
+        return categories.find(cat => cat.name === name) || null;
     }
 
     /**
-     * Update a tag budget amount
+     * Get budget categories for transaction creation (simplified interface)
      */
-    async updateTagBudget(tagId: string, updates: Partial<TagBudget>): Promise<TagBudget> {
-        // Validate updates
-        const validation = await validationService.validateTagBudgetUpdate(tagId, {
-            allocatedAmount: updates.allocatedAmount,
-            priority: updates.priority,
-            isGoalBased: updates.isGoalBased,
-            goalType: updates.goalType,
-            goalTarget: updates.goalTarget
-        });
-
-        if (!validation.isValid) {
-            throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
-        }
-
-        const tagBudgets = await this.getTagBudgets();
-        const tagBudget = tagBudgets.find(tb => tb.tagId === tagId);
+    async getTransactionBudgetCategories(): Promise<TransactionBudgetCategory[]> {
+        const categories = await this.getBudgetCategories();
         
-        if (!tagBudget) {
-            throw new Error(`Tag budget not found for tag ID: ${tagId}`);
-        }
-
-        const updatedBudget = { ...tagBudget, ...updates };
-        
-        // Recalculate remaining amount
-        updatedBudget.remaining = updatedBudget.allocatedAmount - updatedBudget.spent;
-        
-        // Update goal progress if applicable
-        if (updatedBudget.isGoalBased && updatedBudget.goalTarget) {
-            updatedBudget.goalProgress = Math.min(updatedBudget.spent, updatedBudget.goalTarget);
-            updatedBudget.isComplete = updatedBudget.goalProgress >= updatedBudget.goalTarget;
-        }
-        
-        await this.saveTagBudget(updatedBudget);
-        return updatedBudget;
+        return categories.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            waterfallCategory: cat.waterfallCategory,
+            priority: cat.priority,
+            allocatedAmount: cat.allocatedAmount,
+            remaining: cat.remaining,
+            color: cat.color
+        }));
     }
 
+
     /**
-     * Calculate category totals from tag budgets
+     * Calculate category totals from budget categories
      */
     async calculateCategoryBudgets(): Promise<CategoryBudget[]> {
         const categories: CategoryBudget[] = [];
-        const categoryNames: ('survival' | 'security' | 'growth' | 'lifestyle')[] = ['survival', 'security', 'growth', 'lifestyle'];
+        const categoryNames: WaterfallCategory[] = ['survival', 'security', 'growth', 'lifestyle'];
         
-        for (const category of categoryNames) {
-            const tagBudgets = await this.getTagBudgets(category);
+        for (const categoryName of categoryNames) {
+            const budgetCategories = await this.getBudgetCategories(categoryName);
             
-            const totalAllocated = tagBudgets.reduce((sum, tb) => sum + tb.allocatedAmount, 0);
-            const totalSpent = tagBudgets.reduce((sum, tb) => sum + tb.spent, 0);
-            const totalRemaining = tagBudgets.reduce((sum, tb) => sum + tb.remaining, 0);
-            const totalRollover = tagBudgets.reduce((sum, tb) => sum + tb.rolloverAmount, 0);
-            const totalBorrowed = tagBudgets.reduce((sum, tb) => sum + tb.borrowedAmount, 0);
-            const targetAmount = tagBudgets.reduce((sum, tb) => sum + (tb.targetAmount || 0), 0);
+            const totalAllocated = budgetCategories.reduce((sum, cat) => sum + cat.allocatedAmount, 0);
+            const totalSpent = budgetCategories.reduce((sum, cat) => sum + cat.spent, 0);
+            const totalRemaining = budgetCategories.reduce((sum, cat) => sum + cat.remaining, 0);
+            const totalCarryover = budgetCategories.reduce((sum, cat) => sum + cat.carryoverAmount, 0);
             
-            const completionPercentage = targetAmount > 0 ? Math.min((totalAllocated / targetAmount) * 100, 100) : 0;
-            const isComplete = tagBudgets.every(tb => tb.isComplete);
+            const completionPercentage = totalAllocated > 0 ? Math.min((totalSpent / totalAllocated) * 100, 100) : 0;
+            const isComplete = budgetCategories.every(cat => cat.isComplete);
             
             categories.push({
-                waterfallCategory: category,
+                waterfallCategory: categoryName,
                 totalAllocated,
-                targetAmount,
                 spent: totalSpent,
                 remaining: totalRemaining,
-                rolloverAmount: totalRollover,
-                borrowedAmount: totalBorrowed,
+                carryoverAmount: totalCarryover,
                 isComplete,
                 completionPercentage,
-                tagBudgets
+                budgetCategories
             });
         }
         
         return categories;
     }
 
+    // ============================================================================
+    // TRANSACTION INTEGRATION (Unified approach)
+    // ============================================================================
+
     /**
-     * Generate tag-level budget suggestions for new income
+     * Track spending against budget categories when transactions are created
+     * This is called automatically by the transaction service
      */
-    async generateTagBudgetSuggestions(availableIncome: number, currentTagBudgets: TagBudget[]): Promise<TagBudgetSuggestion[]> {
-        const suggestions: TagBudgetSuggestion[] = [];
-        let remainingIncome = availableIncome;
+    async trackTransactionSpending(transaction: Transaction): Promise<void> {
+        // Only track expenses (income doesn't affect budgets)
+        if (!isSpendingTransaction(transaction) || !transaction.budgetCategoryId) {
+            return;
+        }
+
+        const budgetCategory = await this.getBudgetCategoryById(transaction.budgetCategoryId);
+        if (!budgetCategory) {
+            console.warn(`Budget category not found: ${transaction.budgetCategoryId}`);
+            return;
+        }
+
+        budgetCategory.spent += transaction.amount;
+        budgetCategory.remaining = budgetCategory.allocatedAmount - budgetCategory.spent;
         
-        // Sort tags by waterfall priority and then by priority within category
-        const sortedTags = currentTagBudgets.sort((a, b) => {
-            const categoryPriority = { survival: 1, security: 2, growth: 3, lifestyle: 4 };
-            const aPriority = categoryPriority[a.waterfallCategory];
-            const bPriority = categoryPriority[b.waterfallCategory];
-            
-            if (aPriority !== bPriority) {
-                return aPriority - bPriority;
+        // Update goal progress if applicable
+        if (budgetCategory.isGoalBased && budgetCategory.goalTarget) {
+            budgetCategory.goalProgress = Math.min(budgetCategory.spent, budgetCategory.goalTarget);
+            budgetCategory.isComplete = budgetCategory.goalProgress >= budgetCategory.goalTarget;
+        }
+
+        // Process automatic borrowing if overspent and auto-adjustments are enabled
+        if (budgetCategory.remaining < 0 && budgetCategory.autoAdjustmentsEnabled) {
+            try {
+                const transfers = await this.processAutomaticBorrowing(budgetCategory);
+                if (transfers.length > 0) {
+                    console.log(`Automatic borrowing processed for ${budgetCategory.name}: ${transfers.length} transfers`);
+                }
+            } catch (error) {
+                console.warn(`Automatic borrowing failed for ${budgetCategory.name}:`, error);
             }
-            
-            return a.priority - b.priority;
-        });
+        }
+
+        await this.saveBudgetCategory(budgetCategory);
+    }
+
+    /**
+     * Process income through the waterfall system
+     * This is called automatically when income transactions are created
+     */
+    async processIncome(amount: number): Promise<void> {
+        const budgetCategories = await this.getBudgetCategories();
         
-        for (const tagBudget of sortedTags) {
-            if (remainingIncome <= 0) break;
+        // Calculate total allocated amount
+        const totalAllocated = budgetCategories.reduce((sum, cat) => sum + cat.allocatedAmount, 0);
+        
+        if (amount >= totalAllocated) {
+            // Income covers all allocations
+            for (const category of budgetCategories) {
+                category.remaining = category.allocatedAmount;
+                await this.saveBudgetCategory(category);
+            }
+        } else {
+            // Income is insufficient - prioritize survival categories
+            const sortedCategories = budgetCategories.sort((a, b) => {
+                const priorityOrder = { survival: 1, security: 2, growth: 3, lifestyle: 4 };
+                return priorityOrder[a.waterfallCategory] - priorityOrder[b.waterfallCategory];
+            });
             
-            // Calculate suggested amount based on tag type and current status
-            let suggestedAmount = 0;
-            let reason = '';
+            let remainingIncome = amount;
+            for (const category of sortedCategories) {
+                if (remainingIncome >= category.allocatedAmount) {
+                    category.remaining = category.allocatedAmount;
+                    remainingIncome -= category.allocatedAmount;
+                } else {
+                    category.remaining = remainingIncome;
+                    remainingIncome = 0;
+                }
+                await this.saveBudgetCategory(category);
+            }
+        }
+    }
+
+    /**
+     * Get budget status for a specific category (for transaction forms)
+     */
+    async getBudgetStatusForCategory(categoryName: string): Promise<{
+        allocated: number;
+        spent: number;
+        remaining: number;
+        isOverBudget: boolean;
+        utilizationPercentage: number;
+    } | null> {
+        const budgetCategories = await this.getBudgetCategories();
+        const category = budgetCategories.find(cat => cat.name === categoryName);
+        
+        if (!category) {
+            return null;
+        }
+
+        const utilizationPercentage = category.allocatedAmount > 0 
+            ? (category.spent / category.allocatedAmount) * 100 
+            : 0;
+
+        return {
+            allocated: category.allocatedAmount,
+            spent: category.spent,
+            remaining: category.remaining,
+            isOverBudget: category.remaining < 0,
+            utilizationPercentage
+        };
+    }
+
+    // ============================================================================
+    // FUND TRANSFER SYSTEM
+    // ============================================================================
+
+    /**
+     * Transfer funds between budget categories
+     */
+    async transferFunds(transfer: FundTransfer): Promise<void> {
+        // Validate transfer
+        if (transfer.amount <= 0) {
+            throw new Error('Transfer amount must be positive');
+        }
+
+        const budgetCategories = await this.getBudgetCategories();
+        const fromCategory = budgetCategories.find(cat => cat.id === transfer.fromCategoryId);
+        const toCategory = budgetCategories.find(cat => cat.id === transfer.toCategoryId);
+
+        if (!fromCategory || !toCategory) {
+            throw new Error('Source or destination budget category not found');
+        }
+
+        // Check if source has sufficient funds
+        if (fromCategory.remaining < transfer.amount) {
+            throw new Error(`Insufficient funds in ${fromCategory.name}. Available: $${fromCategory.remaining}`);
+        }
+
+        // Validate waterfall rules for borrowing
+        if (transfer.respectsWaterfall && transfer.reason === 'automatic_borrowing') {
+            const isValidBorrowing = this.validateWaterfallBorrowing(fromCategory, toCategory);
+            if (!isValidBorrowing) {
+                throw new Error('Borrowing violates waterfall priority rules');
+            }
+        }
+
+        // Perform the transfer
+        fromCategory.spent += transfer.amount;
+        fromCategory.remaining = fromCategory.allocatedAmount - fromCategory.spent;
+        
+        toCategory.allocatedAmount += transfer.amount;
+        toCategory.remaining = toCategory.allocatedAmount - toCategory.spent;
+
+        // Update goal progress if applicable
+        if (toCategory.isGoalBased && toCategory.goalTarget) {
+            toCategory.goalProgress = Math.min(toCategory.spent, toCategory.goalTarget);
+            toCategory.isComplete = toCategory.goalProgress >= toCategory.goalTarget;
+        }
+
+        // Save both categories
+        await this.saveBudgetCategory(fromCategory);
+        await this.saveBudgetCategory(toCategory);
+
+        console.log(`Fund transfer: $${transfer.amount} from ${fromCategory.name} to ${toCategory.name} (${transfer.reason})`);
+    }
+
+    /**
+     * Process automatic borrowing when a category is overspent
+     */
+    async processAutomaticBorrowing(overspentCategory: BudgetCategory): Promise<FundTransfer[]> {
+        if (!overspentCategory.autoAdjustmentsEnabled) {
+            return [];
+        }
+
+        const transfers: FundTransfer[] = [];
+        const budgetCategories = await this.getBudgetCategories();
+        
+        // Sort by waterfall priority (lifestyle first for borrowing)
+        const sortedCategories = budgetCategories
+            .filter(cat => cat.id !== overspentCategory.id && cat.remaining > 0)
+            .sort((a, b) => {
+                const categoryPriority = { lifestyle: 1, growth: 2, security: 3, survival: 4 };
+                return categoryPriority[a.waterfallCategory] - categoryPriority[b.waterfallCategory];
+            });
+
+        let remainingNeeded = Math.abs(overspentCategory.remaining);
+        
+        for (const sourceCategory of sortedCategories) {
+            if (remainingNeeded <= 0) break;
+
+            // Check carryover cap
+            const maxBorrowable = sourceCategory.allocatedAmount * sourceCategory.maxCarryoverPercent;
+            const availableToBorrow = Math.min(sourceCategory.remaining, maxBorrowable);
             
-            if (tagBudget.isGoalBased && tagBudget.goalTarget) {
-                // Goal-based tags: suggest amount needed to reach goal
-                const goalProgress = tagBudget.goalProgress || 0;
-                const remainingToGoal = tagBudget.goalTarget - goalProgress;
-                suggestedAmount = Math.min(remainingToGoal, remainingIncome);
-                reason = `Goal progress: ${goalProgress}/${tagBudget.goalTarget}`;
-            } else {
-                // Regular tags: suggest based on historical spending or current allocation
-                const historicalAverage = await this.getHistoricalSpendingAverage(tagBudget.tagName);
-                const currentUtilization = tagBudget.allocatedAmount > 0 ? (tagBudget.spent / tagBudget.allocatedAmount) : 0;
+            if (availableToBorrow > 0) {
+                const transferAmount = Math.min(remainingNeeded, availableToBorrow);
                 
-                if (currentUtilization > 1.1) {
-                    // Overspending detected - suggest increase
-                    const overspendAmount = tagBudget.spent - tagBudget.allocatedAmount;
-                    suggestedAmount = Math.min(overspendAmount * 1.2, remainingIncome); // 20% buffer
-                    reason = `Overspending detected: ${((currentUtilization - 1) * 100).toFixed(1)}% over budget`;
-                } else if (historicalAverage > tagBudget.allocatedAmount) {
-                    // Historical average higher than current allocation
-                    const suggestedIncrease = historicalAverage - tagBudget.allocatedAmount;
-                    suggestedAmount = Math.min(suggestedIncrease, remainingIncome);
-                    reason = `Historical average: $${historicalAverage}`;
-                } else if (remainingIncome > 0) {
-                    // Small boost to maintain or improve current allocation
-                    suggestedAmount = Math.min(remainingIncome * 0.1, 100); // 10% of remaining or $100 max
-                    reason = `Small boost to maintain budget`;
-                }
-            }
-            
-            if (suggestedAmount > 0) {
-                suggestions.push({
-                    tagId: tagBudget.tagId,
-                    tagName: tagBudget.tagName,
-                    suggestedAmount,
-                    reason,
-                    priority: this.getSuggestionPriority(tagBudget.waterfallCategory),
-                    category: tagBudget.waterfallCategory
-                });
-                
-                remainingIncome -= suggestedAmount;
-            }
-        }
-        
-        return suggestions;
-    }
+                const transfer: FundTransfer = {
+                    fromCategoryId: sourceCategory.id,
+                    toCategoryId: overspentCategory.id,
+                    amount: transferAmount,
+                    reason: 'automatic_borrowing',
+                    respectsWaterfall: true,
+                    timestamp: new Date()
+                };
 
-    // ============================================================================
-    // CORE BUDGET CALCULATION METHODS (Enhanced for tag-level)
-    // ============================================================================
-
-    /**
-     * Calculate optimal budget allocations based on actual financial needs (income-agnostic)
-     */
-    async calculateOptimalAllocations(spendingHistory: Transaction[]): Promise<BudgetAllocation> {
-        // Calculate actual financial needs based on spending patterns and goals
-        const financialNeeds = this.calculateActualFinancialNeeds(spendingHistory);
-        
-        // Return needs without income constraints - let users fund as they can
-        return {
-            survival: { 
-                amount: financialNeeds.survival.total,
-                targetAmount: financialNeeds.survival.total,
-                isComplete: false
-            },
-            security: { 
-                amount: financialNeeds.security.total,
-                targetAmount: financialNeeds.security.total,
-                isComplete: false
-            },
-            growth: { 
-                amount: financialNeeds.growth.total,
-                targetAmount: financialNeeds.growth.total,
-                isComplete: false
-            },
-            lifestyle: { 
-                amount: financialNeeds.lifestyle.total,
-                targetAmount: financialNeeds.lifestyle.total,
-                isComplete: false
-            }
-        };
-    }
-
-    /**
-     * Calculate actual financial needs based on spending history and goals (income-agnostic)
-     */
-    private calculateActualFinancialNeeds(spendingHistory: Transaction[]): {
-        survival: { total: number; breakdown: Record<string, number> };
-        security: { total: number; breakdown: Record<string, number> };
-        growth: { total: number; breakdown: Record<string, number> };
-        lifestyle: { total: number; breakdown: Record<string, number> };
-    } {
-        // Analyze spending patterns to determine actual needs
-        const monthlyAverages = this.calculateMonthlySpendingAverages(spendingHistory);
-        
-        // Calculate survival needs based on actual spending patterns
-        const survivalNeeds = {
-            housing: Math.max(monthlyAverages.housing || 0, 800), // Minimum reasonable housing
-            utilities: Math.max(monthlyAverages.utilities || 0, 150),
-            food: Math.max(monthlyAverages.food || 0, 300),
-            transport: Math.max(monthlyAverages.transport || 0, 200),
-            healthcare: Math.max(monthlyAverages.healthcare || 0, 100),
-            essential: Math.max(monthlyAverages.essential || 0, 100)
-        };
-        
-        // Calculate security needs based on goals and actual patterns
-        const securityNeeds = {
-            emergencyFund: this.calculateEmergencyFundTarget(spendingHistory) / 12, // Monthly contribution needed
-            insurance: Math.max(monthlyAverages.insurance || 0, 150),
-            debtPayments: Math.max(monthlyAverages.debt || 0, 200),
-            savings: Math.max(monthlyAverages.savings || 0, 100)
-        };
-        
-        // Calculate growth needs based on aspirations and current patterns
-        const growthNeeds = {
-            investment: Math.max(monthlyAverages.investment || 0, 200),
-            education: Math.max(monthlyAverages.education || 0, 150),
-            skills: Math.max(monthlyAverages.skills || 0, 100)
-        };
-        
-        // Calculate lifestyle needs based on actual spending
-        const lifestyleNeeds = {
-            entertainment: Math.max(monthlyAverages.entertainment || 0, 150),
-            hobbies: Math.max(monthlyAverages.hobbies || 0, 100),
-            discretionary: Math.max(monthlyAverages.discretionary || 0, 100)
-        };
-        
-        return {
-            survival: {
-                total: Object.values(survivalNeeds).reduce((sum, amount) => sum + amount, 0),
-                breakdown: survivalNeeds
-            },
-            security: {
-                total: Object.values(securityNeeds).reduce((sum, amount) => sum + amount, 0),
-                breakdown: securityNeeds
-            },
-            growth: {
-                total: Object.values(growthNeeds).reduce((sum, amount) => sum + amount, 0),
-                breakdown: growthNeeds
-            },
-            lifestyle: {
-                total: Object.values(lifestyleNeeds).reduce((sum, amount) => sum + amount, 0),
-                breakdown: lifestyleNeeds
-            }
-        };
-    }
-
-    /**
-     * Calculate monthly spending averages from transaction history
-     */
-    private calculateMonthlySpendingAverages(spendingHistory: Transaction[]): Record<string, number> {
-        const categorySpending: Record<string, number[]> = {};
-        
-        // Group spending by category over the last 6 months
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        
-        const recentTransactions = spendingHistory.filter(tx => 
-            (tx.clearedDate && new Date(tx.clearedDate) >= sixMonthsAgo) && isSpendingTransaction(tx)
-        );
-        
-        // Group by month and category
-        const monthlyCategorySpending: Record<string, Record<string, number[]>> = {};
-        
-        for (const transaction of recentTransactions) {
-            if (!transaction.whyTag) continue;
-            
-            const transactionDate = transaction.clearedDate || transaction.plannedDate;
-            if (!transactionDate) continue;
-            
-            const month = new Date(transactionDate).toISOString().slice(0, 7); // YYYY-MM
-            const category = this.getTagCategory(transaction.whyTag);
-            
-            if (!monthlyCategorySpending[month]) {
-                monthlyCategorySpending[month] = {};
-            }
-            if (!monthlyCategorySpending[month][category]) {
-                monthlyCategorySpending[month][category] = [];
-            }
-            
-            monthlyCategorySpending[month][category].push(transaction.amount);
-        }
-        
-        // Calculate monthly totals for each category
-        const categoryMonthlyTotals: Record<string, number[]> = {};
-        
-        for (const [month, categories] of Object.entries(monthlyCategorySpending)) {
-            for (const [category, amounts] of Object.entries(categories)) {
-                if (!categoryMonthlyTotals[category]) {
-                    categoryMonthlyTotals[category] = [];
-                }
-                const monthlyTotal = amounts.reduce((sum, amount) => sum + amount, 0);
-                categoryMonthlyTotals[category].push(monthlyTotal);
-            }
-        }
-        
-        // Calculate final averages
-        const finalAverages: Record<string, number> = {};
-        for (const [category, monthlyTotals] of Object.entries(categoryMonthlyTotals)) {
-            if (monthlyTotals.length > 0) {
-                finalAverages[category] = monthlyTotals.reduce((sum, total) => sum + total, 0) / monthlyTotals.length;
-            }
-        }
-        
-        return finalAverages;
-    }
-
-    /**
-     * Calculate emergency fund target based on actual spending patterns
-     */
-    private calculateEmergencyFundTarget(spendingHistory: Transaction[]): number {
-        const monthlyAverages = this.calculateMonthlySpendingAverages(spendingHistory);
-        
-        // Calculate essential monthly expenses (survival category)
-        const essentialExpenses = (monthlyAverages.housing || 800) + 
-                                 (monthlyAverages.utilities || 150) + 
-                                 (monthlyAverages.food || 300) + 
-                                 (monthlyAverages.transport || 200) + 
-                                 (monthlyAverages.healthcare || 100);
-        
-        // Target: 6 months of essential expenses, minimum $10,000
-        return Math.max(essentialExpenses * 6, 10000);
-    }
-
-    // ============================================================================
-    // HELPER METHODS
-    // ============================================================================
-
-    /**
-     * Determine income level for scaling calculations
-     */
-    private determineIncomeLevel(income: number): IncomeLevel {
-        return this.INCOME_LEVELS.find(level => 
-            income >= level.range.min && income <= level.range.max
-        ) || this.INCOME_LEVELS[1]; // Default to medium
-    }
-
-
-
-    /**
-     * Calculate monthly essential expenses from spending history
-     */
-    private calculateMonthlyEssentialExpenses(spendingHistory: Transaction[]): number {
-        const essentialCategories = ['housing', 'utilities', 'food', 'transport', 'healthcare'];
-        const monthlyExpenses = essentialCategories.reduce((sum, category) => {
-            const categorySpending = spendingHistory
-                .filter(tx => tx.whyTag && this.isEssentialCategory(tx.whyTag))
-                .reduce((catSum, tx) => catSum + tx.amount, 0);
-            return sum + (categorySpending / 12); // Average monthly
-        }, 0);
-        
-        return Math.max(monthlyExpenses, 2000); // Minimum $2000
-    }
-
-    /**
-     * Check if emergency fund goal is complete
-     */
-    private isEmergencyFundComplete(target: number): boolean {
-        // TODO: Implement actual emergency fund tracking
-        // For now, return false to continue security contributions
-        return false;
-    }
-
-    /**
-     * Helper methods to sum category needs
-     */
-    private sumSurvivalNeeds(survival: FinancialNeeds['survival']): number {
-        return survival.housing + survival.utilities + survival.food + 
-               survival.transport + survival.healthcare + survival.buffer;
-    }
-
-    private sumSecurityNeeds(security: FinancialNeeds['security']): number {
-        return security.monthlyContribution + security.insurance + security.debtPayments;
-    }
-
-    private sumGrowthNeeds(growth: FinancialNeeds['growth']): number {
-        return growth.minimumInvestment + growth.education + growth.skills;
-    }
-
-    private sumLifestyleNeeds(lifestyle: FinancialNeeds['lifestyle']): number {
-        return lifestyle.entertainment + lifestyle.hobbies + lifestyle.discretionary;
-    }
-
-    /**
-     * Check if a why tag belongs to essential categories
-     */
-    private isEssentialCategory(whyTag: string): boolean {
-        const essentialTags = ['housing', 'utilities', 'food', 'transport', 'healthcare', 'essential'];
-        return essentialTags.some(tag => whyTag.toLowerCase().includes(tag));
-    }
-
-    /**
-     * Get the category for a tag name
-     */
-    private getTagCategory(tagName: string): 'survival' | 'security' | 'growth' | 'lifestyle' {
-        const categoryMapping: Record<string, 'survival' | 'security' | 'growth' | 'lifestyle'> = {
-            'rent': 'survival',
-            'utilities': 'survival',
-            'groceries': 'survival',
-            'transport': 'survival',
-            'healthcare': 'survival',
-            'essential': 'survival',
-            'emergency': 'security',
-            'insurance': 'security',
-            'debt': 'security',
-            'savings': 'security',
-            'investment': 'growth',
-            'education': 'growth',
-            'skills': 'growth',
-            'entertainment': 'lifestyle',
-            'hobbies': 'lifestyle',
-            'discretionary': 'lifestyle'
-        };
-        
-        return categoryMapping[tagName.toLowerCase()] || 'lifestyle';
-    }
-
-    /**
-     * Get suggestion priority based on category
-     */
-    private getSuggestionPriority(category: 'survival' | 'security' | 'growth' | 'lifestyle'): 'high' | 'medium' | 'low' {
-        const priorities: Record<'survival' | 'security' | 'growth' | 'lifestyle', 'high' | 'medium' | 'low'> = { 
-            survival: 'high', 
-            security: 'high', 
-            growth: 'medium', 
-            lifestyle: 'low' 
-        };
-        return priorities[category];
-    }
-
-    /**
-     * Get historical spending average for a tag
-     */
-    private async getHistoricalSpendingAverage(tagName: string): Promise<number> {
-        // TODO: Implement actual historical spending analysis
-        // For now, return default amounts
-        const defaults = this.DEFAULT_TAG_BUDGETS[tagName.toLowerCase()];
-        return defaults ? defaults.amount : 100;
-    }
-
-    /**
-     * Get why tag by name
-     */
-    private async getWhyTagByName(name: string): Promise<WhyTag | null> {
-        const whyTags = await this.getWhyTagsWithCategories();
-        return whyTags.find(tag => tag.name.toLowerCase() === name.toLowerCase()) || null;
-    }
-
-    /**
-     * Save tag budget (placeholder for database implementation)
-     */
-    private async saveTagBudget(tagBudget: TagBudget): Promise<void> {
-        // TODO: Implement database storage
-        console.log('Saving tag budget:', tagBudget);
-    }
-
-    // ============================================================================
-    // WHY TAG MANAGEMENT
-    // ============================================================================
-
-    /**
-     * Get all why tags with their waterfall categories
-     */
-    async getWhyTagsWithCategories(): Promise<WhyTag[]> {
-        const whyTags = await tagService.getWhyTags();
-        const mappings = await priorityLevelMappingService.getAllMappings();
-        
-        return whyTags.map(tag => {
-            const mapping = mappings.find(m => m.whyTag === tag.name);
-            return {
-                id: tag.id,
-                name: tag.name,
-                waterfallCategory: mapping?.priorityLevel as WhyTag['waterfallCategory'] || 'lifestyle',
-                isActive: tag.isActive
-            };
-        });
-    }
-
-    /**
-     * Create or update a why tag with waterfall category
-     */
-    async createWhyTag(name: string, waterfallCategory: WhyTag['waterfallCategory']): Promise<WhyTag> {
-        // Validate why tag creation
-        const validation = await validationService.validateWhyTagCreation({
-            name,
-            waterfallCategory
-        });
-
-        if (!validation.isValid) {
-            throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
-        }
-
-        // Create the tag
-        const tag = await tagService.createTag({
-            name,
-            dimension: 'why',
-            isActive: true
-        });
-        
-        // Create the priority level mapping
-        await priorityLevelMappingService.createMapping({
-            whyTag: name,
-            priorityLevel: waterfallCategory,
-            isActive: true
-        });
-        
-        return {
-            id: tag.id,
-            name: tag.name,
-            waterfallCategory,
-            isActive: tag.isActive
-        };
-    }
-
-    /**
-     * Update a why tag's waterfall category
-     */
-    async updateWhyTagCategory(whyTagId: string, waterfallCategory: WhyTag['waterfallCategory']): Promise<void> {
-        // Validate why tag category update
-        const validation = await validationService.validateWhyTagCategoryUpdate(whyTagId, waterfallCategory);
-
-        if (!validation.isValid) {
-            throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
-        }
-
-        const whyTags = await this.getWhyTagsWithCategories();
-        const whyTag = whyTags.find(tag => tag.id === whyTagId);
-        
-        if (whyTag) {
-            const mappings = await priorityLevelMappingService.getMappingsByWhyTag(whyTag.name);
-            for (const mapping of mappings) {
-                await priorityLevelMappingService.updateMapping(mapping.id, {
-                    priorityLevel: waterfallCategory
-                });
-            }
-        }
-    }
-
-    // ============================================================================
-    // SPENDING TRACKING
-    // ============================================================================
-
-    /**
-     * Track spending against tag budgets
-     */
-    async trackSpending(tagBudgets: TagBudget[], transactions: Transaction[]): Promise<TagBudget[]> {
-        const updatedBudgets = [...tagBudgets];
-        const mappings = await priorityLevelMappingService.getAllMappings();
-        const whyTagToCategory = new Map(mappings.map(m => [m.whyTag, m.priorityLevel]));
-
-        for (const transaction of transactions) {
-            if (isSpendingTransaction(transaction) && transaction.whyTag) {
-                const tagBudget = updatedBudgets.find(tb => tb.tagName === transaction.whyTag);
-                if (tagBudget) {
-                    tagBudget.spent += transaction.amount;
-                    tagBudget.remaining = tagBudget.allocatedAmount - tagBudget.spent;
-                    
-                    // Update goal progress if applicable
-                    if (tagBudget.isGoalBased && tagBudget.goalTarget) {
-                        tagBudget.goalProgress = Math.min(tagBudget.spent, tagBudget.goalTarget);
-                        tagBudget.isComplete = tagBudget.goalProgress >= tagBudget.goalTarget;
-                    }
-                }
+                await this.transferFunds(transfer);
+                transfers.push(transfer);
+                remainingNeeded -= transferAmount;
             }
         }
 
-        return updatedBudgets;
-    }
-
-    /**
-     * Get current spending status for all categories
-     */
-    async getCurrentSpendingStatus(): Promise<CategoryBudget[]> {
-        const currentMonth = new Date();
-        const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-
-        const transactionGroups = await transactionService.getTransactionsByDateRange(
-            startOfMonth.toISOString(),
-            endOfMonth.toISOString()
-        );
-
-        // Flatten transaction groups to individual transactions
-        const transactions: Transaction[] = [];
-        for (const group of transactionGroups) {
-            if ('splitId' in group && group.splitId) {
-                // This is a transaction group, get individual transactions
-                const splitTransactions = await db.getSplitTransactions(group.splitId);
-                transactions.push(...splitTransactions);
-            } else if (!('splitId' in group)) {
-                // This is a single transaction
-                transactions.push(group as Transaction);
-            }
-        }
-
-        // Get tag budgets and track spending
-        const tagBudgets = await this.getTagBudgets();
-        const updatedTagBudgets = await this.trackSpending(tagBudgets, transactions);
-        
-        // Calculate category budgets from tag budgets
-        return await this.calculateCategoryBudgets();
+        return transfers;
     }
 
     // ============================================================================
@@ -929,7 +569,6 @@ class BudgetService {
                     title: `${categoryBudget.waterfallCategory} Overspending`,
                     description: `You've exceeded your ${categoryBudget.waterfallCategory} budget by ${((utilizationRate - 1) * 100).toFixed(1)}%`,
                     action: {
-                        category: categoryBudget.waterfallCategory,
                         reason: 'Overspending detected'
                     }
                 });
@@ -943,26 +582,25 @@ class BudgetService {
                     title: `${categoryBudget.waterfallCategory} Underutilization`,
                     description: `You have ${remainingPercentage.toFixed(1)}% remaining in ${categoryBudget.waterfallCategory}`,
                     action: {
-                        category: categoryBudget.waterfallCategory,
                         reason: 'Underutilization detected'
                     }
                 });
             }
 
-            // Check for tag-level recommendations
-            for (const tagBudget of categoryBudget.tagBudgets) {
-                const tagUtilizationRate = tagBudget.spent / tagBudget.allocatedAmount;
+            // Check for category-level recommendations
+            for (const budgetCategory of categoryBudget.budgetCategories) {
+                const categoryUtilizationRate = budgetCategory.spent / budgetCategory.allocatedAmount;
                 
-                if (tagUtilizationRate > 1.2) {
+                if (categoryUtilizationRate > 1.2) {
                     recommendations.push({
-                        type: 'tag_adjustment',
+                        type: 'category_adjustment',
                         priority: 'high',
-                        title: `${tagBudget.tagName} Overspending`,
-                        description: `Consider increasing ${tagBudget.tagName} budget from $${tagBudget.allocatedAmount} to $${Math.round(tagBudget.spent * 1.1)}`,
+                        title: `${budgetCategory.name} Overspending`,
+                        description: `Consider increasing ${budgetCategory.name} budget from $${budgetCategory.allocatedAmount} to $${Math.round(budgetCategory.spent * 1.1)}`,
                         action: {
-                            whyTagId: tagBudget.tagId,
-                            amount: Math.round(tagBudget.spent * 1.1) - tagBudget.allocatedAmount,
-                            reason: 'Tag overspending detected'
+                            categoryId: budgetCategory.id,
+                            amount: Math.round(budgetCategory.spent * 1.1) - budgetCategory.allocatedAmount,
+                            reason: 'Category overspending detected'
                         }
                     });
                 }
@@ -991,39 +629,39 @@ class BudgetService {
                 });
             }
 
-            if (categoryBudget.rolloverAmount > 0) {
+            if (categoryBudget.carryoverAmount > 0) {
                 insights.push({
-                    type: 'rollover_opportunity',
-                    title: `${categoryBudget.waterfallCategory} Rollover Available`,
-                    description: `You have $${categoryBudget.rolloverAmount.toFixed(0)} available to roll over`,
+                    type: 'carryover_opportunity',
+                    title: `${categoryBudget.waterfallCategory} Carryover Available`,
+                    description: `You have $${categoryBudget.carryoverAmount.toFixed(0)} available to carry over`,
                     severity: 'info',
-                    data: { category: categoryBudget.waterfallCategory, rolloverAmount: categoryBudget.rolloverAmount }
+                    data: { category: categoryBudget.waterfallCategory, carryoverAmount: categoryBudget.carryoverAmount }
                 });
             }
 
-            // Tag-level insights
-            for (const tagBudget of categoryBudget.tagBudgets) {
-                const tagUtilizationRate = tagBudget.spent / tagBudget.allocatedAmount;
+            // Category-level insights
+            for (const budgetCategory of categoryBudget.budgetCategories) {
+                const categoryUtilizationRate = budgetCategory.spent / budgetCategory.allocatedAmount;
                 
-                if (tagUtilizationRate > 0.95) {
+                if (categoryUtilizationRate > 0.95) {
                     insights.push({
-                        type: 'tag_overspend',
-                        title: `${tagBudget.tagName} Budget Alert`,
-                        description: `You're approaching your ${tagBudget.tagName} budget limit`,
+                        type: 'category_overspend',
+                        title: `${budgetCategory.name} Budget Alert`,
+                        description: `You're approaching your ${budgetCategory.name} budget limit`,
                         severity: 'warning',
-                        data: { tagName: tagBudget.tagName, utilizationRate: tagUtilizationRate }
+                        data: { categoryName: budgetCategory.name, utilizationRate: categoryUtilizationRate }
                     });
                 }
 
-                if (tagBudget.isGoalBased && tagBudget.goalProgress && tagBudget.goalTarget) {
-                    const goalProgress = (tagBudget.goalProgress / tagBudget.goalTarget) * 100;
+                if (budgetCategory.isGoalBased && budgetCategory.goalProgress && budgetCategory.goalTarget) {
+                    const goalProgress = (budgetCategory.goalProgress / budgetCategory.goalTarget) * 100;
                     if (goalProgress >= 100) {
                         insights.push({
                             type: 'goal_milestone',
-                            title: `${tagBudget.tagName} Goal Complete!`,
-                            description: `Congratulations! You've reached your ${tagBudget.tagName} goal`,
+                            title: `${budgetCategory.name} Goal Complete!`,
+                            description: `Congratulations! You've reached your ${budgetCategory.name} goal`,
                             severity: 'success',
-                            data: { tagName: tagBudget.tagName, goalProgress }
+                            data: { categoryName: budgetCategory.name, goalProgress }
                         });
                     }
                 }
@@ -1034,109 +672,179 @@ class BudgetService {
     }
 
     // ============================================================================
-    // LEGACY SUPPORT METHODS
+    // HELPER METHODS
     // ============================================================================
 
     /**
-     * Legacy method for backward compatibility
+     * Validate waterfall borrowing rules
      */
-    private analyzeSpendingPatterns(transactions: Transaction[]): Record<string, number> {
-        // This would implement dynamic percentage calculation based on spending patterns
-        // For now, return default allocations
-        return { survival: 50, security: 20, growth: 20, lifestyle: 10 };
+    private validateWaterfallBorrowing(fromCategory: BudgetCategory, toCategory: BudgetCategory): boolean {
+        const categoryPriority = { survival: 1, security: 2, growth: 3, lifestyle: 4 };
+        const fromPriority = categoryPriority[fromCategory.waterfallCategory];
+        const toPriority = categoryPriority[toCategory.waterfallCategory];
+
+        // Can only borrow from lower priority categories
+        return fromPriority > toPriority;
     }
 
     /**
-     * Legacy method for backward compatibility
+     * Save budget category to database
      */
-    private calculateDynamicPercentages(spendingAnalysis: Record<string, number>, income: number): Record<'survival' | 'security' | 'growth' | 'lifestyle', number> {
-        // This would implement dynamic percentage calculation based on spending patterns
-        // For now, return default allocations
-        return { survival: 50, security: 20, growth: 20, lifestyle: 10 };
+    private async saveBudgetCategory(budgetCategory: BudgetCategory): Promise<void> {
+        try {
+            await db.budgetCategories.put(budgetCategory);
+            console.log('Budget category saved successfully:', budgetCategory.name);
+        } catch (error) {
+            console.error('Error saving budget category:', error);
+            throw new Error(`Failed to save budget category: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
     }
 
-    // ============================================================================
-    // LEGACY INTERFACES (for backward compatibility)
-    // ============================================================================
-
     /**
-     * Distribute budget across why tags within each category (legacy method)
+     * Update budget category
      */
-    async allocateToWhyTags(totalBudget: number, allocations: BudgetAllocation): Promise<CategoryBudget[]> {
-        const categoryBudgets: CategoryBudget[] = [];
-        const whyTags = await this.getWhyTagsWithCategories();
-
-        for (const [category, allocation] of Object.entries(allocations)) {
-            const categoryWhyTags = whyTags.filter(tag => tag.waterfallCategory === category);
-            
-            if (categoryWhyTags.length === 0) {
-                // If no why tags exist for this category, create a default allocation
-                categoryBudgets.push({
-                    waterfallCategory: category,
-                    totalAllocated: allocation.amount,
-                    targetAmount: allocation.targetAmount,
-                    spent: 0,
-                    remaining: allocation.amount,
-                    rolloverAmount: 0,
-                    borrowedAmount: 0,
-                    isComplete: allocation.isComplete,
-                    completionPercentage: 0,
-                    tagBudgets: []
-                });
-                continue;
+    async updateBudgetCategory(categoryId: string, updates: Partial<BudgetCategory>): Promise<BudgetCategory> {
+        try {
+            const existingCategory = await this.getBudgetCategoryByIdAny(categoryId);
+            if (!existingCategory) {
+                throw new Error(`Budget category with ID ${categoryId} not found`);
             }
 
-            // Get tag budgets for this category
-            const tagBudgets = await this.getTagBudgets(category as any);
-            
-            categoryBudgets.push({
-                waterfallCategory: category,
-                totalAllocated: allocation.amount,
-                targetAmount: allocation.targetAmount,
-                spent: 0,
-                remaining: allocation.amount,
-                rolloverAmount: 0,
-                borrowedAmount: 0,
-                isComplete: allocation.isComplete,
-                completionPercentage: 0,
-                tagBudgets
+            const updatedCategory: BudgetCategory = {
+                ...existingCategory,
+                ...updates,
+                id: categoryId, // Ensure ID doesn't change
+                updatedAt: new Date().toISOString()
+            };
+
+            await db.budgetCategories.update(categoryId, updatedCategory);
+            console.log('Budget category updated successfully:', updatedCategory.name);
+            return updatedCategory;
+        } catch (error) {
+            console.error('Error updating budget category:', error);
+            throw new Error(`Failed to update budget category: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    }
+
+    /**
+     * Delete budget category (soft delete)
+     */
+    async deleteBudgetCategory(categoryId: string): Promise<void> {
+        try {
+            const existingCategory = await this.getBudgetCategoryByIdAny(categoryId);
+            if (!existingCategory) {
+                throw new Error(`Budget category with ID ${categoryId} not found`);
+            }
+
+            // Soft delete by setting deletedAt and isActive
+            await db.budgetCategories.update(categoryId, {
+                deletedAt: new Date().toISOString(),
+                isActive: false,
+                updatedAt: new Date().toISOString()
             });
-        }
 
-        return categoryBudgets;
+            console.log('Budget category deleted successfully:', existingCategory.name);
+        } catch (error) {
+            console.error('Error deleting budget category:', error);
+            throw new Error(`Failed to delete budget category: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
     }
 
     /**
-     * Handle rollover/borrowing at category level (legacy method)
+     * Get monthly equivalent amount for any recurring period
      */
-    async processMonthlyRollover(previousBudget: CategoryBudget[], currentIncome: number): Promise<CategoryBudget[]> {
-        const newAllocations = await this.calculateOptimalAllocations([]);
-        const newCategoryBudgets = await this.allocateToWhyTags(currentIncome, newAllocations);
-
-        // Apply rollover logic
-        for (let i = 0; i < newCategoryBudgets.length; i++) {
-            const newBudget = newCategoryBudgets[i];
-            const previousBudgetItem = previousBudget.find(b => b.waterfallCategory === newBudget.waterfallCategory);
-
-            if (previousBudgetItem) {
-                // Calculate rollover (positive remaining becomes rollover)
-                if (previousBudgetItem.remaining > 0) {
-                    newBudget.rolloverAmount = previousBudgetItem.remaining;
-                    newBudget.totalAllocated += newBudget.rolloverAmount;
-                    newBudget.remaining += newBudget.rolloverAmount;
+    getMonthlyEquivalent(amount: number, period: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom', customDays?: number): number {
+        switch (period) {
+            case 'daily':
+                return amount * 30.44;
+            case 'weekly':
+                return amount * 4.33;
+            case 'biweekly':
+                return amount * 2.17;
+            case 'monthly':
+                return amount;
+            case 'yearly':
+                return amount / 12;
+            case 'custom':
+                if (!customDays || customDays <= 0) {
+                    throw new Error('Custom period requires valid customDays');
                 }
-
-                // Handle borrowing (negative remaining becomes debt)
-                if (previousBudgetItem.remaining < 0) {
-                    newBudget.borrowedAmount = Math.abs(previousBudgetItem.remaining);
-                    newBudget.totalAllocated += newBudget.borrowedAmount;
-                    newBudget.remaining += newBudget.borrowedAmount;
-                }
-            }
+                return (amount / customDays) * 30.44;
+            default:
+                return amount;
         }
-
-        return newCategoryBudgets;
     }
+
+    /**
+     * Calculate period amount from monthly amount
+     */
+    getPeriodAmount(monthlyAmount: number, period: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom', customDays?: number): number {
+        switch (period) {
+            case 'daily':
+                return monthlyAmount / 30.44;
+            case 'weekly':
+                return monthlyAmount / 4.33;
+            case 'biweekly':
+                return monthlyAmount / 2.17;
+            case 'monthly':
+                return monthlyAmount;
+            case 'yearly':
+                return monthlyAmount * 12;
+            case 'custom':
+                if (!customDays || customDays <= 0) {
+                    throw new Error('Custom period requires valid customDays');
+                }
+                return (monthlyAmount / 30.44) * customDays;
+            default:
+                return monthlyAmount;
+        }
+    }
+
+    // ============================================================================
+    // LEGACY SUPPORT METHODS (for backward compatibility)
+    // ============================================================================
+
+    /**
+     * Legacy method for backward compatibility
+     */
+    async getTagBudgets(category?: WaterfallCategory): Promise<any[]> {
+        const budgetCategories = await this.getBudgetCategories(category);
+        // Convert to legacy format for backward compatibility
+        return budgetCategories.map(cat => ({
+            tagId: cat.id,
+            tagName: cat.name,
+            waterfallCategory: cat.waterfallCategory,
+            allocatedAmount: cat.allocatedAmount,
+            recurringPeriod: cat.recurringPeriod,
+            customPeriodDays: cat.customPeriodDays,
+            spent: cat.spent,
+            remaining: cat.remaining,
+            priority: cat.priority,
+            isGoalBased: cat.isGoalBased,
+            goalTarget: cat.goalTarget,
+            goalProgress: cat.goalProgress,
+            isComplete: cat.isComplete,
+            carryoverAmount: cat.carryoverAmount,
+            maxRolloverPercent: cat.maxCarryoverPercent,
+            autoAdjustmentsEnabled: cat.autoAdjustmentsEnabled
+        }));
+    }
+
+    /**
+     * Legacy method for backward compatibility
+     */
+    async createTagBudget(tagName: string, waterfallCategory: WaterfallCategory, amount: number, options?: any): Promise<any> {
+        return this.createBudgetCategory(tagName, waterfallCategory, amount, options);
+    }
+
+    /**
+     * Legacy method for backward compatibility
+     */
+    async updateTagBudget(tagId: string, updates: any): Promise<any> {
+        return this.updateBudgetCategory(tagId, updates);
+    }
+
+
 }
 
 // ============================================================================
