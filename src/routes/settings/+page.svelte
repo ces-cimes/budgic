@@ -155,25 +155,18 @@
 
   const settingsSections = [
     {
-      title: 'Account & Profile',
+      title: 'Personal Settings',
       items: [
-        { name: 'Profile Settings', description: 'Update your personal information', icon: '👤', href: '/settings/profile' },
-        { name: 'Security Settings', description: 'Password, 2FA, and privacy', icon: '🔒', href: '/settings/security' },
-        { name: 'Connected Accounts', description: 'Manage bank connections', icon: '🏦', href: '/accounts' }
+        { name: 'Profile Settings', description: 'Update your personal information and financial context', icon: '👤', href: '/settings/profile' },
+        { name: 'Security & Privacy', description: 'Control data sharing and privacy preferences', icon: '🔒', href: '/settings/security' }
       ]
     },
     {
       title: 'App Preferences',
       items: [
         { name: 'Notifications', description: 'Configure alerts and reminders', icon: '🔔', href: '/settings/notifications' },
-        { name: 'Display Settings', description: 'Theme, language, and layout', icon: '🎨', href: '/settings/display' },
-        { name: 'Data & Privacy', description: 'Export, import, and data settings', icon: '📊', href: '/settings/data' }
-      ]
-    },
-    {
-      title: 'Financial Setup',
-      items: [
-        { name: 'Accounts', description: 'Manage your bank accounts and balances', icon: '🏦', href: '/accounts' }
+        { name: 'Display Settings', description: 'Theme, language, currency, and accessibility', icon: '🎨', href: '/settings/display' },
+        { name: 'Data Management', description: 'Export, import, and manage your financial data', icon: '📊', href: '/settings/data' }
       ]
     }
   ];
@@ -403,47 +396,64 @@
       {/each}
     </section>
 
-    <!-- Account Actions -->
+    <!-- Quick Access -->
     <section class="mt-8">
-      <h2 class="text-xl font-semibold text-primary mb-4">Account Actions</h2>
+      <h2 class="text-xl font-semibold text-primary mb-4">Quick Access</h2>
       <div class="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
         <div class="divide-y divide-border">
-          <button class="w-full p-6 text-left hover:bg-accent transition-colors">
+          <button 
+            onclick={() => goto('/accounts')}
+            class="w-full p-6 text-left hover:bg-accent transition-colors"
+          >
             <div class="flex items-center space-x-4">
               <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                📤
+                🏦
               </div>
               <div class="flex-1">
-                <div class="font-medium text-primary">Export Data</div>
-                <div class="text-sm text-muted-foreground">Download your financial data</div>
+                <div class="font-medium text-primary">Manage Accounts</div>
+                <div class="text-sm text-muted-foreground">Add, edit, or remove your financial accounts</div>
               </div>
               <div class="text-muted-foreground">→</div>
             </div>
           </button>
           
-          <button class="w-full p-6 text-left hover:bg-accent transition-colors">
+          <button 
+            onclick={() => goto('/categories')}
+            class="w-full p-6 text-left hover:bg-accent transition-colors"
+          >
             <div class="flex items-center space-x-4">
               <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                📥
+                🏷️
               </div>
               <div class="flex-1">
-                <div class="font-medium text-primary">Import Data</div>
-                <div class="text-sm text-muted-foreground">Import from other financial apps</div>
+                <div class="font-medium text-primary">Manage Categories</div>
+                <div class="text-sm text-muted-foreground">Organize your budget categories and tags</div>
               </div>
               <div class="text-muted-foreground">→</div>
             </div>
           </button>
-          
-          <button class="w-full p-6 text-left hover:bg-destructive/10 transition-colors">
+        </div>
+      </div>
+    </section>
+
+    <!-- Data Management -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-primary mb-4">Data Management</h2>
+      <div class="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
+        <div class="divide-y divide-border">
+          <button 
+            onclick={() => goto('/settings/data')}
+            class="w-full p-6 text-left hover:bg-accent transition-colors"
+          >
             <div class="flex items-center space-x-4">
-              <div class="w-10 h-10 bg-destructive/10 rounded-lg flex items-center justify-center text-destructive">
-                🗑️
+              <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
+                📊
               </div>
               <div class="flex-1">
-                <div class="font-medium text-destructive">Delete Account</div>
-                <div class="text-sm text-destructive/80">Permanently delete your account and data</div>
+                <div class="font-medium text-primary">Export & Import Data</div>
+                <div class="text-sm text-muted-foreground">Backup, restore, or migrate your financial data</div>
               </div>
-              <div class="text-destructive/60">→</div>
+              <div class="text-muted-foreground">→</div>
             </div>
           </button>
         </div>
