@@ -76,12 +76,12 @@ class PlanningService {
         const plannedTransactions = await this.getPlannedTransactions(accountId);
         
         const plannedIncome = plannedTransactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
+            .filter(t => t.type === 'income' && t.amount !== undefined)
+            .reduce((sum, t) => sum + t.amount!, 0);
             
         const plannedExpenses = plannedTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
+            .filter(t => t.type === 'expense' && t.amount !== undefined)
+            .reduce((sum, t) => sum + t.amount!, 0);
 
         const availableAmount = currentBalance + plannedIncome - plannedExpenses;
         
@@ -129,12 +129,19 @@ class PlanningService {
         const currentBalance = await accountService.getAccountBalanceRealTime(accountId);
         const plannedTransactions = await this.getPlannedTransactions(accountId);
         
+        // Get user's preferred first day of week
+        const userPreferences = await settingsService.getUserPreferences();
+        const firstDayOfWeek = userPreferences?.firstDayOfWeek ?? 0; // Default to Sunday (0)
+        
         const projections: WeeklyProjection[] = [];
         const today = new Date();
         
+        // Calculate the start of the current week based on user preference
+        const currentWeekStart = this.getWeekStart(today, firstDayOfWeek);
+        
         for (let week = 0; week < weeksAhead; week++) {
-            const weekStart = new Date(today);
-            weekStart.setDate(today.getDate() + (week * 7));
+            const weekStart = new Date(currentWeekStart);
+            weekStart.setDate(currentWeekStart.getDate() + (week * 7));
             
             const weekEnd = new Date(weekStart);
             weekEnd.setDate(weekStart.getDate() + 6);
@@ -147,12 +154,12 @@ class PlanningService {
             });
 
             const weekIncome = weekTransactions
-                .filter(t => t.type === 'income')
-                .reduce((sum, t) => sum + t.amount, 0);
+                .filter(t => t.type === 'income' && t.amount !== undefined)
+                .reduce((sum, t) => sum + t.amount!, 0);
                 
             const weekExpenses = weekTransactions
-                .filter(t => t.type === 'expense')
-                .reduce((sum, t) => sum + t.amount, 0);
+                .filter(t => t.type === 'expense' && t.amount !== undefined)
+                .reduce((sum, t) => sum + t.amount!, 0);
 
             const startingBalance = week === 0 ? currentBalance : projections[week - 1].endingBalance;
             const endingBalance = startingBalance + weekIncome - weekExpenses;
@@ -301,6 +308,25 @@ class PlanningService {
         if (ratio < 0.2) return 'danger';
         if (ratio < 0.5) return 'caution';
         return 'safe';
+    }
+
+    /**
+     * Calculate the start of the week based on user's preferred first day
+     * @param date - The date to calculate week start for
+     * @param firstDayOfWeek - 0 = Sunday, 1 = Monday, etc.
+     * @returns Date object representing the start of the week
+     */
+    private getWeekStart(date: Date, firstDayOfWeek: number): Date {
+        const weekStart = new Date(date);
+        const currentDay = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+        
+        // Calculate days to subtract to get to the start of the week
+        const daysToSubtract = (currentDay - firstDayOfWeek + 7) % 7;
+        
+        weekStart.setDate(date.getDate() - daysToSubtract);
+        weekStart.setHours(0, 0, 0, 0); // Reset time to start of day
+        
+        return weekStart;
     }
 }
 

@@ -18,14 +18,17 @@
   let isLoading = $state(true);
   let error = $state<string | null>(null);
   let userCurrency = $state<string>('USD');
+  let firstDayOfWeek = $state<number>(0); // Default to Sunday
 
   // Sidebar context for mobile detection
   const sidebar = Sidebar.useSidebar();
 
   onMount(async () => {
     try {
-      // Get user's preferred currency
+      // Get user's preferred currency and first day of week
       userCurrency = await settingsService.getCurrency();
+      const userPreferences = await settingsService.getUserPreferences();
+      firstDayOfWeek = userPreferences?.firstDayOfWeek ?? 0;
       
       // Get the first active account for now
       const accounts = await accountService.getAccounts();
@@ -92,7 +95,14 @@
   function getWeekRange(weekStart: string, weekEnd: string): string {
     const start = new Date(weekStart);
     const end = new Date(weekEnd);
-    return `${start.getDate()}-${end.getDate()} ${start.toLocaleDateString('en-US', { month: 'short' })}`;
+    
+    // If both dates are in the same month
+    if (start.getMonth() === end.getMonth()) {
+      return `${start.getDate()}-${end.getDate()} ${start.toLocaleDateString('en-US', { month: 'short' })}`;
+    } else {
+      // If dates span across months
+      return `${start.getDate()} ${start.toLocaleDateString('en-US', { month: 'short' })} - ${end.getDate()} ${end.toLocaleDateString('en-US', { month: 'short' })}`;
+    }
   }
 </script>
 
