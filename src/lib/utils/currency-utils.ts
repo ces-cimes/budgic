@@ -299,7 +299,7 @@ export function formatMainCurrencyAmount(amount: number | undefined | null, main
 /**
  * Localization-friendly currency formatting
  * This function is designed to work with Paraglide and other i18n systems
- * by avoiding hardcoded locale-specific formatting
+ * by using consistent formatting regardless of locale
  */
 export function formatCurrencyForLocale(
     amount: number | undefined | null,
@@ -317,33 +317,13 @@ export function formatCurrencyForLocale(
         return formatBasicAmount(amount, options);
     }
 
+    // Use our consistent custom formatting instead of Intl.NumberFormat
+    // This ensures consistent currency display regardless of user's locale
     try {
-        // Use Intl.NumberFormat for locale-aware formatting
-        const formatter = new Intl.NumberFormat(locale, {
-            style: 'currency',
-            currency: currencyCode,
-            minimumFractionDigits: currencyInfo.decimalPlaces,
-            maximumFractionDigits: currencyInfo.decimalPlaces,
-            signDisplay: options.showSign ? (options.showPlus ? 'always' : 'auto') : 'never'
-        });
-
-        let formatted = formatter.format(amount);
-        
-        // Handle zero amounts - remove any signs
-        if (amount === 0 && options.showSign) {
-            formatted = formatted.replace(/^[+\-]/, '');
-        }
-
-        return formatted;
+        return formatCurrencyAmount(amount, currencyCode, options);
     } catch (error) {
-        // Fallback to our custom formatting if Intl fails
-        console.warn('Intl.NumberFormat failed, falling back to custom formatting:', error);
-        try {
-            return formatCurrencyAmount(amount, currencyCode, options);
-        } catch (fallbackError) {
-            console.error('Currency formatting completely failed:', fallbackError);
-            return 'Formatting error';
-        }
+        console.error('Currency formatting failed:', error);
+        return 'Formatting error';
     }
 }
 
