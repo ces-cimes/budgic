@@ -51,13 +51,126 @@ export interface PlanningData {
     netProjectedChange: number;
 }
 
+// Week-based cache types
+export type WeekKey = string; // ISO date string like "2024-10-14"
+
+export interface CachedWeek {
+    projection: WeeklyProjection;
+    insights: PlanningInsight[];
+    lastUpdated: Date;
+}
+
+export interface WeekLoadingState {
+    isLoading: boolean;
+    error?: string;
+}
+
+// ============================================================================
+// WEEK CACHE IMPLEMENTATION
+// ============================================================================
+
+class WeekCache {
+    private cache = new Map<WeekKey, CachedWeek>();
+    private maxSize = 50; // Keep last 50 weeks accessed
+
+    get(weekKey: WeekKey): CachedWeek | undefined {
+        const item = this.cache.get(weekKey);
+        if (item) {
+            // Move to end (most recently used)
+            this.cache.delete(weekKey);
+            this.cache.set(weekKey, item);
+        }
+        return item;
+    }
+
+    set(weekKey: WeekKey, data: CachedWeek): void {
+        if (this.cache.size >= this.maxSize) {
+            // Remove least recently used (first item)
+            const firstKey = this.cache.keys().next().value;
+            if (firstKey) {
+                this.cache.delete(firstKey);
+            }
+        }
+        this.cache.set(weekKey, data);
+    }
+
+    has(weekKey: WeekKey): boolean {
+        return this.cache.has(weekKey);
+    }
+
+    delete(weekKey: WeekKey): boolean {
+        return this.cache.delete(weekKey);
+    }
+
+    // Invalidate week and all subsequent weeks
+    invalidateFromWeek(weekKey: WeekKey): void {
+        const keysToDelete: WeekKey[] = [];
+        
+        for (const key of this.cache.keys()) {
+            if (key >= weekKey) {
+                keysToDelete.push(key);
+            }
+        }
+        
+        keysToDelete.forEach(key => this.cache.delete(key));
+    }
+
+    clear(): void {
+        this.cache.clear();
+    }
+
+    get size(): number {
+        return this.cache.size;
+    }
+}
+
 // ============================================================================
 // PLANNING SERVICE IMPLEMENTATION
 // ============================================================================
 
 class PlanningService {
+    private weekCache = new WeekCache();
+
     public get ready() {
         return db.isOpen();
+    }
+
+    /**
+     * Get week key from date (ISO date string of week start)
+     */
+    getWeekKey(date: Date, firstDayOfWeek: number = 1): WeekKey {
+        const weekStart = this.getWeekStart(date, firstDayOfWeek);
+        return weekStart.toISOString().split('T')[0]; // "2024-10-14"
+    }
+
+    /**
+     * Get week start date based on user preference
+     */
+    getWeekStart(date: Date, firstDayOfWeek: number = 1): Date {
+        const dayOfWeek = date.getDay();
+        const diff = dayOfWeek - firstDayOfWeek;
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - diff);
+        weekStart.setHours(0, 0, 0, 0);
+        return weekStart;
+    }
+
+    /**
+     * Add weeks to a date
+     */
+    addWeeks(date: Date, weeks: number): Date {
+        const result = new Date(date);
+        result.setDate(date.getDate() + (weeks * 7));
+        return result;
+    }
+
+    /**
+     * Subtract weeks from a date
+     */
+    subtractWeeks(date: Date, weeks: number): Date {
+        const result = new Date(date);
+        result.setDate(date.getDate() - (weeks * 7));
+        return result;
     }
 
     /**
@@ -73,7 +186,7 @@ class PlanningService {
         const currentBalance = await accountService.getAccountBalanceRealTime(accountId);
         
         // Get all planned transactions for this account
-        const plannedTransactions = await this.getPlannedTransactions(accountId);
+        const plannedTransactions = await this.getPlannedTransactionsPrivate(accountId);
         
         const plannedIncome = plannedTransactions
             .filter(t => t.type === 'income' && t.amount !== undefined)
@@ -127,7 +240,7 @@ class PlanningService {
         }
 
         const currentBalance = await accountService.getAccountBalanceRealTime(accountId);
-        const plannedTransactions = await this.getPlannedTransactions(accountId);
+        const plannedTransactions = await this.getPlannedTransactionsPrivate(accountId);
         
         // Get user's preferred first day of week
         const userPreferences = await settingsService.getUserPreferences();
@@ -276,11 +389,18 @@ class PlanningService {
         accountService.clearBalanceCache(accountId);
     }
 
+    /**
+     * Get planned transactions for an account (public method)
+     */
+    async getPlannedTransactions(accountId: string): Promise<Transaction[]> {
+        return await this.getPlannedTransactionsPrivate(accountId);
+    }
+
     // ============================================================================
     // HELPER METHODS
     // ============================================================================
 
-    private async getPlannedTransactions(accountId: string): Promise<Transaction[]> {
+    private async getPlannedTransactionsPrivate(accountId: string): Promise<Transaction[]> {
         return await db.transactions
             .where('accountId')
             .equals(accountId)
@@ -310,23 +430,195 @@ class PlanningService {
         return 'safe';
     }
 
+    // ============================================================================
+    // NEW WEEK-BASED METHODS
+    // ============================================================================
+
     /**
-     * Calculate the start of the week based on user's preferred first day
-     * @param date - The date to calculate week start for
-     * @param firstDayOfWeek - 0 = Sunday, 1 = Monday, etc.
-     * @returns Date object representing the start of the week
+     * Get a single week projection with caching
      */
-    private getWeekStart(date: Date, firstDayOfWeek: number): Date {
-        const weekStart = new Date(date);
-        const currentDay = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    async getWeekProjection(accountId: string, weekKey: WeekKey): Promise<WeeklyProjection> {
+        // Check cache first
+        const cached = this.weekCache.get(weekKey);
+        if (cached) {
+            return cached.projection;
+        }
+
+        // Generate the week projection
+        const weekStart = new Date(weekKey);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+
+        const accounts = await accountService.getAccounts();
+        const account = accounts.find(a => a.id === accountId);
+        if (!account) {
+            throw new Error(`Account not found: ${accountId}`);
+        }
+
+        const plannedTransactions = await this.getPlannedTransactionsPrivate(accountId);
         
-        // Calculate days to subtract to get to the start of the week
-        const daysToSubtract = (currentDay - firstDayOfWeek + 7) % 7;
+        // Get transactions for this week
+        const weekTransactions = plannedTransactions.filter(t => {
+            if (!t.plannedDate) return false;
+            const transactionDate = new Date(t.plannedDate);
+            return transactionDate >= weekStart && transactionDate <= weekEnd;
+        });
+
+        const weekIncome = weekTransactions
+            .filter(t => t.type === 'income' && t.amount !== undefined)
+            .reduce((sum, t) => sum + t.amount!, 0);
+            
+        const weekExpenses = weekTransactions
+            .filter(t => t.type === 'expense' && t.amount !== undefined)
+            .reduce((sum, t) => sum + t.amount!, 0);
+
+        // Calculate starting balance - we need to get it from previous week or current balance
+        let startingBalance: number;
+        const currentWeekKey = this.getWeekKey(new Date());
         
-        weekStart.setDate(date.getDate() - daysToSubtract);
-        weekStart.setHours(0, 0, 0, 0); // Reset time to start of day
+        if (weekKey === currentWeekKey) {
+            // Current week - use real-time balance
+            startingBalance = await accountService.getAccountBalanceRealTime(accountId);
+        } else if (weekKey > currentWeekKey) {
+            // Future week - calculate from previous week
+            const previousWeekKey = this.getWeekKey(this.subtractWeeks(weekStart, 1));
+            const previousWeek = await this.getWeekProjection(accountId, previousWeekKey);
+            startingBalance = previousWeek.endingBalance;
+        } else {
+            // Past week - work backwards from current balance
+            // Calculate the net change from this week to current week by looking at all transactions
+            const currentBalance = await accountService.getAccountBalanceRealTime(accountId);
+            
+            // Get all transactions from this week to current week
+            const currentDate = new Date();
+            const transactionsFromThisWeek = plannedTransactions.filter(t => {
+                if (!t.plannedDate) return false;
+                const transactionDate = new Date(t.plannedDate);
+                return transactionDate >= weekStart && transactionDate <= currentDate;
+            });
+            
+            // Calculate net change from this week to current
+            const netChangeFromThisWeek = transactionsFromThisWeek.reduce((sum, t) => {
+                if (t.type === 'income' && t.amount !== undefined) {
+                    return sum + t.amount;
+                } else if (t.type === 'expense' && t.amount !== undefined) {
+                    return sum - t.amount;
+                }
+                return sum;
+            }, 0);
+            
+            // Starting balance = current balance - net change from this week to current
+            startingBalance = currentBalance - netChangeFromThisWeek;
+        }
+
+        const endingBalance = startingBalance + weekIncome - weekExpenses;
+        const riskLevel = this.calculateRiskLevel(endingBalance, account.initialBalance);
+        const dailyAllowance = weekIncome > 0 ? (endingBalance / 7) : (endingBalance / Math.max(1, weekEnd.getDate() - weekStart.getDate() + 1));
+
+        const projection: WeeklyProjection = {
+            weekStart: weekStart.toISOString(),
+            weekEnd: weekEnd.toISOString(),
+            weekNumber: Math.ceil((weekStart.getTime() - new Date().getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1,
+            startingBalance,
+            plannedIncome: weekIncome,
+            plannedExpenses: weekExpenses,
+            endingBalance,
+            riskLevel,
+            dailyAllowance,
+            transactions: weekTransactions
+        };
+
+        // Cache the result
+        this.weekCache.set(weekKey, {
+            projection,
+            insights: [], // Will be loaded separately
+            lastUpdated: new Date()
+        });
+
+        return projection;
+    }
+
+    /**
+     * Get insights for a specific week (rolling 5-week window)
+     */
+    async getWeekInsights(accountId: string, weekKey: WeekKey): Promise<PlanningInsight[]> {
+        const weekStart = new Date(weekKey);
+        const windowEnd = this.addWeeks(weekStart, 4); // 5-week window
         
-        return weekStart;
+        // Get projections for the insight window
+        const windowProjections: WeeklyProjection[] = [];
+        for (let i = 0; i < 5; i++) {
+            const currentWeekKey = this.getWeekKey(this.addWeeks(weekStart, i));
+            const projection = await this.getWeekProjection(accountId, currentWeekKey);
+            windowProjections.push(projection);
+        }
+        
+        // Generate insights based on this 5-week window
+        return this.generateInsightsFromProjections(windowProjections);
+    }
+
+    /**
+     * Generate insights from a set of projections
+     */
+    private generateInsightsFromProjections(projections: WeeklyProjection[]): PlanningInsight[] {
+        const insights: PlanningInsight[] = [];
+
+        // Check for low balance warnings
+        const lowBalanceWeeks = projections.filter(w => w.riskLevel === 'danger');
+        if (lowBalanceWeeks.length > 0) {
+            insights.push({
+                type: 'balance_warning',
+                title: 'Low Balance Risk',
+                description: `${lowBalanceWeeks.length} week(s) projected to have low balance`,
+                action: 'Consider moving expenses or adding income',
+                priority: 'high'
+            });
+        }
+
+        // Check for expense optimization opportunities
+        const highExpenseWeeks = projections.filter(w => w.plannedExpenses > w.plannedIncome * 2);
+        if (highExpenseWeeks.length > 0) {
+            insights.push({
+                type: 'expense_optimization',
+                title: 'Expense Optimization',
+                description: `${highExpenseWeeks.length} week(s) have high expense ratios`,
+                action: 'Consider spreading large expenses across multiple weeks',
+                priority: 'medium'
+            });
+        }
+
+        return insights.sort((a, b) => {
+            const priorityOrder = { high: 3, medium: 2, low: 1 };
+            return priorityOrder[b.priority] - priorityOrder[a.priority];
+        });
+    }
+
+    /**
+     * Invalidate cache for a week and all subsequent weeks
+     */
+    invalidateWeekCache(weekKey: WeekKey): void {
+        this.weekCache.invalidateFromWeek(weekKey);
+    }
+
+    /**
+     * Clear all cached weeks
+     */
+    clearWeekCache(): void {
+        this.weekCache.clear();
+    }
+
+    /**
+     * Check if a week is cached
+     */
+    isWeekCached(weekKey: WeekKey): boolean {
+        return this.weekCache.has(weekKey);
+    }
+
+    /**
+     * Get cached week data
+     */
+    getCachedWeek(weekKey: WeekKey): CachedWeek | undefined {
+        return this.weekCache.get(weekKey);
     }
 }
 
