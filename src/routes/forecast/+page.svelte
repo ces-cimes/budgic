@@ -8,6 +8,7 @@
   import { Badge } from '$lib/components/ui/badge/index.ts';
   import { Button } from '$lib/components/ui/button/index.ts';
   import TabNavigation from '$lib/components/TabNavigation.svelte';
+  import Header from '$lib/components/Header.svelte';
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import AddPlannedTransaction from '$lib/components/AddPlannedTransaction.svelte';
@@ -248,6 +249,23 @@
 </svelte:head>
 
 <PageLayout>
+  {#snippet topBar()}
+    <!-- Header -->
+    <Header title="Financial Planning">
+      <button 
+        onclick={async () => {
+          await loadDailyAllowance();
+          await loadVisibleWeeks();
+        }}
+        disabled={isLoading}
+        class="p-2 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50"
+        title="Refresh data"
+      >
+        <RefreshCw size={16} class={isLoading ? 'animate-spin' : ''} />
+      </button>
+    </Header>
+  {/snippet}
+
   {#snippet bottomBar()}
     <!-- Mobile Navigation -->
     {#if sidebar.isMobile}
@@ -255,44 +273,22 @@
     {/if}
   {/snippet}
 
-  <div class="container mx-auto px-4 py-4 max-w-3xl">
-    <!-- Header -->
-    <header class="mb-6">
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-primary mb-1">Financial Planning</h1>
-          <p class="text-sm text-muted-foreground">Track your daily allowance and weekly projections</p>
-        </div>
-        <button 
-          onclick={async () => {
-            await loadDailyAllowance();
-            await loadVisibleWeeks();
-          }}
-          disabled={isLoading}
-          class="p-2 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50"
-          title="Refresh data"
-        >
-          <RefreshCw size={16} class={isLoading ? 'animate-spin' : ''} />
-        </button>
-      </div>
-    </header>
+  <!-- Tab Navigation -->
+  <TabNavigation tabs={forecastTabs} className="mb-6" />
 
-    <!-- Tab Navigation -->
-    <TabNavigation tabs={forecastTabs} className="mb-6" />
-
-    {#if isLoading}
-      <div class="flex items-center justify-center py-8">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  {#if isLoading}
+    <div class="flex items-center justify-center py-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  {:else if error}
+    <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6">
+      <div class="flex items-center gap-2 text-destructive">
+        <AlertTriangle size={16} />
+        <span class="font-medium">Error</span>
       </div>
-    {:else if error}
-      <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6">
-        <div class="flex items-center gap-2 text-destructive">
-          <AlertTriangle size={16} />
-          <span class="font-medium">Error</span>
-        </div>
-        <p class="text-sm text-destructive mt-1">{error}</p>
-      </div>
-    {:else if dailyAllowance}
+      <p class="text-sm text-destructive mt-1">{error}</p>
+    </div>
+  {:else if dailyAllowance}
       <!-- Daily Allowance Card -->
       <section class="mb-6">
         <div class="bg-card rounded-xl p-4 shadow-sm border border-border">
@@ -503,5 +499,4 @@
       <!-- Insights & Recommendations -->
       <!-- TODO: Add insights back when implementing week-based insights -->
     {/if}
-  </div>
 </PageLayout>

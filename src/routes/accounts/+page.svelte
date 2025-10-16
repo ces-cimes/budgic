@@ -7,6 +7,7 @@
   import { Separator } from '$lib/components/ui/separator/index.ts';
   import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
   import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
+  import Header from '$lib/components/Header.svelte';
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   
@@ -61,6 +62,21 @@
 </svelte:head>
 
 <PageLayout>
+  {#snippet topBar()}
+    <!-- Header -->
+    <Header title="Accounts">
+      <Button
+        onclick={() => goto('/accounts/add')}
+        size="sm"
+				class="hidden sm:flex"
+				target="_blank"
+				rel="noopener noreferrer">
+				<Plus />
+        <span>Add Account</span>
+      </Button>
+    </Header>
+  {/snippet}
+
   {#snippet bottomBar()}
     <!-- Mobile Navigation -->
     {#if sidebar.isMobile}
@@ -69,19 +85,6 @@
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-6xl">
-  <!-- Header -->
-  <header class="mb-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold text-primary mb-2">Accounts</h1>
-        <p class="text-muted-foreground">Manage your financial accounts</p>
-      </div>
-      <Button onclick={() => goto('/accounts/add')}>
-        <Plus size={20} />
-        <span>Add Account</span>
-      </Button>
-    </div>
-  </header>
 
   <!-- Total Balance -->
   <section class="mb-8">

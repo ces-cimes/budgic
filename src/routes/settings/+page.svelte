@@ -12,6 +12,7 @@
   import { settingsService } from '$lib/core/services/index.ts';
   import { populateSampleData, clearSampleData, clearAllData } from '$lib/core/sample-data-new';
   import { onMount } from 'svelte';
+  import Header from '$lib/components/Header.svelte';
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
 
@@ -194,6 +195,11 @@
 </svelte:head>
 
 <PageLayout>
+  {#snippet topBar()}
+    <!-- Header -->
+    <Header title="Settings" />
+  {/snippet}
+
   {#snippet bottomBar()}
     <!-- Mobile Navigation -->
     {#if sidebar.isMobile}
@@ -202,11 +208,6 @@
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-4xl">
-  <!-- Header -->
-  <header class="mb-8">
-    <h1 class="text-3xl font-bold text-primary mb-2">Settings</h1>
-    <p class="text-muted-foreground">Customize your Budgic experience</p>
-  </header>
 
   {#if isLoading}
     <div class="flex items-center justify-center py-12">

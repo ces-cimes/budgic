@@ -4,6 +4,7 @@
   import { accountService } from '$lib/core/services/account-service';
   import AccountForm from '$lib/components/AccountForm.svelte';
   import type { Account } from '$lib/core/db';
+  import Header from '$lib/components/Header.svelte';
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
 
@@ -29,6 +30,11 @@
 </svelte:head>
 
 <PageLayout>
+  {#snippet topBar()}
+    <!-- Header -->
+    <Header title="Add Account" showBackButton={true} backButtonLink="/accounts" />
+  {/snippet}
+
   {#snippet bottomBar()}
     <!-- Mobile Navigation -->
     {#if sidebar.isMobile}
@@ -37,19 +43,6 @@
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-2xl">
-  <!-- Header -->
-  <header class="mb-8">
-    <Button.Root 
-      variant="ghost"
-      onclick={handleCancel}
-      class="flex items-center space-x-2 text-muted-foreground hover:text-primary mb-4"
-    >
-      <span>←</span>
-      <span>Back to Accounts</span>
-    </Button.Root>
-    <h1 class="text-3xl font-bold text-primary mb-2">Add New Account</h1>
-    <p class="text-muted-foreground">Create a new financial account to track</p>
-  </header>
 
   <!-- Account Form -->
   <AccountForm 
