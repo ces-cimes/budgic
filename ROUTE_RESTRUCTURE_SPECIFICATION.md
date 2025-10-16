@@ -435,10 +435,10 @@ src/lib/components/layouts/AppLayout.svelte
 
 ### New Files to Create
 ```
-src/routes/insights/notifications/+page.svelte
-src/routes/insights/achievements/+page.svelte
+src/routes/insights/alerts/+page.svelte
+src/routes/insights/badges/+page.svelte
 src/routes/insights/trends/+page.svelte
-src/routes/insights/recommendations/+page.svelte
+src/routes/insights/tips/+page.svelte
 src/routes/budget/transfers/+page.svelte
 src/routes/forecast/daily/+page.svelte
 src/routes/forecast/weekly/+page.svelte

@@ -54,10 +54,10 @@
 	// Tab navigation configuration
 	const insightsTabs = [
 		{ id: 'overview', label: 'Overview', path: '/insights', icon: ChartBar },
-		{ id: 'notifications', label: 'Notifications', path: '/insights/notifications', icon: Bell },
-		{ id: 'achievements', label: 'Achievements', path: '/insights/achievements', icon: Award },
+		{ id: 'alerts', label: 'Alerts', path: '/insights/alerts', icon: Bell },
+		{ id: 'badges', label: 'Badges', path: '/insights/badges', icon: Award },
 		{ id: 'trends', label: 'Trends', path: '/insights/trends', icon: TrendingUp },
-		{ id: 'recommendations', label: 'Recommendations', path: '/insights/recommendations', icon: Lightbulb }
+		{ id: 'tips', label: 'Tips', path: '/insights/tips', icon: Lightbulb }
 	];
 
 	onMount(async () => {

@@ -14,10 +14,10 @@
   // Tab navigation configuration
   const insightsTabs = [
     { id: 'overview', label: 'Overview', path: '/insights', icon: ChartBar },
-    { id: 'notifications', label: 'Notifications', path: '/insights/notifications', icon: Bell },
-    { id: 'achievements', label: 'Achievements', path: '/insights/achievements', icon: Award },
+    { id: 'alerts', label: 'Alerts', path: '/insights/alerts', icon: Bell },
+    { id: 'badges', label: 'Badges', path: '/insights/badges', icon: Award },
     { id: 'trends', label: 'Trends', path: '/insights/trends', icon: TrendingUp },
-    { id: 'recommendations', label: 'Recommendations', path: '/insights/recommendations', icon: Lightbulb }
+    { id: 'tips', label: 'Tips', path: '/insights/tips', icon: Lightbulb }
   ];
 
   // Mock notifications data
@@ -88,7 +88,7 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Notifications" variant="with-tabs">
+    <Header title="Alerts" variant="with-tabs">
       <TabNavigation tabs={insightsTabs} />
     </Header>
   {/snippet}
@@ -108,7 +108,7 @@
     {:else if notifications.length === 0}
       <Card.Root class="p-8 text-center">
         <Bell class="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <h3 class="text-lg font-semibold text-primary mb-2">No notifications</h3>
+        <h3 class="text-lg font-semibold text-primary mb-2">No alerts</h3>
         <p class="text-muted-foreground">You're all caught up! Check back later for updates.</p>
       </Card.Root>
     {:else}

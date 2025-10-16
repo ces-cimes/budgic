@@ -15,10 +15,10 @@
   // Tab navigation configuration
   const insightsTabs = [
     { id: 'overview', label: 'Overview', path: '/insights', icon: ChartBar },
-    { id: 'notifications', label: 'Notifications', path: '/insights/notifications', icon: Bell },
-    { id: 'achievements', label: 'Achievements', path: '/insights/achievements', icon: Award },
+    { id: 'alerts', label: 'Alerts', path: '/insights/alerts', icon: Bell },
+    { id: 'badges', label: 'Badges', path: '/insights/badges', icon: Award },
     { id: 'trends', label: 'Trends', path: '/insights/trends', icon: TrendingUp },
-    { id: 'recommendations', label: 'Recommendations', path: '/insights/recommendations', icon: Lightbulb }
+    { id: 'tips', label: 'Tips', path: '/insights/tips', icon: Lightbulb }
   ];
 
   // Mock recommendations data
@@ -140,7 +140,7 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Recommendations" variant="with-tabs">
+    <Header title="Tips" variant="with-tabs">
       <TabNavigation tabs={insightsTabs} />
     </Header>
   {/snippet}
@@ -152,7 +152,7 @@
         <Lightbulb class="w-8 h-8 text-yellow-500" />
         <div>
           <h2 class="text-xl font-semibold text-primary">AI-Powered Insights</h2>
-          <p class="text-sm text-muted-foreground">Personalized recommendations based on your spending patterns</p>
+          <p class="text-sm text-muted-foreground">Personalized tips based on your spending patterns</p>
         </div>
       </div>
       

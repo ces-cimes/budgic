@@ -29,7 +29,7 @@
 		// Exact match
 		if (currentPath === path) return true;
 		
-		// Sub-route match (e.g., /insights/notifications should highlight /insights)
+		// Sub-route match (e.g., /insights/alerts should highlight /insights)
 		if (currentPath.startsWith(path + '/')) return true;
 		
 		return false;

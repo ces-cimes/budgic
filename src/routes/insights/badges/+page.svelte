@@ -14,10 +14,10 @@
   // Tab navigation configuration
   const insightsTabs = [
     { id: 'overview', label: 'Overview', path: '/insights', icon: ChartBar },
-    { id: 'notifications', label: 'Notifications', path: '/insights/notifications', icon: Bell },
-    { id: 'achievements', label: 'Achievements', path: '/insights/achievements', icon: Award },
+    { id: 'alerts', label: 'Alerts', path: '/insights/alerts', icon: Bell },
+    { id: 'badges', label: 'Badges', path: '/insights/badges', icon: Award },
     { id: 'trends', label: 'Trends', path: '/insights/trends', icon: TrendingUp },
-    { id: 'recommendations', label: 'Recommendations', path: '/insights/recommendations', icon: Lightbulb }
+    { id: 'tips', label: 'Tips', path: '/insights/tips', icon: Lightbulb }
   ];
 
   // Mock achievements data
@@ -108,7 +108,7 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Achievements" variant="with-tabs">
+    <Header title="Badges" variant="with-tabs">
       <TabNavigation tabs={insightsTabs} />
     </Header>
   {/snippet}
@@ -119,7 +119,7 @@
       <div class="flex items-center gap-4 mb-4">
         <Trophy class="w-8 h-8 text-yellow-500" />
         <div>
-          <h2 class="text-xl font-semibold text-primary">Achievement Progress</h2>
+          <h2 class="text-xl font-semibold text-primary">Badge Progress</h2>
           <p class="text-sm text-muted-foreground">Track your financial milestones</p>
         </div>
       </div>
@@ -127,7 +127,7 @@
       <div class="grid grid-cols-2 gap-4">
         <div class="text-center">
           <div class="text-2xl font-bold text-primary">{earnedAchievements.length}</div>
-          <div class="text-sm text-muted-foreground">Achievements</div>
+          <div class="text-sm text-muted-foreground">Badges</div>
         </div>
         <div class="text-center">
           <div class="text-2xl font-bold text-primary">{totalPoints}</div>
