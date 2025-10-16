@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Plus } from '@lucide/svelte';
+	import { Plus, ArrowRightLeft, Target } from '@lucide/svelte';
 	import { budgetService } from '$lib/core/services/budget-service';
 	import type { BudgetCategory, WaterfallCategory } from '$lib/core/services/budget-service';
 	import { Button } from '$lib/components/ui/button/index.ts';
@@ -12,6 +12,7 @@
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
+	import TabNavigation from '$lib/components/TabNavigation.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout, MobileNavigation } from '$lib/components/layouts';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
@@ -26,6 +27,12 @@
 
 	// Sidebar context for mobile detection
 	const sidebar = Sidebar.useSidebar();
+
+	// Tab navigation configuration
+	const budgetTabs = [
+		{ id: 'overview', label: 'Overview', path: '/budget', icon: Target },
+		{ id: 'transfers', label: 'Transfers', path: '/budget/transfers', icon: ArrowRightLeft }
+	];
 
 	const waterfallCategories: { value: WaterfallCategory | 'all'; label: string; description: string }[] = [
 		{ value: 'all', label: 'All Categories', description: 'View all budget categories' },
@@ -171,7 +178,7 @@
 		<!-- Header -->
 		<Header title="Budget Categories">
 			<Button
-				onclick={() => goto('/categories/add')}
+				onclick={() => goto('/budget/add')}
 				size="sm"
 				class="hidden sm:flex"
 				target="_blank"
@@ -188,6 +195,11 @@
 			<MobileNavigation />
 		{/if}
 	{/snippet}
+
+	<!-- Tab Navigation -->
+	<div class="px-4">
+		<TabNavigation tabs={budgetTabs} />
+	</div>
 
 	<div class="container mx-auto p-2 sm:p-4 max-w-4xl">
 
@@ -432,7 +444,7 @@
 								<Button 
 									variant="outline" 
 									size="sm"
-									onclick={() => goto(`/categories/${category.id}`)}
+					onclick={() => goto(`/budget/${category.id}`)}
 								>
 									View
 								</Button>

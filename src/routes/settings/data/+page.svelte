@@ -388,7 +388,7 @@
               <Button.Root 
                 type="button" 
                 variant="outline"
-                onclick={() => goto('/categories')}
+                onclick={() => goto('/budget')}
               >
                 Manage Categories
               </Button.Root>

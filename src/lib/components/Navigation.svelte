@@ -6,24 +6,33 @@
 	
 	// Lucide icons
 	import TargetIcon from '@lucide/svelte/icons/target';
-	import SunIcon from '@lucide/svelte/icons/sun';
-	import SquarePenIcon from '@lucide/svelte/icons/square-pen';
-	import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
-	import ChartPieIcon from '@lucide/svelte/icons/chart-pie';
-	import SlidersIcon from '@lucide/svelte/icons/sliders';
-	import TagIcon from '@lucide/svelte/icons/tag';
+	import HomeIcon from '@lucide/svelte/icons/home';
+	import ReceiptIcon from '@lucide/svelte/icons/receipt';
+	import CalendarIcon from '@lucide/svelte/icons/calendar';
+	import BellIcon from '@lucide/svelte/icons/bell';
+	import SettingsIcon from '@lucide/svelte/icons/settings';
+	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 
 	const navItems = [
-		{ path: '/', label: 'Today', icon: SunIcon },
-		{ path: '/transactions', label: 'Trans.', icon: SquarePenIcon },
-		{ path: '/categories', label: 'Categories', icon: TagIcon },
-		{ path: '/plan', label: 'Plan', icon: CalendarDaysIcon },
-		{ path: '/insights', label: 'Insights', icon: ChartPieIcon },
-		{ path: '/settings', label: 'Settings', icon: SlidersIcon }
+		{ path: '/', label: 'Dashboard', icon: HomeIcon, hasSubRoutes: false },
+		{ path: '/transactions', label: 'Transactions', icon: ReceiptIcon, hasSubRoutes: false },
+		{ path: '/budget', label: 'Budget', icon: TargetIcon, hasSubRoutes: true },
+		{ path: '/forecast', label: 'Forecast', icon: CalendarIcon, hasSubRoutes: true },
+		{ path: '/insights', label: 'Insights', icon: BellIcon, hasSubRoutes: true },
+		{ path: '/accounts', label: 'Accounts', icon: CreditCardIcon, hasSubRoutes: false },
+		{ path: '/settings', label: 'Settings', icon: SettingsIcon, hasSubRoutes: true }
 	];
 
 	function isActive(path: string) {
-		return $page.url.pathname === path;
+		const currentPath = $page.url.pathname;
+		
+		// Exact match
+		if (currentPath === path) return true;
+		
+		// Sub-route match (e.g., /insights/notifications should highlight /insights)
+		if (currentPath.startsWith(path + '/')) return true;
+		
+		return false;
 	}
 	
 	// Use sidebar context for mobile sidebar functionality
@@ -52,11 +61,14 @@
 									{#snippet child({ props })}
 										<a 
 											href={item.path}
-											class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+											class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors flex items-center gap-2 relative"
 											{...props}
 										>
 											<item.icon />
 											<span>{item.label}</span>
+											{#if item.hasSubRoutes && isActive(item.path)}
+												<div class="w-1.5 h-1.5 bg-[var(--color-golden-amber)] rounded-full"></div>
+											{/if}
 										</a>
 									{/snippet}
 								</Sidebar.MenuButton>

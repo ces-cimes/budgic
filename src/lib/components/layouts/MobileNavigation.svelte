@@ -3,24 +3,30 @@
   import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   
   // Lucide icons
-  import SunIcon from '@lucide/svelte/icons/sun';
-  import SquarePenIcon from '@lucide/svelte/icons/square-pen';
-  import CalendarDaysIcon from '@lucide/svelte/icons/calendar-days';
-  import ChartPieIcon from '@lucide/svelte/icons/chart-pie';
-  import SlidersIcon from '@lucide/svelte/icons/sliders';
-  import TagIcon from '@lucide/svelte/icons/tag';
+  import HomeIcon from '@lucide/svelte/icons/home';
+  import ReceiptIcon from '@lucide/svelte/icons/receipt';
+  import CalendarIcon from '@lucide/svelte/icons/calendar';
+  import BellIcon from '@lucide/svelte/icons/bell';
+  import TargetIcon from '@lucide/svelte/icons/target';
 
   const navItems = [
-    { path: '/', label: 'Today', icon: SunIcon },
-    { path: '/transactions', label: 'Trans.', icon: SquarePenIcon },
-    { path: '/categories', label: 'Categories', icon: TagIcon },
-    { path: '/plan', label: 'Plan', icon: CalendarDaysIcon },
-    { path: '/insights', label: 'Insights', icon: ChartPieIcon },
-    { path: '/settings', label: 'Settings', icon: SlidersIcon }
+    { path: '/', label: 'Dashboard', icon: HomeIcon, hasSubRoutes: false },
+    { path: '/transactions', label: 'Transactions', icon: ReceiptIcon, hasSubRoutes: false },
+    { path: '/budget', label: 'Budget', icon: TargetIcon, hasSubRoutes: true },
+    { path: '/forecast', label: 'Forecast', icon: CalendarIcon, hasSubRoutes: true },
+    { path: '/insights', label: 'Insights', icon: BellIcon, hasSubRoutes: true }
   ];
 
   function isActive(path: string) {
-    return $page.url.pathname === path;
+    const currentPath = $page.url.pathname;
+    
+    // Exact match
+    if (currentPath === path) return true;
+    
+    // Sub-route match (e.g., /insights/notifications should highlight /insights)
+    if (currentPath.startsWith(path + '/')) return true;
+    
+    return false;
   }
 </script>
 
@@ -29,9 +35,14 @@
     {#each navItems as item (item.label)}
       <a
         href={item.path} 
-        class="flex flex-col items-center p-2 flex-1 max-w-[16%] border-1 border-transparent rounded-xl hover:bg-(--color-bg-tertiary)/50 hover:border-border transition-all duration-150 {isActive(item.path) ? 'text-(--color-golden-amber) font-semibold' : 'text-(--color-text-secondary) tracking-tight'}"
+        class="flex flex-col items-center p-2 flex-1 max-w-[16%] border-1 border-transparent rounded-xl hover:bg-(--color-bg-tertiary)/50 hover:border-border transition-all duration-150 {isActive(item.path) ? 'text-(--color-golden-amber) font-semibold' : 'text-(--color-text-secondary) tracking-tight'} relative"
       >
-        <item.icon class="size-6 drop-shadow-lg"/>
+        <div class="relative">
+          <item.icon class="size-6 drop-shadow-lg"/>
+          {#if item.hasSubRoutes && isActive(item.path)}
+            <div class="absolute -top-1 -right-1 w-2 h-2 bg-(--color-golden-amber) rounded-full"></div>
+          {/if}
+        </div>
         <p class="text-xs whitespace-nowrap text-shadow-lg">{item.label}</p>
       </a>
     {/each}

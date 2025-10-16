@@ -51,7 +51,7 @@
 				category = categoryData || null;
 				if (!category) {
 					// Category not found, redirect to categories list
-					goto('/categories');
+					goto('/budget');
 					return;
 				}
 			}
@@ -138,7 +138,7 @@
 				<Button.Root 
 					variant="ghost" 
 					size="sm"
-					onclick={() => goto('/categories')}
+					onclick={() => goto('/budget')}
 				>
 					← Back
 				</Button.Root>
@@ -301,7 +301,7 @@
 	<div class="text-center py-12">
 		<h2 class="text-xl font-semibold text-primary mb-2">Category not found</h2>
 		<p class="text-tertiary mb-4">The category you're looking for doesn't exist or has been deleted.</p>
-		<Button.Root onclick={() => goto('/categories')}>
+		<Button.Root onclick={() => goto('/budget')}>
 			Back to Categories
 		</Button.Root>
 	</div>

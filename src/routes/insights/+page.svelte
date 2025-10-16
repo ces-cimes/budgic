@@ -31,6 +31,8 @@
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
+	import TabNavigation from '$lib/components/TabNavigation.svelte';
+	import BreadcrumbNav from '$lib/components/BreadcrumbNav.svelte';
 	import InsightsDisplay from '$lib/components/InsightsDisplay.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import { formatMainCurrencyAmount } from '$lib/utils/currency-utils';
@@ -48,6 +50,15 @@
 
 	// Sidebar context for mobile detection
 	const sidebar = Sidebar.useSidebar();
+
+	// Tab navigation configuration
+	const insightsTabs = [
+		{ id: 'overview', label: 'Overview', path: '/insights', icon: ChartBar },
+		{ id: 'notifications', label: 'Notifications', path: '/insights/notifications', icon: Bell },
+		{ id: 'achievements', label: 'Achievements', path: '/insights/achievements', icon: Award },
+		{ id: 'trends', label: 'Trends', path: '/insights/trends', icon: TrendingUp },
+		{ id: 'recommendations', label: 'Recommendations', path: '/insights/recommendations', icon: Lightbulb }
+	];
 
 	onMount(async () => {
 		try {
@@ -242,6 +253,16 @@
 			</Tabs.Content>
 		</Tabs.Root>
 	</header>
+
+	<!-- Tab Navigation -->
+	<div class="px-4">
+		<TabNavigation tabs={insightsTabs} />
+	</div>
+
+	<!-- Breadcrumb Navigation (Desktop only) -->
+	{#if !sidebar.isMobile}
+		<BreadcrumbNav />
+	{/if}
 
 	</div>
 </PageLayout> 

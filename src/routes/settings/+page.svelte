@@ -418,7 +418,7 @@
           </button>
           
           <button 
-            onclick={() => goto('/categories')}
+            onclick={() => goto('/budget')}
             class="w-full p-6 text-left hover:bg-accent transition-colors"
           >
             <div class="flex items-center space-x-4">

@@ -7,6 +7,7 @@
   import { Progress } from '$lib/components/ui/progress/index.ts';
   import { Badge } from '$lib/components/ui/badge/index.ts';
   import { Button } from '$lib/components/ui/button/index.ts';
+  import TabNavigation from '$lib/components/TabNavigation.svelte';
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import AddPlannedTransaction from '$lib/components/AddPlannedTransaction.svelte';
@@ -33,6 +34,14 @@
 
   // Sidebar context for mobile detection
   const sidebar = Sidebar.useSidebar();
+
+  // Tab navigation configuration
+  const forecastTabs = [
+    { id: 'overview', label: 'Overview', path: '/forecast', icon: Calendar },
+    { id: 'daily', label: 'Daily', path: '/forecast/daily', icon: Clock },
+    { id: 'weekly', label: 'Weekly', path: '/forecast/weekly', icon: Calendar },
+    { id: 'monthly', label: 'Monthly', path: '/forecast/monthly', icon: Calendar }
+  ];
 
   onMount(async () => {
     try {
@@ -267,6 +276,9 @@
         </button>
       </div>
     </header>
+
+    <!-- Tab Navigation -->
+    <TabNavigation tabs={forecastTabs} className="mb-6" />
 
     {#if isLoading}
       <div class="flex items-center justify-center py-8">

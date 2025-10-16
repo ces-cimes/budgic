@@ -102,7 +102,7 @@
 			});
 
 			// Redirect to categories list
-			goto('/categories');
+			goto('/budget');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create category';
 			console.error(err);
@@ -129,7 +129,7 @@
 		<Header 
 			title="Add Budget Category"
 			showBackButton={true}
-			backButtonLink="/categories"
+			backButtonLink="/budget"
 			backButtonLabel="Back to Categories"
 		/>
 		<div class="p-4 pb-2">
@@ -144,7 +144,7 @@
 				<Button.Root
 					type="button"
 					variant="outline"
-					onclick={() => goto('/categories')}
+					onclick={() => goto('/budget')}
 					disabled={isLoading}
 				>
 					Cancel
