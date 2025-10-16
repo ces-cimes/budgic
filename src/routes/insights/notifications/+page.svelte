@@ -88,11 +88,10 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Notifications" />
+    <Header title="Notifications" variant="with-tabs">
+      <TabNavigation tabs={insightsTabs} />
+    </Header>
   {/snippet}
-
-  <!-- Tab Navigation -->
-  <TabNavigation tabs={insightsTabs} />
 
   <div class="p-4 space-y-4">
     {#if isLoading}

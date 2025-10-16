@@ -104,11 +104,10 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Trends Analysis" />
+    <Header title="Trends Analysis" variant="with-tabs">
+      <TabNavigation tabs={insightsTabs} />
+    </Header>
   {/snippet}
-
-  <!-- Tab Navigation -->
-  <TabNavigation tabs={insightsTabs} />
 
   <div class="p-4 space-y-6">
     {#if isLoading}

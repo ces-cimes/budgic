@@ -370,16 +370,23 @@
 <PageLayout>
 	{#snippet topBar()}
 		<!-- Header -->
-		<Header title="Transactions">
-			<Button
-				onclick={() => goto('/transactions/add')}
-				size="sm"
-				class="hidden sm:flex"
-				target="_blank"
-				rel="noopener noreferrer">
-				<Plus />
-				<span>Add Transaction</span>
-			</Button>
+		<Header 
+			title="Transactions"
+			buttonProps={[
+				{
+					text: "Add Transaction",
+					onclick: () => goto('/transactions/add'),
+					size: "sm",
+					className: "hidden sm:flex",
+					target: "_blank",
+					rel: "noopener noreferrer",
+					icon: Plus
+				}
+			]}
+		>
+			<div class="text-sm text-muted-foreground">
+				Showing 5 transactions
+		  	</div>
 		</Header>
 	{/snippet}
 

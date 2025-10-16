@@ -80,11 +80,10 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Weekly Projections" />
+    <Header title="Weekly Projections" variant="with-tabs">
+      <TabNavigation tabs={forecastTabs} />
+    </Header>
   {/snippet}
-
-  <!-- Tab Navigation -->
-  <TabNavigation tabs={forecastTabs} />
 
   <div class="p-4 space-y-6">
     {#if isLoading}

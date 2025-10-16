@@ -97,11 +97,10 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Monthly Planning" />
+    <Header title="Monthly Planning" variant="with-tabs">
+      <TabNavigation tabs={forecastTabs} />
+    </Header>
   {/snippet}
-
-  <!-- Tab Navigation -->
-  <TabNavigation tabs={forecastTabs} />
 
   <div class="p-4 space-y-6">
     {#if isLoading}

@@ -140,11 +140,10 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Recommendations" />
+    <Header title="Recommendations" variant="with-tabs">
+      <TabNavigation tabs={insightsTabs} />
+    </Header>
   {/snippet}
-
-  <!-- Tab Navigation -->
-  <TabNavigation tabs={insightsTabs} />
 
   <div class="p-4 space-y-6">
     <!-- Summary Stats -->

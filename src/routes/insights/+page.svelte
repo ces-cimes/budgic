@@ -32,7 +32,7 @@
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
 	import TabNavigation from '$lib/components/TabNavigation.svelte';
-	import BreadcrumbNav from '$lib/components/BreadcrumbNav.svelte';
+	import Header from '$lib/components/Header.svelte';
 	import InsightsDisplay from '$lib/components/InsightsDisplay.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import { formatMainCurrencyAmount } from '$lib/utils/currency-utils';
@@ -143,10 +143,26 @@
 </script>
 
 <svelte:head>
-	<title>Notification Center | Budgic</title>
+	<title>Insights Center | Budgic</title>
 </svelte:head>
 
 <PageLayout>
+	{#snippet topBar()}
+		<Header 
+			title="Insights Center"
+			variant="with-tabs"
+			buttonProps={[{
+				text: `${insightsService.getInsightsBySeverity('alert').length} alerts`,
+				variant: "secondary",
+				size: "sm",
+				icon: CircleAlert,
+				disabled: true
+			}]}
+		>
+			<TabNavigation tabs={insightsTabs} />
+		</Header>
+	{/snippet}
+
 	{#snippet bottomBar()}
 		<!-- Mobile Navigation -->
 		{#if sidebar.isMobile}
@@ -155,22 +171,9 @@
 	{/snippet}
 
 	<div class="container mx-auto px-4 py-6 max-w-6xl">
-	<!-- Header -->
-	<header class="mb-8">
-		<div class="flex flex-col mb-4 w-full">
-			<div class="flex justify-between items-center space-x-2">
-				<h1 class="text-3xl font-bold text-primary mb-2">Insights Center</h1>
-				<Badge variant="secondary">
-					<CircleAlert size={14} />
-					<span>{insightsService.getInsightsBySeverity('alert').length} alerts</span>
-				</Badge>
-			</div>
-			<p class="text-muted-foreground">Stay informed about your financial health and opportunities</p>
-		</div>
-
-		<!-- Tabs -->
+		<!-- Internal Tabs for Overview/Insights -->
 		<Tabs.Root value={activeTab} onValueChange={(value) => activeTab = value as typeof activeTab}>
-			<Tabs.List class="w-full">
+			<Tabs.List class="w-full mb-6">
 				<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
 				<Tabs.Trigger value="insights" class="flex items-center">
 					<span>Insights</span>
@@ -252,15 +255,5 @@
 				{/if}
 			</Tabs.Content>
 		</Tabs.Root>
-	</header>
-
-	<!-- Tab Navigation -->
-	<TabNavigation tabs={insightsTabs} />
-
-	<!-- Breadcrumb Navigation (Desktop only) -->
-	{#if !sidebar.isMobile}
-		<BreadcrumbNav />
-	{/if}
-
 	</div>
 </PageLayout> 

@@ -64,17 +64,20 @@
 <PageLayout>
   {#snippet topBar()}
     <!-- Header -->
-    <Header title="Accounts">
-      <Button
-        onclick={() => goto('/accounts/add')}
-        size="sm"
-				class="hidden sm:flex"
-				target="_blank"
-				rel="noopener noreferrer">
-				<Plus />
-        <span>Add Account</span>
-      </Button>
-    </Header>
+    <Header 
+      title="Accounts"
+      buttonProps={[
+        {
+          text: "Add Account",
+          onclick: () => goto('/accounts/add'),
+          size: "sm",
+          className: "hidden sm:flex",
+          target: "_blank",
+          rel: "noopener noreferrer",
+          icon: Plus
+        }
+      ]}
+    />
   {/snippet}
 
   {#snippet bottomBar()}

@@ -251,18 +251,23 @@
 <PageLayout>
   {#snippet topBar()}
     <!-- Header -->
-    <Header title="Financial Planning">
-      <button 
-        onclick={async () => {
-          await loadDailyAllowance();
-          await loadVisibleWeeks();
-        }}
-        disabled={isLoading}
-        class="p-2 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50"
-        title="Refresh data"
-      >
-        <RefreshCw size={16} class={isLoading ? 'animate-spin' : ''} />
-      </button>
+    <Header 
+      title="Financial Planning"
+      variant="with-tabs"
+      buttonProps={[
+        {
+          text: "Refresh",
+          onclick: async () => {
+            await loadDailyAllowance();
+            await loadVisibleWeeks();
+          },
+          disabled: isLoading,
+          className: `p-2 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50 ${isLoading ? 'animate-spin' : ''}`,
+          icon: RefreshCw
+        }
+      ]}
+    >
+      <TabNavigation tabs={forecastTabs} />
     </Header>
   {/snippet}
 
@@ -273,8 +278,6 @@
     {/if}
   {/snippet}
 
-  <!-- Tab Navigation -->
-  <TabNavigation tabs={forecastTabs} className="mb-6" />
 
   {#if isLoading}
     <div class="flex items-center justify-center py-8">

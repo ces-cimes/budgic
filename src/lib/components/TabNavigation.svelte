@@ -32,7 +32,7 @@
 
 <Tabs value={activeTab()} onValueChange={handleTabChange} class="relative {className}">
   <div 
-    class="overflow-x-auto scrollbar-hide border-b border-border"
+    class="overflow-x-auto scrollbar-hide border-t border-border"
     style="scrollbar-width: none; -ms-overflow-style: none;"
   >
     <TabsList 

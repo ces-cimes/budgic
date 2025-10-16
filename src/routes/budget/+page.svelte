@@ -34,7 +34,11 @@
 		{ id: 'transfers', label: 'Transfers', path: '/budget/transfers', icon: ArrowRightLeft }
 	];
 
-	const waterfallCategories: { value: WaterfallCategory | 'all'; label: string; description: string }[] = [
+	const waterfallCategories: {
+		value: WaterfallCategory | 'all';
+		label: string;
+		description: string;
+	}[] = [
 		{ value: 'all', label: 'All Categories', description: 'View all budget categories' },
 		{ value: 'survival', label: 'Survival', description: 'Essential needs for basic living' },
 		{ value: 'security', label: 'Security', description: 'Financial safety and stability' },
@@ -45,19 +49,19 @@
 	// Filter categories based on selected waterfall category and active state
 	let filteredCategories = $derived.by(() => {
 		let filtered = categories;
-		
+
 		// Filter by waterfall category
 		if (selectedWaterfallCategory !== 'all') {
-			filtered = filtered.filter(cat => cat.waterfallCategory === selectedWaterfallCategory);
+			filtered = filtered.filter((cat) => cat.waterfallCategory === selectedWaterfallCategory);
 		}
-		
+
 		// Filter by active state
 		if (activeState === 'active') {
-			filtered = filtered.filter(cat => cat.isActive);
+			filtered = filtered.filter((cat) => cat.isActive);
 		} else if (activeState === 'inactive') {
-			filtered = filtered.filter(cat => !cat.isActive);
+			filtered = filtered.filter((cat) => !cat.isActive);
 		}
-		
+
 		return filtered;
 	});
 
@@ -65,29 +69,32 @@
 	let activeCount = $derived.by(() => {
 		let filtered = categories;
 		if (selectedWaterfallCategory !== 'all') {
-			filtered = filtered.filter(cat => cat.waterfallCategory === selectedWaterfallCategory);
+			filtered = filtered.filter((cat) => cat.waterfallCategory === selectedWaterfallCategory);
 		}
-		return filtered.filter(cat => cat.isActive).length;
+		return filtered.filter((cat) => cat.isActive).length;
 	});
-	
+
 	let inactiveCount = $derived.by(() => {
 		let filtered = categories;
 		if (selectedWaterfallCategory !== 'all') {
-			filtered = filtered.filter(cat => cat.waterfallCategory === selectedWaterfallCategory);
+			filtered = filtered.filter((cat) => cat.waterfallCategory === selectedWaterfallCategory);
 		}
-		return filtered.filter(cat => !cat.isActive).length;
+		return filtered.filter((cat) => !cat.isActive).length;
 	});
 
 	// Calculate totals for each waterfall category
 	let categoryTotals = $derived.by(() => {
-		const totals: Record<WaterfallCategory, { allocated: number; spent: number; remaining: number }> = {
+		const totals: Record<
+			WaterfallCategory,
+			{ allocated: number; spent: number; remaining: number }
+		> = {
 			survival: { allocated: 0, spent: 0, remaining: 0 },
 			security: { allocated: 0, spent: 0, remaining: 0 },
 			growth: { allocated: 0, spent: 0, remaining: 0 },
 			lifestyle: { allocated: 0, spent: 0, remaining: 0 }
 		};
 
-		categories.forEach(category => {
+		categories.forEach((category) => {
 			const total = totals[category.waterfallCategory];
 			total.allocated += category.allocatedAmount;
 			total.spent += category.spent;
@@ -113,12 +120,10 @@
 			await budgetService.updateBudgetCategory(category.id, {
 				isActive: !category.isActive
 			});
-			
+
 			// Update local state - $state() will handle reactivity automatically
-			categories = categories.map(cat => 
-				cat.id === category.id 
-					? { ...cat, isActive: !cat.isActive }
-					: cat
+			categories = categories.map((cat) =>
+				cat.id === category.id ? { ...cat, isActive: !cat.isActive } : cat
 			);
 		} catch (err) {
 			error = 'Failed to update category status';
@@ -133,14 +138,12 @@
 			await budgetService.updateBudgetCategory(category.id, {
 				isActive: false
 			});
-			
+
 			// Update local state - $state() will handle reactivity automatically
-			categories = categories.map(cat => 
-				cat.id === category.id 
-					? { ...cat, isActive: false }
-					: cat
+			categories = categories.map((cat) =>
+				cat.id === category.id ? { ...cat, isActive: false } : cat
 			);
-			
+
 			showDeleteDialog = false;
 			categoryToDelete = null;
 		} catch (err) {
@@ -176,16 +179,22 @@
 <PageLayout>
 	{#snippet topBar()}
 		<!-- Header -->
-		<Header title="Budget Categories">
-			<Button
-				onclick={() => goto('/budget/add')}
-				size="sm"
-				class="hidden sm:flex"
-				target="_blank"
-				rel="noopener noreferrer">
-				<Plus />
-				<span>Add Category</span>
-			</Button>
+		<Header 
+			title="Budget Categories"
+			variant="with-tabs"
+			buttonProps={[
+				{
+					text: "Add Category",
+					onclick: () => goto('/budget/add'),
+					size: "sm",
+					className: "hidden sm:flex",
+					target: "_blank",
+					rel: "noopener noreferrer",
+					icon: Plus
+				}
+			]}
+		>
+			<TabNavigation tabs={budgetTabs} />
 		</Header>
 	{/snippet}
 
@@ -196,303 +205,337 @@
 		{/if}
 	{/snippet}
 
-	<!-- Tab Navigation -->
-	<TabNavigation tabs={budgetTabs} />
+	
 
-	<div class="container mx-auto p-2 sm:p-4 max-w-4xl">
+	<div class="container mx-auto max-w-4xl p-2 sm:p-4">
+		{#if error}
+			<Alert.Root variant="destructive" class="mb-6">
+				<Alert.Title>Error</Alert.Title>
+				<Alert.Description>{error}</Alert.Description>
+			</Alert.Root>
+		{/if}
 
-	{#if error}
-		<Alert.Root variant="destructive" class="mb-6">
-			<Alert.Title>Error</Alert.Title>
-			<Alert.Description>{error}</Alert.Description>
-		</Alert.Root>
-	{/if}
+		<!-- Filter Bar -->
+		<div class="bg-background sticky mb-4">
+			<!-- Desktop Layout -->
+			<div class="hidden items-center gap-2 md:flex">
+				<div class="flex flex-1 items-center gap-2">
+					<!-- Waterfall Category Filter -->
+					<div class="flex-1">
+						<Select.Root type="single" bind:value={selectedWaterfallCategory}>
+							<Select.Trigger class="w-full">
+								{waterfallCategories.find((c) => c.value === selectedWaterfallCategory)?.label ||
+									'Filter by category'}
+							</Select.Trigger>
+							<Select.Content>
+								{#each waterfallCategories as category}
+									<Select.Item value={category.value}>
+										{category.label}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
 
-	<!-- Filter Bar -->
-	<div class="mb-4 bg-background sticky">
-		<!-- Desktop Layout -->
-		<div class="hidden md:flex items-center gap-2">
-			<div class="flex items-center gap-2 flex-1">
-				<!-- Waterfall Category Filter -->
-				<div class="flex-1">
-					<Select.Root type="single" bind:value={selectedWaterfallCategory}>
-						<Select.Trigger class="w-full">
-							{waterfallCategories.find(c => c.value === selectedWaterfallCategory)?.label || 'Filter by category'}
-						</Select.Trigger>
-						<Select.Content>
-							{#each waterfallCategories as category}
-								<Select.Item value={category.value}>
-									{category.label}
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
+					<!-- Active/Inactive Toggle -->
+					<div class="flex items-center gap-2">
+						<ToggleGroup.Root type="single" variant="outline" bind:value={activeState}>
+							<ToggleGroup.Item value="active" size="sm">Active</ToggleGroup.Item>
+							<ToggleGroup.Item value="inactive" size="sm">Inactive</ToggleGroup.Item>
+							<ToggleGroup.Item value="all" size="sm">All</ToggleGroup.Item>
+						</ToggleGroup.Root>
+					</div>
 				</div>
-				
-				<!-- Active/Inactive Toggle -->
+
+				<!-- Category Count Badges -->
+				<div class="flex gap-2">
+					<Badge variant="default">Active: {activeCount}</Badge>
+					<Badge variant="secondary">Inactive: {inactiveCount}</Badge>
+				</div>
+			</div>
+
+			<!-- Mobile Layout -->
+			<div class="space-y-2 md:hidden">
+				<!-- Filter Row -->
 				<div class="flex items-center gap-2">
-					<ToggleGroup.Root type="single" variant="outline" bind:value={activeState}>
-						<ToggleGroup.Item value="active" size="sm">Active</ToggleGroup.Item>
-						<ToggleGroup.Item value="inactive" size="sm">Inactive</ToggleGroup.Item>
-						<ToggleGroup.Item value="all" size="sm">All</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
-			</div>
+					<!-- Waterfall Category Filter -->
+					<div class="flex-1">
+						<Select.Root type="single" bind:value={selectedWaterfallCategory}>
+							<Select.Trigger class="w-full">
+								{waterfallCategories.find((c) => c.value === selectedWaterfallCategory)?.label ||
+									'Filter by category'}
+							</Select.Trigger>
+							<Select.Content>
+								{#each waterfallCategories as category}
+									<Select.Item value={category.value}>
+										{category.label}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
 
-			<!-- Category Count Badges -->
-			<div class="flex gap-2">
-				<Badge variant="default">Active: {activeCount}</Badge>
-				<Badge variant="secondary">Inactive: {inactiveCount}</Badge>
+					<!-- Active/Inactive Toggle -->
+					<div class="flex items-center gap-2">
+						<ToggleGroup.Root type="single" variant="outline" bind:value={activeState}>
+							<ToggleGroup.Item value="active" size="sm">Active</ToggleGroup.Item>
+							<ToggleGroup.Item value="inactive" size="sm">Inactive</ToggleGroup.Item>
+							<ToggleGroup.Item value="all" size="sm">All</ToggleGroup.Item>
+						</ToggleGroup.Root>
+					</div>
+				</div>
+
+				<!-- Category Count Badges -->
+				<div class="flex gap-2">
+					<Badge variant="default">Active: {activeCount}</Badge>
+					<Badge variant="secondary">Inactive: {inactiveCount}</Badge>
+				</div>
 			</div>
 		</div>
 
-		<!-- Mobile Layout -->
-		<div class="md:hidden space-y-2">
-			<!-- Filter Row -->
-			<div class="flex items-center gap-2">
-				<!-- Waterfall Category Filter -->
-				<div class="flex-1">
-					<Select.Root type="single" bind:value={selectedWaterfallCategory}>
-						<Select.Trigger class="w-full">
-							{waterfallCategories.find(c => c.value === selectedWaterfallCategory)?.label || 'Filter by category'}
-						</Select.Trigger>
-						<Select.Content>
-							{#each waterfallCategories as category}
-								<Select.Item value={category.value}>
-									{category.label}
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</div>
-				
-				<!-- Active/Inactive Toggle -->
-				<div class="flex items-center gap-2">
-					<ToggleGroup.Root type="single" variant="outline" bind:value={activeState}>
-						<ToggleGroup.Item value="active" size="sm">Active</ToggleGroup.Item>
-						<ToggleGroup.Item value="inactive" size="sm">Inactive</ToggleGroup.Item>
-						<ToggleGroup.Item value="all" size="sm">All</ToggleGroup.Item>
-					</ToggleGroup.Root>
-				</div>
-			</div>
-
-			<!-- Category Count Badges -->
-			<div class="flex gap-2">
-				<Badge variant="default">Active: {activeCount}</Badge>
-				<Badge variant="secondary">Inactive: {inactiveCount}</Badge>
-			</div>
-		</div>
-	</div>
-
-	<!-- Summary Stats -->
-	{#if selectedWaterfallCategory !== 'all'}
-		{@const total = categoryTotals[selectedWaterfallCategory]}
-		<section class="mb-4">
-			<div class="bg-card rounded-xl p-4 shadow-sm border border-border">
-				<div class="grid grid-cols-3 gap-4 text-center">
-					<div>
-						<div class="text-lg font-bold text-[var(--color-sage-green)]">{formatCurrency(total.allocated)}</div>
-						<div class="text-xs text-tertiary">Allocated</div>
-					</div>
-					<div>
-						<div class="text-lg font-bold text-[var(--color-warm-coral)]">{formatCurrency(total.spent)}</div>
-						<div class="text-xs text-tertiary">Spent</div>
-					</div>
-					<div>
-						<div class="text-lg font-bold {total.remaining >= 0 ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]'}">
-							{formatCurrency(total.remaining)}
+		<!-- Summary Stats -->
+		{#if selectedWaterfallCategory !== 'all'}
+			{@const total = categoryTotals[selectedWaterfallCategory]}
+			<section class="mb-4">
+				<div class="bg-card border-border rounded-xl border p-4 shadow-sm">
+					<div class="grid grid-cols-3 gap-4 text-center">
+						<div>
+							<div class="text-lg font-bold text-[var(--color-sage-green)]">
+								{formatCurrency(total.allocated)}
+							</div>
+							<div class="text-tertiary text-xs">Allocated</div>
 						</div>
-						<div class="text-xs text-tertiary">Remaining</div>
+						<div>
+							<div class="text-lg font-bold text-[var(--color-warm-coral)]">
+								{formatCurrency(total.spent)}
+							</div>
+							<div class="text-tertiary text-xs">Spent</div>
+						</div>
+						<div>
+							<div
+								class="text-lg font-bold {total.remaining >= 0
+									? 'text-[var(--color-sage-green)]'
+									: 'text-[var(--color-warm-coral)]'}"
+							>
+								{formatCurrency(total.remaining)}
+							</div>
+							<div class="text-tertiary text-xs">Remaining</div>
+						</div>
 					</div>
 				</div>
-			</div>
-		</section>
-	{/if}
+			</section>
+		{/if}
 
-	<!-- Category Description -->
-	{#if selectedWaterfallCategory !== 'all'}
-		{@const category = waterfallCategories.find(c => c.value === selectedWaterfallCategory)}
-		<div class="mb-6">
-			<h2 class="text-xl font-semibold text-primary mb-2">{category?.label} Categories</h2>
-			<p class="text-muted-foreground">{category?.description}</p>
-		</div>
-	{/if}
-
-
-	<!-- Categories List -->
-	<section class="space-y-6">
-		{#if isLoading}
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-				{#each Array(6) as _}
-					<div class="bg-card rounded-2xl shadow-sm border border-border p-6">
-						<div class="animate-pulse">
-							<div class="h-4 bg-muted rounded w-3/4 mb-2"></div>
-							<div class="h-3 bg-muted rounded w-1/2 mb-4"></div>
-							<div class="h-6 bg-muted rounded w-full"></div>
-						</div>
-					</div>
-				{/each}
-			</div>
-		{:else if filteredCategories.length === 0}
-			<div class="bg-card rounded-2xl shadow-sm border border-border">
-				<div class="p-8 text-center text-muted-foreground">
-					<div class="text-lg mb-2">No categories found</div>
-					<div class="text-sm mb-4">Try adjusting your filters or add a new category</div>
-					<Button onclick={() => goto('/categories/add')}>
-						Create your first category
-					</Button>
-				</div>
-			</div>
-		{:else}
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-				{#each filteredCategories as category (category.id)}
-					<div class="bg-card rounded-2xl shadow-sm border border-border hover:shadow-md transition-shadow overflow-hidden">
-						<!-- Card Header -->
-						<div class="p-4 pb-3 border-b border-border">
-							<div class="flex items-center justify-between mb-2">
-								<div class="flex items-center space-x-3">
-									<div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-semibold" style="background-color: {category.color || '#6B7280'}20; color: {category.color || '#6B7280'}">
-										{category.name.charAt(0).toUpperCase()}
-									</div>
-									<div>
-										<h3 class="font-semibold text-primary">{category.name}</h3>
-									</div>
-								</div>
-								<Badge variant={category.isActive ? 'default' : 'secondary'} class="text-xs">
-									{category.isActive ? 'Active' : 'Inactive'}
-								</Badge>
-							</div>
-							<Badge variant="outline" class="text-xs">
-								{category.waterfallCategory}
-							</Badge>
-						</div>
-						
-						<!-- Card Content -->
-						<div class="p-4 space-y-4">
-							<!-- Budget Progress -->
-							<div class="space-y-2">
-								<div class="flex justify-between text-sm">
-									<span class="text-muted-foreground">Allocated</span>
-									<span class="font-medium">{formatCurrency(category.allocatedAmount)}</span>
-								</div>
-								<div class="flex justify-between text-sm">
-									<span class="text-muted-foreground">Spent</span>
-									<span class="font-medium">{formatCurrency(category.spent)}</span>
-								</div>
-								<div class="flex justify-between text-sm">
-									<span class="text-muted-foreground">Remaining</span>
-									<span class="font-semibold {getStatusColor(category.remaining, category.allocatedAmount)}">
-										{formatCurrency(category.remaining)}
-									</span>
-								</div>
-							</div>
-
-							<!-- Progress Bar -->
-							<div class="space-y-1">
-								<div class="w-full bg-muted rounded-full h-2">
-									<div 
-										class="h-2 rounded-full transition-all duration-300 {category.remaining < 0 ? 'bg-destructive' : category.remaining < category.allocatedAmount * 0.2 ? 'bg-yellow-500' : 'bg-green-500'}"
-										style="width: {Math.min((category.spent / category.allocatedAmount) * 100, 100)}%"
-									></div>
-								</div>
-								<div class="text-xs text-muted-foreground text-center">
-									{Math.round((category.spent / category.allocatedAmount) * 100)}% used
-								</div>
-							</div>
-
-							<!-- Goal Progress (if applicable) -->
-							{#if category.isGoalBased && category.goalTarget}
-								<div class="space-y-1">
-									<div class="flex justify-between text-xs text-muted-foreground">
-										<span>Goal Progress</span>
-										<span>{Math.round((category.goalProgress || 0) / category.goalTarget * 100)}%</span>
-									</div>
-									<div class="w-full bg-muted rounded-full h-1">
-										<div 
-											class="h-1 rounded-full bg-blue-500"
-											style="width: {Math.min((category.goalProgress || 0) / category.goalTarget * 100, 100)}%"
-										></div>
-									</div>
-								</div>
-							{/if}
-
-							<!-- Status Badge -->
-							<div class="text-center">
-								<Badge 
-									variant={category.remaining < 0 ? 'destructive' : category.remaining < category.allocatedAmount * 0.2 ? 'secondary' : 'default'}
-									class="text-xs"
-								>
-									{getStatusText(category.remaining, category.allocatedAmount)}
-								</Badge>
-							</div>
-						</div>
-
-						<!-- Card Actions -->
-						<div class="p-4 pt-0 flex justify-between items-center">
-							<div class="flex items-center space-x-2">
-								<Switch.Root 
-									checked={category.isActive}
-									onCheckedChange={() => toggleCategoryStatus(category)}
-								/>
-								<span class="text-sm text-muted-foreground">
-									{category.isActive ? 'Active' : 'Inactive'}
-								</span>
-							</div>
-							<div class="flex space-x-2">
-								<Button 
-									variant="outline" 
-									size="sm"
-					onclick={() => goto(`/budget/${category.id}`)}
-								>
-									View
-								</Button>
-								<Button 
-									variant="ghost" 
-									size="sm"
-									onclick={() => {
-										categoryToDelete = category;
-										showDeleteDialog = true;
-									}}
-									class="text-destructive hover:text-destructive hover:bg-destructive/10"
-								>
-									Delete
-								</Button>
-							</div>
-						</div>
-					</div>
-				{/each}
+		<!-- Category Description -->
+		{#if selectedWaterfallCategory !== 'all'}
+			{@const category = waterfallCategories.find((c) => c.value === selectedWaterfallCategory)}
+			<div class="mb-6">
+				<h2 class="text-primary mb-2 text-xl font-semibold">{category?.label} Categories</h2>
+				<p class="text-muted-foreground">{category?.description}</p>
 			</div>
 		{/if}
-	</section>
-</div>
 
-<!-- Delete Confirmation Dialog -->
-<Dialog.Root bind:open={showDeleteDialog}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Delete Category</Dialog.Title>
-			<Dialog.Description>
-				Are you sure you want to delete "{categoryToDelete?.name}"? This action cannot be undone.
-				The category will be deactivated and won't appear in transaction forms.
-			</Dialog.Description>
-		</Dialog.Header>
-		<Dialog.Footer>
-			<Button 
-				variant="outline" 
-				onclick={() => {
-					showDeleteDialog = false;
-					categoryToDelete = null;
-				}}
-			>
-				Cancel
-			</Button>
-			<Button 
-				variant="destructive"
-				onclick={() => categoryToDelete && deleteCategory(categoryToDelete)}
-			>
-				Delete
-			</Button>
-		</Dialog.Footer>
-	</Dialog.Content>
-</Dialog.Root>
+		<!-- Categories List -->
+		<section class="space-y-6">
+			{#if isLoading}
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+					{#each Array(6) as _}
+						<div class="bg-card border-border rounded-2xl border p-6 shadow-sm">
+							<div class="animate-pulse">
+								<div class="bg-muted mb-2 h-4 w-3/4 rounded"></div>
+								<div class="bg-muted mb-4 h-3 w-1/2 rounded"></div>
+								<div class="bg-muted h-6 w-full rounded"></div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{:else if filteredCategories.length === 0}
+				<div class="bg-card border-border rounded-2xl border shadow-sm">
+					<div class="text-muted-foreground p-8 text-center">
+						<div class="mb-2 text-lg">No categories found</div>
+						<div class="mb-4 text-sm">Try adjusting your filters or add a new category</div>
+						<Button onclick={() => goto('/categories/add')}>Create your first category</Button>
+					</div>
+				</div>
+			{:else}
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+					{#each filteredCategories as category (category.id)}
+						<div
+							class="bg-card border-border overflow-hidden rounded-2xl border shadow-sm transition-shadow hover:shadow-md"
+						>
+							<!-- Card Header -->
+							<div class="border-border border-b p-4 pb-3">
+								<div class="mb-2 flex items-center justify-between">
+									<div class="flex items-center space-x-3">
+										<div
+											class="flex h-10 w-10 items-center justify-center rounded-full text-lg font-semibold"
+											style="background-color: {category.color ||
+												'#6B7280'}20; color: {category.color || '#6B7280'}"
+										>
+											{category.name.charAt(0).toUpperCase()}
+										</div>
+										<div>
+											<h3 class="text-primary font-semibold">{category.name}</h3>
+										</div>
+									</div>
+									<Badge variant={category.isActive ? 'default' : 'secondary'} class="text-xs">
+										{category.isActive ? 'Active' : 'Inactive'}
+									</Badge>
+								</div>
+								<Badge variant="outline" class="text-xs">
+									{category.waterfallCategory}
+								</Badge>
+							</div>
+
+							<!-- Card Content -->
+							<div class="space-y-4 p-4">
+								<!-- Budget Progress -->
+								<div class="space-y-2">
+									<div class="flex justify-between text-sm">
+										<span class="text-muted-foreground">Allocated</span>
+										<span class="font-medium">{formatCurrency(category.allocatedAmount)}</span>
+									</div>
+									<div class="flex justify-between text-sm">
+										<span class="text-muted-foreground">Spent</span>
+										<span class="font-medium">{formatCurrency(category.spent)}</span>
+									</div>
+									<div class="flex justify-between text-sm">
+										<span class="text-muted-foreground">Remaining</span>
+										<span
+											class="font-semibold {getStatusColor(
+												category.remaining,
+												category.allocatedAmount
+											)}"
+										>
+											{formatCurrency(category.remaining)}
+										</span>
+									</div>
+								</div>
+
+								<!-- Progress Bar -->
+								<div class="space-y-1">
+									<div class="bg-muted h-2 w-full rounded-full">
+										<div
+											class="h-2 rounded-full transition-all duration-300 {category.remaining < 0
+												? 'bg-destructive'
+												: category.remaining < category.allocatedAmount * 0.2
+													? 'bg-yellow-500'
+													: 'bg-green-500'}"
+											style="width: {Math.min(
+												(category.spent / category.allocatedAmount) * 100,
+												100
+											)}%"
+										></div>
+									</div>
+									<div class="text-muted-foreground text-center text-xs">
+										{Math.round((category.spent / category.allocatedAmount) * 100)}% used
+									</div>
+								</div>
+
+								<!-- Goal Progress (if applicable) -->
+								{#if category.isGoalBased && category.goalTarget}
+									<div class="space-y-1">
+										<div class="text-muted-foreground flex justify-between text-xs">
+											<span>Goal Progress</span>
+											<span
+												>{Math.round(
+													((category.goalProgress || 0) / category.goalTarget) * 100
+												)}%</span
+											>
+										</div>
+										<div class="bg-muted h-1 w-full rounded-full">
+											<div
+												class="h-1 rounded-full bg-blue-500"
+												style="width: {Math.min(
+													((category.goalProgress || 0) / category.goalTarget) * 100,
+													100
+												)}%"
+											></div>
+										</div>
+									</div>
+								{/if}
+
+								<!-- Status Badge -->
+								<div class="text-center">
+									<Badge
+										variant={category.remaining < 0
+											? 'destructive'
+											: category.remaining < category.allocatedAmount * 0.2
+												? 'secondary'
+												: 'default'}
+										class="text-xs"
+									>
+										{getStatusText(category.remaining, category.allocatedAmount)}
+									</Badge>
+								</div>
+							</div>
+
+							<!-- Card Actions -->
+							<div class="flex items-center justify-between p-4 pt-0">
+								<div class="flex items-center space-x-2">
+									<Switch.Root
+										checked={category.isActive}
+										onCheckedChange={() => toggleCategoryStatus(category)}
+									/>
+									<span class="text-muted-foreground text-sm">
+										{category.isActive ? 'Active' : 'Inactive'}
+									</span>
+								</div>
+								<div class="flex space-x-2">
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => goto(`/budget/${category.id}`)}
+									>
+										View
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										onclick={() => {
+											categoryToDelete = category;
+											showDeleteDialog = true;
+										}}
+										class="text-destructive hover:text-destructive hover:bg-destructive/10"
+									>
+										Delete
+									</Button>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</section>
+	</div>
+
+	<!-- Delete Confirmation Dialog -->
+	<Dialog.Root bind:open={showDeleteDialog}>
+		<Dialog.Content>
+			<Dialog.Header>
+				<Dialog.Title>Delete Category</Dialog.Title>
+				<Dialog.Description>
+					Are you sure you want to delete "{categoryToDelete?.name}"? This action cannot be undone.
+					The category will be deactivated and won't appear in transaction forms.
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer>
+				<Button
+					variant="outline"
+					onclick={() => {
+						showDeleteDialog = false;
+						categoryToDelete = null;
+					}}
+				>
+					Cancel
+				</Button>
+				<Button
+					variant="destructive"
+					onclick={() => categoryToDelete && deleteCategory(categoryToDelete)}
+				>
+					Delete
+				</Button>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 </PageLayout>
