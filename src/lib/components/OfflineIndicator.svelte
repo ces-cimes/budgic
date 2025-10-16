@@ -27,7 +27,7 @@
     window.addEventListener('offline', handleOffline);
 
     // Auto-hide indicator after 3 seconds when coming back online
-    let hideTimeout: number;
+    let hideTimeout: Timeout;
     const handleOnlineWithDelay = () => {
       isOnline = true;
       showIndicator = true;
