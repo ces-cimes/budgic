@@ -129,9 +129,7 @@
   {/snippet}
 
   <!-- Tab Navigation -->
-  <div class="px-4">
-    <TabNavigation tabs={budgetTabs} />
-  </div>
+  <TabNavigation tabs={budgetTabs} />
 
   <div class="p-4 space-y-6">
     {#if isLoading}

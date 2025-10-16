@@ -197,9 +197,7 @@
 	{/snippet}
 
 	<!-- Tab Navigation -->
-	<div class="px-4">
-		<TabNavigation tabs={budgetTabs} />
-	</div>
+	<TabNavigation tabs={budgetTabs} />
 
 	<div class="container mx-auto p-2 sm:p-4 max-w-4xl">
 

@@ -255,9 +255,7 @@
 	</header>
 
 	<!-- Tab Navigation -->
-	<div class="px-4">
-		<TabNavigation tabs={insightsTabs} />
-	</div>
+	<TabNavigation tabs={insightsTabs} />
 
 	<!-- Breadcrumb Navigation (Desktop only) -->
 	{#if !sidebar.isMobile}

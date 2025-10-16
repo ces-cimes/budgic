@@ -144,9 +144,7 @@
   {/snippet}
 
   <!-- Tab Navigation -->
-  <div class="px-4">
-    <TabNavigation tabs={insightsTabs} />
-  </div>
+  <TabNavigation tabs={insightsTabs} />
 
   <div class="p-4 space-y-6">
     <!-- Summary Stats -->
