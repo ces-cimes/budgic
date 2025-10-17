@@ -6,7 +6,7 @@
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 
 	interface ButtonConfig {
-		text: string;
+		text?: string;
 		onclick?: () => void;
 		href?: string;
 		variant?: ButtonProps['variant'];
@@ -99,7 +99,9 @@
 							{@const IconComponent = buttonConfig.icon}
 							<IconComponent />
 						{/if}
-						<span>{buttonConfig.text}</span>
+						{#if buttonConfig.text}
+							<span>{buttonConfig.text}</span>
+						{/if}
 					</Button>
 				{/each}
 			</div>

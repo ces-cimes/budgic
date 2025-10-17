@@ -282,11 +282,11 @@
 			variant="with-tabs"
 			buttonProps={[
 				{
-					text: 'Refresh',
 					onclick: async () => {
 						await loadDailyAllowance();
 						await loadVisibleWeeks();
 					},
+					size: 'sm',
 					disabled: isLoading,
 					className: `p-2 rounded-lg border border-border hover:bg-accent transition-colors disabled:opacity-50 ${isLoading ? 'animate-spin' : ''}`,
 					icon: RefreshCw
