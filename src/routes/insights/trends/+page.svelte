@@ -137,14 +137,13 @@
       </div>
     {:else}
       {#each trends as trend (trend.id)}
+        {@const TrendIcon = getTrendIcon(trend.trend)}
+        {@const TrendMainIcon = trend.icon}
         <Card.Root class="p-6">
           <div class="flex items-start gap-4 mb-4">
             <div class="flex-shrink-0">
               <div class="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-                <svelte:component 
-                  this={trend.icon} 
-                  class="w-5 h-5 text-primary"
-                />
+                <TrendMainIcon class="w-5 h-5 text-primary" />
               </div>
             </div>
             
@@ -152,10 +151,7 @@
               <div class="flex items-center justify-between mb-2">
                 <h3 class="text-lg font-semibold text-primary">{trend.title}</h3>
                 <div class="flex items-center gap-2">
-                  <svelte:component 
-                    this={getTrendIcon(trend.trend)} 
-                    class="w-4 h-4 {getTrendColor(trend.trend)}"
-                  />
+                  <TrendIcon class="w-4 h-4 {getTrendColor(trend.trend)}" />
                   <span class="text-sm font-medium {getTrendColor(trend.trend)}">
                     {formatChange(trend.change)}
                   </span>
@@ -170,6 +166,7 @@
           <!-- Trend Details -->
           <div class="space-y-3">
             {#each trend.details as detail, index (index)}
+              {@const DetailTrendIcon = getTrendIcon(detail.trend)}
               <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                 <div class="flex items-center gap-3">
                   <div class="w-2 h-2 rounded-full bg-primary"></div>
@@ -178,10 +175,7 @@
                 
                 <div class="flex items-center gap-2">
                   {#if detail.change !== undefined}
-                    <svelte:component 
-                      this={getTrendIcon(detail.trend)} 
-                      class="w-3 h-3 {getTrendColor(detail.trend)}"
-                    />
+                    <DetailTrendIcon class="w-3 h-3 {getTrendColor(detail.trend)}" />
                     <span class="text-sm {getTrendColor(detail.trend)}">
                       {formatChange(detail.change)}
                     </span>

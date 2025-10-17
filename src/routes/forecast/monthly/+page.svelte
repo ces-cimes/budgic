@@ -199,12 +199,10 @@
         
         <div class="space-y-4">
           {#each monthlyData.goals as goal (goal.name)}
+            {@const GoalStatusIcon = getGoalStatusIcon(goal.status)}
             <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
               <div class="flex items-center gap-3">
-                <svelte:component 
-                  this={getGoalStatusIcon(goal.status)} 
-                  class="w-5 h-5 {getGoalStatusColor(goal.status)}"
-                />
+                <GoalStatusIcon class="w-5 h-5 {getGoalStatusColor(goal.status)}" />
                 <div>
                   <div class="font-medium text-primary">{goal.name}</div>
                   <div class="text-sm text-muted-foreground">${goal.current.toFixed(2)} / ${goal.target.toFixed(2)}</div>

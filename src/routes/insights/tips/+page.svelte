@@ -201,14 +201,12 @@
       </div>
     {:else}
       {#each recommendations as recommendation (recommendation.id)}
+        {@const RecommendationIcon = recommendation.icon}
         <Card.Root class="p-6">
           <div class="flex items-start gap-4 mb-4">
             <div class="flex-shrink-0">
               <div class="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-                <svelte:component 
-                  this={recommendation.icon} 
-                  class="w-5 h-5 text-primary"
-                />
+                <RecommendationIcon class="w-5 h-5 text-primary" />
               </div>
             </div>
             

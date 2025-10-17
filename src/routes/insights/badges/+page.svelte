@@ -164,14 +164,12 @@
     {:else}
       <div class="space-y-4">
         {#each achievements as achievement (achievement.id)}
+          {@const AchievementIcon = achievement.icon}
           <Card.Root class="p-4 {achievement.earned ? '' : 'opacity-60'}">
             <div class="flex items-start gap-4">
               <div class="flex-shrink-0">
                 <div class="w-12 h-12 rounded-lg bg-accent flex items-center justify-center">
-                  <svelte:component 
-                    this={achievement.icon} 
-                    class="w-6 h-6 {getRarityColor(achievement.rarity)}"
-                  />
+                  <AchievementIcon class="w-6 h-6 {getRarityColor(achievement.rarity)}" />
                 </div>
               </div>
               
