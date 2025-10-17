@@ -3,6 +3,7 @@
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
   import TabNavigation from '$lib/components/TabNavigation.svelte';
+  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { Badge } from '$lib/components/ui/badge/index.ts';
   import { DollarSign, Calendar, TrendingUp, AlertTriangle, CalendarDays, CalendarRange, CalendarCheck, Clock, Target, BarChart3 } from '@lucide/svelte';
@@ -10,6 +11,9 @@
   // State
   let dailyData = $state<any>(null);
   let isLoading = $state(true);
+
+  // Sidebar context for mobile detection
+  const sidebar = Sidebar.useSidebar();
 
   // Tab navigation configuration
   const forecastTabs = [
@@ -68,7 +72,9 @@
 
   {#snippet bottomBar()}
     <!-- Mobile Navigation -->
-    <MobileNavigation />
+    {#if sidebar.isMobile}
+      <MobileNavigation />
+    {/if}
   {/snippet}
 
   <div class="p-4 space-y-6">

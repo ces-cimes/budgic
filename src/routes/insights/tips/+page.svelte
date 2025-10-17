@@ -3,6 +3,7 @@
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
   import TabNavigation from '$lib/components/TabNavigation.svelte';
+  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { Badge } from '$lib/components/ui/badge/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
@@ -11,6 +12,9 @@
   // State
   let recommendations = $state<any[]>([]);
   let isLoading = $state(true);
+
+  // Sidebar context for mobile detection
+  const sidebar = Sidebar.useSidebar();
 
   // Tab navigation configuration
   const insightsTabs = [
@@ -146,7 +150,9 @@
 
   {#snippet bottomBar()}
     <!-- Mobile Navigation -->
-    <MobileNavigation />
+    {#if sidebar.isMobile}
+      <MobileNavigation />
+    {/if}
   {/snippet}
 
   <div class="p-4 space-y-6">

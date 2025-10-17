@@ -3,6 +3,7 @@
   import { PageLayout, MobileNavigation } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
   import TabNavigation from '$lib/components/TabNavigation.svelte';
+  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { Badge } from '$lib/components/ui/badge/index.ts';
   import { Button } from '$lib/components/ui/button/index.ts';
@@ -17,6 +18,9 @@
   let userCurrency = $state<string>('USD');
   let filterSeverity = $state<'all' | 'alert' | 'warning' | 'success' | 'info'>('all');
   let showDismissed = $state(false);
+
+  // Sidebar context for mobile detection
+  const sidebar = Sidebar.useSidebar();
 
   // Tab navigation configuration
   const insightsTabs = [
@@ -149,7 +153,9 @@
 
   {#snippet bottomBar()}
     <!-- Mobile Navigation -->
-    <MobileNavigation />
+    {#if sidebar.isMobile}
+      <MobileNavigation />
+    {/if}
   {/snippet}
 
   <div class="p-4 space-y-4">
