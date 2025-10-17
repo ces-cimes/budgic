@@ -147,6 +147,11 @@
     </Header>
   {/snippet}
 
+  {#snippet bottomBar()}
+    <!-- Mobile Navigation -->
+    <MobileNavigation />
+  {/snippet}
+
   <div class="p-4 space-y-4">
     <!-- Filter Controls -->
     <div class="flex items-center justify-between">

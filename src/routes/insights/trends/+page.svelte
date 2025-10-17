@@ -108,6 +108,11 @@
     </Header>
   {/snippet}
 
+  {#snippet bottomBar()}
+    <!-- Mobile Navigation -->
+    <MobileNavigation />
+  {/snippet}
+
   <div class="p-4 space-y-6">
     {#if isLoading}
       <div class="space-y-4">

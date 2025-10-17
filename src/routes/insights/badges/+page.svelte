@@ -112,6 +112,11 @@
     </Header>
   {/snippet}
 
+  {#snippet bottomBar()}
+    <!-- Mobile Navigation -->
+    <MobileNavigation />
+  {/snippet}
+
   <div class="p-4 space-y-6">
     <!-- Stats Overview -->
     <Card.Root class="p-6">
