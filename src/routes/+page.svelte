@@ -183,7 +183,7 @@
         <div class="text-sm text-muted-foreground">Check your plan</div>
       </Button.Root>
       
-      <Button.Root onclick={() => goto('/insights')} variant="outline" class="p-4 h-auto flex-col items-start">
+      <Button.Root onclick={() => goto('/insights/alerts')} variant="outline" class="p-4 h-auto flex-col items-start">
         <div class="font-medium text-primary mb-1">Get Insights</div>
         <div class="text-sm text-muted-foreground">Financial analysis</div>
       </Button.Root>
@@ -236,7 +236,7 @@
   <section class="mb-8">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold text-primary">Quick Insights</h2>
-      <Button.Root variant="ghost" onclick={() => goto('/insights')}>
+      <Button.Root variant="ghost" onclick={() => goto('/insights/alerts')}>
         View All
       </Button.Root>
     </div>

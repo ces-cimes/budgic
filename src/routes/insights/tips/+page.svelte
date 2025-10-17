@@ -14,7 +14,6 @@
 
   // Tab navigation configuration
   const insightsTabs = [
-    { id: 'overview', label: 'Overview', path: '/insights', icon: ChartBar },
     { id: 'alerts', label: 'Alerts', path: '/insights/alerts', icon: Bell },
     { id: 'badges', label: 'Badges', path: '/insights/badges', icon: Award },
     { id: 'trends', label: 'Trends', path: '/insights/trends', icon: TrendingUp },

@@ -377,7 +377,7 @@ class InsightsService {
 						confidence: 75,
 						actionable: true,
 						actionText: 'Analyze Trends',
-						actionUrl: '/insights'
+						actionUrl: '/insights/alerts'
 					}));
 				}
 			}

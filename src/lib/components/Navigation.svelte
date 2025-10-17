@@ -18,7 +18,7 @@
 		{ path: '/transactions', label: 'Transactions', icon: ReceiptIcon, hasSubRoutes: false },
 		{ path: '/budget', label: 'Budget', icon: TargetIcon, hasSubRoutes: true },
 		{ path: '/forecast', label: 'Forecast', icon: CalendarIcon, hasSubRoutes: true },
-		{ path: '/insights', label: 'Insights', icon: BellIcon, hasSubRoutes: true },
+		{ path: '/insights/alerts', label: 'Insights', icon: BellIcon, hasSubRoutes: true },
 		{ path: '/accounts', label: 'Accounts', icon: CreditCardIcon, hasSubRoutes: false },
 		{ path: '/settings', label: 'Settings', icon: SettingsIcon, hasSubRoutes: true }
 	];
