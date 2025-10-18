@@ -13,6 +13,16 @@
 
   let tabContainer: HTMLDivElement;
 
+  function handleWheelScroll(event: WheelEvent) {
+    // Prevent default vertical scrolling
+    event.preventDefault();
+    
+    // Convert vertical scroll to horizontal scroll with reduced sensitivity
+    if (tabContainer) {
+      tabContainer.scrollLeft += event.deltaY * 0.5;
+    }
+  }
+
   function scrollActiveTabIntoView() {
     if (tabContainer) {
       // Try multiple selectors to find the active tab
@@ -56,6 +66,7 @@
     bind:this={tabContainer}
     class="overflow-x-auto scrollbar-hide border-t border-border {className}"
     style="scrollbar-width: none; -ms-overflow-style: none;"
+    onwheel={handleWheelScroll}
   >
     <Tabs.List class="w-full justify-start bg-transparent p-0 h-auto rounded-none">
       {#each tabs as tab (tab.id)}
