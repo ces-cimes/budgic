@@ -31,7 +31,7 @@
 </script>
 
 <nav class="p-1 flex justify-between sm:justify-center bg-linear-to-b from-(--color-bg-primary)/50 to-(--color-bg-primary)  backdrop-blur-xs border-t border-border rounded-t-2xl">
-  <div class="flex w-full justify-between md:gap-8">
+  <div class="flex w-full justify-between gap-2">
     {#each navItems as item (item.label)}
       <a
         href={item.path} 
