@@ -3,18 +3,14 @@
   import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   
   // Lucide icons
-  import HomeIcon from '@lucide/svelte/icons/home';
-  import ReceiptIcon from '@lucide/svelte/icons/receipt';
-  import CalendarIcon from '@lucide/svelte/icons/calendar';
-  import BellIcon from '@lucide/svelte/icons/bell';
-  import TargetIcon from '@lucide/svelte/icons/target';
+  import { BarChart3Icon, HomeIcon, ReceiptIcon, CalendarIcon, BellIcon, TargetIcon } from '@lucide/svelte';
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: HomeIcon, hasSubRoutes: false },
     { path: '/transactions', label: 'Transactions', icon: ReceiptIcon, hasSubRoutes: false },
     { path: '/budget', label: 'Budget', icon: TargetIcon, hasSubRoutes: true },
     { path: '/forecast', label: 'Forecast', icon: CalendarIcon, hasSubRoutes: true },
-    { path: '/insights/alerts', label: 'Insights', icon: BellIcon, hasSubRoutes: true }
+    { path: '/analyze', label: 'Analyze', icon: BarChart3Icon, hasSubRoutes: true }
   ];
 
   function isActive(path: string) {
@@ -30,7 +26,7 @@
   }
 </script>
 
-<nav class="p-1 flex justify-between sm:justify-center bg-linear-to-b from-(--color-bg-primary)/50 to-(--color-bg-primary)  backdrop-blur-xs border-t border-border rounded-t-2xl">
+<nav class="p-1 flex justify-between sm:justify-center bg-transparent backdrop-blur-xs border-t border-border rounded-t-2xl">
   <div class="flex w-full justify-between gap-1">
     {#each navItems as item (item.label)}
       <a
