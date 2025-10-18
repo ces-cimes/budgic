@@ -31,11 +31,11 @@
 </script>
 
 <nav class="p-1 flex justify-between sm:justify-center bg-linear-to-b from-(--color-bg-primary)/50 to-(--color-bg-primary)  backdrop-blur-xs border-t border-border rounded-t-2xl">
-  <div class="flex w-full justify-between gap-2">
+  <div class="flex w-full justify-between gap-1">
     {#each navItems as item (item.label)}
       <a
         href={item.path} 
-        class="flex flex-col items-center p-2 flex-1 max-w-[16%] border-1 border-transparent rounded-xl hover:bg-(--color-bg-tertiary)/50 hover:border-border transition-all duration-150 {isActive(item.path) ? 'text-(--color-golden-amber) font-semibold' : 'text-(--color-text-secondary) tracking-tight'} relative"
+        class="flex flex-col items-center justify-center p-2 flex-1 min-h-[60px] min-w-[60px] border-1 border-transparent rounded-xl hover:bg-(--color-bg-tertiary)/50 hover:border-border transition-all duration-150 {isActive(item.path) ? 'text-(--color-golden-amber) font-semibold' : 'text-(--color-text-secondary) tracking-tight'} relative"
       >
         <div class="relative">
           <item.icon class="size-6 drop-shadow-lg"/>
