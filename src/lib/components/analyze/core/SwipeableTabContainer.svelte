@@ -242,7 +242,6 @@
   }
   
   .tab-slider {
-    will-change: transform;
     transform: translateZ(0); /* Force GPU acceleration */
     contain: layout style paint; /* Optimize rendering */
   }
