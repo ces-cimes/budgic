@@ -53,6 +53,7 @@
 		"@capacitor/android": "^7.4.4",
 		"@capacitor/cli": "^7.4.3",
 		"@capacitor/core": "^7.4.3",
+		"@capawesome/capacitor-android-edge-to-edge-support": "^7.2.3",
 		"@inlang/paraglide-js": "^2.0.0",
 		"dexie": "^4.0.11",
 		"layerchart": "^1.0.10",
