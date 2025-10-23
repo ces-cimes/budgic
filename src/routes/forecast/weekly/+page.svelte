@@ -187,10 +187,12 @@
               <div class="text-sm text-muted-foreground">Spending comparison</div>
             </div>
             <div class="flex items-center gap-2">
-              <svelte:component 
-                this={getTrendIcon(weeklyData.lastWeek.trend)} 
-                class="w-4 h-4 {getTrendColor(weeklyData.lastWeek.trend)}"
-              />
+              {#if getTrendIcon(weeklyData.lastWeek.trend)}
+                {@const TrendIcon = getTrendIcon(weeklyData.lastWeek.trend)}
+                <TrendIcon 
+                  class="w-4 h-4 {getTrendColor(weeklyData.lastWeek.trend)}"
+                />
+              {/if}
               <span class="text-sm font-medium {getTrendColor(weeklyData.lastWeek.trend)}">
                 {weeklyData.lastWeek.change > 0 ? '+' : ''}{weeklyData.lastWeek.change.toFixed(1)}%
               </span>

@@ -198,8 +198,9 @@
           </Card.Header>
           <Card.Content class="space-y-6">
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">Theme</label>
+              <label for="theme-select" class="text-sm font-medium text-primary">Theme</label>
               <select 
+                id="theme-select"
                 bind:value={theme}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
@@ -209,8 +210,9 @@
             </div>
 
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">Language</label>
+              <label for="language-select" class="text-sm font-medium text-primary">Language</label>
               <select 
+                id="language-select"
                 bind:value={language}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
@@ -230,8 +232,9 @@
           </Card.Header>
           <Card.Content class="space-y-6">
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">Default Currency</label>
+              <label for="currency-select" class="text-sm font-medium text-primary">Default Currency</label>
               <select 
+                id="currency-select"
                 bind:value={currency}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
@@ -242,8 +245,9 @@
             </div>
 
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">First Day of Week</label>
+              <label for="first-day-select" class="text-sm font-medium text-primary">First Day of Week</label>
               <select 
+                id="first-day-select"
                 bind:value={firstDayOfWeek}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
@@ -263,8 +267,9 @@
           </Card.Header>
           <Card.Content class="space-y-6">
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">General Date Format</label>
+              <label for="date-format-select" class="text-sm font-medium text-primary">General Date Format</label>
               <select 
+                id="date-format-select"
                 bind:value={dateDisplayFormat}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
@@ -275,8 +280,9 @@
             </div>
 
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">Planned Transaction Dates</label>
+              <label for="planned-date-format-select" class="text-sm font-medium text-primary">Planned Transaction Dates</label>
               <select 
+                id="planned-date-format-select"
                 bind:value={plannedDateDisplayFormat}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
@@ -287,8 +293,9 @@
             </div>
 
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">Cleared Transaction Dates</label>
+              <label for="cleared-date-format-select" class="text-sm font-medium text-primary">Cleared Transaction Dates</label>
               <select 
+                id="cleared-date-format-select"
                 bind:value={clearedDateDisplayFormat}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
@@ -340,8 +347,9 @@
             </div>
 
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">Font Size</label>
+              <label for="font-size-select" class="text-sm font-medium text-primary">Font Size</label>
               <select 
+                id="font-size-select"
                 bind:value={fontSize}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >

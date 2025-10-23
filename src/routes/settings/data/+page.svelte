@@ -292,8 +292,9 @@
             </div>
 
             <div class="space-y-2">
-              <label class="text-sm font-medium text-primary">Default Export Format</label>
+              <label for="export-format-select" class="text-sm font-medium text-primary">Default Export Format</label>
               <select 
+                id="export-format-select"
                 bind:value={exportFormat}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >

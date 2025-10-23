@@ -16,6 +16,13 @@ const config = {
 					return;
 				}
 				throw new Error(message);
+			},
+			handleUnseenRoutes: ({ path }) => {
+				// Handle dynamic routes that can't be prerendered
+				if (!path || path.includes('[id]') || path.includes('[...id]')) {
+					return;
+				}
+				throw new Error(`Unseen route: ${path}`);
 			}
 		}
 	}

@@ -183,33 +183,33 @@
 			<Card.Content class="space-y-4">
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div>
-						<label class="text-sm font-medium text-secondary">Allocated Amount</label>
+						<div class="text-sm font-medium text-secondary">Allocated Amount</div>
 						<p class="text-lg font-semibold">{formatAmount(category.allocatedAmount, userCurrency)}</p>
 					</div>
 					<div>
-						<label class="text-sm font-medium text-secondary">Spent</label>
+						<div class="text-sm font-medium text-secondary">Spent</div>
 						<p class="text-lg font-semibold text-destructive">{formatAmount(category.spent, userCurrency)}</p>
 					</div>
 					<div>
-						<label class="text-sm font-medium text-secondary">Remaining</label>
+						<div class="text-sm font-medium text-secondary">Remaining</div>
 						<p class="text-lg font-semibold text-success">{formatAmount(category.remaining, userCurrency)}</p>
 					</div>
 					<div>
-						<label class="text-sm font-medium text-secondary">Priority</label>
+						<div class="text-sm font-medium text-secondary">Priority</div>
 						<p class="text-lg font-semibold">#{category.priority}</p>
 					</div>
 				</div>
 
 				{#if category.description}
 					<div>
-						<label class="text-sm font-medium text-secondary">Description</label>
+						<div class="text-sm font-medium text-secondary">Description</div>
 						<p class="text-sm text-tertiary">{category.description}</p>
 					</div>
 				{/if}
 
 				{#if category.isGoalBased && category.goalTarget}
 					<div>
-						<label class="text-sm font-medium text-secondary">Goal Target</label>
+						<div class="text-sm font-medium text-secondary">Goal Target</div>
 						<p class="text-lg font-semibold">{formatAmount(category.goalTarget, userCurrency)}</p>
 						<div class="w-full bg-muted rounded-full h-2 mt-2">
 							<div 
