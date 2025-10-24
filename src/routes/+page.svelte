@@ -3,7 +3,6 @@
   import { goto } from '$app/navigation';
   import { accountService, budgetService, transactionService, insightsService, settingsService } from '$lib/core/services';
   import * as Button from '$lib/components/ui/button/index.ts';
-  import InsightsDisplay from '$lib/components/InsightsDisplay.svelte';
   import { formatMainCurrencyAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
   import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
   import { PageLayout } from '$lib/components/layouts';
@@ -19,6 +18,7 @@
   let monthlyIncome = $state(0);
   let monthlyExpenses = $state(0);
   let userCurrency = $state<string>('USD');
+  let insights = $state<any[]>([]);
 
   onMount(async () => {
     try {
@@ -39,6 +39,9 @@
         acc[category.id] = category;
         return acc;
       }, {} as Record<string, any>);
+      
+      // Load insights
+      insights = insightsService.getInsights();
       
       // Calculate monthly totals using the new system (handles negative amounts correctly)
       const incomeTransactions = transactionsData.filter((t: any) => t.representative?.type === 'income');
@@ -174,7 +177,7 @@
         <div class="text-sm text-muted-foreground">Check your plan</div>
       </Button.Root>
       
-      <Button.Root onclick={() => goto('/insights/alerts')} variant="outline" class="p-4 h-auto flex-col items-start">
+      <Button.Root onclick={() => goto('/insights')} variant="outline" class="p-4 h-auto flex-col items-start">
         <div class="font-medium text-primary mb-1">Get Insights</div>
         <div class="text-sm text-muted-foreground">Financial analysis</div>
       </Button.Root>
@@ -227,16 +230,44 @@
   <section class="mb-8">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold text-primary">Quick Insights</h2>
-      <Button.Root variant="ghost" onclick={() => goto('/insights/alerts')}>
+      <Button.Root variant="ghost" onclick={() => goto('/insights')}>
         View All
       </Button.Root>
     </div>
     
-    <InsightsDisplay 
-      maxInsights={3} 
-      showDismiss={true}
-      className="bg-card rounded-2xl shadow-sm border border-border p-4"
-    />
+    <div class="bg-card rounded-2xl shadow-sm border border-border p-4">
+      {#if insights.length === 0}
+        <div class="text-center py-4 text-muted-foreground">
+          <p class="text-sm">No insights to display</p>
+        </div>
+      {:else}
+        <div class="space-y-3">
+          {#each insights.slice(0, 3) as insight (insight.id)}
+            <div class="flex items-start gap-3 p-3 rounded-lg bg-secondary/30">
+              <div class="flex-shrink-0 mt-0.5">
+                {#if insight.severity === 'alert'}
+                  <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+                {:else if insight.severity === 'warning'}
+                  <div class="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                {:else if insight.severity === 'success'}
+                  <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                {:else}
+                  <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                {/if}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-medium text-sm text-foreground leading-tight">
+                  {insight.title}
+                </h3>
+                <p class="text-xs text-muted-foreground mt-1">
+                  {insight.message}
+                </p>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
   </section>
 
   <!-- Budget Overview -->
