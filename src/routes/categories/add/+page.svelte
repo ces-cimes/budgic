@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { budgetService } from '$lib/core/services/budget-service';
 	import type { WaterfallCategory } from '$lib/core/services/budget-service';
-	import * as Button from '$lib/components/ui/button/index.ts';
+	import { Button } from '$lib/components/ui/button/index.ts';
 	import * as Input from '$lib/components/ui/input/index.ts';
 	import * as Label from '$lib/components/ui/label/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
@@ -10,8 +10,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.ts';
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
 	import * as Card from '$lib/components/ui/card/index.ts';
-	import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 
 	let isLoading = $state(false);
@@ -36,8 +35,6 @@
 	let maxCarryoverPercent = $state(0.2);
 	let autoAdjustmentsEnabled = $state(true);
 
-	// Sidebar context for mobile detection
-	const sidebar = Sidebar.useSidebar();
 
 	const waterfallOptions: { value: WaterfallCategory; label: string; description: string }[] = [
 		{ value: 'survival', label: 'Survival', description: 'Essential needs for basic living' },
@@ -131,38 +128,34 @@
 			showBackButton={true}
 			backButtonLink="/categories"
 			backButtonLabel="Back to Categories"
-		/>
-		<div class="p-4 pb-2">
-			<p class="text-muted-foreground">Create a new spending category to organize your expenses</p>
-		</div>
+		>
+		<p class="text-muted-foreground text-sm">
+			Create a new spending category to organize your expenses
+		</p>
+		</Header>
 	{/snippet}
 
 	{#snippet bottomBar()}
 		<!-- Action buttons for form submission -->
-		<div class="p-4">
-			<div class="flex justify-end space-x-4 max-w-4xl mx-auto">
-				<Button.Root
-					type="button"
-					variant="outline"
-					onclick={() => goto('/budget')}
-					disabled={isLoading}
-				>
-					Cancel
-				</Button.Root>
-				<Button.Root
-					type="submit"
-					form="category-form"
-					disabled={isLoading}
-				>
-					{isLoading ? 'Creating...' : 'Create Category'}
-				</Button.Root>
-			</div>
+		<div class="flex justify-end space-x-4 max-w-4xl mx-auto">
+			<Button
+				type="button"
+				variant="outline"
+				onclick={() => goto('/budget')}
+				disabled={isLoading}
+				class="grow"
+			>
+				Cancel
+			</Button>
+			<Button
+				type="submit"
+				form="category-form"
+				disabled={isLoading}
+				class="grow"
+			>
+				{isLoading ? 'Creating...' : 'Create Category'}
+			</Button>
 		</div>
-		
-		<!-- Mobile Navigation -->
-		{#if sidebar.isMobile}
-			<MobileNavigation />
-		{/if}
 	{/snippet}
 
 	<div class="container mx-auto px-4 py-8 max-w-4xl">

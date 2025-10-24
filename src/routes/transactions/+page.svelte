@@ -14,8 +14,7 @@
 	import { searchTransaction } from '$lib/utils/semantic-search';
 	import { getGroupKey, getGroupLabel, type DateGroup, type GroupingMode } from '$lib/utils/date-grouping';
 	import Header from '$lib/components/Header.svelte';
-	import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+	import { PageLayout } from '$lib/components/layouts';
 
 	const { data } = $props<{ data: any }>();
 
@@ -32,9 +31,6 @@
 	let budgetCategories = $state<Record<string, any>>({});
 	let userCurrency = $state<string>('USD');
 	let toggleValues = $state<string[]>(['date', 'smart']); // Initialize with date filter enabled and smart grouping
-
-	// Sidebar context for mobile detection
-	const sidebar = Sidebar.useSidebar();
 
 	// Sync toggle values with individual state variables
 	$effect(() => {
@@ -388,10 +384,7 @@
 	{/snippet}
 
 	{#snippet bottomBar()}
-		<!-- Mobile Navigation -->
-		{#if sidebar.isMobile}
-			<MobileNavigation />
-		{/if}
+		<!-- Bottom bar content can be added here if needed -->
 	{/snippet}
 
 	<div class="container mx-auto p-2 sm:p-4 max-w-4xl">

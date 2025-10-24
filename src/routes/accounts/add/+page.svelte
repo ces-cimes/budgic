@@ -5,8 +5,7 @@
   import AccountForm from '$lib/components/AccountForm.svelte';
   import type { Account } from '$lib/core/db';
   import Header from '$lib/components/Header.svelte';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+  import { PageLayout } from '$lib/components/layouts';
 
   async function handleSubmit(accountData: Partial<Account>) {
     // Create account using the account service
@@ -21,8 +20,6 @@
     goto('/accounts');
   }
 
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
 </script>
 
 <svelte:head>
@@ -36,10 +33,7 @@
   {/snippet}
 
   {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
+    <!-- Bottom bar content can be added here if needed -->
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-2xl">

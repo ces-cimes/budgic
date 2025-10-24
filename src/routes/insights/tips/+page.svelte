@@ -1,9 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
+  import { PageLayout } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
   import TabNavigation from '$lib/components/TabNavigation.svelte';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { Badge } from '$lib/components/ui/badge/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
@@ -13,8 +12,6 @@
   let recommendations = $state<any[]>([]);
   let isLoading = $state(true);
 
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
 
   // Tab navigation configuration
   const insightsTabs = [
@@ -149,10 +146,7 @@
   {/snippet}
 
   {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
+    <!-- Bottom bar content can be added here if needed -->
   {/snippet}
 
   <div class="p-4 space-y-6">

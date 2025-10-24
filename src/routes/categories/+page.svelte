@@ -13,8 +13,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
 	import TabNavigation from '$lib/components/TabNavigation.svelte';
 	import Header from '$lib/components/Header.svelte';
-	import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+	import { PageLayout } from '$lib/components/layouts';
 
 	let categories = $state<BudgetCategory[]>([]);
 	let isLoading = $state(true);
@@ -23,9 +22,6 @@
 	let activeState = $state<'active' | 'inactive' | 'all'>('active');
 	let showDeleteDialog = $state(false);
 	let categoryToDelete = $state<BudgetCategory | null>(null);
-
-	// Sidebar context for mobile detection
-	const sidebar = Sidebar.useSidebar();
 
 	// Tab navigation configuration
 	const budgetTabs = [
@@ -198,10 +194,7 @@
 	{/snippet}
 
 	{#snippet bottomBar()}
-		<!-- Mobile Navigation -->
-		{#if sidebar.isMobile}
-			<MobileNavigation />
-		{/if}
+		<!-- Bottom bar content can be added here if needed -->
 	{/snippet}
 
 	

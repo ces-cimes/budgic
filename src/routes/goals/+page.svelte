@@ -2,9 +2,8 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
+  import { PageLayout } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import { 
     Bell, 
     BarChart3, 
@@ -51,8 +50,6 @@
   let completedGoals = $state<FinancialGoal[]>([]);
   let error = $state<string | null>(null);
 
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
 
   // Derived values
   const totalGoalsValue = $derived(activeGoals.reduce((sum, goal) => sum + goal.targetAmount, 0));
@@ -167,10 +164,7 @@
   {/snippet}
 
   {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
+    <!-- Bottom bar content can be added here if needed -->
   {/snippet}
 
   {#snippet children()}

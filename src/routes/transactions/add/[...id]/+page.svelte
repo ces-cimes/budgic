@@ -20,8 +20,7 @@
 	import * as Input from '$lib/components/ui/input/index.ts';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
-	import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+	import { PageLayout } from '$lib/components/layouts';
 
 	let accounts = $state<Account[]>([]);
 	let budgetCategories = $state<TransactionBudgetCategory[]>([]);
@@ -57,8 +56,6 @@
 	let transferFeeWhatTag = $state<WhatTagType | ''>('');
 	let hasTransferFee = $state(false);
 
-	// Sidebar context for mobile detection
-	const sidebar = Sidebar.useSidebar();
 
 	// UI state
 	let activeTab = $state('basic');
@@ -269,10 +266,7 @@
 
 <PageLayout>
 	{#snippet bottomBar()}
-		<!-- Mobile Navigation -->
-		{#if sidebar.isMobile}
-			<MobileNavigation />
-		{/if}
+		<!-- Bottom bar content can be added here if needed -->
 	{/snippet}
 
 	<div class="container mx-auto px-4 py-8 max-w-4xl">

@@ -91,10 +91,10 @@
   <!-- Main Content Area -->
   <section 
     class="relative top-0 flex-1 h-full overflow-visible bg-[var(--color-bg-primary)] {contentClassName}"
-    style="padding-bottom: {totalBarHeight}px;"
+    style="padding-bottom: {totalBarHeight - bottomBarHeight}px;"
   >
     <div 
-      class="h-full overflow-auto"
+      class="h-full overflow-auto pb-[{bottomBarHeight}px]"
     >
       {@render children()}
     </div>
@@ -106,6 +106,8 @@
       data-page-bottom-bar
       class="sticky z-40
         bottom-0 left-0 right-0 md:ml-64
+        p-2 border-t border-border rounded-xl
+        bg-gradient-to-b from-(--color-bg-primary)/50 to-(--color-bg-primary) backdrop-blur-sm
       "
     >
       {@render bottomBar()}

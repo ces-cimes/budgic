@@ -2,12 +2,11 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { settingsService } from '$lib/core/services/settings-service';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
+  import { PageLayout } from '$lib/components/layouts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
   import { Switch } from '$lib/components/ui/switch/index.ts';
   import * as Alert from '$lib/components/ui/alert/index.ts';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import { db } from '$lib/core/db';
   import type { UserPreferences } from '$lib/core/db';
 
@@ -25,8 +24,6 @@
   let cacheEnabled = $state(true);
   let offlineModeEnabled = $state(false);
 
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
 
   // Export format options
   const exportFormatOptions = [
@@ -198,10 +195,7 @@
 
 <PageLayout>
   {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
+    <!-- Bottom bar content can be added here if needed -->
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-4xl">

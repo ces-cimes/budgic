@@ -13,8 +13,7 @@
   import { populateSampleData, clearSampleData, clearAllData } from '$lib/core/sample-data-new';
   import { onMount } from 'svelte';
   import Header from '$lib/components/Header.svelte';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+  import { PageLayout } from '$lib/components/layouts';
 
   const { data } = $props<{ data: any }>();
 
@@ -33,9 +32,6 @@
   // Dev section state
   let isDevActionLoading = $state(false);
   let devActionMessage = $state<string | null>(null);
-
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
   
   // Load user preferences on mount
   onMount(async () => {
@@ -201,10 +197,7 @@
   {/snippet}
 
   {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
+    <!-- Bottom bar content can be added here if needed -->
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-4xl">

@@ -2,12 +2,11 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { settingsService } from '$lib/core/services/settings-service';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
+  import { PageLayout } from '$lib/components/layouts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
   import { Input } from '$lib/components/ui/input/index.ts';
   import { Label } from '$lib/components/ui/label/index.ts';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
   import type { UserPreferences } from '$lib/core/db';
 
   // State
@@ -23,8 +22,6 @@
   let stressLevel = $state<'low' | 'medium' | 'high'>('medium');
   let userMaturityLevel = $state<'beginner' | 'intermediate' | 'advanced' | 'expert'>('beginner');
 
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
 
   // Life stage options
   const lifeStageOptions = [
@@ -118,10 +115,7 @@
 
 <PageLayout>
   {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
+    <!-- Bottom bar content can be added here if needed -->
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-4xl">

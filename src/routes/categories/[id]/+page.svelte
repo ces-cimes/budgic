@@ -12,8 +12,7 @@
 	import { page } from '$app/stores';
 	import { formatAmount } from '$lib/utils/currency-utils';
 	import { settingsService } from '$lib/core/services/settings-service';
-	import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+	import { PageLayout } from '$lib/components/layouts';
 
 	const { data } = $props<{ data: any }>();
 
@@ -24,8 +23,6 @@
 	let activeTab = $state('overview');
 	let userCurrency = $state<string>('USD');
 
-	// Sidebar context for mobile detection
-	const sidebar = Sidebar.useSidebar();
 
 	const categoryId = $derived($page.params.id);
 
@@ -120,10 +117,7 @@
 
 <PageLayout>
 	{#snippet bottomBar()}
-		<!-- Mobile Navigation -->
-		{#if sidebar.isMobile}
-			<MobileNavigation />
-		{/if}
+		<!-- Bottom bar content can be added here if needed -->
 	{/snippet}
 
 	{#if isLoading}

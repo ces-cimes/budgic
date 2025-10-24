@@ -6,8 +6,7 @@
   import * as Progress from '$lib/components/ui/progress/index.ts';
   import * as Select from '$lib/components/ui/select/index.ts';
   import * as Label from '$lib/components/ui/label/index.ts';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+  import { PageLayout } from '$lib/components/layouts';
 
   const { data } = $props<{ data: any }>();
 
@@ -22,8 +21,6 @@
     experienceLevel: 'beginner'
   });
 
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
 
   const currencies: Array<{ value: string; label: string }> = [
     { value: 'USD', label: 'USD - US Dollar' },
@@ -101,10 +98,7 @@
 
 <PageLayout>
   {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
+    <!-- Bottom bar content can be added here if needed -->
   {/snippet}
 
   <div class="min-h-screen bg-background flex items-center justify-center p-4">

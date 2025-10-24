@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { PageLayout, MobileNavigation } from '$lib/components/layouts';
+	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import TabNavigation from '$lib/components/TabNavigation.svelte';
 	import * as Card from '$lib/components/ui/card/index.ts';

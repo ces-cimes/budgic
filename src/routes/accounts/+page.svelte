@@ -8,8 +8,7 @@
   import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
   import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
   import Header from '$lib/components/Header.svelte';
-  import { PageLayout, MobileNavigation } from '$lib/components/layouts';
-  import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+  import { PageLayout } from '$lib/components/layouts';
   
   const { data } = $props<{ data: any }>();
 
@@ -19,9 +18,6 @@
   let accounts = $state<any[]>([]);
   let totalBalance = $state(0);
   let userCurrency = $state<string>('USD');
-
-  // Sidebar context for mobile detection
-  const sidebar = Sidebar.useSidebar();
 
   const accountIcons = {
     checking: Wallet,
@@ -78,13 +74,6 @@
         }
       ]}
     />
-  {/snippet}
-
-  {#snippet bottomBar()}
-    <!-- Mobile Navigation -->
-    {#if sidebar.isMobile}
-      <MobileNavigation />
-    {/if}
   {/snippet}
 
   <div class="container mx-auto px-4 py-6 max-w-6xl">
