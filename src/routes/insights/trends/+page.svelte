@@ -109,9 +109,7 @@
     </Header>
   {/snippet}
 
-  {#snippet bottomBar()}
-    <!-- Bottom bar content can be added here if needed -->
-  {/snippet}
+  
 
   <div class="p-4 space-y-6">
     {#if isLoading}

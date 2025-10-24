@@ -94,7 +94,8 @@
     style="padding-bottom: {totalBarHeight - bottomBarHeight}px;"
   >
     <div 
-      class="h-full overflow-auto pb-[{bottomBarHeight}px]"
+      class="h-full overflow-auto"
+      style="padding-bottom: {bottomBarHeight}px;"
     >
       {@render children()}
     </div>

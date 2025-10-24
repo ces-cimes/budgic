@@ -265,9 +265,7 @@
 </svelte:head>
 
 <PageLayout>
-	{#snippet bottomBar()}
-		<!-- Bottom bar content can be added here if needed -->
-	{/snippet}
+	
 
 	<div class="container mx-auto px-4 py-8 max-w-4xl">
 	<h1 class="text-3xl font-bold text-primary mb-8">{pageTitle}</h1>

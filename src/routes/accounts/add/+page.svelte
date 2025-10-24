@@ -32,9 +32,7 @@
     <Header title="Add Account" showBackButton={true} backButtonLink="/accounts" />
   {/snippet}
 
-  {#snippet bottomBar()}
-    <!-- Bottom bar content can be added here if needed -->
-  {/snippet}
+  
 
   <div class="container mx-auto px-4 py-6 max-w-2xl">
 

@@ -193,9 +193,7 @@
     </Header>
   {/snippet}
 
-  {#snippet bottomBar()}
-    <!-- Bottom bar content can be added here if needed -->
-  {/snippet}
+  
 
   {#snippet children()}
     <TabContentWrapper

@@ -97,9 +97,7 @@
 </svelte:head>
 
 <PageLayout>
-  {#snippet bottomBar()}
-    <!-- Bottom bar content can be added here if needed -->
-  {/snippet}
+  
 
   <div class="min-h-screen bg-background flex items-center justify-center p-4">
   <div class="w-full max-w-2xl">

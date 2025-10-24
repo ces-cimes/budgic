@@ -383,10 +383,6 @@
 		</Header>
 	{/snippet}
 
-	{#snippet bottomBar()}
-		<!-- Bottom bar content can be added here if needed -->
-	{/snippet}
-
 	<div class="container mx-auto p-2 sm:p-4 max-w-4xl">
 	<!-- Filter Bar -->
 	<div class="mb-4 bg-background sticky">

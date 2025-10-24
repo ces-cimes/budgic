@@ -158,17 +158,17 @@
 		</div>
 	{/snippet}
 
-	<div class="container mx-auto px-4 py-8 max-w-4xl">
+	<div class="container mx-auto p-4 max-w-4xl space-y-4">
 		{#if error}
-			<Alert.Root variant="destructive" class="mb-6">
+			<Alert.Root variant="destructive">
 				<Alert.Title>Error</Alert.Title>
 				<Alert.Description>{error}</Alert.Description>
 			</Alert.Root>
 		{/if}
 
 		<!-- Category Form -->
-		<section class="mb-8">
-			<form id="category-form" onsubmit={handleSubmit} class="space-y-6">
+		<section>
+			<form id="category-form" onsubmit={handleSubmit} class="space-y-4">
 			<!-- Tabs for different sections -->
 			<Tabs.Root bind:value={activeTab} class="w-full">
 				<Tabs.List class="grid w-full grid-cols-3">
@@ -178,7 +178,7 @@
 				</Tabs.List>
 
 				<!-- Basic Information Tab -->
-				<Tabs.Content value="basic" class="space-y-6 mt-6">
+				<Tabs.Content value="basic" class="space-y-4">
 					<Card.Root>
 						<Card.Header>
 							<Card.Title>Category Details</Card.Title>
@@ -317,7 +317,7 @@
 				</Tabs.Content>
 
 				<!-- Goals & Tracking Tab -->
-				<Tabs.Content value="goals" class="space-y-6 mt-6">
+				<Tabs.Content value="goals" class="space-y-4">
 					<Card.Root>
 						<Card.Header>
 							<Card.Title>Goal Settings</Card.Title>
@@ -360,7 +360,7 @@
 				</Tabs.Content>
 
 				<!-- Advanced Tab -->
-				<Tabs.Content value="advanced" class="space-y-6 mt-6">
+				<Tabs.Content value="advanced" class="space-y-4">
 					<Card.Root>
 						<Card.Header>
 							<Card.Title>Advanced Settings</Card.Title>

@@ -116,9 +116,7 @@
 </svelte:head>
 
 <PageLayout>
-	{#snippet bottomBar()}
-		<!-- Bottom bar content can be added here if needed -->
-	{/snippet}
+	
 
 	{#if isLoading}
 	<div class="flex items-center justify-center min-h-96">
