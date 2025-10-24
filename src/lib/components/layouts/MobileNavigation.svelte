@@ -137,7 +137,7 @@
 
 			<!-- More menu drawer -->
 			<Drawer.Root bind:open={moreDrawerOpen} direction="bottom">
-				<Drawer.Content class="h-auto max-h-[70vh] rounded-t-2xl">
+				<Drawer.Content>
 					<Drawer.Header>
 						<Drawer.Title>More Options</Drawer.Title>
 						<Drawer.Description>
@@ -145,7 +145,7 @@
 						</Drawer.Description>
 					</Drawer.Header>
 					
-					<div class="py-4 space-y-1">
+					<div class="p-4 pb-6 space-y-1">
 						{#each overflowItems as item (item.id)}
 							{@const IconComponent = iconMap[item.icon] || HomeIcon}
 							{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
