@@ -8,8 +8,7 @@
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import * as Alert from '$lib/components/ui/alert/index.ts';
-	import * as Select from '$lib/components/ui/select/index.ts';
-	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
+	import FilterBar from '$lib/components/shared/FilterBar.svelte';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
 	import TabNavigation from '$lib/components/TabNavigation.svelte';
@@ -207,7 +206,7 @@
 
 	
 
-	<div class="container mx-auto max-w-4xl p-2 sm:p-4">
+	<div class="container mx-auto max-w-4xl p-4">
 		{#if error}
 			<Alert.Root variant="destructive" class="mb-6">
 				<Alert.Title>Error</Alert.Title>
@@ -216,82 +215,27 @@
 		{/if}
 
 		<!-- Filter Bar -->
-		<div class="bg-background sticky mb-4">
-			<!-- Desktop Layout -->
-			<div class="hidden items-center gap-2 md:flex">
-				<div class="flex flex-1 items-center gap-2">
-					<!-- Waterfall Category Filter -->
-					<div class="flex-1">
-						<Select.Root type="single" bind:value={selectedWaterfallCategory}>
-							<Select.Trigger class="w-full">
-								{waterfallCategories.find((c) => c.value === selectedWaterfallCategory)?.label ||
-									'Filter by category'}
-							</Select.Trigger>
-							<Select.Content>
-								{#each waterfallCategories as category}
-									<Select.Item value={category.value}>
-										{category.label}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
-
-					<!-- Active/Inactive Toggle -->
-					<div class="flex items-center gap-2">
-						<ToggleGroup.Root type="single" variant="outline" bind:value={activeState}>
-							<ToggleGroup.Item value="active" size="sm">Active</ToggleGroup.Item>
-							<ToggleGroup.Item value="inactive" size="sm">Inactive</ToggleGroup.Item>
-							<ToggleGroup.Item value="all" size="sm">All</ToggleGroup.Item>
-						</ToggleGroup.Root>
-					</div>
-				</div>
-
-				<!-- Category Count Badges -->
-				<div class="flex gap-2">
-					<Badge variant="default">Active: {activeCount}</Badge>
-					<Badge variant="secondary">Inactive: {inactiveCount}</Badge>
-				</div>
-			</div>
-
-			<!-- Mobile Layout -->
-			<div class="space-y-2 md:hidden">
-				<!-- Filter Row -->
-				<div class="flex items-center gap-2">
-					<!-- Waterfall Category Filter -->
-					<div class="flex-1">
-						<Select.Root type="single" bind:value={selectedWaterfallCategory}>
-							<Select.Trigger class="w-full">
-								{waterfallCategories.find((c) => c.value === selectedWaterfallCategory)?.label ||
-									'Filter by category'}
-							</Select.Trigger>
-							<Select.Content>
-								{#each waterfallCategories as category}
-									<Select.Item value={category.value}>
-										{category.label}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-					</div>
-
-					<!-- Active/Inactive Toggle -->
-					<div class="flex items-center gap-2">
-						<ToggleGroup.Root type="single" variant="outline" bind:value={activeState}>
-							<ToggleGroup.Item value="active" size="sm">Active</ToggleGroup.Item>
-							<ToggleGroup.Item value="inactive" size="sm">Inactive</ToggleGroup.Item>
-							<ToggleGroup.Item value="all" size="sm">All</ToggleGroup.Item>
-						</ToggleGroup.Root>
-					</div>
-				</div>
-
-				<!-- Category Count Badges -->
-				<div class="flex gap-2">
-					<Badge variant="default">Active: {activeCount}</Badge>
-					<Badge variant="secondary">Inactive: {inactiveCount}</Badge>
-				</div>
-			</div>
-		</div>
+		<FilterBar
+			selectValue={selectedWaterfallCategory}
+			selectOptions={waterfallCategories.map(cat => ({
+				value: cat.value,
+				label: cat.label,
+				description: cat.description
+			}))}
+			selectPlaceholder="Filter by category"
+			onSelectChange={(value) => selectedWaterfallCategory = value as WaterfallCategory | 'all'}
+			toggleValue={activeState}
+			toggleOptions={[
+				{ value: 'active', label: 'Active' },
+				{ value: 'inactive', label: 'Inactive' },
+				{ value: 'all', label: 'All' }
+			]}
+			onToggleChange={(value) => activeState = value as 'active' | 'inactive' | 'all'}
+			badges={[
+				{ label: 'Active', count: activeCount, variant: 'default' },
+				{ label: 'Inactive', count: inactiveCount, variant: 'secondary' }
+			]}
+		/>
 
 		<!-- Summary Stats -->
 		{#if selectedWaterfallCategory !== 'all'}

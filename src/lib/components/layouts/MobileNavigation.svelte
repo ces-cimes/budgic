@@ -142,7 +142,7 @@
 						</Drawer.Description>
 					</Drawer.Header>
 					
-					<div class="p-4 pb-6 space-y-1">
+					<div class="p-4 space-y-0">
 						{#each overflowItems as item (item.id)}
 							{@const IconComponent = iconMap[item.icon] || HomeIcon}
 							{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}

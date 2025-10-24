@@ -384,9 +384,6 @@
 				}
 			]}
 		>
-			<div class="text-sm text-muted-foreground">
-				Showing 5 transactions
-		  	</div>
 		</Header>
 	{/snippet}
 
