@@ -30,8 +30,8 @@
 
 	// Tab navigation configuration
 	const budgetTabs = [
-		{ id: 'overview', label: 'Overview', path: '/budget', icon: Target },
-		{ id: 'transfers', label: 'Transfers', path: '/budget/transfers', icon: ArrowRightLeft }
+		{ id: 'overview', label: 'Overview', path: '/categories', icon: Target },
+		{ id: 'transfers', label: 'Transfers', path: '/categories/transfers', icon: ArrowRightLeft }
 	];
 
 	const waterfallCategories: {
@@ -173,19 +173,19 @@
 </script>
 
 <svelte:head>
-	<title>Budget Categories | Budgic</title>
+	<title>Spending Categories | Budgic</title>
 </svelte:head>
 
 <PageLayout>
 	{#snippet topBar()}
 		<!-- Header -->
 		<Header 
-			title="Budget Categories"
+			title="Spending Categories"
 			variant="with-tabs"
 			buttonProps={[
 				{
 					text: "Add Category",
-					onclick: () => goto('/budget/add'),
+					onclick: () => goto('/categories/add'),
 					size: "sm",
 					className: "hidden sm:flex",
 					target: "_blank",
@@ -485,7 +485,7 @@
 									<Button
 										variant="outline"
 										size="sm"
-										onclick={() => goto(`/budget/${category.id}`)}
+										onclick={() => goto(`/categories/${category.id}`)}
 									>
 										View
 									</Button>

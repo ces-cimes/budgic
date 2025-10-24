@@ -120,20 +120,20 @@
 </script>
 
 <svelte:head>
-	<title>Add Budget Category - Budgic</title>
+	<title>Add Spending Category - Budgic</title>
 </svelte:head>
 
 <PageLayout>
 	{#snippet topBar()}
 		<!-- Header -->
 		<Header 
-			title="Add Budget Category"
+			title="Add Spending Category"
 			showBackButton={true}
-			backButtonLink="/budget"
+			backButtonLink="/categories"
 			backButtonLabel="Back to Categories"
 		/>
 		<div class="p-4 pb-2">
-			<p class="text-muted-foreground">Create a new budget category to organize your spending</p>
+			<p class="text-muted-foreground">Create a new spending category to organize your expenses</p>
 		</div>
 	{/snippet}
 

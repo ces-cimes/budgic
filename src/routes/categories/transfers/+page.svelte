@@ -19,8 +19,8 @@
 
 	// Tab navigation configuration
 	const budgetTabs = [
-		{ id: 'overview', label: 'Overview', path: '/budget', icon: BarChart3 },
-		{ id: 'transfers', label: 'Transfers', path: '/budget/transfers', icon: ArrowRightLeft }
+		{ id: 'overview', label: 'Overview', path: '/categories', icon: BarChart3 },
+		{ id: 'transfers', label: 'Transfers', path: '/categories/transfers', icon: ArrowRightLeft }
 	];
 	
 	// Transfer form

@@ -40,7 +40,7 @@
   const planTabs: TabConfig[] = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'projections', label: 'Projections', icon: TrendingUp },
-    { id: 'budget', label: 'Budget', icon: DollarSign }
+    { id: 'budget', label: 'Categories', icon: DollarSign }
   ];
 
   // State
