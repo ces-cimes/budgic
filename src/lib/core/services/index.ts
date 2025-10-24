@@ -27,6 +27,7 @@ export { cacheService, transactionCache, accountCache, analyticsCache } from './
 // Consolidated Analytics Services
 export { analyticsCoreService } from './analytics-core-service';
 export { insightsService } from './insights-service';
+export { navigationService } from './navigation-service';
 
 // User Actions & Behavior Tracking Services
 export { userActionsService, PrivacyUtils } from './user-actions-service';

@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { ModeWatcher } from 'mode-watcher';
   import { insightsService } from '$lib/core/services';
+  import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { AppLayout } from '$lib/components/layouts';
 
   let { children } = $props();
@@ -14,10 +15,14 @@
     
     // Start insights service auto-updates
     insightsService.startAutoUpdates();
+
+    // Initialize navigation store
+    navigationStore.initialize();
     
     // Cleanup on unmount
     return () => {
       insightsService.stopAutoUpdates();
+      navigationStore.stopBadgeUpdates();
     };
   });
 </script>
