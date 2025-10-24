@@ -158,9 +158,6 @@
 							>
 								<div class="relative">
 									<IconComponent class="w-5 h-5" />
-									{#if item.hasSubRoutes && isActive(item.path)}
-										<div class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-[var(--color-golden-amber)] rounded-full animate-pulse"></div>
-									{/if}
 								</div>
 								
 								<span class="flex-1 text-sm">{item.label}</span>
