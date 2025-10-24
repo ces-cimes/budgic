@@ -975,6 +975,43 @@ const FundTransferSchema = BaseSchema.extend({
 	timestamp: z.string().datetime()
 });
 
+// Goals System Schemas
+const GoalSchema = BaseSchema.extend({
+	name: z.string().min(1),
+	description: z.string().optional(),
+	targetAmount: z.number().positive(),
+	currentAmount: z.number().min(0).default(0),
+	currency: z.string().length(3),
+	category: z.enum(['emergency_fund', 'vacation', 'house_down_payment', 'car_purchase', 'education', 'retirement', 'debt_payoff', 'investment', 'wedding', 'home_improvement', 'other']),
+	priority: z.enum(['low', 'medium', 'high', 'critical']),
+	status: z.enum(['active', 'paused', 'completed', 'cancelled']).default('active'),
+	targetDate: z.string().datetime().optional(),
+	completedAt: z.string().datetime().optional(),
+	monthlyContribution: z.number().min(0).optional(),
+	isRecurring: z.boolean().default(false),
+	parentGoalId: z.string().optional(),
+	tags: z.array(z.string()).default([])
+});
+
+const GoalProgressSchema = BaseSchema.extend({
+	goalId: z.string(),
+	date: z.string().datetime(),
+	amount: z.number(),
+	note: z.string().optional(),
+	source: z.enum(['manual', 'automatic', 'transfer']).default('manual')
+});
+
+const GoalInsightSchema = BaseSchema.extend({
+	type: z.enum(['achievement', 'milestone', 'recommendation', 'warning', 'celebration', 'optimization']),
+	title: z.string().min(1),
+	description: z.string().min(1),
+	priority: z.enum(['low', 'medium', 'high']),
+	actionable: z.boolean().default(false),
+	goalId: z.string().optional(),
+	dismissedAt: z.string().datetime().optional(),
+	metadata: z.record(z.any()).optional()
+});
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -1049,6 +1086,9 @@ export type Payee = z.infer<typeof PayeeSchema>;
 export type PriorityLevelMapping = z.infer<typeof PriorityLevelMappingSchema>;
 export type BudgetCategory = z.infer<typeof BudgetCategorySchema>;
 export type FundTransfer = z.infer<typeof FundTransferSchema>;
+export type Goal = z.infer<typeof GoalSchema>;
+export type GoalProgress = z.infer<typeof GoalProgressSchema>;
+export type GoalInsight = z.infer<typeof GoalInsightSchema>;
 
 // ============================================================================
 // DATABASE CLASS
@@ -1091,6 +1131,11 @@ export class BudgicDB extends Dexie {
 	payees!: Table<Payee>;
 	priorityLevelMappings!: Table<PriorityLevelMapping>;
 	userActions!: Table<UserAction>;
+
+	// Goals System
+	goals!: Table<Goal>;
+	goalProgress!: Table<GoalProgress>;
+	goalInsights!: Table<GoalInsight>;
 
 	constructor() {
 		super('BudgicDB');
@@ -1153,7 +1198,12 @@ export class BudgicDB extends Dexie {
 			priorityLevelMappings: 'id, whyTag, priorityLevel, isActive, deletedAt, createdAt',
 			
 			// User Actions & Behavior Tracking
-			userActions: 'id, action, timestamp, userId, sessionId, createdAt, updatedAt, deletedAt'
+			userActions: 'id, action, timestamp, userId, sessionId, createdAt, updatedAt, deletedAt',
+
+			// Goals System
+			goals: 'id, name, description, targetAmount, currentAmount, currency, category, priority, status, targetDate, createdAt, updatedAt, completedAt, monthlyContribution, isRecurring, parentGoalId, tags',
+			goalProgress: 'id, goalId, date, amount, note, source',
+			goalInsights: 'id, type, title, description, priority, actionable, goalId, createdAt, dismissedAt, metadata'
 		});
 
 		// Add validation hooks
