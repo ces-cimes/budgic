@@ -12,13 +12,16 @@
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
+	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
 
 	const navItems = [
 		{ path: '/', label: 'Dashboard', icon: HomeIcon, hasSubRoutes: false },
 		{ path: '/transactions', label: 'Transactions', icon: ReceiptIcon, hasSubRoutes: false },
 		{ path: '/categories', label: 'Categories', icon: TargetIcon, hasSubRoutes: true },
-		{ path: '/forecast', label: 'Forecast', icon: CalendarIcon, hasSubRoutes: true },
-		{ path: '/insights/alerts', label: 'Insights', icon: BellIcon, hasSubRoutes: true },
+		{ path: '/analyze', label: 'Analyze', icon: BarChart3Icon, hasSubRoutes: true },
+		{ path: '/plan', label: 'Plan', icon: CalendarIcon, hasSubRoutes: true },
+		{ path: '/goals', label: 'Goals', icon: TargetIcon, hasSubRoutes: true },
+		{ path: '/insights', label: 'Insights', icon: BellIcon, hasSubRoutes: true },
 		{ path: '/accounts', label: 'Accounts', icon: CreditCardIcon, hasSubRoutes: false },
 		{ path: '/settings', label: 'Settings', icon: SettingsIcon, hasSubRoutes: true }
 	];

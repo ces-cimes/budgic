@@ -9,8 +9,9 @@
     { path: '/', label: 'Dashboard', icon: HomeIcon, hasSubRoutes: false },
     { path: '/transactions', label: 'Transactions', icon: ReceiptIcon, hasSubRoutes: false },
     { path: '/categories', label: 'Categories', icon: TargetIcon, hasSubRoutes: true },
-    { path: '/forecast', label: 'Forecast', icon: CalendarIcon, hasSubRoutes: true },
-    { path: '/analyze', label: 'Analyze', icon: BarChart3Icon, hasSubRoutes: true }
+    { path: '/analyze', label: 'Analyze', icon: BarChart3Icon, hasSubRoutes: true },
+    { path: '/plan', label: 'Plan', icon: CalendarIcon, hasSubRoutes: true },
+    { path: '/goals', label: 'Goals', icon: TargetIcon, hasSubRoutes: true }
   ];
 
   function isActive(path: string) {

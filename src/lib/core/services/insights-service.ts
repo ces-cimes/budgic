@@ -499,7 +499,7 @@ class InsightsService {
 				percentage: 30,
 				actionable: true,
 				actionText: 'Plan Purchases',
-				actionUrl: '/forecast'
+				actionUrl: '/plan'
 			}));
 		} catch (error) {
 			console.error('Error generating behavioral insights:', error);
