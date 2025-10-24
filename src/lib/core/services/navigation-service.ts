@@ -43,7 +43,7 @@ export interface NavigationState {
 const DEFAULT_NAV_ITEMS: Omit<NavItemConfig, 'id' | 'createdAt' | 'updatedAt'>[] = [
 	{
 		path: '/',
-		label: 'Dashboard',
+		label: 'Home',
 		icon: 'home',
 		hasSubRoutes: false,
 		order: 0,
@@ -53,7 +53,7 @@ const DEFAULT_NAV_ITEMS: Omit<NavItemConfig, 'id' | 'createdAt' | 'updatedAt'>[]
 	},
 	{
 		path: '/transactions',
-		label: 'Transactions',
+		label: 'Trans.',
 		icon: 'receipt',
 		hasSubRoutes: false,
 		order: 1,
@@ -62,9 +62,9 @@ const DEFAULT_NAV_ITEMS: Omit<NavItemConfig, 'id' | 'createdAt' | 'updatedAt'>[]
 		showInDesktop: true
 	},
 	{
-		path: '/categories',
-		label: 'Categories',
-		icon: 'target',
+		path: '/plan',
+		label: 'Plan',
+		icon: 'calendar',
 		hasSubRoutes: true,
 		order: 2,
 		visible: true,
@@ -82,9 +82,9 @@ const DEFAULT_NAV_ITEMS: Omit<NavItemConfig, 'id' | 'createdAt' | 'updatedAt'>[]
 		showInDesktop: true
 	},
 	{
-		path: '/plan',
-		label: 'Plan',
-		icon: 'calendar',
+		path: '/categories',
+		label: 'Categories',
+		icon: 'target',
 		hasSubRoutes: true,
 		order: 4,
 		visible: true,
@@ -123,7 +123,7 @@ const DEFAULT_NAV_ITEMS: Omit<NavItemConfig, 'id' | 'createdAt' | 'updatedAt'>[]
 		hasSubRoutes: false,
 		order: 7,
 		visible: true,
-		showInMobile: false,
+		showInMobile: true,
 		showInDesktop: true
 	},
 	{
@@ -133,7 +133,7 @@ const DEFAULT_NAV_ITEMS: Omit<NavItemConfig, 'id' | 'createdAt' | 'updatedAt'>[]
 		hasSubRoutes: true,
 		order: 8,
 		visible: true,
-		showInMobile: false,
+		showInMobile: true,
 		showInDesktop: true
 	}
 ];

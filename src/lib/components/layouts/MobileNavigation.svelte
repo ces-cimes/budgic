@@ -91,9 +91,6 @@
 			>
 				<div class="relative">
 					<IconComponent class="w-6 h-6 drop-shadow-lg" />
-					{#if item.hasSubRoutes && isActive(item.path)}
-						<div class="absolute -top-1 -right-1 w-2 h-2 bg-[var(--color-golden-amber)] rounded-full animate-pulse"></div>
-					{/if}
 					{#if showBadge}
 						<div class="absolute -top-1 -right-2">
 							<Badge 
