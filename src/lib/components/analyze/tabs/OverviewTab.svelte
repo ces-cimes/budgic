@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { OverviewTabProps } from '../types.js';
-  import { QuickStatsCard, ActionButton } from '../shared/index.js';
+  import { QuickStatsCard, ActionButton } from '$lib/components/shared';
   import { InsightList } from '../analytics/index.js';
   import { BarChart3, TrendingUp, Download, Calendar } from '@lucide/svelte';
   import { formatMainCurrencyAmount } from '$lib/utils/currency-utils';
@@ -62,12 +62,12 @@
       <ActionButton
         icon={Download}
         label="Export Report"
-        onclick={onExportReport}
+        onClick={onExportReport}
       />
       <ActionButton
         icon={Calendar}
         label="Set Reminder"
-        onclick={onSetReminder}
+        onClick={onSetReminder}
       />
     </div>
   </div>

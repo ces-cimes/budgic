@@ -1,12 +1,8 @@
 // Goals-specific types and interfaces
 import type { LucideIcon } from '@lucide/svelte';
 
-// Tab configuration
-export interface TabConfig {
-  id: string;
-  label: string;
-  icon?: any; // Lucide icon component
-}
+// TabConfig is now shared - import from shared types
+export type { TabConfig } from '$lib/components/shared/types';
 
 // Financial Goal types
 export interface FinancialGoal {
@@ -157,11 +153,4 @@ export interface GoalTemplate {
   isPopular?: boolean;
 }
 
-// Export all components for easy importing
-export { default as TabHeader } from './core/TabHeader.svelte';
-export { default as TabContent } from './core/TabContent.svelte';
-export { default as TabContentWrapper } from './core/TabContentWrapper.svelte';
-export { default as OverviewTab } from './tabs/OverviewTab.svelte';
-export { default as ActiveTab } from './tabs/ActiveTab.svelte';
-export { default as CompletedTab } from './tabs/CompletedTab.svelte';
-export { default as InsightsTab } from './tabs/InsightsTab.svelte';
+// Core tab components are now shared - import from shared instead

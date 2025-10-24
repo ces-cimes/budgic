@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { TrendsTabProps } from '../types.js';
-  import { TimeRangeSelector } from '../shared/index.js';
+  import { TimeRangeSelector } from '$lib/components/shared';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { TrendingUp, BarChart3 } from '@lucide/svelte';
 

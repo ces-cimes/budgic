@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { CompareTabProps } from '../types.js';
-  import { TimeRangeSelector } from '../shared/index.js';
+  import { TimeRangeSelector } from '$lib/components/shared';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { TrendingUp } from '@lucide/svelte';
   import { formatMainCurrencyAmount } from '$lib/utils/currency-utils';

@@ -1,10 +1,7 @@
 import type { ComponentType } from 'svelte';
 
-export interface TabConfig {
-  id: string;
-  label: string;
-  icon?: any; // Changed from ComponentType to any for Lucide icons
-}
+// TabConfig is now shared - import from shared types
+export type { TabConfig } from '$lib/components/shared/types';
 
 export interface Insight {
   id: string;

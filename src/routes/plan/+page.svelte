@@ -15,16 +15,20 @@
     Calendar
   } from '@lucide/svelte';
   
-  // Plan components
+  // Shared components
   import { 
     TabHeader,
     TabContent,
     TabContentWrapper,
+    type TabConfig
+  } from '$lib/components/shared';
+  
+  // Plan-specific components
+  import { 
     OverviewTab,
     ProjectionsTab,
     GoalsTab,
     InsightsTab,
-    type TabConfig,
     type PlanningInsight,
     type PlanningData,
     type DailyAllowance,
@@ -214,7 +218,7 @@
       class="flex-1"
     >
       {#snippet children()}
-        <TabContent tabId="overview" isActive={activeTab === 'overview'}>
+        <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={planTabs}>
           <OverviewTab
             dailyAllowance={dailyAllowance}
             totalPlannedIncome={totalPlannedIncome()}
@@ -226,7 +230,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="projections" isActive={activeTab === 'projections'}>
+        <TabContent tabId="projections" isActive={activeTab === 'projections'} tabs={planTabs}>
           <ProjectionsTab
             weeklyProjections={weeklyProjections}
             userCurrency={userCurrency}
@@ -235,7 +239,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="goals" isActive={activeTab === 'goals'}>
+        <TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
           <GoalsTab
             userCurrency={userCurrency}
             selectedAccountId={selectedAccountId}
@@ -243,7 +247,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="insights" isActive={activeTab === 'insights'}>
+        <TabContent tabId="insights" isActive={activeTab === 'insights'} tabs={planTabs}>
           <InsightsTab
             insights={planningInsights}
             userCurrency={userCurrency}

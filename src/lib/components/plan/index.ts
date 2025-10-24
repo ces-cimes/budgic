@@ -1,6 +1,3 @@
-// Core components
-export * from './core/index.js';
-
 // Tab components
 export * from './tabs/index.js';
 

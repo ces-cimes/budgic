@@ -1,15 +1,9 @@
-// Core components
-export * from './core/index.js';
-
-// Shared components
-export * from './shared/index.js';
-
 // Analytics components
 export * from './analytics/index.js';
 
 // Tab components
 export * from './tabs/index.js';
 
-// Types
+// Types (TabConfig is now shared, others are analyze-specific)
 export * from './types.js';
 

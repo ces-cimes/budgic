@@ -14,16 +14,20 @@
     Plus
   } from '@lucide/svelte';
   
-  // Goals components
+  // Shared components
   import { 
     TabHeader,
     TabContent,
     TabContentWrapper,
+    type TabConfig
+  } from '$lib/components/shared';
+  
+  // Goals-specific components
+  import { 
     OverviewTab,
     ActiveTab,
     CompletedTab,
     InsightsTab,
-    type TabConfig,
     type GoalInsight,
     type GoalsData,
     type FinancialGoal,
@@ -193,7 +197,7 @@
     >
       {#snippet children()}
         <!-- Overview Tab -->
-        <TabContent tabId="overview" isActive={activeTab === 'overview'}>
+        <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={goalsTabs}>
           <OverviewTab 
             {goalsData}
             {activeGoals}
@@ -204,7 +208,7 @@
         </TabContent>
 
         <!-- Active Goals Tab -->
-        <TabContent tabId="active" isActive={activeTab === 'active'}>
+        <TabContent tabId="active" isActive={activeTab === 'active'} tabs={goalsTabs}>
           <ActiveTab 
             {activeGoals}
             {userCurrency}
@@ -213,7 +217,7 @@
         </TabContent>
 
         <!-- Completed Goals Tab -->
-        <TabContent tabId="completed" isActive={activeTab === 'completed'}>
+        <TabContent tabId="completed" isActive={activeTab === 'completed'} tabs={goalsTabs}>
           <CompletedTab 
             {completedGoals}
             {userCurrency}
@@ -222,7 +226,7 @@
         </TabContent>
 
         <!-- Insights Tab -->
-        <TabContent tabId="insights" isActive={activeTab === 'insights'}>
+        <TabContent tabId="insights" isActive={activeTab === 'insights'} tabs={goalsTabs}>
           <InsightsTab 
             {goalInsights}
             {goalsData}

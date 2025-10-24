@@ -15,17 +15,21 @@
     FileText 
   } from '@lucide/svelte';
   
-  // Analyze components
+  // Shared components
   import { 
     TabHeader,
     TabContent,
     TabContentWrapper,
+    type TabConfig
+  } from '$lib/components/shared';
+  
+  // Analyze-specific components
+  import { 
     OverviewTab,
     TrendsTab,
     CategoriesTab,
     CompareTab,
     ReportsTab,
-    type TabConfig,
     type Insight,
     type AnalyticsData,
     type CategoryData,
@@ -261,7 +265,7 @@
       class="flex-1"
     >
       {#snippet children()}
-        <TabContent tabId="overview" isActive={activeTab === 'overview'}>
+        <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={analyzeTabs}>
           <OverviewTab
             totalSpending={totalSpending()}
             savingsRate={savingsRate()}
@@ -273,7 +277,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="trends" isActive={activeTab === 'trends'}>
+        <TabContent tabId="trends" isActive={activeTab === 'trends'} tabs={analyzeTabs}>
           <TrendsTab
             timeRange={timeRange}
             onTimeRangeChange={(range) => timeRange = range as typeof timeRange}
@@ -282,7 +286,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="categories" isActive={activeTab === 'categories'}>
+        <TabContent tabId="categories" isActive={activeTab === 'categories'} tabs={analyzeTabs}>
           <CategoriesTab
             categoryData={categoryData}
             userCurrency={userCurrency}
@@ -290,7 +294,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="compare" isActive={activeTab === 'compare'}>
+        <TabContent tabId="compare" isActive={activeTab === 'compare'} tabs={analyzeTabs}>
           <CompareTab
             timeRange={timeRange === 'week' ? 'month' : (timeRange as 'month' | 'quarter' | 'year')}
             onTimeRangeChange={(range) => timeRange = range as 'month' | 'quarter' | 'year'}
@@ -300,7 +304,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="reports" isActive={activeTab === 'reports'}>
+        <TabContent tabId="reports" isActive={activeTab === 'reports'} tabs={analyzeTabs}>
           <ReportsTab
             recentReports={recentReports}
             onGenerateReport={handleGenerateReport}

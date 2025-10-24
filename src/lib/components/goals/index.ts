@@ -1,6 +1,3 @@
-// Core components
-export * from './core/index.js';
-
 // Tab components
 export { default as OverviewTab } from './tabs/OverviewTab.svelte';
 export { default as ActiveTab } from './tabs/ActiveTab.svelte';

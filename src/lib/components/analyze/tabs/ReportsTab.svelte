@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ReportsTabProps } from '../types.js';
-  import { ActionButton } from '../shared/index.js';
+  import { ActionButton } from '$lib/components/shared';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { Button } from '$lib/components/ui/button/index.ts';
   import { FileText, Download, BarChart3, PieChart, TrendingUp } from '@lucide/svelte';
@@ -60,28 +60,28 @@
         icon={Download}
         label="Monthly Summary"
         subtitle="PDF Export"
-        onclick={() => onGenerateReport('monthly')}
+        onClick={() => onGenerateReport('monthly')}
       />
       
       <ActionButton
         icon={BarChart3}
         label="Spending Analysis"
         subtitle="Detailed Charts"
-        onclick={() => onGenerateReport('spending')}
+        onClick={() => onGenerateReport('spending')}
       />
       
       <ActionButton
         icon={PieChart}
         label="Category Report"
         subtitle="Breakdown by Category"
-        onclick={() => onGenerateReport('category')}
+        onClick={() => onGenerateReport('category')}
       />
       
       <ActionButton
         icon={TrendingUp}
         label="Trend Report"
         subtitle="Historical Analysis"
-        onclick={() => onGenerateReport('trend')}
+        onClick={() => onGenerateReport('trend')}
       />
     </div>
   </Card.Root>

@@ -20,12 +20,8 @@ export type {
   WeekLoadingState
 };
 
-// Tab configuration
-export interface TabConfig {
-  id: string;
-  label: string;
-  icon: any; // Lucide icon component
-}
+// TabConfig is now shared - import from shared types
+export type { TabConfig } from '$lib/components/shared/types';
 
 // Planning-specific component props
 export interface OverviewTabProps {
