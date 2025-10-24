@@ -10,7 +10,6 @@
     BarChart3, 
     Target, 
     CheckCircle,
-    Lightbulb,
     Plus
   } from '@lucide/svelte';
   
@@ -27,8 +26,6 @@
     OverviewTab,
     ActiveTab,
     CompletedTab,
-    InsightsTab,
-    type GoalInsight,
     type GoalsData,
     type FinancialGoal,
     type GoalProgress
@@ -42,8 +39,7 @@
   const goalsTabs: TabConfig[] = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'active', label: 'Active', icon: Target },
-    { id: 'completed', label: 'Completed', icon: CheckCircle },
-    { id: 'insights', label: 'Insights', icon: Lightbulb }
+    { id: 'completed', label: 'Completed', icon: CheckCircle }
   ];
 
   // State
@@ -53,14 +49,12 @@
   let goalsData = $state<GoalsData | null>(null);
   let activeGoals = $state<FinancialGoal[]>([]);
   let completedGoals = $state<FinancialGoal[]>([]);
-  let goalInsights = $state<GoalInsight[]>([]);
   let error = $state<string | null>(null);
 
   // Sidebar context for mobile detection
   const sidebar = Sidebar.useSidebar();
 
   // Derived values
-  const alertCount = $derived(goalInsights.filter(i => i.priority === 'high').length);
   const totalGoalsValue = $derived(activeGoals.reduce((sum, goal) => sum + goal.targetAmount, 0));
   const totalProgressValue = $derived(activeGoals.reduce((sum, goal) => sum + goal.currentAmount, 0));
 
@@ -101,17 +95,15 @@
 
   async function loadGoalsData() {
     try {
-      const [goalsDataResult, activeGoalsResult, completedGoalsResult, insightsResult] = await Promise.all([
+      const [goalsDataResult, activeGoalsResult, completedGoalsResult] = await Promise.all([
         goalsService.getGoalsData(),
         goalsService.getActiveGoals(),
-        goalsService.getCompletedGoals(),
-        goalsService.getGoalInsights()
+        goalsService.getCompletedGoals()
       ]);
 
       goalsData = goalsDataResult;
       activeGoals = activeGoalsResult;
       completedGoals = completedGoalsResult;
-      goalInsights = insightsResult;
 
     } catch (err) {
       console.error('Error loading goals data:', err);
@@ -159,13 +151,6 @@
       title="Goals" 
       variant="with-tabs"
       buttonProps={[
-        {
-          text: `${alertCount} alerts`,
-          variant: alertCount > 0 ? "destructive" : "secondary",
-          size: "sm",
-          icon: Bell,
-          onclick: () => goto('/goals?tab=insights')
-        },
         {
           onclick: () => goto('/goals/add'),
           size: "sm",
@@ -220,16 +205,6 @@
         <TabContent tabId="completed" isActive={activeTab === 'completed'} tabs={goalsTabs}>
           <CompletedTab 
             {completedGoals}
-            {userCurrency}
-            onGoalAction={handleGoalAction}
-          />
-        </TabContent>
-
-        <!-- Insights Tab -->
-        <TabContent tabId="insights" isActive={activeTab === 'insights'} tabs={goalsTabs}>
-          <InsightsTab 
-            {goalInsights}
-            {goalsData}
             {userCurrency}
             onGoalAction={handleGoalAction}
           />

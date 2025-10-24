@@ -10,8 +10,7 @@
     Bell, 
     BarChart3, 
     TrendingUp, 
-    Target,
-    Lightbulb,
+    DollarSign,
     Calendar
   } from '@lucide/svelte';
   
@@ -27,9 +26,7 @@
   import { 
     OverviewTab,
     ProjectionsTab,
-    GoalsTab,
-    InsightsTab,
-    type PlanningInsight,
+    BudgetTab,
     type PlanningData,
     type DailyAllowance,
     type WeeklyProjection
@@ -43,8 +40,7 @@
   const planTabs: TabConfig[] = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'projections', label: 'Projections', icon: TrendingUp },
-    { id: 'goals', label: 'Goals', icon: Target },
-    { id: 'insights', label: 'Insights', icon: Lightbulb }
+    { id: 'budget', label: 'Budget', icon: DollarSign }
   ];
 
   // State
@@ -54,7 +50,6 @@
   let selectedAccountId = $state<string>('');
   let dailyAllowance = $state<DailyAllowance | null>(null);
   let weeklyProjections = $state<WeeklyProjection[]>([]);
-  let planningInsights = $state<PlanningInsight[]>([]);
   let planningData = $state<PlanningData | null>(null);
   let error = $state<string | null>(null);
 
@@ -62,8 +57,7 @@
   const sidebar = Sidebar.useSidebar();
 
   // Derived values
-  const alertCount = $derived(planningInsights.filter(i => i.priority === 'high').length);
-  const criticalAlerts = $derived(planningInsights.filter(i => i.type === 'balance_warning').length);
+  const criticalAlerts = $derived(planningData?.insights?.filter(i => i.type === 'balance_warning').length || 0);
   
   // Calculate planning metrics
   const totalPlannedIncome = $derived(() => {
@@ -137,7 +131,6 @@
       if (planningData) {
         dailyAllowance = planningData.dailyAllowance;
         weeklyProjections = planningData.weeklyProjections;
-        planningInsights = planningData.insights;
       }
     } catch (error) {
       console.error('Error loading planning data:', error);
@@ -180,7 +173,7 @@
       variant="with-tabs"
       buttonProps={[
         {
-          text: `${alertCount} alerts`,
+          text: `${criticalAlerts} alerts`,
           variant: criticalAlerts > 0 ? "destructive" : "secondary",
           size: "sm",
           icon: Bell,
@@ -239,19 +232,12 @@
           />
         </TabContent>
         
-        <TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
-          <GoalsTab
+        <TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
+          <BudgetTab
             userCurrency={userCurrency}
             selectedAccountId={selectedAccountId}
+            planningData={planningData}
             onSetGoal={handleSetGoal}
-          />
-        </TabContent>
-        
-        <TabContent tabId="insights" isActive={activeTab === 'insights'} tabs={planTabs}>
-          <InsightsTab
-            insights={planningInsights}
-            userCurrency={userCurrency}
-            onRefresh={handleRefresh}
           />
         </TabContent>
       {/snippet}

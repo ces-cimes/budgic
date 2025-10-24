@@ -41,9 +41,10 @@ export interface ProjectionsTabProps {
   onRefresh: () => void;
 }
 
-export interface GoalsTabProps {
+export interface BudgetTabProps {
   userCurrency: string;
   selectedAccountId: string;
+  planningData: PlanningData | null;
   onSetGoal: () => void;
 }
 

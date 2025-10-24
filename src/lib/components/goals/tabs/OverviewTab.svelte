@@ -12,7 +12,9 @@
     Plus,
     CheckCircle,
     Clock,
-    AlertCircle
+    AlertCircle,
+    BarChart3,
+    ExternalLink
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
   import type { GoalsData, FinancialGoal, GoalInsight } from '../types';
@@ -302,4 +304,58 @@
       </Card.Content>
     </Card.Root>
   {/if}
+
+  <!-- Cross-Route Integration -->
+  <Card.Root>
+    <Card.Header>
+      <div class="flex items-center justify-between">
+        <div>
+          <Card.Title>Planning Integration</Card.Title>
+          <Card.Description>See how your goals affect your daily budget</Card.Description>
+        </div>
+        <Button.Root 
+          variant="outline" 
+          size="sm" 
+          onclick={() => goto('/plan?tab=budget')}
+        >
+          <BarChart3 class="h-4 w-4 mr-2" />
+          View Budget Impact
+        </Button.Root>
+      </div>
+    </Card.Header>
+    <Card.Content>
+      <div class="space-y-3">
+        <div class="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div class="flex items-center space-x-3">
+            <BarChart3 class="h-5 w-5 text-blue-600" />
+            <div>
+              <div class="font-medium text-primary">Budget Impact Analysis</div>
+              <div class="text-sm text-muted-foreground">
+                See how your goals affect your daily spending allowance
+              </div>
+            </div>
+          </div>
+          <Button.Root 
+            variant="ghost" 
+            size="sm"
+            onclick={() => goto('/plan?tab=budget')}
+          >
+            <ExternalLink class="h-4 w-4" />
+          </Button.Root>
+        </div>
+        
+        <div class="text-sm text-muted-foreground">
+          Your active goals contribute to your overall financial plan. 
+          <Button.Root 
+            variant="link" 
+            size="sm" 
+            class="p-0 h-auto text-blue-600"
+            onclick={() => goto('/plan?tab=budget')}
+          >
+            View detailed budget analysis
+          </Button.Root>
+        </div>
+      </div>
+    </Card.Content>
+  </Card.Root>
 </div>
