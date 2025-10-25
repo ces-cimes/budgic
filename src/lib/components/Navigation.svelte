@@ -9,7 +9,8 @@
 	import HomeIcon from '@lucide/svelte/icons/home';
 	import ReceiptIcon from '@lucide/svelte/icons/receipt';
 	import TargetIcon from '@lucide/svelte/icons/target';
-	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
+	import WalletIcon from '@lucide/svelte/icons/wallet';
+	import TrendingUpIcon from '@lucide/svelte/icons/trending-up';
 	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
@@ -20,7 +21,8 @@
 		'home': HomeIcon,
 		'receipt': ReceiptIcon,
 		'target': TargetIcon,
-		'bar-chart-3': BarChart3Icon,
+		'wallet': WalletIcon,
+		'trending-up': TrendingUpIcon,
 		'calendar': CalendarIcon,
 		'bell': BellIcon,
 		'settings': SettingsIcon,
@@ -92,7 +94,7 @@
 							{/each}
 						{:else}
 							{#each desktopItems as item (item.id)}
-								{@const IconComponent = iconMap[item.icon] || HomeIcon}
+								{@const IconComponent = iconMap[item.icon || 'home'] || HomeIcon}
 								{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
 								{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
 								

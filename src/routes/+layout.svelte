@@ -6,6 +6,7 @@
   import { simpleInsightsService } from '$lib/components/insights/simple-insights-service';
   import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { AppLayout } from '$lib/components/layouts';
+  import { Toaster } from '$lib/components/ui/sonner';
 
   let { children } = $props();
 
@@ -41,3 +42,11 @@
 <AppLayout>
   {@render children?.()}
 </AppLayout>
+
+<Toaster 
+  position="top-center" 
+  toastOptions={{
+    duration: 3000,
+    style: 'margin-top: 1rem;'
+  }}
+/>

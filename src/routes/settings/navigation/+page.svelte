@@ -14,26 +14,18 @@
 	import * as Alert from '$lib/components/ui/alert/index.ts';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import { PageLayout } from '$lib/components/layouts';
+	import { toast } from 'svelte-sonner';
 	
 	// Lucide icons
-	import HomeIcon from '@lucide/svelte/icons/home';
-	import ReceiptIcon from '@lucide/svelte/icons/receipt';
-	import TargetIcon from '@lucide/svelte/icons/target';
-	import BarChart3Icon from '@lucide/svelte/icons/bar-chart-3';
-	import CalendarIcon from '@lucide/svelte/icons/calendar';
-	import BellIcon from '@lucide/svelte/icons/bell';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
-	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
-	import CheckIcon from '@lucide/svelte/icons/check';
-	import InfoIcon from '@lucide/svelte/icons/info';
+	import { HomeIcon, ReceiptIcon, TargetIcon, WalletIcon, TrendingUpIcon, CalendarIcon, BellIcon, SettingsIcon, CreditCardIcon, GripVerticalIcon, InfoIcon, SmartphoneIcon, MonitorIcon } from '@lucide/svelte';
 
 	// Icon mapping
 	const iconMap: Record<string, any> = {
 		'home': HomeIcon,
 		'receipt': ReceiptIcon,
 		'target': TargetIcon,
-		'bar-chart-3': BarChart3Icon,
+		'wallet': WalletIcon,
+		'trending-up': TrendingUpIcon,
 		'calendar': CalendarIcon,
 		'bell': BellIcon,
 		'settings': SettingsIcon,
@@ -43,8 +35,6 @@
 	let items = $state<any[]>([]);
 	let loading = $state(true);
 	let saving = $state(false);
-	let successMessage = $state<string | null>(null);
-	let errorMessage = $state<string | null>(null);
 
 	// Drag and drop state
 	let draggedItem = $state<any | null>(null);
@@ -56,7 +46,7 @@
 			const allItems = navigationStore.items;
 			items = [...allItems];
 		} catch (error) {
-			errorMessage = 'Failed to load navigation items';
+			toast.error('Failed to load navigation items');
 			console.error(error);
 		} finally {
 			loading = false;
@@ -106,12 +96,10 @@
 		// Save to database
 		try {
 			await navigationStore.updateItemOrder(draggedItem.id, targetIndex);
-			successMessage = 'Navigation order updated successfully';
-			setTimeout(() => successMessage = null, 3000);
+			toast.success('Navigation order updated successfully');
 		} catch (error) {
-			errorMessage = 'Failed to update navigation order';
+			toast.error('Failed to update navigation order');
 			console.error(error);
-			setTimeout(() => errorMessage = null, 3000);
 			await loadItems(); // Reload on error
 		}
 
@@ -119,17 +107,15 @@
 		dragOverIndex = null;
 	}
 
-	async function toggleVisibility(itemId: string, field: 'visible' | 'showInMobile' | 'showInDesktop', value: boolean) {
+	async function toggleVisibility(itemId: string, field: 'showInMobile' | 'showInDesktop', value: boolean) {
 		saving = true;
 		try {
 			await navigationStore.updateItemVisibility(itemId, { [field]: value });
 			await loadItems();
-			successMessage = 'Visibility updated successfully';
-			setTimeout(() => successMessage = null, 3000);
+			toast.success('Visibility updated successfully');
 		} catch (error) {
-			errorMessage = 'Failed to update visibility';
+			toast.error('Failed to update visibility');
 			console.error(error);
-			setTimeout(() => errorMessage = null, 3000);
 		} finally {
 			saving = false;
 		}
@@ -144,12 +130,10 @@
 		try {
 			await navigationStore.resetToDefaults();
 			await loadItems();
-			successMessage = 'Navigation reset to defaults successfully';
-			setTimeout(() => successMessage = null, 3000);
+			toast.success('Navigation reset to defaults successfully');
 		} catch (error) {
-			errorMessage = 'Failed to reset navigation';
+			toast.error('Failed to reset navigation');
 			console.error(error);
-			setTimeout(() => errorMessage = null, 3000);
 		} finally {
 			saving = false;
 		}
@@ -173,26 +157,11 @@
 			</p>
 		</div>
 
-		{#if successMessage}
-			<Alert.Root variant="default" class="border-[var(--color-sage-green)]">
-				<CheckIcon class="h-4 w-4 text-[var(--color-sage-green)]" />
-				<Alert.Title>Success</Alert.Title>
-				<Alert.Description>{successMessage}</Alert.Description>
-			</Alert.Root>
-		{/if}
-
-		{#if errorMessage}
-			<Alert.Root variant="destructive">
-				<Alert.Title>Error</Alert.Title>
-				<Alert.Description>{errorMessage}</Alert.Description>
-			</Alert.Root>
-		{/if}
-
 		<Alert.Root>
 			<InfoIcon class="h-4 w-4" />
 			<Alert.Title>Pro Tip</Alert.Title>
 			<Alert.Description>
-				Drag and drop items to reorder them. Mobile navigation shows Home, Transactions, Plan, and Analyze in the main bar, with the rest accessible via the "More" button.
+				Drag and drop items to reorder them. Both desktop and mobile navigation use the same order - the first 4 items appear in the mobile main bar, with the rest accessible via the "More" button.
 			</Alert.Description>
 		</Alert.Root>
 
@@ -219,55 +188,40 @@
 								ondragover={(e) => handleDragOver(e, index)}
 								ondrop={(e) => handleDrop(e, index)}
 								ondragend={handleDragEnd}
-								class="flex items-center gap-4 p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] transition-all
+								class="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] transition-all
 									{dragOverIndex === index ? 'border-[var(--color-golden-amber)] bg-[var(--color-bg-tertiary)]' : ''}
 									hover:border-[var(--color-border-hover)] cursor-move"
 							>
 								<GripVerticalIcon class="w-5 h-5 text-[var(--color-text-tertiary)] flex-shrink-0" />
 								
 								<div class="flex items-center gap-3 flex-1">
-									<IconComponent class="w-5 h-5 text-[var(--color-text-secondary)]" />
+									<IconComponent class="w-5 h-5 text-[var(--color-text-secondary)] flex-shrink-0" />
 									<div class="flex-1">
-										<div class="font-medium text-[var(--color-text-primary)] flex items-center gap-2">
+										<div class="font-medium text-[var(--color-text-primary)]">
 											{item.label}
-											{#if ['dashboard', 'transactions', 'budget', 'analyze'].includes(item.id)}
-												<span class="text-xs bg-[var(--color-golden-amber)] text-[var(--color-warm-charcoal)] px-2 py-1 rounded-full font-medium">
-													Mobile Main
-												</span>
-											{/if}
 										</div>
 										<div class="text-xs text-[var(--color-text-tertiary)]">{item.path}</div>
 									</div>
 								</div>
 
-								<div class="flex items-center gap-4 flex-shrink-0">
-									<!-- Visible toggle -->
-									<div class="flex items-center gap-2">
-										<span class="text-sm text-[var(--color-text-secondary)]">Visible</span>
+								<div class="flex flex-col gap-2 flex-shrink-0">
+									<!-- Mobile toggle -->
+									<div class="flex items-center gap-1" title="Show on Mobile">
+										<SmartphoneIcon class="w-4 h-4 text-[var(--color-text-secondary)]" />
 										<Switch 
-											checked={item.visible}
-											onCheckedChange={(checked) => toggleVisibility(item.id, 'visible', checked)}
+											checked={item.showInMobile}
+											onCheckedChange={(checked) => toggleVisibility(item.id, 'showInMobile', checked)}
 											disabled={saving}
 										/>
 									</div>
 
-									<!-- Mobile toggle -->
-									<div class="flex items-center gap-2">
-										<span class="text-sm text-[var(--color-text-secondary)]">Mobile</span>
-										<Switch 
-											checked={item.showInMobile}
-											onCheckedChange={(checked) => toggleVisibility(item.id, 'showInMobile', checked)}
-											disabled={saving || !item.visible}
-										/>
-									</div>
-
 									<!-- Desktop toggle -->
-									<div class="flex items-center gap-2">
-										<span class="text-sm text-[var(--color-text-secondary)]">Desktop</span>
+									<div class="flex items-center gap-1" title="Show on Desktop">
+										<MonitorIcon class="w-4 h-4 text-[var(--color-text-secondary)]" />
 										<Switch 
 											checked={item.showInDesktop}
 											onCheckedChange={(checked) => toggleVisibility(item.id, 'showInDesktop', checked)}
-											disabled={saving || !item.visible}
+											disabled={saving}
 										/>
 									</div>
 								</div>

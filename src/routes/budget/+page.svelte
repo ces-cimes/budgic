@@ -21,7 +21,7 @@
     type TabConfig
   } from '$lib/components/shared';
   
-  // Plan-specific components
+  // Budget-specific components
   import { 
     OverviewTab,
     ProjectionsTab,
@@ -36,7 +36,7 @@
   import { userService } from '$lib/core/services';
 
   // Tab configuration
-  const planTabs: TabConfig[] = [
+  const budgetTabs: TabConfig[] = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'projections', label: 'Projections', icon: TrendingUp },
     { id: 'budget', label: 'Categories', icon: DollarSign }
@@ -110,7 +110,7 @@
   $effect(() => {
     const urlParams = new URLSearchParams($page.url.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && planTabs.some(tab => tab.id === tabParam)) {
+    if (tabParam && budgetTabs.some((tab: any) => tab.id === tabParam)) {
       activeTab = tabParam;
     }
   });
@@ -163,7 +163,7 @@
 <PageLayout>
   {#snippet topBar()}
     <Header 
-      title="Plan" 
+      title="Budget" 
       variant="with-tabs"
       buttonProps={[
         {
@@ -183,7 +183,7 @@
       ]}
     >
       <TabHeader
-        tabs={planTabs}
+        tabs={budgetTabs}
         activeTab={activeTab}
         onTabChange={handleTabChange}
       />
@@ -194,13 +194,13 @@
 
   {#snippet children()}
     <TabContentWrapper
-      tabs={planTabs}
+      tabs={budgetTabs}
       activeTab={activeTab}
       onTabChange={handleTabChange}
       class="flex-1"
     >
       {#snippet children()}
-        <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={planTabs}>
+        <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={budgetTabs}>
           <OverviewTab
             dailyAllowance={dailyAllowance}
             totalPlannedIncome={totalPlannedIncome()}
@@ -212,7 +212,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="projections" isActive={activeTab === 'projections'} tabs={planTabs}>
+        <TabContent tabId="projections" isActive={activeTab === 'projections'} tabs={budgetTabs}>
           <ProjectionsTab
             weeklyProjections={weeklyProjections}
             userCurrency={userCurrency}
@@ -221,7 +221,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
+        <TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={budgetTabs}>
           <BudgetTab
             userCurrency={userCurrency}
             selectedAccountId={selectedAccountId}

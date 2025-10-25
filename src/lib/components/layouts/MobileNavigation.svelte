@@ -7,14 +7,15 @@
 	import { onMount } from 'svelte';
 	
 	// Lucide icons
-	import { HomeIcon, ReceiptIcon, TargetIcon, BarChart3Icon, CalendarIcon, BellIcon, SettingsIcon, CreditCardIcon, MoreHorizontalIcon, ChevronRightIcon } from '@lucide/svelte';
+	import { HomeIcon, ReceiptIcon, TargetIcon, WalletIcon, TrendingUpIcon, CalendarIcon, BellIcon, SettingsIcon, CreditCardIcon, MoreHorizontalIcon, ChevronRightIcon } from '@lucide/svelte';
 
 	// Icon mapping
 	const iconMap: Record<string, any> = {
 		'home': HomeIcon,
 		'receipt': ReceiptIcon,
 		'target': TargetIcon,
-		'bar-chart-3': BarChart3Icon,
+		'wallet': WalletIcon,
+		'trending-up': TrendingUpIcon,
 		'calendar': CalendarIcon,
 		'bell': BellIcon,
 		'settings': SettingsIcon,
@@ -22,9 +23,12 @@
 	};
 
 	let moreDrawerOpen = $state(false);
-	let visibleItems = $state<any[]>([]);
-	let overflowItems = $state<any[]>([]);
 	let badges = $derived(navigationStore.badges);
+
+	// Reactive mobile items - automatically updates when store changes
+	let mobileItems = $derived(navigationStore.mobileItems);
+	let visibleItems = $derived(mobileItems.slice(0, 4)); // First 4 items
+	let overflowItems = $derived(mobileItems.slice(4)); // Rest go to overflow
 
 	function isActive(path: string) {
 		const currentPath = $page.url.pathname;
@@ -50,13 +54,6 @@
 		}
 	}
 
-	// Load navigation items
-	async function loadItems() {
-		const items = await navigationStore.getMobileItemsWithOverflow(4); // 4 visible + 1 "More" button
-		visibleItems = items.visible;
-		overflowItems = items.overflow;
-	}
-
 	// Check if there are any active overflow items
 	let hasActiveOverflowItem = $derived(
 		overflowItems.some(item => isActive(item.path))
@@ -70,14 +67,13 @@
 		if (!navigationStore.initialized) {
 			await navigationStore.initialize();
 		}
-		await loadItems();
 	});
 </script>
 
 <nav class="fixed bottom-0 left-0 right-0 z-50 p-1 flex justify-between sm:justify-center bg-[var(--color-bg-secondary)]/95 backdrop-blur-md border-t border-[var(--color-border)] rounded-t-2xl shadow-lg">
 	<div class="flex w-full justify-between gap-1 max-w-md mx-auto">
 		{#each visibleItems as item (item.id)}
-			{@const IconComponent = iconMap[item.icon] || HomeIcon}
+			{@const IconComponent = iconMap[item.icon || 'home'] || HomeIcon}
 			{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
 			{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
 			
@@ -144,7 +140,7 @@
 					
 					<div class="p-4 space-y-0">
 						{#each overflowItems as item (item.id)}
-							{@const IconComponent = iconMap[item.icon] || HomeIcon}
+							{@const IconComponent = iconMap[item.icon || 'home'] || HomeIcon}
 							{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
 							{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
 							

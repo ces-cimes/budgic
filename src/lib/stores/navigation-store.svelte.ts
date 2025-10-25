@@ -117,22 +117,14 @@ class NavigationStore {
 	 */
 	async loadItems(): Promise<void> {
 		try {
-			// Define static navigation items for simplified architecture
+			// Define static navigation items with unified ordering
+			// Important items (dashboard, transactions, budget, analyze) are positioned at the top
 			const defaultItems = [
 				{
 					id: 'dashboard',
 					label: 'Dashboard',
 					path: '/',
 					icon: 'home',
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true
-				},
-				{
-					id: 'accounts',
-					label: 'Accounts',
-					path: '/accounts',
-					icon: 'credit-card',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
@@ -147,6 +139,33 @@ class NavigationStore {
 					showInDesktop: true
 				},
 				{
+					id: 'budget',
+					label: 'Budget',
+					path: '/budget',
+					icon: 'wallet',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true
+				},
+				{
+					id: 'analyze',
+					label: 'Analyze',
+					path: '/analyze',
+					icon: 'trending-up',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true
+				},
+				{
+					id: 'accounts',
+					label: 'Accounts',
+					path: '/accounts',
+					icon: 'credit-card',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true
+				},
+				{
 					id: 'categories',
 					label: 'Categories',
 					path: '/categories',
@@ -156,28 +175,10 @@ class NavigationStore {
 					showInDesktop: true
 				},
 				{
-					id: 'budget',
-					label: 'Budget',
-					path: '/plan',
-					icon: 'bar-chart-3',
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true
-				},
-				{
 					id: 'goals',
 					label: 'Goals',
 					path: '/goals',
 					icon: 'target',
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true
-				},
-				{
-					id: 'analyze',
-					label: 'Analyze',
-					path: '/analyze',
-					icon: 'bar-chart-3',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
@@ -245,27 +246,11 @@ class NavigationStore {
 				}
 			}
 
-			// Update mobile items - specific order: Home, Transactions, Plan, Analyze, [overflow]
-			// Find the indices of the key items in the current order
-			const homeIndex = this._items.findIndex(item => item.id === 'dashboard');
-			const transactionsIndex = this._items.findIndex(item => item.id === 'transactions');
-			const planIndex = this._items.findIndex(item => item.id === 'budget');
-			const analyzeIndex = this._items.findIndex(item => item.id === 'analyze');
-			
-			// Create mobile items array with the specific order
-			const mobileOrder = [homeIndex, transactionsIndex, planIndex, analyzeIndex]
-				.filter(index => index !== -1)
-				.map(index => this._items[index]);
-			
-			// Add remaining items to overflow
-			const remainingItems = this._items.filter(item => 
-				!['dashboard', 'transactions', 'budget', 'analyze'].includes(item.id)
-			);
-			
-			this._mobileItems = [...mobileOrder, ...remainingItems];
-			
-			// Desktop items (all visible items)
-			this._desktopItems = this._items.filter(item => item.visible && item.showInDesktop);
+			// Unified navigation: both mobile and desktop use the same order
+			// Mobile shows first 4 items in main bar, rest in overflow
+			// Desktop shows all visible items in sidebar
+			this._mobileItems = this._items.filter(item => item.showInMobile);
+			this._desktopItems = this._items.filter(item => item.showInDesktop);
 		} catch (error) {
 			console.error('Error loading navigation items:', error);
 		}
@@ -332,27 +317,9 @@ class NavigationStore {
 			// Update the items array
 			this._items = newItems;
 
-			// Update mobile items - maintain the specific order: Home, Transactions, Plan, Analyze, [overflow]
-			// Find the indices of the key items in the new order
-			const homeIndex = newItems.findIndex(item => item.id === 'dashboard');
-			const transactionsIndex = newItems.findIndex(item => item.id === 'transactions');
-			const planIndex = newItems.findIndex(item => item.id === 'budget');
-			const analyzeIndex = newItems.findIndex(item => item.id === 'analyze');
-			
-			// Create mobile items array with the specific order
-			const mobileOrder = [homeIndex, transactionsIndex, planIndex, analyzeIndex]
-				.filter(index => index !== -1)
-				.map(index => newItems[index]);
-			
-			// Add remaining items to overflow
-			const remainingItems = newItems.filter(item => 
-				!['dashboard', 'transactions', 'budget', 'analyze'].includes(item.id)
-			);
-			
-			this._mobileItems = [...mobileOrder, ...remainingItems];
-
-			// Update desktop items to match the new order
-			this._desktopItems = [...newItems];
+			// Update mobile and desktop items to match the unified order
+			this._mobileItems = this._items.filter(item => item.showInMobile);
+			this._desktopItems = this._items.filter(item => item.showInDesktop);
 
 			// Store the custom order in localStorage for persistence
 			const customOrder = newItems.map(item => item.id);
@@ -369,7 +336,7 @@ class NavigationStore {
 	 */
 	async updateItemVisibility(
 		itemId: string,
-		visibility: { visible?: boolean; showInMobile?: boolean; showInDesktop?: boolean }
+		visibility: { showInMobile?: boolean; showInDesktop?: boolean }
 	): Promise<void> {
 		try {
 			// Find and update the item
@@ -380,13 +347,12 @@ class NavigationStore {
 			this._items[itemIndex] = updatedItem;
 
 			// Update mobile and desktop items based on visibility
-			this._mobileItems = this._items.filter(item => item.visible && item.showInMobile);
-			this._desktopItems = this._items.filter(item => item.visible && item.showInDesktop);
+			this._mobileItems = this._items.filter(item => item.showInMobile);
+			this._desktopItems = this._items.filter(item => item.showInDesktop);
 
 			// Store visibility settings in localStorage
 			const visibilitySettings = this._items.reduce((acc, item) => {
 				acc[item.id] = {
-					visible: item.visible,
 					showInMobile: item.showInMobile,
 					showInDesktop: item.showInDesktop
 				};
