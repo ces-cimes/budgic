@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Plus, ArrowRightLeft, Target } from '@lucide/svelte';
-	import { budgetService } from '$lib/core/services/budget-service';
-	import type { BudgetCategory, WaterfallCategory } from '$lib/core/services/budget-service';
+	import { Plus } from '@lucide/svelte';
+	import { budgetService, transactionService } from '$lib/core/services';
+	import type { Category } from '$lib/core/db';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
@@ -11,26 +11,44 @@
 	import FilterBar from '$lib/components/shared/FilterBar.svelte';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
-	import TabNavigation from '$lib/components/TabNavigation.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 
-	let categories = $state<BudgetCategory[]>([]);
+	let categories = $state<Category[]>([]);
+	let transactions = $state<any[]>([]);
 	let isLoading = $state(true);
 	let error = $state('');
-	let selectedWaterfallCategory = $state<WaterfallCategory | 'all'>('all');
+	let selectedWaterfallCategory = $state<Category['waterfallTier'] | 'all'>('all');
 	let activeState = $state<'active' | 'inactive' | 'all'>('active');
 	let showDeleteDialog = $state(false);
-	let categoryToDelete = $state<BudgetCategory | null>(null);
+	let categoryToDelete = $state<Category | null>(null);
 
-	// Tab navigation configuration
-	const budgetTabs = [
-		{ id: 'overview', label: 'Overview', path: '/categories', icon: Target },
-		{ id: 'transfers', label: 'Transfers', path: '/categories/transfers', icon: ArrowRightLeft }
-	];
+	// Calculate budget data for each category
+	let categoriesWithBudget = $derived(() => {
+		return categories.map(category => {
+			const categoryTransactions = transactions.filter(tx => 
+				tx.categoryId === category.id && 
+				tx.type === 'expense' && 
+				tx.status === 'cleared'
+			);
+			
+			const spent = categoryTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+			const allocated = category.budgetAmount || 0;
+			const remaining = allocated - spent;
+			const percentageUsed = allocated > 0 ? (spent / allocated) * 100 : 0;
+			
+			return {
+				...category,
+				spent,
+				allocated,
+				remaining,
+				percentageUsed
+			};
+		});
+	});
 
 	const waterfallCategories: {
-		value: WaterfallCategory | 'all';
+		value: Category['waterfallTier'] | 'all';
 		label: string;
 		description: string;
 	}[] = [
@@ -42,12 +60,12 @@
 	];
 
 	// Filter categories based on selected waterfall category and active state
-	let filteredCategories = $derived.by(() => {
-		let filtered = categories;
+	let filteredCategories = $derived(() => {
+		let filtered = categoriesWithBudget();
 
 		// Filter by waterfall category
 		if (selectedWaterfallCategory !== 'all') {
-			filtered = filtered.filter((cat) => cat.waterfallCategory === selectedWaterfallCategory);
+			filtered = filtered.filter((cat) => cat.waterfallTier === selectedWaterfallCategory);
 		}
 
 		// Filter by active state
@@ -61,26 +79,26 @@
 	});
 
 	// Calculate counts for badges based on waterfall category filter only (not active/inactive filter)
-	let activeCount = $derived.by(() => {
-		let filtered = categories;
+	let activeCount = $derived(() => {
+		let filtered = categoriesWithBudget();
 		if (selectedWaterfallCategory !== 'all') {
-			filtered = filtered.filter((cat) => cat.waterfallCategory === selectedWaterfallCategory);
+			filtered = filtered.filter((cat) => cat.waterfallTier === selectedWaterfallCategory);
 		}
 		return filtered.filter((cat) => cat.isActive).length;
 	});
 
-	let inactiveCount = $derived.by(() => {
-		let filtered = categories;
+	let inactiveCount = $derived(() => {
+		let filtered = categoriesWithBudget();
 		if (selectedWaterfallCategory !== 'all') {
-			filtered = filtered.filter((cat) => cat.waterfallCategory === selectedWaterfallCategory);
+			filtered = filtered.filter((cat) => cat.waterfallTier === selectedWaterfallCategory);
 		}
 		return filtered.filter((cat) => !cat.isActive).length;
 	});
 
 	// Calculate totals for each waterfall category
-	let categoryTotals = $derived.by(() => {
+	let categoryTotals = $derived(() => {
 		const totals: Record<
-			WaterfallCategory,
+			Category['waterfallTier'],
 			{ allocated: number; spent: number; remaining: number }
 		> = {
 			survival: { allocated: 0, spent: 0, remaining: 0 },
@@ -89,9 +107,9 @@
 			lifestyle: { allocated: 0, spent: 0, remaining: 0 }
 		};
 
-		categories.forEach((category) => {
-			const total = totals[category.waterfallCategory];
-			total.allocated += category.allocatedAmount;
+		categoriesWithBudget().forEach((category) => {
+			const total = totals[category.waterfallTier];
+			total.allocated += category.allocated;
 			total.spent += category.spent;
 			total.remaining += category.remaining;
 		});
@@ -101,7 +119,12 @@
 
 	onMount(async () => {
 		try {
-			categories = await budgetService.getBudgetCategories();
+			const [categoriesData, transactionsData] = await Promise.all([
+				budgetService.getBudgetCategories(),
+				transactionService.getAllTransactions()
+			]);
+			categories = categoriesData;
+			transactions = transactionsData;
 		} catch (err) {
 			error = 'Failed to load budget categories';
 			console.error(err);
@@ -110,7 +133,7 @@
 		}
 	});
 
-	async function toggleCategoryStatus(category: BudgetCategory) {
+	async function toggleCategoryStatus(category: Category) {
 		try {
 			await budgetService.updateBudgetCategory(category.id, {
 				isActive: !category.isActive
@@ -126,7 +149,7 @@
 		}
 	}
 
-	async function deleteCategory(category: BudgetCategory) {
+	async function deleteCategory(category: Category) {
 		try {
 			// For now, we'll just deactivate the category
 			// In a real implementation, you might want to handle this differently
@@ -176,7 +199,6 @@
 		<!-- Header -->
 		<Header 
 			title="Spending Categories"
-			variant="with-tabs"
 			buttonProps={[
 				{
 					text: "Add Category",
@@ -188,9 +210,7 @@
 					icon: Plus
 				}
 			]}
-		>
-			<TabNavigation tabs={budgetTabs} />
-		</Header>
+		/>
 	{/snippet}
 
 	
@@ -214,7 +234,7 @@
 				description: cat.description
 			}))}
 			selectPlaceholder="Filter by category"
-			onSelectChange={(value) => selectedWaterfallCategory = value as WaterfallCategory | 'all'}
+			onSelectChange={(value) => selectedWaterfallCategory = value as Category['waterfallTier'] | 'all'}
 			toggleValue={activeState}
 			toggleOptions={[
 				{ value: 'active', label: 'Active' },
@@ -223,14 +243,14 @@
 			]}
 			onToggleChange={(value) => activeState = value as 'active' | 'inactive' | 'all'}
 			badges={[
-				{ label: 'Active', count: activeCount, variant: 'default' },
-				{ label: 'Inactive', count: inactiveCount, variant: 'secondary' }
+				{ label: 'Active', count: activeCount(), variant: 'default' },
+				{ label: 'Inactive', count: inactiveCount(), variant: 'secondary' }
 			]}
 		/>
 
 		<!-- Summary Stats -->
 		{#if selectedWaterfallCategory !== 'all'}
-			{@const total = categoryTotals[selectedWaterfallCategory]}
+			{@const total = categoryTotals()[selectedWaterfallCategory]}
 			<section class="mb-4">
 				<div class="bg-card border-border rounded-xl border p-4 shadow-sm">
 					<div class="grid grid-cols-3 gap-4 text-center">
@@ -294,7 +314,7 @@
 				</div>
 			{:else}
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-					{#each filteredCategories as category (category.id)}
+					{#each filteredCategories() as category (category.id)}
 						<div
 							class="bg-card border-border overflow-hidden rounded-2xl border shadow-sm transition-shadow hover:shadow-md"
 						>
@@ -318,90 +338,95 @@
 									</Badge>
 								</div>
 								<Badge variant="outline" class="text-xs">
-									{category.waterfallCategory}
+									{category.waterfallTier}
 								</Badge>
 							</div>
 
 							<!-- Card Content -->
 							<div class="space-y-4 p-4">
 								<!-- Budget Progress -->
-								<div class="space-y-2">
-									<div class="flex justify-between text-sm">
-										<span class="text-muted-foreground">Allocated</span>
-										<span class="font-medium">{formatCurrency(category.allocatedAmount)}</span>
-									</div>
-									<div class="flex justify-between text-sm">
-										<span class="text-muted-foreground">Spent</span>
-										<span class="font-medium">{formatCurrency(category.spent)}</span>
-									</div>
-									<div class="flex justify-between text-sm">
-										<span class="text-muted-foreground">Remaining</span>
-										<span
-											class="font-semibold {getStatusColor(
-												category.remaining,
-												category.allocatedAmount
-											)}"
-										>
-											{formatCurrency(category.remaining)}
-										</span>
-									</div>
-								</div>
-
-								<!-- Progress Bar -->
-								<div class="space-y-1">
-									<div class="bg-muted h-2 w-full rounded-full">
-										<div
-											class="h-2 rounded-full transition-all duration-300 {category.remaining < 0
-												? 'bg-destructive'
-												: category.remaining < category.allocatedAmount * 0.2
-													? 'bg-yellow-500'
-													: 'bg-green-500'}"
-											style="width: {Math.min(
-												(category.spent / category.allocatedAmount) * 100,
-												100
-											)}%"
-										></div>
-									</div>
-									<div class="text-muted-foreground text-center text-xs">
-										{Math.round((category.spent / category.allocatedAmount) * 100)}% used
-									</div>
-								</div>
-
-								<!-- Goal Progress (if applicable) -->
-								{#if category.isGoalBased && category.goalTarget}
-									<div class="space-y-1">
-										<div class="text-muted-foreground flex justify-between text-xs">
-											<span>Goal Progress</span>
-											<span
-												>{Math.round(
-													((category.goalProgress || 0) / category.goalTarget) * 100
-												)}%</span
-											>
+								{#if category.allocated > 0}
+									<div class="space-y-2">
+										<div class="flex justify-between text-sm">
+											<span class="text-muted-foreground">Allocated</span>
+											<span class="font-medium">{formatCurrency(category.allocated)}</span>
 										</div>
-										<div class="bg-muted h-1 w-full rounded-full">
+										<div class="flex justify-between text-sm">
+											<span class="text-muted-foreground">Spent</span>
+											<span class="font-medium">{formatCurrency(category.spent)}</span>
+										</div>
+										<div class="flex justify-between text-sm">
+											<span class="text-muted-foreground">Remaining</span>
+											<span
+												class="font-semibold {getStatusColor(
+													category.remaining,
+													category.allocated
+												)}"
+											>
+												{formatCurrency(category.remaining)}
+											</span>
+										</div>
+									</div>
+
+									<!-- Progress Bar -->
+									<div class="space-y-1">
+										<div class="bg-muted h-2 w-full rounded-full">
 											<div
-												class="h-1 rounded-full bg-blue-500"
+												class="h-2 rounded-full transition-all duration-300 {category.remaining < 0
+													? 'bg-destructive'
+													: category.remaining < category.allocated * 0.2
+														? 'bg-yellow-500'
+														: 'bg-green-500'}"
 												style="width: {Math.min(
-													((category.goalProgress || 0) / category.goalTarget) * 100,
+													(category.spent / category.allocated) * 100,
 													100
 												)}%"
 											></div>
 										</div>
+										<div class="text-muted-foreground text-center text-xs">
+											{Math.round((category.spent / category.allocated) * 100)}% used
+										</div>
+									</div>
+								{:else}
+									<!-- No Budget Set -->
+									<div class="space-y-2">
+										<div class="flex justify-between text-sm">
+											<span class="text-muted-foreground">Type</span>
+											<span class="font-medium">{category.type}</span>
+										</div>
+										<div class="flex justify-between text-sm">
+											<span class="text-muted-foreground">Priority</span>
+											<span class="font-medium">{category.priority}</span>
+										</div>
+										{#if category.description}
+											<div class="text-sm text-muted-foreground">
+												{category.description}
+											</div>
+										{/if}
 									</div>
 								{/if}
 
 								<!-- Status Badge -->
 								<div class="text-center">
-									<Badge
-										variant={category.remaining < 0
-											? 'destructive'
-											: category.remaining < category.allocatedAmount * 0.2
-												? 'secondary'
-												: 'default'}
-										class="text-xs"
-									>
-										{getStatusText(category.remaining, category.allocatedAmount)}
-									</Badge>
+									{#if category.allocated > 0}
+										<Badge
+											variant={category.remaining < 0
+												? 'destructive'
+												: category.remaining < category.allocated * 0.2
+													? 'secondary'
+													: 'default'}
+											class="text-xs"
+										>
+											{getStatusText(category.remaining, category.allocated)}
+										</Badge>
+									{:else}
+										<Badge
+											variant={category.isActive ? 'default' : 'secondary'}
+											class="text-xs"
+										>
+											{category.isActive ? 'Active' : 'Inactive'}
+										</Badge>
+									{/if}
 								</div>
 							</div>
 

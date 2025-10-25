@@ -1,11 +1,11 @@
 import type { Transaction } from '$lib/core/db';
 
 export type TransactionOrGroup = {
-    type: 'single' | 'split';
+    type: 'single' | 'group';
     id: string;
     transactions: Transaction[];
     // For single transactions, this is the transaction itself
-    // For splits, this is the representative transaction (first one)
+    // For groups, this is the representative transaction (first one)
     representative: Transaction;
     // Total amount for the group
     totalAmount: number;
@@ -14,13 +14,13 @@ export type TransactionOrGroup = {
         accountId: string;
         clearedDate?: string;
         plannedDate?: string;
-        splitName?: string;
-        splitId?: string;
+        groupName?: string;
+        groupId?: string;
     };
 };
 
 /**
- * Groups transactions by splitId, returning a mixed list of single transactions and splits
+ * Groups transactions by groupId, returning a mixed list of single transactions and groups
  */
 export function groupTransactions(transactions: Transaction[]): TransactionOrGroup[] {
     const groups = new Map<string, Transaction[]>();
@@ -28,11 +28,11 @@ export function groupTransactions(transactions: Transaction[]): TransactionOrGro
 
     // Separate transactions into groups and singles
     for (const transaction of transactions) {
-        if (transaction.splitId) {
-            if (!groups.has(transaction.splitId)) {
-                groups.set(transaction.splitId, []);
+        if (transaction.groupId) {
+            if (!groups.has(transaction.groupId)) {
+                groups.set(transaction.groupId, []);
             }
-            groups.get(transaction.splitId)!.push(transaction);
+            groups.get(transaction.groupId)!.push(transaction);
         } else {
             singles.push(transaction);
         }
@@ -56,29 +56,29 @@ export function groupTransactions(transactions: Transaction[]): TransactionOrGro
         });
     }
 
-    // Add split groups
-    for (const [splitId, groupTransactions] of groups) {
+    // Add transaction groups
+    for (const [groupId, groupTransactions] of groups) {
         if (groupTransactions.length === 0) continue;
 
         // Sort by amount descending to make the largest transaction the representative
-        const sorted = [...groupTransactions].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+        const sorted = [...groupTransactions].sort((a, b) => Math.abs(b.amount || 0) - Math.abs(a.amount || 0));
         const representative = sorted[0];
 
         // Calculate total amount (sum of actual amounts, not absolute values)
-        const totalAmount = groupTransactions.reduce((sum, t) => sum + t.amount, 0);
+        const totalAmount = groupTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
 
-        // Get common fields (all transactions in a split should have the same values)
+        // Get common fields (all transactions in a group should have the same values)
         const commonFields = {
             accountId: representative.accountId,
             clearedDate: representative.clearedDate,
             plannedDate: representative.plannedDate,
-            splitName: representative.splitName,
-            splitId: representative.splitId
+            groupName: representative.groupName,
+            groupId: representative.groupId
         };
 
         result.push({
-            type: 'split',
-            id: splitId,
+            type: 'group',
+            id: groupId,
             transactions: sorted,
             representative,
             totalAmount,
@@ -91,9 +91,9 @@ export function groupTransactions(transactions: Transaction[]): TransactionOrGro
 
 /**
  * Normalize fields for a group of transactions to ensure consistency
- * This ensures all transactions in a split share the same metadata
+ * This ensures all transactions in a group share the same metadata
  */
-export function normalizeGroupFields(transactions: Transaction[], splitName?: string): Transaction[] {
+export function normalizeGroupFields(transactions: Transaction[], groupName?: string): Transaction[] {
     if (transactions.length === 0) return transactions;
 
     // Find the most common date (or the earliest if all different)
@@ -108,7 +108,7 @@ export function normalizeGroupFields(transactions: Transaction[], splitName?: st
         ...transaction,
         clearedDate: normalizedDate,
         plannedDate: normalizedDate,
-        splitName: splitName || transaction.splitName || 'Split Transaction',
+        groupName: groupName || transaction.groupName || 'Transaction Group',
         accountId // Ensure all transactions have the same account
     }));
 }
@@ -117,28 +117,28 @@ export function normalizeGroupFields(transactions: Transaction[], splitName?: st
  * Calculate total amount for a group of transactions
  */
 export function calculateTotalAmount(transactions: Transaction[]): number {
-    return transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
+    return transactions.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
 }
 
 /**
- * Check if transaction is a split transaction
+ * Check if transaction is a group transaction
  */
-export function isSplitTransaction(transaction: Transaction): boolean {
-    return Boolean(transaction.splitId);
+export function isGroupTransaction(transaction: Transaction): boolean {
+    return Boolean(transaction.groupId);
 }
 
 /**
  * Check if transaction is an income transaction
  */
 export function isIncomeTransaction(transaction: Transaction): boolean {
-    return transaction.amount > 0;
+    return (transaction.amount || 0) > 0;
 }
 
 /**
  * Check if transaction is an expense transaction
  */
 export function isExpenseTransaction(transaction: Transaction): boolean {
-    return transaction.amount < 0;
+    return (transaction.amount || 0) < 0;
 }
 
 /**
@@ -146,7 +146,7 @@ export function isExpenseTransaction(transaction: Transaction): boolean {
  */
 export function getTransactionType(transaction: Transaction): 'income' | 'expense' | 'transfer' | 'adjustment' {
     if (transaction.type) return transaction.type;
-    return transaction.amount > 0 ? 'income' : 'expense';
+    return (transaction.amount || 0) > 0 ? 'income' : 'expense';
 }
 
 /**

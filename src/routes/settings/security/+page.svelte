@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { settingsService } from '$lib/core/services/settings-service';
+  import { userService } from '$lib/core/services';
   import { PageLayout } from '$lib/components/layouts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
@@ -15,36 +15,17 @@
   let error = $state<string | null>(null);
   let success = $state<string | null>(null);
   
-  // Privacy settings
-  let dataSharingEnabled = $state(false);
+  // Privacy settings - only fields that exist in schema
   let analyticsEnabled = $state(true);
   let backupEnabled = $state(true);
-  let userActionsTrackingEnabled = $state(true);
-  
-  // User actions tracking preferences
-  let trackingPreferences = $state({
-    transaction_timing: true,
-    budget_adherence: true,
-    spending_patterns: true,
-    habit_formation: true
-  });
-
 
   // Load user preferences on mount
   onMount(async () => {
     try {
-      const preferences = await settingsService.getUserPreferences();
+      const preferences = await userService.getUserPreferences();
       if (preferences) {
-        dataSharingEnabled = preferences.dataSharingEnabled ?? false;
         analyticsEnabled = preferences.analyticsEnabled ?? true;
         backupEnabled = preferences.backupEnabled ?? true;
-        userActionsTrackingEnabled = preferences.userActionsTrackingEnabled ?? true;
-        trackingPreferences = preferences.userActionsTrackingPreferences ?? {
-          transaction_timing: true,
-          budget_adherence: true,
-          spending_patterns: true,
-          habit_formation: true
-        };
       }
     } catch (err) {
       error = 'Failed to load security settings';
@@ -63,12 +44,9 @@
     success = null;
     
     try {
-      await settingsService.updateUserPreferences({
-        dataSharingEnabled,
+      await userService.updateUserPreferences({
         analyticsEnabled,
-        backupEnabled,
-        userActionsTrackingEnabled,
-        userActionsTrackingPreferences: trackingPreferences
+        backupEnabled
       });
       success = 'Security settings saved successfully';
     } catch (err) {
@@ -78,29 +56,13 @@
       isSaving = false;
     }
   }
-
-  // Reset to defaults
-  function resetToDefaults() {
-    dataSharingEnabled = false;
-    analyticsEnabled = true;
-    backupEnabled = true;
-    userActionsTrackingEnabled = true;
-    trackingPreferences = {
-      transaction_timing: true,
-      budget_adherence: true,
-      spending_patterns: true,
-      habit_formation: true
-    };
-  }
 </script>
 
 <svelte:head>
-  <title>Security Settings | Budgic</title>
+  <title>Security & Privacy Settings | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-  
-
   <div class="container mx-auto px-4 py-6 max-w-4xl">
     <!-- Header -->
     <header class="mb-8">
@@ -126,7 +88,7 @@
       {/if}
       
       {#if success}
-        <Alert.Root class="mb-6">
+        <Alert.Root variant="default" class="mb-6">
           <Alert.Description>{success}</Alert.Description>
         </Alert.Root>
       {/if}
@@ -143,27 +105,11 @@
             <div class="flex items-center justify-between space-x-4">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  🔒
-                </div>
-                <div>
-                  <div class="font-medium text-primary">Data Sharing</div>
-                  <div class="text-sm text-muted-foreground">Allow anonymized data sharing for app improvement</div>
-                </div>
-              </div>
-              <Switch
-                bind:checked={dataSharingEnabled}
-                aria-label="Toggle data sharing"
-              />
-            </div>
-
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
                   📊
                 </div>
                 <div>
                   <div class="font-medium text-primary">Analytics</div>
-                  <div class="text-sm text-muted-foreground">Help improve the app with usage analytics</div>
+                  <div class="text-sm text-muted-foreground">Help improve the app by sharing usage data</div>
                 </div>
               </div>
               <Switch
@@ -178,98 +124,17 @@
                   💾
                 </div>
                 <div>
-                  <div class="font-medium text-primary">Automatic Backup</div>
-                  <div class="text-sm text-muted-foreground">Automatically backup your data locally</div>
+                  <div class="font-medium text-primary">Data Backup</div>
+                  <div class="text-sm text-muted-foreground">Automatically backup your financial data</div>
                 </div>
               </div>
               <Switch
                 bind:checked={backupEnabled}
-                aria-label="Toggle automatic backup"
+                aria-label="Toggle data backup"
               />
             </div>
           </Card.Content>
         </Card.Root>
-
-        <!-- User Behavior Tracking -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Behavior Tracking</Card.Title>
-            <Card.Description>Control what user behavior data is collected to improve your experience</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-6">
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  👤
-                </div>
-                <div>
-                  <div class="font-medium text-primary">User Actions Tracking</div>
-                  <div class="text-sm text-muted-foreground">Track user interactions to personalize experience</div>
-                </div>
-              </div>
-              <Switch
-                bind:checked={userActionsTrackingEnabled}
-                aria-label="Toggle user actions tracking"
-              />
-            </div>
-
-            {#if userActionsTrackingEnabled}
-              <div class="ml-13 space-y-4">
-                <div class="flex items-center justify-between space-x-4">
-                  <div>
-                    <div class="font-medium text-primary">Transaction Timing</div>
-                    <div class="text-sm text-muted-foreground">Track when you enter transactions</div>
-                  </div>
-                  <Switch
-                    bind:checked={trackingPreferences.transaction_timing}
-                    aria-label="Toggle transaction timing tracking"
-                  />
-                </div>
-
-                <div class="flex items-center justify-between space-x-4">
-                  <div>
-                    <div class="font-medium text-primary">Budget Adherence</div>
-                    <div class="text-sm text-muted-foreground">Track how well you stick to budgets</div>
-                  </div>
-                  <Switch
-                    bind:checked={trackingPreferences.budget_adherence}
-                    aria-label="Toggle budget adherence tracking"
-                  />
-                </div>
-
-                <div class="flex items-center justify-between space-x-4">
-                  <div>
-                    <div class="font-medium text-primary">Spending Patterns</div>
-                    <div class="text-sm text-muted-foreground">Analyze your spending habits</div>
-                  </div>
-                  <Switch
-                    bind:checked={trackingPreferences.spending_patterns}
-                    aria-label="Toggle spending patterns tracking"
-                  />
-                </div>
-
-                <div class="flex items-center justify-between space-x-4">
-                  <div>
-                    <div class="font-medium text-primary">Habit Formation</div>
-                    <div class="text-sm text-muted-foreground">Track financial habit development</div>
-                  </div>
-                  <Switch
-                    bind:checked={trackingPreferences.habit_formation}
-                    aria-label="Toggle habit formation tracking"
-                  />
-                </div>
-              </div>
-            {/if}
-          </Card.Content>
-        </Card.Root>
-
-        <!-- Security Notice -->
-        <Alert.Root>
-          <Alert.Description>
-            <strong>Your data is secure:</strong> All data is stored locally on your device. 
-            No financial information is transmitted to external servers unless you explicitly enable data sharing.
-          </Alert.Description>
-        </Alert.Root>
 
         <!-- Actions -->
         <div class="flex gap-4">
@@ -277,11 +142,11 @@
             {#if isSaving}
               <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
             {/if}
-            Save Changes
+            Save Settings
           </Button.Root>
           
-          <Button.Root type="button" variant="outline" onclick={resetToDefaults}>
-            Reset to Defaults
+          <Button.Root variant="outline" onclick={() => goto('/settings')}>
+            Cancel
           </Button.Root>
         </div>
       </form>

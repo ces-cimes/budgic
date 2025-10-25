@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { Button } from '$lib/components/ui/button/index.ts';
   import { Badge } from '$lib/components/ui/badge/index.ts';
   import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.ts';
@@ -17,7 +18,9 @@
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
   import { goto } from '$app/navigation';
+  import { budgetService, transactionService } from '$lib/core/services';
   import type { BudgetTabProps, PlanningData } from '../types.js';
+  import type { Category } from '$lib/core/db';
 
   const { 
     userCurrency, 
@@ -26,73 +29,106 @@
     onSetGoal 
   }: BudgetTabProps = $props();
 
-  // Mock budget categories data - in real implementation, this would come from a service
-  let budgetCategories = $state([
-    {
-      id: 'survival',
-      name: 'Survival',
-      allocated: 2000,
-      spent: 1450,
-      color: 'text-red-500',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
-      icon: AlertCircle,
-      description: 'Essential needs like food, housing, utilities'
-    },
-    {
-      id: 'security',
-      name: 'Security',
-      allocated: 1500,
-      spent: 800,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-50',
-      borderColor: 'border-yellow-200',
-      icon: CheckCircle,
-      description: 'Emergency fund, debt payments, insurance'
-    },
-    {
-      id: 'growth',
-      name: 'Growth',
-      allocated: 1000,
-      spent: 600,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      icon: TrendingUp,
-      description: 'Investments, education, career development'
-    },
-    {
-      id: 'lifestyle',
-      name: 'Lifestyle',
-      allocated: 800,
-      spent: 950,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      borderColor: 'border-green-200',
-      icon: PieChart,
-      description: 'Entertainment, hobbies, discretionary spending'
-    }
-  ]);
+  // Real budget categories data from our service
+  let budgetCategories = $state<any[]>([]);
+  let isLoading = $state(true);
+  let error = $state<string | null>(null);
 
-  // Mock goals impact data
-  let goalsImpact = $state([
-    {
-      id: 'emergency-fund',
-      name: 'Emergency Fund',
-      monthlyContribution: 500,
-      impactOnDailyAllowance: -16.67,
-      priority: 'high',
-      status: 'active'
-    },
-    {
-      id: 'vacation-fund',
-      name: 'Vacation Fund',
-      monthlyContribution: 200,
-      impactOnDailyAllowance: -6.67,
-      priority: 'medium',
-      status: 'active'
+  // Load real budget data
+  onMount(async () => {
+    try {
+      isLoading = true;
+      error = null;
+      
+      // Get categories with budget information
+      const categories = await budgetService.getBudgetCategories();
+      const transactions = await transactionService.getAllTransactions();
+      
+      // Calculate budget data for each category
+      budgetCategories = categories.map(category => {
+        const categoryTransactions = transactions.filter(tx => 
+          tx.categoryId === category.id && 
+          tx.type === 'expense' && 
+          tx.status === 'cleared'
+        );
+        
+        const spent = categoryTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+        const allocated = category.budgetAmount || 0;
+        
+        return {
+          id: category.id,
+          name: category.name,
+          allocated,
+          spent,
+          color: getCategoryColor(category.waterfallTier),
+          bgColor: getCategoryBgColor(category.waterfallTier),
+          borderColor: getCategoryBorderColor(category.waterfallTier),
+          icon: getCategoryIcon(category.waterfallTier),
+          description: getCategoryDescription(category.waterfallTier),
+          waterfallTier: category.waterfallTier
+        };
+      });
+      
+    } catch (err) {
+      console.error('Error loading budget data:', err);
+      error = 'Failed to load budget data';
+    } finally {
+      isLoading = false;
     }
-  ]);
+  });
+
+  function getCategoryColor(tier: Category['waterfallTier']): string {
+    switch (tier) {
+      case 'survival': return 'text-red-500';
+      case 'security': return 'text-yellow-600';
+      case 'growth': return 'text-blue-600';
+      case 'lifestyle': return 'text-green-600';
+      default: return 'text-gray-500';
+    }
+  }
+
+  function getCategoryBgColor(tier: Category['waterfallTier']): string {
+    switch (tier) {
+      case 'survival': return 'bg-red-50';
+      case 'security': return 'bg-yellow-50';
+      case 'growth': return 'bg-blue-50';
+      case 'lifestyle': return 'bg-green-50';
+      default: return 'bg-gray-50';
+    }
+  }
+
+  function getCategoryBorderColor(tier: Category['waterfallTier']): string {
+    switch (tier) {
+      case 'survival': return 'border-red-200';
+      case 'security': return 'border-yellow-200';
+      case 'growth': return 'border-blue-200';
+      case 'lifestyle': return 'border-green-200';
+      default: return 'border-gray-200';
+    }
+  }
+
+  function getCategoryIcon(tier: Category['waterfallTier']) {
+    switch (tier) {
+      case 'survival': return AlertCircle;
+      case 'security': return CheckCircle;
+      case 'growth': return TrendingUp;
+      case 'lifestyle': return PieChart;
+      default: return DollarSign;
+    }
+  }
+
+  function getCategoryDescription(tier: Category['waterfallTier']): string {
+    switch (tier) {
+      case 'survival': return 'Essential needs like food, housing, utilities';
+      case 'security': return 'Emergency fund, debt payments, insurance';
+      case 'growth': return 'Investments, education, career development';
+      case 'lifestyle': return 'Entertainment, hobbies, discretionary spending';
+      default: return 'General expenses';
+    }
+  }
+
+  // Goals impact data - simplified for now
+  let goalsImpact = $state<any[]>([]);
 
   function formatCurrency(amount: number): string {
     return formatAmount(amount, userCurrency);
@@ -156,167 +192,156 @@
     </Button>
   </div>
 
-  <!-- Budget Summary -->
-  <Card class="border-border">
-    <CardHeader>
-      <CardTitle class="flex items-center gap-2">
-        <BarChart3 size={18} />
-        Budget Overview
-      </CardTitle>
-    </CardHeader>
-    <CardContent class="space-y-4">
-      <div class="grid grid-cols-3 gap-4">
-        <div class="text-center">
-          <div class="text-2xl font-bold text-primary">{formatCurrency(getTotalAllocated())}</div>
-          <div class="text-muted-foreground text-sm">Total Allocated</div>
-        </div>
-        <div class="text-center">
-          <div class="text-2xl font-bold text-warning">{formatCurrency(getTotalSpent())}</div>
-          <div class="text-muted-foreground text-sm">Total Spent</div>
-        </div>
-        <div class="text-center">
-          <div class="text-2xl font-bold text-success">{formatCurrency(getTotalRemaining())}</div>
-          <div class="text-muted-foreground text-sm">Remaining</div>
-        </div>
+  {#if isLoading}
+    <!-- Loading State -->
+    <div class="flex items-center justify-center py-8">
+      <div class="text-muted-foreground">Loading budget data...</div>
+    </div>
+  {:else if error}
+    <!-- Error State -->
+    <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+      <div class="flex items-center gap-2 text-destructive">
+        <AlertCircle size={16} />
+        <span class="font-medium">Error</span>
       </div>
-      
-      <!-- Overall Progress -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between text-sm">
-          <span class="text-muted-foreground">Overall Budget Usage</span>
-          <span class="font-medium">{((getTotalSpent() / getTotalAllocated()) * 100).toFixed(1)}%</span>
-        </div>
-        <Progress value={(getTotalSpent() / getTotalAllocated()) * 100} class="h-2" />
-      </div>
-    </CardContent>
-  </Card>
-
-  <!-- Budget Categories -->
-  <div class="space-y-4">
-    <h3 class="text-lg font-semibold">Budget Categories</h3>
-    {#each budgetCategories as category (category.id)}
-      {@const CategoryIcon = category.icon}
-      {@const spendingPercentage = getSpendingPercentage(category)}
-      {@const remainingBudget = getRemainingBudget(category)}
-
-      <Card class="border-border {category.borderColor}">
-        <CardHeader class="pb-3">
-          <div class="flex items-start justify-between">
-            <div class="flex items-center gap-2">
-              <CategoryIcon size={16} class={category.color} />
-              <CardTitle class="text-lg">{category.name}</CardTitle>
-            </div>
-            <Badge variant={getStatusBadgeVariant(category)} class="text-xs">
-              {spendingPercentage.toFixed(0)}% used
-            </Badge>
+      <div class="text-destructive text-sm mt-1">{error}</div>
+    </div>
+  {:else if budgetCategories.length === 0}
+    <!-- No Budget Categories -->
+    <Card class="border-border">
+      <CardContent class="text-center py-8">
+        <DollarSign size={48} class="mx-auto text-muted-foreground mb-4" />
+        <h3 class="text-lg font-semibold mb-2">No Budget Categories</h3>
+        <p class="text-muted-foreground mb-4">
+          Create budget categories to start tracking your spending
+        </p>
+        <Button onclick={() => goto('/categories/add')}>
+          <Plus class="mr-2" size={14} />
+          Create Category
+        </Button>
+      </CardContent>
+    </Card>
+  {:else}
+    <!-- Budget Summary -->
+    <Card class="border-border">
+      <CardHeader>
+        <CardTitle class="flex items-center gap-2">
+          <BarChart3 size={18} />
+          Budget Overview
+        </CardTitle>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <div class="grid grid-cols-3 gap-4">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-primary">{formatCurrency(getTotalAllocated())}</div>
+            <div class="text-muted-foreground text-sm">Total Allocated</div>
           </div>
-          <p class="text-muted-foreground text-sm">{category.description}</p>
-        </CardHeader>
-        <CardContent class="space-y-4">
-          <!-- Progress Bar -->
+          <div class="text-center">
+            <div class="text-2xl font-bold text-warning">{formatCurrency(getTotalSpent())}</div>
+            <div class="text-muted-foreground text-sm">Total Spent</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-success">{formatCurrency(getTotalRemaining())}</div>
+            <div class="text-muted-foreground text-sm">Remaining</div>
+          </div>
+        </div>
+        
+        {#if getTotalAllocated() > 0}
+          <!-- Overall Progress -->
           <div class="space-y-2">
             <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">Spending Progress</span>
-              <span class="font-medium {getStatusColor(category)}">{spendingPercentage.toFixed(1)}%</span>
+              <span class="text-muted-foreground">Overall Budget Usage</span>
+              <span class="font-medium">{((getTotalSpent() / getTotalAllocated()) * 100).toFixed(1)}%</span>
             </div>
-            <Progress value={spendingPercentage} class="h-2" />
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">
-                {formatCurrency(category.spent)} of {formatCurrency(category.allocated)}
-              </span>
-              <span class="text-success font-medium">
-                {formatCurrency(remainingBudget)} remaining
-              </span>
-            </div>
+            <Progress value={(getTotalSpent() / getTotalAllocated()) * 100} class="h-2" />
           </div>
+        {/if}
+      </CardContent>
+    </Card>
 
-          <!-- Budget Details -->
-          <div class="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div class="text-muted-foreground">Allocated</div>
-              <div class="font-medium">{formatCurrency(category.allocated)}</div>
-            </div>
-            <div>
-              <div class="text-muted-foreground">Spent</div>
-              <div class="font-medium {getStatusColor(category)}">{formatCurrency(category.spent)}</div>
-            </div>
-          </div>
+    <!-- Budget Categories -->
+    <div class="space-y-4">
+      <h3 class="text-lg font-semibold">Budget Categories</h3>
+      {#each budgetCategories as category (category.id)}
+        {@const CategoryIcon = category.icon}
+        {@const spendingPercentage = getSpendingPercentage(category)}
+        {@const remainingBudget = getRemainingBudget(category)}
 
-          <!-- Warning if over budget -->
-          {#if category.spent > category.allocated}
-            <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
-              <div class="flex items-center gap-2 text-destructive text-sm">
-                <AlertCircle size={14} />
-                <span class="font-medium">Over Budget</span>
+        <Card class="border-border {category.borderColor}">
+          <CardHeader class="pb-3">
+            <div class="flex items-start justify-between">
+              <div class="flex items-center gap-2">
+                <CategoryIcon size={16} class={category.color} />
+                <CardTitle class="text-lg">{category.name}</CardTitle>
+                <Badge variant="outline" class="text-xs">
+                  {category.waterfallTier}
+                </Badge>
               </div>
-              <div class="text-destructive text-xs mt-1">
-                You've exceeded your {category.name.toLowerCase()} budget by {formatCurrency(category.spent - category.allocated)}
-              </div>
+              {#if category.allocated > 0}
+                <Badge variant={getStatusBadgeVariant(category)} class="text-xs">
+                  {spendingPercentage.toFixed(0)}% used
+                </Badge>
+              {/if}
             </div>
-          {/if}
-        </CardContent>
-      </Card>
-    {/each}
-  </div>
+            <p class="text-muted-foreground text-sm">{category.description}</p>
+          </CardHeader>
+          <CardContent class="space-y-4">
+            {#if category.allocated > 0}
+              <!-- Progress Bar -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-muted-foreground">Spending Progress</span>
+                  <span class="font-medium {getStatusColor(category)}">{spendingPercentage.toFixed(1)}%</span>
+                </div>
+                <Progress value={spendingPercentage} class="h-2" />
+                <div class="flex items-center justify-between text-sm">
+                  <span class="text-muted-foreground">
+                    {formatCurrency(category.spent)} of {formatCurrency(category.allocated)}
+                  </span>
+                  <span class="text-success font-medium">
+                    {formatCurrency(remainingBudget)} remaining
+                  </span>
+                </div>
+              </div>
 
-  <!-- Goal Impact Analysis -->
-  <Card class="border-border">
-    <CardHeader>
-      <div class="flex items-center justify-between">
-        <CardTitle class="flex items-center gap-2">
-          <Target size={18} />
-          Goal Impact on Daily Allowance
-        </CardTitle>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onclick={() => goto('/goals')}
-          class="text-xs"
-        >
-          <ExternalLink size={12} class="mr-1" />
-          Manage Goals
-        </Button>
-      </div>
-    </CardHeader>
-    <CardContent class="space-y-4">
-      <div class="text-sm text-muted-foreground mb-4">
-        See how your financial goals affect your daily spending allowance
-      </div>
-      
-      {#each goalsImpact as goal (goal.id)}
-        <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-          <div class="flex items-center gap-3">
-            <Target size={16} class="text-primary" />
-            <div>
-              <div class="font-medium">{goal.name}</div>
-              <div class="text-muted-foreground text-sm">
-                Monthly contribution: {formatCurrency(goal.monthlyContribution)}
+              <!-- Budget Details -->
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div class="text-muted-foreground">Allocated</div>
+                  <div class="font-medium">{formatCurrency(category.allocated)}</div>
+                </div>
+                <div>
+                  <div class="text-muted-foreground">Spent</div>
+                  <div class="font-medium {getStatusColor(category)}">{formatCurrency(category.spent)}</div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div class="text-right">
-            <div class="font-medium text-warning">
-              {goal.impactOnDailyAllowance < 0 ? '' : '+'}{formatCurrency(Math.abs(goal.impactOnDailyAllowance))}
-            </div>
-            <div class="text-muted-foreground text-sm">per day</div>
-          </div>
-        </div>
+
+              <!-- Warning if over budget -->
+              {#if category.spent > category.allocated}
+                <div class="bg-destructive/10 border border-destructive/20 rounded-lg p-3">
+                  <div class="flex items-center gap-2 text-destructive text-sm">
+                    <AlertCircle size={14} />
+                    <span class="font-medium">Over Budget</span>
+                  </div>
+                  <div class="text-destructive text-xs mt-1">
+                    You've exceeded your {category.name.toLowerCase()} budget by {formatCurrency(category.spent - category.allocated)}
+                  </div>
+                </div>
+              {/if}
+            {:else}
+              <!-- No Budget Set -->
+              <div class="text-center py-4">
+                <div class="text-muted-foreground text-sm mb-2">No budget allocated</div>
+                <Button variant="outline" size="sm" onclick={() => goto('/categories')}>
+                  Set Budget
+                </Button>
+              </div>
+            {/if}
+          </CardContent>
+        </Card>
       {/each}
-
-      <!-- Total Impact Summary -->
-      <div class="border-t pt-4">
-        <div class="flex items-center justify-between">
-          <div class="font-semibold">Total Daily Impact</div>
-          <div class="font-bold text-warning">
-            {getDailyAllowanceImpact() < 0 ? '' : '+'}{formatCurrency(Math.abs(getDailyAllowanceImpact()))}
-          </div>
-        </div>
-        <div class="text-muted-foreground text-sm">
-          Total monthly goal contributions: {formatCurrency(getTotalGoalsImpact())}
-        </div>
-      </div>
-    </CardContent>
-  </Card>
+    </div>
+  {/if}
 
   <!-- Quick Actions -->
   <Card class="border-border">
@@ -325,18 +350,18 @@
     </CardHeader>
     <CardContent>
       <div class="grid grid-cols-2 gap-3">
-        <Button variant="outline" onclick={onSetGoal} class="h-auto p-4">
+        <Button variant="outline" onclick={() => goto('/categories/add')} class="h-auto p-4">
           <div class="text-center">
-            <Target class="mx-auto mb-2" size={20} />
-            <div class="font-medium">Set New Goal</div>
-            <div class="text-muted-foreground text-xs">Create financial milestone</div>
+            <Plus class="mx-auto mb-2" size={20} />
+            <div class="font-medium">Add Category</div>
+            <div class="text-muted-foreground text-xs">Create new budget category</div>
           </div>
         </Button>
-        <Button variant="outline" onclick={() => console.log('Adjust budget')} class="h-auto p-4">
+        <Button variant="outline" onclick={() => goto('/categories')} class="h-auto p-4">
           <div class="text-center">
             <DollarSign class="mx-auto mb-2" size={20} />
-            <div class="font-medium">Adjust Budget</div>
-            <div class="text-muted-foreground text-xs">Modify allocations</div>
+            <div class="font-medium">Manage Budget</div>
+            <div class="text-muted-foreground text-xs">View all categories</div>
           </div>
         </Button>
       </div>

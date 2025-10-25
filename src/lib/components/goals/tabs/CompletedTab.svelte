@@ -13,10 +13,10 @@
     Filter
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
-  import type { FinancialGoal } from '../types';
+  import type { Goal } from '../types';
 
   interface Props {
-    completedGoals: FinancialGoal[];
+    completedGoals: Goal[];
     userCurrency: string;
     onGoalAction: (action: string, goalId: string) => void;
   }
@@ -60,7 +60,7 @@
     return names[category] || category;
   }
 
-  function getDaysToComplete(goal: FinancialGoal) {
+  function getDaysToComplete(goal: Goal) {
     if (!goal.completedAt || !goal.createdAt) return null;
     const completedDate = new Date(goal.completedAt);
     const createdDate = new Date(goal.createdAt);
@@ -68,7 +68,7 @@
     return Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
   }
 
-  function getCompletionRate(goal: FinancialGoal) {
+  function getCompletionRate(goal: Goal) {
     if (!goal.completedAt || !goal.createdAt) return null;
     const daysToComplete = getDaysToComplete(goal);
     if (!daysToComplete) return null;

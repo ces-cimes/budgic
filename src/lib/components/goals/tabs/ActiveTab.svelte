@@ -17,10 +17,10 @@
     CheckCircle
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
-  import type { FinancialGoal } from '../types';
+  import type { Goal } from '../types';
 
   interface Props {
-    activeGoals: FinancialGoal[];
+    activeGoals: Goal[];
     userCurrency: string;
     onGoalAction: (action: string, goalId: string) => void;
   }
@@ -93,7 +93,7 @@
     return diffDays;
   }
 
-  function getEstimatedCompletionDate(goal: FinancialGoal) {
+  function getEstimatedCompletionDate(goal: Goal) {
     if (!goal.monthlyContribution || goal.monthlyContribution <= 0) return null;
     
     const remainingAmount = goal.targetAmount - goal.currentAmount;

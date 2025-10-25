@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { settingsService } from '$lib/core/services/settings-service';
+  import { userService } from '$lib/core/services';
   import { PageLayout } from '$lib/components/layouts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
@@ -17,38 +17,11 @@
   
   // Form fields
   let username = $state('');
-  let lifeStage = $state<'student' | 'early_career' | 'mid_career' | 'late_career' | 'pre_retirement' | 'retired'>('mid_career');
-  let incomeVolatility = $state<'low' | 'medium' | 'high'>('medium');
-  let stressLevel = $state<'low' | 'medium' | 'high'>('medium');
   let userMaturityLevel = $state<'beginner' | 'intermediate' | 'advanced' | 'expert'>('beginner');
 
 
-  // Life stage options
-  const lifeStageOptions = [
-    { value: 'student', label: 'Student', description: 'Currently studying or in education' },
-    { value: 'early_career', label: 'Early Career', description: 'Just starting professional life' },
-    { value: 'mid_career', label: 'Mid Career', description: 'Established professional with steady income' },
-    { value: 'late_career', label: 'Late Career', description: 'Senior professional approaching retirement' },
-    { value: 'pre_retirement', label: 'Pre-Retirement', description: 'Planning for retirement transition' },
-    { value: 'retired', label: 'Retired', description: 'No longer working, living on savings/pension' }
-  ];
-
-  // Income volatility options
-  const incomeVolatilityOptions = [
-    { value: 'low', label: 'Low', description: 'Very stable income (salary, government job)' },
-    { value: 'medium', label: 'Medium', description: 'Moderate variability (commission, bonuses)' },
-    { value: 'high', label: 'High', description: 'Highly variable income (freelance, seasonal)' }
-  ];
-
-  // Stress level options
-  const stressLevelOptions = [
-    { value: 'low', label: 'Low', description: 'Comfortable with current financial situation' },
-    { value: 'medium', label: 'Medium', description: 'Some financial concerns but manageable' },
-    { value: 'high', label: 'High', description: 'Significant financial stress or uncertainty' }
-  ];
-
   // User maturity options
-  const maturityLevelOptions = [
+  const userMaturityOptions = [
     { value: 'beginner', label: 'Beginner', description: 'New to budgeting and financial planning' },
     { value: 'intermediate', label: 'Intermediate', description: 'Some experience with budgeting' },
     { value: 'advanced', label: 'Advanced', description: 'Experienced with complex financial planning' },
@@ -58,12 +31,9 @@
   // Load user preferences on mount
   onMount(async () => {
     try {
-      const preferences = await settingsService.getUserPreferences();
+      const preferences = await userService.getUserPreferences();
       if (preferences) {
         username = preferences.username || 'User';
-        lifeStage = preferences.lifeStage || 'mid_career';
-        incomeVolatility = preferences.incomeVolatility || 'medium';
-        stressLevel = preferences.stressLevel || 'medium';
         userMaturityLevel = preferences.userMaturityLevel || 'beginner';
       }
     } catch (err) {
@@ -83,11 +53,8 @@
     success = null;
     
     try {
-      await settingsService.updateUserPreferences({
+      await userService.updateUserPreferences({
         username,
-        lifeStage,
-        incomeVolatility,
-        stressLevel,
         userMaturityLevel
       });
       success = 'Profile settings saved successfully';
@@ -102,9 +69,6 @@
   // Reset to defaults
   function resetToDefaults() {
     username = 'User';
-    lifeStage = 'mid_career';
-    incomeVolatility = 'medium';
-    stressLevel = 'medium';
     userMaturityLevel = 'beginner';
   }
 </script>
@@ -177,67 +141,21 @@
           </Card.Header>
           <Card.Content class="space-y-6">
             <div class="space-y-2">
-              <Label for="lifeStage">Life Stage</Label>
-              <select 
-                id="lifeStage"
-                bind:value={lifeStage}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
-              >
-                {#each lifeStageOptions as option}
-                  <option value={option.value}>{option.label}</option>
-                {/each}
-              </select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="incomeVolatility">Income Volatility</Label>
-              <select 
-                id="incomeVolatility"
-                bind:value={incomeVolatility}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
-              >
-                {#each incomeVolatilityOptions as option}
-                  <option value={option.value}>{option.label}</option>
-                {/each}
-              </select>
-            </div>
-
-            <div class="space-y-2">
-              <Label for="stressLevel">Current Stress Level</Label>
-              <select 
-                id="stressLevel"
-                bind:value={stressLevel}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
-              >
-                {#each stressLevelOptions as option}
-                  <option value={option.value}>{option.label}</option>
-                {/each}
-              </select>
-            </div>
-          </Card.Content>
-        </Card.Root>
-
-        <!-- Experience Level -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Experience Level</Card.Title>
-            <Card.Description>Help us tailor the interface to your needs</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-4">
-            <div class="space-y-2">
-              <Label for="userMaturityLevel">Financial Planning Experience</Label>
+              <Label for="userMaturityLevel">Experience Level</Label>
               <select 
                 id="userMaturityLevel"
                 bind:value={userMaturityLevel}
                 class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
               >
-                {#each maturityLevelOptions as option}
+                {#each userMaturityOptions as option}
                   <option value={option.value}>{option.label}</option>
                 {/each}
               </select>
+              <p class="text-sm text-muted-foreground">This helps us customize features for your experience level</p>
             </div>
           </Card.Content>
         </Card.Root>
+
 
         <!-- Actions -->
         <div class="flex gap-4">

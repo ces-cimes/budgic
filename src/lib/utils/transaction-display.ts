@@ -1,34 +1,23 @@
 import type { Transaction } from '$lib/core/db';
-import type { TransactionOrGroup } from '$lib/core/services/transaction-service';
-import { tagService } from '$lib/core/services/tag-service';
-
+import type { TransactionOrGroup } from './transaction-utils';
 
 export interface ProcessedTransaction extends Transaction {
-	tagNames?: {
-		what?: string;
-		why?: string;
-		where?: string;
-		custom?: string[];
-	};
-	tagColors?: {
-		what?: string;
-		why?: string;
-		where?: string;
-		custom?: Record<string, string>;
-	};
+	categoryName?: string;
+	categoryColor?: string;
+	categoryTier?: 'survival' | 'security' | 'growth' | 'lifestyle';
 	isOverdue?: boolean;
 	isFuture?: boolean;
 	isPlanned?: boolean;
-	splitCount?: number;
+	groupCount?: number;
 	confidenceLevel?: 'confirmed' | 'likely' | 'maybe';
 	isRecurring?: boolean;
-	isSplit?: boolean;
-	splitName?: string;
-	splitId?: string;
+	isGroup?: boolean;
+	groupName?: string;
+	groupId?: string;
 }
 
 export interface ProcessedTransactionGroup {
-	type: 'single' | 'split';
+	type: 'single' | 'group';
 	id: string;
 	transactions: ProcessedTransaction[];
 	representative: ProcessedTransaction;
@@ -37,8 +26,8 @@ export interface ProcessedTransactionGroup {
 		accountId: string;
 		clearedDate?: string;
 		plannedDate?: string;
-		splitName?: string;
-		splitId?: string;
+		groupName?: string;
+		groupId?: string;
 	};
 }
 
@@ -50,7 +39,7 @@ export async function processTransaction(tx: Transaction): Promise<ProcessedTran
 	let confidenceLevel: 'confirmed' | 'likely' | 'maybe' = 'maybe';
 	if (tx.confidence === 'confirmed') {
 		confidenceLevel = 'confirmed';
-	} else if (tx.confidence === 'expected' || tx.amount > 0) {
+	} else if (tx.confidence === 'expected' || (tx.amount || 0) > 0) {
 		confidenceLevel = 'likely';
 	}
 
@@ -62,152 +51,59 @@ export async function processTransaction(tx: Transaction): Promise<ProcessedTran
 					   tx.description?.toLowerCase().includes('rent') ||
 					   tx.description?.toLowerCase().includes('subscription') || false;
 
-	// Get tag information
-	const tagNames: ProcessedTransaction['tagNames'] = {
-		what: tx.whatTag,
-		why: tx.whyTag,
-		where: tx.payeeId,
-		custom: []
-	};
-
-	const tagColors: ProcessedTransaction['tagColors'] = {
-		what: undefined,
-		why: undefined,
-		where: undefined,
-		custom: {}
-	};
-
-	// Get colors for system tags
-	if (tx.whatTag) {
-		try {
-			const whatTag = await tagService.getTagByNameAndDimension(tx.whatTag, 'what');
-			if (whatTag?.color) {
-				tagColors.what = whatTag.color;
-			}
-		} catch (error) {
-			console.warn('Failed to load what tag color:', error);
-		}
-	}
-
-	if (tx.whyTag) {
-		try {
-			const whyTag = await tagService.getTagByNameAndDimension(tx.whyTag, 'why');
-			if (whyTag?.color) {
-				tagColors.why = whyTag.color;
-			}
-		} catch (error) {
-			console.warn('Failed to load why tag color:', error);
-		}
-	}
-
-	if (tx.payeeId) {
-		try {
-			const whereTag = await tagService.getTagByNameAndDimension(tx.payeeId, 'where');
-			if (whereTag?.color) {
-				tagColors.where = whereTag.color;
-			}
-		} catch (error) {
-			console.warn('Failed to load where tag color:', error);
-		}
-	}
-
-	// Get custom tags
-	try {
-				// For now, we'll skip custom tags since transaction-tag-service was removed
-		// TODO: Implement custom tag retrieval through the new budget service
-		tagNames.custom = [];
-		
-		// Get colors for custom tags
-		// TODO: Implement custom tag color retrieval through the new budget service
-		tagColors.custom = {};
-	} catch (error) {
-		console.warn('Failed to load custom tags for transaction:', tx.id, error);
-	}
+	// Get category information (simplified - no more complex tag system)
+	const categoryName = tx.categoryId ? 'Category' : undefined; // Will be populated by caller
+	const categoryColor = tx.categoryId ? '#3B82F6' : undefined; // Default color
+	const categoryTier = tx.categoryId ? 'survival' as const : undefined; // Default tier
 
 	return {
 		...tx,
-		tagNames,
-		tagColors,
-		confidenceLevel,
+		categoryName,
+		categoryColor,
+		categoryTier,
 		isOverdue,
+		isFuture: tx.plannedDate ? new Date(tx.plannedDate) > new Date() : false,
+		isPlanned: tx.status === 'planned',
+		groupCount: tx.groupId ? 1 : 0, // Will be updated by caller
+		confidenceLevel,
 		isRecurring,
-		isSplit: Boolean(tx.splitId),
-		splitName: tx.splitName,
-		splitId: tx.splitId
+		isGroup: Boolean(tx.groupId),
+		groupName: tx.groupName,
+		groupId: tx.groupId
 	};
 }
 
 /**
- * Process transaction groups and prepare them for display
+ * Process a group of transactions with additional metadata
+ */
+export async function processTransactionGroup(group: TransactionOrGroup): Promise<ProcessedTransactionGroup> {
+	const processedTransactions = await Promise.all(
+		group.transactions.map(tx => processTransaction(tx))
+	);
+
+	// Update group count for all transactions in the group
+	const groupCount = processedTransactions.length;
+	processedTransactions.forEach(tx => {
+		tx.groupCount = groupCount;
+	});
+
+	return {
+		...group,
+		transactions: processedTransactions,
+		representative: processedTransactions[0] // First transaction is representative
+	};
+}
+
+/**
+ * Process multiple transactions or groups
+ */
+export async function processTransactions(transactions: Transaction[]): Promise<ProcessedTransaction[]> {
+	return Promise.all(transactions.map(tx => processTransaction(tx)));
+}
+
+/**
+ * Process multiple transaction groups
  */
 export async function processTransactionGroups(groups: TransactionOrGroup[]): Promise<ProcessedTransactionGroup[]> {
-	const processedGroups: ProcessedTransactionGroup[] = [];
-
-	for (const group of groups) {
-		// Process all transactions in the group
-		const processedTransactions = await Promise.all(
-			group.transactions.map(tx => processTransaction(tx))
-		);
-
-		// Create the processed group
-		const processedGroup: ProcessedTransactionGroup = {
-			type: group.type,
-			id: group.id,
-			transactions: processedTransactions,
-			representative: await processTransaction(group.representative),
-			totalAmount: group.totalAmount,
-			commonFields: group.commonFields
-		};
-
-		processedGroups.push(processedGroup);
-	}
-
-	return processedGroups;
+	return Promise.all(groups.map(group => processTransactionGroup(group)));
 }
-
-/**
- * Flatten transaction groups into individual processed transactions
- * This is useful when you want to display all transactions individually
- */
-export async function flattenProcessedTransactionGroups(groups: TransactionOrGroup[]): Promise<ProcessedTransaction[]> {
-	const processedGroups = await processTransactionGroups(groups);
-	const flattened: ProcessedTransaction[] = [];
-
-	for (const group of processedGroups) {
-		if (group.type === 'single') {
-			flattened.push(group.representative);
-		} else {
-			// For splits, add all transactions in the group
-			flattened.push(...group.transactions);
-		}
-	}
-
-	return flattened;
-}
-
-/**
- * Get the primary tag for display (what > why > where > custom)
- */
-export function getPrimaryTag(transaction: ProcessedTransaction): string {
-	if (transaction.tagNames?.what) return transaction.tagNames.what;
-	if (transaction.tagNames?.why) return transaction.tagNames.why;
-	if (transaction.tagNames?.where) return transaction.tagNames.where;
-	if (transaction.tagNames?.custom && transaction.tagNames.custom.length > 0) {
-		return transaction.tagNames.custom[0];
-	}
-	return 'uncategorized';
-}
-
-/**
- * Get the primary tag color for display
- */
-export function getPrimaryTagColor(transaction: ProcessedTransaction): string | undefined {
-	if (transaction.tagColors?.what) return transaction.tagColors.what;
-	if (transaction.tagColors?.why) return transaction.tagColors.why;
-	if (transaction.tagColors?.where) return transaction.tagColors.where;
-	if (transaction.tagNames?.custom && transaction.tagNames.custom.length > 0) {
-		const firstCustomTag = transaction.tagNames.custom[0];
-		return transaction.tagColors?.custom?.[firstCustomTag];
-	}
-	return undefined;
-} 

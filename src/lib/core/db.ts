@@ -171,25 +171,25 @@ export const BalanceUtils = {
 	},
 
 	/**
-	 * Validate split transaction sum consistency
+	 * Validate transaction group sum consistency
 	 */
-	validateSplitSum(splitTransactions: Transaction[]): { isValid: boolean; errors: string[]; totalAmount: number } {
-		if (splitTransactions.length === 0) {
-			return { isValid: false, errors: ['At least one split transaction is required'], totalAmount: 0 };
+	validateGroupSum(groupTransactions: Transaction[]): { isValid: boolean; errors: string[]; totalAmount: number } {
+		if (groupTransactions.length === 0) {
+			return { isValid: false, errors: ['At least one transaction is required'], totalAmount: 0 };
 		}
 
-		const totalAmount = splitTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+		const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 		const errors: string[] = [];
 		
-		const firstTransaction = splitTransactions[0];
+		const firstTransaction = groupTransactions[0];
 		
 		// For transfers, validate that the total is reasonable (not necessarily zero)
 		// but should be consistent with transfer logic
 		if (firstTransaction.type === 'transfer') {
 			// For transfers, we should validate that the total makes sense
-			// A transfer split should typically have a net zero or a clear transfer amount
+			// A transfer group should typically have a net zero or a clear transfer amount
 			if (Math.abs(totalAmount) > 1000000) {
-				errors.push('Transfer split total amount seems unreasonably large');
+				errors.push('Transfer group total amount seems unreasonably large');
 			}
 		} else {
 			// For non-transfer transactions, validate based on type and amount sign
@@ -324,121 +324,113 @@ export function isIncomeTransaction(transaction: Transaction): boolean {
 }
 
 /**
- * Helper function to validate split transaction consistency
+ * Helper function to validate transaction group consistency
  */
-export function validateSplitTransaction(splitTransactions: Transaction[]): {
+export function validateTransactionGroup(groupTransactions: Transaction[]): {
 	isValid: boolean;
 	errors: string[];
 	totalAmount: number;
 } {
 	const errors: string[] = [];
 	
-	if (splitTransactions.length === 0) {
-		return { isValid: false, errors: ['At least one split transaction is required'], totalAmount: 0 };
+	if (groupTransactions.length === 0) {
+		return { isValid: false, errors: ['At least one transaction is required'], totalAmount: 0 };
 	}
 	
-	// All splits must have the same splitId
-	const splitId = splitTransactions[0].splitId;
-	if (!splitId) {
-		errors.push('All split transactions must have a splitId');
+	// All transactions must have the same groupId
+	const groupId = groupTransactions[0].groupId;
+	if (!groupId) {
+		errors.push('All transactions must have a groupId');
 	}
 	
-	// All splits must have the same type
-	const type = splitTransactions[0].type;
-	if (!splitTransactions.every(tx => tx.type === type)) {
-		errors.push('All split transactions must have the same type');
+	// All transactions must have the same type
+	const type = groupTransactions[0].type;
+	if (!groupTransactions.every(tx => tx.type === type)) {
+		errors.push('All transactions must have the same type');
 	}
 	
-	// All splits must have the same status
-	const status = splitTransactions[0].status;
-	if (!splitTransactions.every(tx => tx.status === status)) {
-		errors.push('All split transactions must have the same status');
+	// All transactions must have the same status
+	const status = groupTransactions[0].status;
+	if (!groupTransactions.every(tx => tx.status === status)) {
+		errors.push('All transactions must have the same status');
 	}
 	
-	// All splits must have the same currency
-	const currency = splitTransactions[0].currency;
-	if (!splitTransactions.every(tx => tx.currency === currency)) {
-		errors.push('All split transactions must have the same currency');
+	// All transactions must have the same currency
+	const currency = groupTransactions[0].currency;
+	if (!groupTransactions.every(tx => tx.currency === currency)) {
+		errors.push('All transactions must have the same currency');
 	}
 	
-	// All splits must have the same accountId (for non-transfers)
+	// All transactions must have the same accountId (for non-transfers)
 	if (type !== 'transfer') {
-		const accountId = splitTransactions[0].accountId;
-		if (!splitTransactions.every(tx => tx.accountId === accountId)) {
-			errors.push('All split transactions must have the same accountId (except for transfers)');
+		const accountId = groupTransactions[0].accountId;
+		if (!groupTransactions.every(tx => tx.accountId === accountId)) {
+			errors.push('All transactions must have the same accountId (except for transfers)');
 		}
 	}
 	
-	// For transfers, validate transfer-specific rules instead of generic split rules
+	// For transfers, validate transfer-specific rules
 	if (type === 'transfer') {
-		// Transfer validation is handled by validateTransferSplit function
+		// Transfer validation is handled by validateTransfer function
 		// Skip the generic toAccountId validation for transfers
 	} else {
-		// For non-transfer splits, validate toAccountId consistency
-		const toAccountId = splitTransactions[0].toAccountId;
-		if (!splitTransactions.every(tx => tx.toAccountId === toAccountId)) {
-			errors.push('All non-transfer splits must have the same toAccountId');
+		// For non-transfer groups, validate toAccountId consistency
+		const toAccountId = groupTransactions[0].toAccountId;
+		if (!groupTransactions.every(tx => tx.toAccountId === toAccountId)) {
+			errors.push('All non-transfer transactions must have the same toAccountId');
 		}
 	}
 	
-	// All splits must have the same timing fields
-	const clearedDate = splitTransactions[0].clearedDate;
-	const plannedDate = splitTransactions[0].plannedDate;
-	if (!splitTransactions.every(tx => tx.clearedDate === clearedDate)) {
-		errors.push('All split transactions must have the same clearedDate');
+	// All transactions must have the same timing fields
+	const clearedDate = groupTransactions[0].clearedDate;
+	const plannedDate = groupTransactions[0].plannedDate;
+	if (!groupTransactions.every(tx => tx.clearedDate === clearedDate)) {
+		errors.push('All transactions must have the same clearedDate');
 	}
-	if (!splitTransactions.every(tx => tx.plannedDate === plannedDate)) {
-		errors.push('All split transactions must have the same plannedDate');
-	}
-	
-	// All splits must have the same recurrence fields
-	const recurrenceRule = splitTransactions[0].recurrenceRule;
-	const parentRecurrenceId = splitTransactions[0].parentRecurrenceId;
-	if (!splitTransactions.every(tx => tx.recurrenceRule === recurrenceRule)) {
-		errors.push('All split transactions must have the same recurrenceRule');
-	}
-	if (!splitTransactions.every(tx => tx.parentRecurrenceId === parentRecurrenceId)) {
-		errors.push('All split transactions must have the same parentRecurrenceId');
+	if (!groupTransactions.every(tx => tx.plannedDate === plannedDate)) {
+		errors.push('All transactions must have the same plannedDate');
 	}
 	
-	// All splits must have the same metadata fields
-	const reference = splitTransactions[0].reference;
-	const notes = splitTransactions[0].notes;
-	const importSource = splitTransactions[0].importSource;
-	if (!splitTransactions.every(tx => tx.reference === reference)) {
-		errors.push('All split transactions must have the same reference');
+	// All transactions must have the same recurrence fields
+	const recurrenceRule = groupTransactions[0].recurrenceRule;
+	const parentRecurrenceId = groupTransactions[0].parentRecurrenceId;
+	if (!groupTransactions.every(tx => tx.recurrenceRule === recurrenceRule)) {
+		errors.push('All transactions must have the same recurrenceRule');
 	}
-	if (!splitTransactions.every(tx => tx.notes === notes)) {
-		errors.push('All split transactions must have the same notes');
-	}
-	if (!splitTransactions.every(tx => tx.importSource === importSource)) {
-		errors.push('All split transactions must have the same importSource');
+	if (!groupTransactions.every(tx => tx.parentRecurrenceId === parentRecurrenceId)) {
+		errors.push('All transactions must have the same parentRecurrenceId');
 	}
 	
-		// All splits must have the same categorization tags
-	const whatTag = splitTransactions[0].whatTag;
-	const budgetCategoryId = splitTransactions[0].budgetCategoryId;
-	const payeeId = splitTransactions[0].payeeId;
-	if (!splitTransactions.every(tx => tx.whatTag === whatTag)) {
-		errors.push('All split transactions must have the same whatTag');
+	// All transactions must have the same metadata fields
+	const reference = groupTransactions[0].reference;
+	const notes = groupTransactions[0].notes;
+	const importSource = groupTransactions[0].importSource;
+	if (!groupTransactions.every(tx => tx.reference === reference)) {
+		errors.push('All transactions must have the same reference');
 	}
-	if (!splitTransactions.every(tx => tx.budgetCategoryId === budgetCategoryId)) {
-		errors.push('All split transactions must have the same budgetCategoryId');
+	if (!groupTransactions.every(tx => tx.notes === notes)) {
+		errors.push('All transactions must have the same notes');
 	}
-	if (!splitTransactions.every(tx => tx.payeeId === payeeId)) {
-		errors.push('All split transactions must have the same payeeId');
+	if (!groupTransactions.every(tx => tx.importSource === importSource)) {
+		errors.push('All transactions must have the same importSource');
 	}
 	
-	// Validate split name consistency
-	const splitName = splitTransactions[0].splitName;
-	if (splitName && !splitTransactions.every(tx => tx.splitName === splitName)) {
-		errors.push('All split transactions must have the same splitName');
+	// All transactions must have the same categorization
+	const categoryId = groupTransactions[0].categoryId;
+	if (!groupTransactions.every(tx => tx.categoryId === categoryId)) {
+		errors.push('All transactions must have the same categoryId');
+	}
+	
+	// Validate group name consistency
+	const groupName = groupTransactions[0].groupName;
+	if (groupName && !groupTransactions.every(tx => tx.groupName === groupName)) {
+		errors.push('All transactions must have the same groupName');
 	}
 	
 	// Calculate total amount
-	const totalAmount = splitTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+	const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 	
-		return { isValid: errors.length === 0, errors, totalAmount };
+	return { isValid: errors.length === 0, errors, totalAmount };
 }
 
 /**
@@ -482,113 +474,105 @@ export function validateTransfer(transaction: Transaction): {
 }
 
 /**
- * Validate split transactions for creation (without requiring splitId)
+ * Validate transaction group for creation (without requiring groupId)
  */
-export function validateNewSplitTransaction(splitTransactions: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>[]): {
+export function validateNewGroupTransaction(groupTransactions: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>[]): {
 	isValid: boolean;
 	errors: string[];
 	totalAmount: number;
 } {
 	const errors: string[] = [];
 	
-	if (splitTransactions.length === 0) {
-		return { isValid: false, errors: ['At least one split transaction is required'], totalAmount: 0 };
+	if (groupTransactions.length === 0) {
+		return { isValid: false, errors: ['At least one transaction is required'], totalAmount: 0 };
 	}
 	
-	// All splits must have the same type
-	const type = splitTransactions[0].type;
-	if (!splitTransactions.every(tx => tx.type === type)) {
-		errors.push('All split transactions must have the same type');
+	// All transactions must have the same type
+	const type = groupTransactions[0].type;
+	if (!groupTransactions.every(tx => tx.type === type)) {
+		errors.push('All transactions must have the same type');
 	}
 	
-	// All splits must have the same status
-	const status = splitTransactions[0].status;
-	if (!splitTransactions.every(tx => tx.status === status)) {
-		errors.push('All split transactions must have the same status');
+	// All transactions must have the same status
+	const status = groupTransactions[0].status;
+	if (!groupTransactions.every(tx => tx.status === status)) {
+		errors.push('All transactions must have the same status');
 	}
 	
-	// All splits must have the same currency
-	const currency = splitTransactions[0].currency;
-	if (!splitTransactions.every(tx => tx.currency === currency)) {
-		errors.push('All split transactions must have the same currency');
+	// All transactions must have the same currency
+	const currency = groupTransactions[0].currency;
+	if (!groupTransactions.every(tx => tx.currency === currency)) {
+		errors.push('All transactions must have the same currency');
 	}
 	
-	// All splits must have the same accountId (for non-transfers)
+	// All transactions must have the same accountId (for non-transfers)
 	if (type !== 'transfer') {
-		const accountId = splitTransactions[0].accountId;
-		if (!splitTransactions.every(tx => tx.accountId === accountId)) {
-			errors.push('All split transactions must have the same accountId (except for transfers)');
+		const accountId = groupTransactions[0].accountId;
+		if (!groupTransactions.every(tx => tx.accountId === accountId)) {
+			errors.push('All transactions must have the same accountId (except for transfers)');
 		}
 	}
 	
-	// For transfers, validate transfer-specific rules instead of generic split rules
+	// For transfers, validate transfer-specific rules
 	if (type === 'transfer') {
-		// Transfer validation is handled by validateTransferSplit function
+		// Transfer validation is handled by validateTransfer function
 		// Skip the generic toAccountId validation for transfers
 	} else {
-		// For non-transfer splits, validate toAccountId consistency
-		const toAccountId = splitTransactions[0].toAccountId;
-		if (!splitTransactions.every(tx => tx.toAccountId === toAccountId)) {
-			errors.push('All non-transfer splits must have the same toAccountId');
+		// For non-transfer groups, validate toAccountId consistency
+		const toAccountId = groupTransactions[0].toAccountId;
+		if (!groupTransactions.every(tx => tx.toAccountId === toAccountId)) {
+			errors.push('All non-transfer transactions must have the same toAccountId');
 		}
 	}
 	
-	// All splits must have the same timing fields
-	const clearedDate = splitTransactions[0].clearedDate;
-	const plannedDate = splitTransactions[0].plannedDate;
-	if (!splitTransactions.every(tx => tx.clearedDate === clearedDate)) {
-		errors.push('All split transactions must have the same clearedDate');
+	// All transactions must have the same timing fields
+	const clearedDate = groupTransactions[0].clearedDate;
+	const plannedDate = groupTransactions[0].plannedDate;
+	if (!groupTransactions.every(tx => tx.clearedDate === clearedDate)) {
+		errors.push('All transactions must have the same clearedDate');
 	}
-	if (!splitTransactions.every(tx => tx.plannedDate === plannedDate)) {
-		errors.push('All split transactions must have the same plannedDate');
-	}
-	
-	// All splits must have the same recurrence fields
-	const recurrenceRule = splitTransactions[0].recurrenceRule;
-	const parentRecurrenceId = splitTransactions[0].parentRecurrenceId;
-	if (!splitTransactions.every(tx => tx.recurrenceRule === recurrenceRule)) {
-		errors.push('All split transactions must have the same recurrenceRule');
-	}
-	if (!splitTransactions.every(tx => tx.parentRecurrenceId === parentRecurrenceId)) {
-		errors.push('All split transactions must have the same parentRecurrenceId');
+	if (!groupTransactions.every(tx => tx.plannedDate === plannedDate)) {
+		errors.push('All transactions must have the same plannedDate');
 	}
 	
-	// All splits must have the same metadata fields
-	const reference = splitTransactions[0].reference;
-	const notes = splitTransactions[0].notes;
-	const importSource = splitTransactions[0].importSource;
-	if (!splitTransactions.every(tx => tx.reference === reference)) {
-		errors.push('All split transactions must have the same reference');
+	// All transactions must have the same recurrence fields
+	const recurrenceRule = groupTransactions[0].recurrenceRule;
+	const parentRecurrenceId = groupTransactions[0].parentRecurrenceId;
+	if (!groupTransactions.every(tx => tx.recurrenceRule === recurrenceRule)) {
+		errors.push('All transactions must have the same recurrenceRule');
 	}
-	if (!splitTransactions.every(tx => tx.notes === notes)) {
-		errors.push('All split transactions must have the same notes');
-	}
-	if (!splitTransactions.every(tx => tx.importSource === importSource)) {
-		errors.push('All split transactions must have the same importSource');
+	if (!groupTransactions.every(tx => tx.parentRecurrenceId === parentRecurrenceId)) {
+		errors.push('All transactions must have the same parentRecurrenceId');
 	}
 	
-	// All splits must have the same categorization tags
-	const whatTag = splitTransactions[0].whatTag;
-	const budgetCategoryId = splitTransactions[0].budgetCategoryId;
-	const payeeId = splitTransactions[0].payeeId;
-	if (!splitTransactions.every(tx => tx.whatTag === whatTag)) {
-		errors.push('All split transactions must have the same whatTag');
+	// All transactions must have the same metadata fields
+	const reference = groupTransactions[0].reference;
+	const notes = groupTransactions[0].notes;
+	const importSource = groupTransactions[0].importSource;
+	if (!groupTransactions.every(tx => tx.reference === reference)) {
+		errors.push('All transactions must have the same reference');
 	}
-	if (!splitTransactions.every(tx => tx.budgetCategoryId === budgetCategoryId)) {
-		errors.push('All split transactions must have the same budgetCategoryId');
+	if (!groupTransactions.every(tx => tx.notes === notes)) {
+		errors.push('All transactions must have the same notes');
 	}
-	if (!splitTransactions.every(tx => tx.payeeId === payeeId)) {
-		errors.push('All split transactions must have the same payeeId');
+	if (!groupTransactions.every(tx => tx.importSource === importSource)) {
+		errors.push('All transactions must have the same importSource');
 	}
 	
-	// Validate split name consistency (if provided)
-	const splitName = splitTransactions[0].splitName;
-	if (splitName && !splitTransactions.every(tx => tx.splitName === splitName)) {
-		errors.push('All split transactions must have the same splitName');
+	// All transactions must have the same categorization
+	const categoryId = groupTransactions[0].categoryId;
+	if (!groupTransactions.every(tx => tx.categoryId === categoryId)) {
+		errors.push('All transactions must have the same categoryId');
+	}
+	
+	// Validate group name consistency (if provided)
+	const groupName = groupTransactions[0].groupName;
+	if (groupName && !groupTransactions.every(tx => tx.groupName === groupName)) {
+		errors.push('All transactions must have the same groupName');
 	}
 	
 	// Calculate total amount
-	const totalAmount = splitTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+	const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 	
 	return { isValid: errors.length === 0, errors, totalAmount };
 }
@@ -628,49 +612,16 @@ const AccountSchema = BaseSchema.extend({
 	isActive: z.boolean().default(true)
 });
 
-// Payee Schema (replaces 'who' tags)
-const PayeeSchema = BaseSchema.extend({
-	name: z.string().min(1),
-	number: z.string().optional(), // Phone number, account number, etc.
-	location: z.string().optional(), // Address, coordinates, etc.
-	priorityLevel: z.enum(['high', 'medium', 'low', 'blocked']).default('medium'),
-	phoneBookId: z.string().optional(), // Integration with phone contacts
-	notes: z.string().optional(),
-	isActive: z.boolean().default(true)
-});
-
-// Priority Level Mapping Schema (for 'why' tags)
-const PriorityLevelMappingSchema = BaseSchema.extend({
-	whyTag: z.string(), // References WhyTag enum values
-	priorityLevel: z.enum(['survival', 'security', 'growth', 'lifestyle']),
+// Unified Category Schema (replaces what/why tags, payees, and budget categories)
+const CategorySchema = BaseSchema.extend({
+	name: z.string().min(1),                    // "groceries", "rent", "Netflix"
+	type: z.enum(['expense', 'income', 'transfer']),
+	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle']),
+	priority: z.number().min(1),                // Within tier
+	budgetAmount: z.number().min(0).optional(),  // Optional budget allocation
+	color: z.string().optional(),
 	description: z.string().optional(),
 	isActive: z.boolean().default(true)
-});
-
-// Tag Dimension Schema (for custom dimensions beyond what/why)
-const TagDimensionSchema = BaseSchema.extend({
-	name: z.string().min(1),
-	description: z.string().optional(),
-	required: z.boolean().default(false),
-	multiSelect: z.boolean().default(false),
-	color: z.string().optional(),
-	isSystem: z.boolean().default(false),
-	isActive: z.boolean().default(true)
-});
-
-// Tag Schema
-const TagSchema = BaseSchema.extend({
-	name: z.string().min(1),
-	dimension: z.string(), // References TagDimension.name or system dimensions ('what', 'why')
-	color: z.string().optional(),
-	isActive: z.boolean().default(true)
-});
-
-// Transaction Tag Assignment Schema (for custom dimensions)
-const TransactionTagSchema = BaseSchema.extend({
-	transactionId: z.string(),
-	tagId: z.string(),
-	dimension: z.string()
 });
 
 // Bank Transaction Schema (what actually happened in accounts)
@@ -732,10 +683,8 @@ const TransactionSchema = BaseSchema.extend({
 	currency: z.string().min(3).max(3), // Shared across all splits
 	description: z.string().optional(), // Can be customized per split transaction
 	
-	// Unified budget system - budget categories replace why tags
-	whatTag: WhatTag.optional(), // What was purchased (still used)
-	budgetCategoryId: z.string().optional(), // Direct reference to budget category (replaces whyTag)
-	payeeId: z.string().optional(), // References Payee instead of whereTag
+	// Simplified categorization - single category reference
+	categoryId: z.string().optional(), // References unified Category
 	
 	// Planning fields (planned status) - shared across all splits
 	plannedDate: z.string().datetime().optional(),
@@ -743,23 +692,22 @@ const TransactionSchema = BaseSchema.extend({
 	
 	// Cleared fields (cleared status) - shared across all splits
 	clearedDate: z.string().datetime().optional(),
-	bankTransactionId: z.string().optional(), // Link to imported transaction
+	importMetadata: z.string().optional(), // JSON string for import tracking
 	
 	// Split Management Fields
-	splitId: z.string().optional(), // Same for all parts of the split
-	splitName: z.string().optional(), // Could be same or customized per part
+	groupId: z.string().optional(), // Same for all parts of the split (renamed from splitId)
+	groupName: z.string().optional(), // Could be same or customized per part (renamed from splitName)
 	
 	// Transfer fields - shared across all splits for transfers
 	toAccountId: z.string().optional(),
 	
-	// Enhanced Transfer Schema - Single Transaction Approach
+	// Simplified Transfer Schema
 	transferDetails: z.object({
 		toAccountId: z.string(), // Destination account
 		transferAmount: z.number().positive(), // Positive amount being transferred
 		feeAmount: z.number().min(0).default(0), // Fee amount (can be 0)
 		feeAccountId: z.string().optional(), // Which account pays the fee (default: source)
-		feeCategoryId: z.string().optional(), // Budget category for the fee
-		feeWhatTag: z.string().optional(), // What tag for the fee (e.g., 'banking_fees')
+		feeCategoryId: z.string().optional(), // Category for the fee
 	}).optional(),
 	
 	// Recurrence - shared across all splits
@@ -774,52 +722,20 @@ const TransactionSchema = BaseSchema.extend({
 
 
 
-// Dynamic Settings Schema (for key-value settings that can't be predefined)
-const DynamicSettingsSchema = BaseSchema.extend({
-	key: z.string(),
-	value: z.string(),
-	dataType: z.enum(['string', 'number', 'boolean', 'json']).default('string')
-});
-
-// User Preferences Schema (structured settings with type safety)
+// Simplified User Preferences Schema
 const UserPreferencesSchema = BaseSchema.extend({
 	// User Profile
 	username: z.string().min(1).default('User'),
 	
-	// Income and Budget Preferences
-	incomeMode: z.enum(['pessimistic', 'optimistic', 'adaptive']).default('adaptive'),
-	incomeConfidenceThreshold: z.number().min(0).max(1).default(0.8),
+	// Budget Preferences
 	defaultBudgetType: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
-	
-	// Global Budget Settings
 	allowGlobalBorrowing: z.boolean().default(true),
 	maxGlobalBorrowPercentage: z.number().min(0).max(1).default(0.1),
-	spendingMomentumCooldown: z.number().default(30),
-	velocityAlertThreshold: z.number().default(2.0),
-	
-	// Alert Preferences
-	dailyBudgetReminders: z.boolean().default(true),
-	overspendingAlerts: z.boolean().default(true),
-	goalMilestoneAlerts: z.boolean().default(true),
-	
-	// Life Stage and Context (for enhanced budget service)
-	lifeStage: z.enum(['student', 'early_career', 'mid_career', 'late_career', 'pre_retirement', 'retired']).default('mid_career'),
-	incomeVolatility: z.enum(['low', 'medium', 'high']).default('medium'),
-	stressLevel: z.enum(['low', 'medium', 'high']).default('medium'),
 	
 	// UI Preferences
 	theme: z.enum(['light', 'dark']).default('dark'),
 	language: z.enum(['en', 'ru']).default('en'),
 	currency: z.string().min(3).max(3).default('USD'),
-	firstDayOfWeek: z.number().min(0).max(6).default(0), // 0 = Sunday, 1 = Monday, etc.
-	
-	// Date Display Preferences
-	dateDisplayFormat: z.enum(['date', 'time', 'datetime']).default('time'),
-	plannedDateDisplayFormat: z.enum(['date', 'time', 'datetime']).default('date'),
-	clearedDateDisplayFormat: z.enum(['date', 'time', 'datetime']).default('time'),
-	
-	// Notification Preferences
-	notificationsEnabled: z.boolean().default(true),
 	
 	// User Maturity and Onboarding
 	userMaturityLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).default('beginner'),
@@ -828,100 +744,10 @@ const UserPreferencesSchema = BaseSchema.extend({
 	// Feature Flags
 	enableAdvancedFeatures: z.boolean().default(false),
 	enablePredictiveAnalytics: z.boolean().default(true),
-	enableEmotionalIntelligence: z.boolean().default(true),
-	enableContextualSuggestions: z.boolean().default(true),
 	
 	// Privacy and Data Preferences
-	dataSharingEnabled: z.boolean().default(false),
 	analyticsEnabled: z.boolean().default(true),
-	backupEnabled: z.boolean().default(true),
-	
-	// User Actions Tracking Preferences
-	userActionsTrackingEnabled: z.boolean().default(true),
-	userActionsTrackingPreferences: z.object({
-		transaction_timing: z.boolean().default(true),
-		budget_adherence: z.boolean().default(true),
-		spending_patterns: z.boolean().default(true),
-		habit_formation: z.boolean().default(true)
-	}).default({
-		transaction_timing: true,
-		budget_adherence: true,
-		spending_patterns: true,
-		habit_formation: true
-	}),
-	userActionsRetentionDays: z.number().min(30).max(1095).default(365), // 1 year default, max 3 years
-	
-	// Performance Preferences
-	cacheEnabled: z.boolean().default(true),
-	offlineModeEnabled: z.boolean().default(false),
-	
-	// Import/Export Preferences
-	autoImportEnabled: z.boolean().default(false),
-	exportFormat: z.enum(['json', 'csv', 'pdf']).default('json'),
-	
-	// Accessibility Preferences
-	highContrastMode: z.boolean().default(false),
-	reducedMotion: z.boolean().default(false),
-	fontSize: z.enum(['small', 'medium', 'large']).default('medium')
-});
-
-// Enhanced Categorization Rule Schema (for Phase 2)
-const CategorizationRuleSchema = BaseSchema.extend({
-	name: z.string(),
-	description: z.string().optional(),
-	conditions: z.string(), // JSON string - enhanced to use any transaction field
-	actions: z.string(), // JSON string - enhanced actions including priority adjustments
-	priority: z.number().default(0),
-	isActive: z.boolean().default(true),
-	autoApply: z.boolean().default(false),
-	timesApplied: z.number().default(0),
-	lastAppliedAt: z.string().datetime().optional(),
-	
-	// Enhanced rule engine fields
-	ruleType: z.enum(['categorization', 'priority', 'lifestyle', 'custom']).default('categorization'),
-	triggerFields: z.array(z.string()).optional(), // Which fields trigger this rule
-	conditionLogic: z.enum(['AND', 'OR', 'NOT']).default('AND'),
-	actionType: z.enum(['set_tags', 'adjust_priority', 'boost_category', 'reduce_category', 'custom']).default('set_tags'),
-	
-	// Lifestyle mode integration
-	lifestyleModeId: z.string().optional(), // Link to lifestyle mode
-	effectiveDate: z.string().datetime().optional(),
-	expiryDate: z.string().datetime().optional()
-});
-
-
-
-// Import Preset Schema
-const ImportPresetSchema = BaseSchema.extend({
-	name: z.string(),
-	description: z.string().optional(),
-	bankName: z.string().optional(),
-	config: z.string(), // JSON string
-	isPublic: z.boolean().default(false),
-	usageCount: z.number().default(0)
-});
-
-// Import History Schema
-const ImportHistorySchema = BaseSchema.extend({
-	presetId: z.string().optional(),
-	filename: z.string(),
-	recordsImported: z.number().default(0),
-	recordsFailed: z.number().default(0),
-	errorLog: z.string().optional() // JSON string
-});
-
-// Spending Insights Schema
-const SpendingInsightSchema = BaseSchema.extend({
-	// Updated to work with tags
-	targetType: z.enum(['what', 'why', 'where', 'custom']),
-	targetTagId: z.string().optional(),
-	targetSystemTag: z.string().optional(),
-	
-	insightType: z.string(), // 'daily_average', 'weekly_trend', 'monthly_comparison'
-	timePeriod: z.string(), // '2024-01', '2024-W01', '2024-01-01'
-	amount: z.number().optional(),
-	transactionCount: z.number().optional(),
-	metadata: z.string().optional() // JSON string
+	backupEnabled: z.boolean().default(true)
 });
 
 // User Actions Schema
@@ -933,49 +759,10 @@ const UserActionSchema = BaseSchema.extend({
 	sessionId: z.string().optional()
 });
 
-// Budget Category Schema (unified why tag + budget)
-const BudgetCategorySchema = BaseSchema.extend({
-	name: z.string().min(1),
-	waterfallCategory: z.enum(['survival', 'security', 'growth', 'lifestyle']),
-	priority: z.number().min(1),
-	
-	// Budget settings
-	allocatedAmount: z.number().min(0),
-	recurringPeriod: z.enum(['daily', 'weekly', 'biweekly', 'monthly', 'yearly', 'custom']).default('monthly'),
-	customPeriodDays: z.number().optional(),
-	
-	// Current period tracking
-	spent: z.number().default(0),
-	remaining: z.number().default(0),
-	
-	// Goal system
-	isGoalBased: z.boolean().default(false),
-	goalTarget: z.number().optional(),
-	goalProgress: z.number().default(0),
-	isComplete: z.boolean().default(false),
-	
-	// Automatic adjustments
-	carryoverAmount: z.number().default(0),
-	maxCarryoverPercent: z.number().min(0).max(1).default(0.2),
-	autoAdjustmentsEnabled: z.boolean().default(true),
-	
-	// Metadata
-	color: z.string().optional(),
-	description: z.string().optional(),
-	isActive: z.boolean().default(true)
-});
+// Simplified Budget Category Schema (now integrated into Category)
+// Budget functionality is now handled through the Category schema's budgetAmount field
 
-// Fund Transfer Schema
-const FundTransferSchema = BaseSchema.extend({
-	fromCategoryId: z.string(),
-	toCategoryId: z.string(),
-	amount: z.number().positive(),
-	reason: z.enum(['user_reallocation', 'automatic_borrowing', 'goal_completion']),
-	respectsWaterfall: z.boolean().default(true),
-	timestamp: z.string().datetime()
-});
-
-// Goals System Schemas
+// Simplified Goals System
 const GoalSchema = BaseSchema.extend({
 	name: z.string().min(1),
 	description: z.string().optional(),
@@ -989,27 +776,29 @@ const GoalSchema = BaseSchema.extend({
 	completedAt: z.string().datetime().optional(),
 	monthlyContribution: z.number().min(0).optional(),
 	isRecurring: z.boolean().default(false),
-	parentGoalId: z.string().optional(),
 	tags: z.array(z.string()).default([])
 });
 
-const GoalProgressSchema = BaseSchema.extend({
-	goalId: z.string(),
-	date: z.string().datetime(),
-	amount: z.number(),
-	note: z.string().optional(),
-	source: z.enum(['manual', 'automatic', 'transfer']).default('manual')
-});
-
-const GoalInsightSchema = BaseSchema.extend({
-	type: z.enum(['achievement', 'milestone', 'recommendation', 'warning', 'celebration', 'optimization']),
+// Simplified Insights Schema (consolidated analytics)
+const InsightSchema = BaseSchema.extend({
+	type: z.enum(['budget_approaching', 'budget_exceeded', 'budget_surplus', 'goal_milestone', 'spending_velocity', 'anomaly', 'trend', 'achievement', 'savings_opportunity', 'behavioral', 'prediction']),
+	severity: z.enum(['info', 'warning', 'alert', 'success']),
 	title: z.string().min(1),
-	description: z.string().min(1),
-	priority: z.enum(['low', 'medium', 'high']),
-	actionable: z.boolean().default(false),
+	message: z.string().min(1),
+	categoryId: z.string().optional(),
 	goalId: z.string().optional(),
+	percentage: z.number().optional(),
+	amount: z.number().optional(),
+	remaining: z.number().optional(),
+	threshold: z.number().optional(),
+	confidence: z.number().optional(),
+	actionable: z.boolean().default(false),
+	actionText: z.string().optional(),
+	actionUrl: z.string().optional(),
 	dismissedAt: z.string().datetime().optional(),
-	metadata: z.record(z.any()).optional()
+	expiresAt: z.string().datetime().optional(),
+	isActive: z.boolean().default(true),
+	metadata: z.string().optional() // JSON string
 });
 
 // ============================================================================
@@ -1018,13 +807,14 @@ const GoalInsightSchema = BaseSchema.extend({
 
 export type Account = z.infer<typeof AccountSchema>;
 export type Currency = z.infer<typeof CurrencySchema>;
-export type TagDimension = z.infer<typeof TagDimensionSchema>;
-export type Tag = z.infer<typeof TagSchema>;
-export type TransactionTag = z.infer<typeof TransactionTagSchema>;
-export type BankTransaction = z.infer<typeof BankTransactionSchema>;
+export type Category = z.infer<typeof CategorySchema>;
 export type Transaction = z.infer<typeof TransactionSchema>;
+export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
+export type UserAction = z.infer<typeof UserActionSchema>;
+export type Goal = z.infer<typeof GoalSchema>;
+export type Insight = z.infer<typeof InsightSchema>;
 
-// Add transaction-specific utility functions after Transaction type is defined
+// Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
 	/**
 	 * Validate transaction dates based on status
@@ -1061,149 +851,50 @@ export const TransactionUtils = {
 	}
 };
 
-export type Settings = z.infer<typeof DynamicSettingsSchema>;
-export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
-export type CategorizationRule = z.infer<typeof CategorizationRuleSchema>;
-export type ImportPreset = z.infer<typeof ImportPresetSchema>;
-export type ImportHistory = z.infer<typeof ImportHistorySchema>;
-export type SpendingInsight = z.infer<typeof SpendingInsightSchema>;
-export type UserAction = z.infer<typeof UserActionSchema>;
-
 // System dimension types
-export type WhatTagType = z.infer<typeof WhatTag>;
-export type WhyTagType = z.infer<typeof WhyTag>;
 export type TransactionType = z.infer<typeof TransactionType>;
-
-
-// Additional type definitions
-export type BalancesByType = {
-		income: number;
-		savings: number;
-		expenses: number;
-};
-
-export type Payee = z.infer<typeof PayeeSchema>;
-export type PriorityLevelMapping = z.infer<typeof PriorityLevelMappingSchema>;
-export type BudgetCategory = z.infer<typeof BudgetCategorySchema>;
-export type FundTransfer = z.infer<typeof FundTransferSchema>;
-export type Goal = z.infer<typeof GoalSchema>;
-export type GoalProgress = z.infer<typeof GoalProgressSchema>;
-export type GoalInsight = z.infer<typeof GoalInsightSchema>;
 
 // ============================================================================
 // DATABASE CLASS
 // ============================================================================
 
 export class BudgicDB extends Dexie {
-	// Core entities
+	// Core entities (8 tables total)
 	accounts!: Table<Account>;
 	currencies!: Table<Currency>;
-	tagDimensions!: Table<TagDimension>;
-	tags!: Table<Tag>;
-	transactionTags!: Table<TransactionTag>;
-	
-	// Transactions
-	bankTransactions!: Table<BankTransaction>;
+	categories!: Table<Category>;
 	transactions!: Table<Transaction>;
-	
-	// Planning System (renamed from Budget)
-
-	
-	// Settings & Preferences
-	dynamicSettings!: Table<Settings>;
-	userPreferences!: Table<UserPreferences>;
-	
-	// Rules & Automation
-	categorizationRules!: Table<CategorizationRule>;
-	
-	// Import/Export
-	importPresets!: Table<ImportPreset>;
-	importHistory!: Table<ImportHistory>;
-	
-	// Analytics
-	spendingInsights!: Table<SpendingInsight>;
-
-	// Budget System
-	budgetCategories!: Table<BudgetCategory>;
-	fundTransfers!: Table<FundTransfer>;
-	
-	// Add Payee and PriorityLevelMapping types
-	payees!: Table<Payee>;
-	priorityLevelMappings!: Table<PriorityLevelMapping>;
-	userActions!: Table<UserAction>;
-
-	// Goals System
 	goals!: Table<Goal>;
-	goalProgress!: Table<GoalProgress>;
-	goalInsights!: Table<GoalInsight>;
+	userPreferences!: Table<UserPreferences>;
+	userActions!: Table<UserAction>;
+	insights!: Table<Insight>;
 
 	constructor() {
 		super('BudgicDB');
 		
-		this.version(4).stores({
-			// Core entities
+		this.version(5).stores({
+			// Core entities - simplified to 8 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
-			tagDimensions: 'id, name, isSystem, isActive, deletedAt, createdAt',
-			tags: 'id, name, dimension, isActive, deletedAt, createdAt',
-			transactionTags: 'id, transactionId, tagId, dimension, createdAt',
-			
-			// Transactions
-			bankTransactions: 'id, accountId, externalId, transactionDate, importSource, deletedAt, createdAt, updatedAt',
-			transactions: 'id, type, status, accountId, whatTag, budgetCategoryId, payeeId, plannedDate, clearedDate, splitId, deletedAt, createdAt, updatedAt',
-			
-			// Planning System (renamed from Budget)
-			plans: 'id, targetType, targetTagId, targetSystemTag, planType, startDate, endDate, createdAt, updatedAt',
-			lifestyleModes: 'id, name, isActive, triggerType, startDate, endDate, createdAt, updatedAt',
-			
-			// Settings & Preferences
-			dynamicSettings: 'id, key, dataType, deletedAt, createdAt, updatedAt',
+			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt',
+			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt',
 			userPreferences: 'id, createdAt, updatedAt',
+			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt',
+			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt',
 			
-			// Rules & Automation
-			categorizationRules: 'id, name, priority, isActive, autoApply, deletedAt, createdAt, updatedAt',
-			
-			// Import/Export
-			importPresets: 'id, name, bankName, isPublic, createdAt, updatedAt',
-			importHistory: 'id, presetId, filename, importedAt',
-			
-			// Analytics
-			spendingInsights: 'id, targetType, targetTagId, targetSystemTag, insightType, timePeriod, computedAt',
-			
-			// Composite indexes for complex queries
+			// Performance optimization indexes - optimized for common queries
 			'[accountId+status]': 'accountId, status',
 			'[accountId+clearedDate]': 'accountId, clearedDate',
-			'[whatTag+status]': 'whatTag, status',
-			'[budgetCategoryId+status]': 'budgetCategoryId, status',
-			'[transactionId+dimension]': 'transactionId, dimension',
-			'[targetType+targetTagId]': 'targetType, targetTagId',
-			'[targetType+targetSystemTag]': 'targetType, targetSystemTag',
-
-			// Performance optimization indexes (Phase 1 requirements)
-			'[date+accountId]': 'clearedDate, accountId',
-			'[accountId+categoryId]': 'accountId, whatTag',
-			'[amount+status]': 'amount, status',
-			'[currency+amount]': 'currency, amount',
-			'[splitId+status]': 'splitId, status',
-			'[payeeId+status]': 'payeeId, status',
+			'[categoryId+status]': 'categoryId, status',
+			'[groupId+status]': 'groupId, status',
 			'[plannedDate+status]': 'plannedDate, status',
 			'[clearedDate+type]': 'clearedDate, type',
-
-			// Budget System
-			budgetCategories: 'id, name, waterfallCategory, priority, allocatedAmount, spent, remaining, isActive, deletedAt, createdAt, updatedAt',
-			fundTransfers: 'id, fromCategoryId, toCategoryId, amount, reason, timestamp, createdAt, updatedAt',
-			
-			// Add Payee and PriorityLevelMapping types
-			payees: 'id, name, isActive, deletedAt, createdAt',
-			priorityLevelMappings: 'id, whyTag, priorityLevel, isActive, deletedAt, createdAt',
-			
-			// User Actions & Behavior Tracking
-			userActions: 'id, action, timestamp, userId, sessionId, createdAt, updatedAt, deletedAt',
-
-			// Goals System
-			goals: 'id, name, description, targetAmount, currentAmount, currency, category, priority, status, targetDate, createdAt, updatedAt, completedAt, monthlyContribution, isRecurring, parentGoalId, tags',
-			goalProgress: 'id, goalId, date, amount, note, source',
-			goalInsights: 'id, type, title, description, priority, actionable, goalId, createdAt, dismissedAt, metadata'
+			'[goalId+status]': 'goalId, status',
+			'[insightType+severity]': 'type, severity',
+			'[categoryType+tier]': 'type, waterfallTier',
+			'[goalCategory+status]': 'category, status',
+			'[userAction+timestamp]': 'action, timestamp'
 		});
 
 		// Add validation hooks
@@ -1260,6 +951,21 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
+		this.accounts.hook('updating', (modifications: Partial<Account>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				AccountSchema.parse(updated);
+			} catch (error) {
+				console.error('Account update validation failed:', error);
+				console.error('Account data:', obj);
+				console.error('Modifications:', modifications);
+				throw error;
+			}
+		});
+
 		// Currency validation
 		this.currencies.hook('creating', (primKey, obj, trans) => {
 			try {
@@ -1287,70 +993,28 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.accounts.hook('updating', (modifications: Partial<Account>, primKey, obj, trans) => {
+		// Category validation
+		this.categories.hook('creating', (primKey, obj, trans) => {
 			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
-				}
-				const updated = { ...obj, ...modifications };
-				AccountSchema.parse(updated);
-			} catch (error) {
-				console.error('Account update validation failed:', error);
-				console.error('Account data:', obj);
-				console.error('Modifications:', modifications);
-				throw error;
-			}
-		});
-
-		// Tag Dimension validation
-		this.tagDimensions.hook('creating', (primKey, obj, trans) => {
-			try {
-				const validated = TagDimensionSchema.parse(obj);
+				const validated = CategorySchema.parse(obj);
 				Object.assign(obj, validated);
 			} catch (error) {
-				console.error('Tag dimension validation failed:', error);
-				console.error('Tag dimension data:', obj);
+				console.error('Category validation failed:', error);
+				console.error('Category data:', obj);
 				throw error;
 			}
 		});
 
-		this.tagDimensions.hook('updating', (modifications: Partial<TagDimension>, primKey, obj, trans) => {
+		this.categories.hook('updating', (modifications: Partial<Category>, primKey, obj, trans) => {
 			try {
 				if (modifications.updatedAt === undefined) {
 					modifications.updatedAt = new Date().toISOString();
 				}
 				const updated = { ...obj, ...modifications };
-				TagDimensionSchema.parse(updated);
+				CategorySchema.parse(updated);
 			} catch (error) {
-				console.error('Tag dimension update validation failed:', error);
-				console.error('Tag dimension data:', obj);
-				console.error('Modifications:', modifications);
-				throw error;
-			}
-		});
-
-		// Tag validation
-		this.tags.hook('creating', (primKey, obj, trans) => {
-			try {
-				const validated = TagSchema.parse(obj);
-				Object.assign(obj, validated);
-			} catch (error) {
-				console.error('Tag validation failed:', error);
-				console.error('Tag data:', obj);
-				throw error;
-			}
-		});
-
-		this.tags.hook('updating', (modifications: Partial<Tag>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
-				}
-				const updated = { ...obj, ...modifications };
-				TagSchema.parse(updated);
-			} catch (error) {
-				console.error('Tag update validation failed:', error);
-				console.error('Tag data:', obj);
+				console.error('Category update validation failed:', error);
+				console.error('Category data:', obj);
 				console.error('Modifications:', modifications);
 				throw error;
 			}
@@ -1407,34 +1071,98 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		// Bank Transaction validation
-		this.bankTransactions.hook('creating', (primKey, obj, trans) => {
+		// Goal validation
+		this.goals.hook('creating', (primKey, obj, trans) => {
 			try {
-				const validated = BankTransactionSchema.parse(obj);
+				const validated = GoalSchema.parse(obj);
 				Object.assign(obj, validated);
 			} catch (error) {
-				console.error('Bank transaction validation failed:', error);
-				console.error('Bank transaction data:', obj);
+				console.error('Goal validation failed:', error);
+				console.error('Goal data:', obj);
 				throw error;
 			}
 		});
 
-		this.bankTransactions.hook('updating', (modifications: Partial<BankTransaction>, primKey, obj, trans) => {
+		this.goals.hook('updating', (modifications: Partial<Goal>, primKey, obj, trans) => {
 			try {
 				if (modifications.updatedAt === undefined) {
 					modifications.updatedAt = new Date().toISOString();
 				}
 				const updated = { ...obj, ...modifications };
-				BankTransactionSchema.parse(updated);
+				GoalSchema.parse(updated);
 			} catch (error) {
-				console.error('Bank transaction update validation failed:', error);
-				console.error('Bank transaction data:', obj);
+				console.error('Goal update validation failed:', error);
+				console.error('Goal data:', obj);
 				console.error('Modifications:', modifications);
 				throw error;
 			}
 		});
 
+		// User Preferences validation
+		this.userPreferences.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = UserPreferencesSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('User preferences validation failed:', error);
+				console.error('User preferences data:', obj);
+				throw error;
+			}
+		});
 
+		this.userPreferences.hook('updating', (modifications: Partial<UserPreferences>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				UserPreferencesSchema.parse(updated);
+			} catch (error) {
+				console.error('User preferences update validation failed:', error);
+				console.error('User preferences data:', obj);
+				console.error('Modifications:', modifications);
+				throw error;
+			}
+		});
+
+		// User Action validation
+		this.userActions.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = UserActionSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('User action validation failed:', error);
+				console.error('User action data:', obj);
+				throw error;
+			}
+		});
+
+		// Insight validation
+		this.insights.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = InsightSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Insight validation failed:', error);
+				console.error('Insight data:', obj);
+				throw error;
+			}
+		});
+
+		this.insights.hook('updating', (modifications: Partial<Insight>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				InsightSchema.parse(updated);
+			} catch (error) {
+				console.error('Insight update validation failed:', error);
+				console.error('Insight data:', obj);
+				console.error('Modifications:', modifications);
+				throw error;
+			}
+		});
 	}
 
 	private setupSoftDeleteHooks() {
@@ -1447,11 +1175,7 @@ export class BudgicDB extends Dexie {
 			return obj.deletedAt ? undefined : obj;
 		});
 
-		this.tagDimensions.hook('reading', (obj) => {
-			return obj.deletedAt ? undefined : obj;
-		});
-
-		this.tags.hook('reading', (obj) => {
+		this.categories.hook('reading', (obj) => {
 			return obj.deletedAt ? undefined : obj;
 		});
 
@@ -1459,17 +1183,7 @@ export class BudgicDB extends Dexie {
 			return obj.deletedAt ? undefined : obj;
 		});
 
-		this.bankTransactions.hook('reading', (obj) => {
-			return obj.deletedAt ? undefined : obj;
-		});
-
-
-
-		this.dynamicSettings.hook('reading', (obj) => {
-			return obj.deletedAt ? undefined : obj;
-		});
-
-		this.categorizationRules.hook('reading', (obj) => {
+		this.userActions.hook('reading', (obj) => {
 			return obj.deletedAt ? undefined : obj;
 		});
 	}
@@ -1483,69 +1197,69 @@ export class BudgicDB extends Dexie {
 	// ============================================================================
 
 	/**
-	 * Get all transactions in a split group
+	 * Get all transactions in a group
 	 */
-	async getSplitTransactions(splitId: string): Promise<Transaction[]> {
+	async getGroupTransactions(groupId: string): Promise<Transaction[]> {
 		return await this.transactions
-			.where('splitId').equals(splitId)
+			.where('groupId').equals(groupId)
 			.filter(transaction => !transaction.deletedAt)
 			.toArray();
 	}
 
 	/**
-	 * Get the master transaction for a split
+	 * Get the master transaction for a group
 	 * Prioritizes transactions with descriptions, then largest amount
 	 */
-	async getSplitMasterTransaction(splitId: string): Promise<Transaction | null> {
-		const splitTransactions = await this.getSplitTransactions(splitId);
-		if (splitTransactions.length === 0) return null;
+	async getGroupMasterTransaction(groupId: string): Promise<Transaction | null> {
+		const groupTransactions = await this.getGroupTransactions(groupId);
+		if (groupTransactions.length === 0) return null;
 		
 		// First, try to find a transaction with a description
-		const withDescription = splitTransactions.find(tx => tx.description && tx.description.trim() !== '');
+		const withDescription = groupTransactions.find(tx => tx.description && tx.description.trim() !== '');
 		if (withDescription) {
 			// Among transactions with descriptions, pick the one with largest absolute amount
-			const withDescriptions = splitTransactions.filter(tx => tx.description && tx.description.trim() !== '');
+			const withDescriptions = groupTransactions.filter(tx => tx.description && tx.description.trim() !== '');
 			return withDescriptions.reduce((master, current) => 
 				Math.abs(current.amount || 0) > Math.abs(master.amount || 0) ? current : master
 			);
 		}
 		
 		// If no descriptions, return the transaction with the largest absolute amount
-		return splitTransactions.reduce((master, current) => 
+		return groupTransactions.reduce((master, current) => 
 			Math.abs(current.amount || 0) > Math.abs(master.amount || 0) ? current : master
 		);
 	}
 
 	/**
-	 * Create a new split transaction group
+	 * Create a new transaction group
 	 */
-	async createSplitTransactionGroup(
-		splitTransactions: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>[],
-		splitName?: string
+	async createTransactionGroup(
+		groupTransactions: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>[],
+		groupName?: string
 	): Promise<string> {
-		const splitId = generateUUID();
-		const finalSplitName = splitName || 'Split Transaction';
+		const groupId = generateUUID();
+		const finalGroupName = groupName || 'Transaction Group';
 		
-		// Validate the split transactions for creation (without splitId requirement)
-		const validation = validateNewSplitTransaction(splitTransactions);
+		// Validate the group transactions for creation
+		const validation = validateNewGroupTransaction(groupTransactions);
 		if (!validation.isValid) {
-			throw new Error(`Invalid split transaction group: ${validation.errors.join(', ')}`);
+			throw new Error(`Invalid transaction group: ${validation.errors.join(', ')}`);
 		}
 		
-		// Enhanced split sum validation
-		const splitSumValidation = BalanceUtils.validateSplitSum(splitTransactions as Transaction[]);
-		if (!splitSumValidation.isValid) {
-			throw new Error(`Split sum validation failed: ${splitSumValidation.errors.join(', ')}`);
+		// Enhanced group sum validation
+		const groupSumValidation = BalanceUtils.validateGroupSum(groupTransactions as Transaction[]);
+		if (!groupSumValidation.isValid) {
+			throw new Error(`Group sum validation failed: ${groupSumValidation.errors.join(', ')}`);
 		}
 		
-		// Create all transactions in the split
+		// Create all transactions in the group
 		await this.transaction('rw', [this.transactions], async () => {
-			for (const transactionData of splitTransactions) {
+			for (const transactionData of groupTransactions) {
 				const transaction: Transaction = {
 					...transactionData,
 					id: generateUUID(),
-					splitId,
-					splitName: finalSplitName, // Ensure consistent split name
+					groupId,
+					groupName: finalGroupName, // Ensure consistent group name
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
 					deletedAt: null
@@ -1555,19 +1269,19 @@ export class BudgicDB extends Dexie {
 			}
 		});
 		
-		return splitId;
+		return groupId;
 	}
 
 	/**
-	 * Update a split transaction group
+	 * Update a transaction group
 	 */
-	async updateSplitTransactionGroup(
-		splitId: string,
+	async updateTransactionGroup(
+		groupId: string,
 		updates: {
 			sharedFields?: Partial<Pick<Transaction, 
-				'type' | 'status' | 'currency' | 'whatTag' | 'budgetCategoryId' | 'payeeId' |
+				'type' | 'status' | 'currency' | 'categoryId' |
 				'plannedDate' | 'clearedDate' | 'recurrenceRule' | 'parentRecurrenceId' |
-				'reference' | 'notes' | 'importSource' | 'toAccountId' | 'splitName'
+				'reference' | 'notes' | 'importSource' | 'toAccountId' | 'groupName'
 			>>;
 			individualUpdates?: Array<{
 				id: string;
@@ -1577,15 +1291,15 @@ export class BudgicDB extends Dexie {
 			}>;
 		}
 	): Promise<void> {
-		const splitTransactions = await this.getSplitTransactions(splitId);
-		if (splitTransactions.length === 0) {
-			throw new Error(`Split group ${splitId} not found`);
+		const groupTransactions = await this.getGroupTransactions(groupId);
+		if (groupTransactions.length === 0) {
+			throw new Error(`Transaction group ${groupId} not found`);
 		}
 		
 		await this.transaction('rw', [this.transactions], async () => {
-			// Update shared fields for all transactions in the split
+			// Update shared fields for all transactions in the group
 			if (updates.sharedFields) {
-				for (const transaction of splitTransactions) {
+				for (const transaction of groupTransactions) {
 					await this.transactions.update(transaction.id, {
 						...updates.sharedFields,
 						updatedAt: new Date().toISOString()
@@ -1611,40 +1325,40 @@ export class BudgicDB extends Dexie {
 	}
 
 	/**
-	 * Delete an entire split transaction group
+	 * Delete an entire transaction group
 	 */
-	async deleteSplitTransactionGroup(splitId: string): Promise<void> {
-		const splitTransactions = await this.getSplitTransactions(splitId);
+	async deleteTransactionGroup(groupId: string): Promise<void> {
+		const groupTransactions = await this.getGroupTransactions(groupId);
 		
 		await this.transaction('rw', [this.transactions], async () => {
-			for (const transaction of splitTransactions) {
+			for (const transaction of groupTransactions) {
 				await this.softDeleteTransaction(transaction.id);
 			}
 		});
 	}
 
 	/**
-	 * Remove a transaction from a split (ungroup it)
+	 * Remove a transaction from a group (ungroup it)
 	 */
-	async removeTransactionFromSplit(transactionId: string): Promise<void> {
+	async removeTransactionFromGroup(transactionId: string): Promise<void> {
 		await this.transactions.update(transactionId, {
-			splitId: undefined,
-			splitName: undefined,
+			groupId: undefined,
+			groupName: undefined,
 			updatedAt: new Date().toISOString()
 		});
 	}
 
 	/**
-	 * Add a transaction to an existing split
+	 * Add a transaction to an existing group
 	 */
-	async addTransactionToSplit(
+	async addTransactionToGroup(
 		transactionId: string,
-		splitId: string,
-		splitName?: string
+		groupId: string,
+		groupName?: string
 	): Promise<void> {
-		const splitTransactions = await this.getSplitTransactions(splitId);
-		if (splitTransactions.length === 0) {
-			throw new Error(`Split group ${splitId} not found`);
+		const groupTransactions = await this.getGroupTransactions(groupId);
+		if (groupTransactions.length === 0) {
+			throw new Error(`Transaction group ${groupId} not found`);
 		}
 		
 		const transaction = await this.transactions.get(transactionId);
@@ -1652,51 +1366,49 @@ export class BudgicDB extends Dexie {
 			throw new Error(`Transaction ${transactionId} not found`);
 		}
 		
-		// Validate that the transaction can be added to this split
-		// Check against all existing split transactions, not just the first one
-		const allTransactions = [...splitTransactions, transaction];
-		const validation = validateSplitTransaction(allTransactions);
+		// Validate that the transaction can be added to this group
+		// Check against all existing group transactions, not just the first one
+		const allTransactions = [...groupTransactions, transaction];
+		const validation = validateTransactionGroup(allTransactions);
 		if (!validation.isValid) {
-			throw new Error(`Transaction cannot be added to split: ${validation.errors.join(', ')}`);
+			throw new Error(`Transaction cannot be added to group: ${validation.errors.join(', ')}`);
 		}
 		
-		// Ensure consistent split name across all transactions
-		const finalSplitName = splitName || splitTransactions[0].splitName || 'Split Transaction';
+		// Ensure consistent group name across all transactions
+		const finalGroupName = groupName || groupTransactions[0].groupName || 'Transaction Group';
 		
 		await this.transactions.update(transactionId, {
-			splitId,
-			splitName: finalSplitName,
+			groupId,
+			groupName: finalGroupName,
 			updatedAt: new Date().toISOString()
 		});
 	}
 
 	/**
-	 * Get split statistics for a given split
+	 * Get group statistics for a given group
 	 */
-	async getSplitStatistics(splitId: string): Promise<{
+	async getGroupStatistics(groupId: string): Promise<{
 		totalAmount: number;
 		transactionCount: number;
 		sharedFields: Partial<Transaction>;
 		amounts: Array<{ id: string; amount: number; description?: string }>;
 	}> {
-		const splitTransactions = await this.getSplitTransactions(splitId);
-		if (splitTransactions.length === 0) {
-			throw new Error(`Split group ${splitId} not found`);
+		const groupTransactions = await this.getGroupTransactions(groupId);
+		if (groupTransactions.length === 0) {
+			throw new Error(`Transaction group ${groupId} not found`);
 		}
 		
-		const totalAmount = splitTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-		const masterTransaction = splitTransactions[0];
+		const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+		const masterTransaction = groupTransactions[0];
 		
 		return {
 			totalAmount,
-			transactionCount: splitTransactions.length,
+			transactionCount: groupTransactions.length,
 			sharedFields: {
 				type: masterTransaction.type,
 				status: masterTransaction.status,
 				currency: masterTransaction.currency,
-				whatTag: masterTransaction.whatTag,
-				budgetCategoryId: masterTransaction.budgetCategoryId,
-				payeeId: masterTransaction.payeeId,
+				categoryId: masterTransaction.categoryId,
 				plannedDate: masterTransaction.plannedDate,
 				clearedDate: masterTransaction.clearedDate,
 				recurrenceRule: masterTransaction.recurrenceRule,
@@ -1705,9 +1417,9 @@ export class BudgicDB extends Dexie {
 				notes: masterTransaction.notes,
 				importSource: masterTransaction.importSource,
 				toAccountId: masterTransaction.toAccountId,
-				splitName: masterTransaction.splitName
+				groupName: masterTransaction.groupName
 			},
-			amounts: splitTransactions.map(tx => ({
+			amounts: groupTransactions.map(tx => ({
 				id: tx.id,
 				amount: tx.amount || 0,
 				description: tx.description
@@ -1750,25 +1462,22 @@ export class BudgicDB extends Dexie {
 			.toArray();
 	}
 
-	// Tag queries
-	async getActiveTagDimensions(): Promise<TagDimension[]> {
-		return await this.tagDimensions.filter(dimension => !dimension.deletedAt).toArray();
+	// Category queries
+	async getActiveCategories(): Promise<Category[]> {
+		return await this.categories.filter(category => !category.deletedAt).toArray();
 	}
 
-	async getActiveTags(): Promise<Tag[]> {
-		return await this.tags.filter(tag => !tag.deletedAt).toArray();
-	}
-
-	async getTagsByDimension(dimension: string): Promise<Tag[]> {
-		return await this.tags
-			.where('dimension').equals(dimension)
-			.filter(tag => !tag.deletedAt)
+	async getCategoriesByType(type: Category['type']): Promise<Category[]> {
+		return await this.categories
+			.where('type').equals(type)
+			.filter(category => !category.deletedAt)
 			.toArray();
 	}
 
-	async getTransactionTags(transactionId: string): Promise<TransactionTag[]> {
-		return await this.transactionTags
-			.where('transactionId').equals(transactionId)
+	async getCategoriesByWaterfallTier(tier: Category['waterfallTier']): Promise<Category[]> {
+		return await this.categories
+			.where('waterfallTier').equals(tier)
+			.filter(category => !category.deletedAt)
 			.toArray();
 	}
 
@@ -1812,24 +1521,10 @@ export class BudgicDB extends Dexie {
 		});
 	}
 
-	// New tag-based transaction queries
-	async getTransactionsByWhatTag(whatTag: WhatTagType): Promise<Transaction[]> {
+	// New category-based transaction queries
+	async getTransactionsByCategory(categoryId: string): Promise<Transaction[]> {
 		return await this.transactions
-			.where('whatTag').equals(whatTag)
-			.filter(transaction => !transaction.deletedAt)
-			.toArray();
-	}
-
-	async getTransactionsByBudgetCategory(budgetCategoryId: string): Promise<Transaction[]> {
-		return await this.transactions
-			.where('budgetCategoryId').equals(budgetCategoryId)
-			.filter(transaction => !transaction.deletedAt)
-			.toArray();
-	}
-
-	async getTransactionsByPayee(payeeId: string): Promise<Transaction[]> {
-		return await this.transactions
-			.where('payeeId').equals(payeeId)
+			.where('categoryId').equals(categoryId)
 			.filter(transaction => !transaction.deletedAt)
 			.toArray();
 	}
@@ -1865,31 +1560,39 @@ export class BudgicDB extends Dexie {
 
 
 
-	// Bank transaction queries
-	async getBankTransactionsByAccount(accountId: string): Promise<BankTransaction[]> {
-		return await this.bankTransactions
-			.where('accountId').equals(accountId)
-			.filter(transaction => !transaction.deletedAt)
+	// Goal queries
+	async getActiveGoals(): Promise<Goal[]> {
+		return await this.goals.filter(goal => goal.status === 'active').toArray();
+	}
+
+	async getGoalsByStatus(status: Goal['status']): Promise<Goal[]> {
+		return await this.goals
+			.where('status').equals(status)
 			.toArray();
 	}
 
-	async getUncategorizedBankTransactions(): Promise<BankTransaction[]> {
-		const bankTransactionIds = await this.bankTransactions
-			.filter(transaction => !transaction.deletedAt)
-			.primaryKeys();
-		
-		const categorizedBankTransactionIds = await this.transactions
-			.filter(transaction => transaction.bankTransactionId !== null)
-			.toArray()
-			.then(transactions => transactions.map(t => t.bankTransactionId!));
-		
-		const uncategorizedIds = bankTransactionIds.filter(id => 
-			!categorizedBankTransactionIds.includes(id)
-		);
-		
-		return await this.bankTransactions
-			.where('id')
-			.anyOf(uncategorizedIds)
+	async getGoalsByCategory(category: Goal['category']): Promise<Goal[]> {
+		return await this.goals
+			.where('category').equals(category)
+			.toArray();
+	}
+
+	// Insight queries
+	async getActiveInsights(): Promise<Insight[]> {
+		return await this.insights.filter(insight => insight.isActive && !insight.dismissedAt).toArray();
+	}
+
+	async getInsightsByType(type: Insight['type']): Promise<Insight[]> {
+		return await this.insights
+			.where('type').equals(type)
+			.filter(insight => insight.isActive && !insight.dismissedAt)
+			.toArray();
+	}
+
+	async getInsightsBySeverity(severity: Insight['severity']): Promise<Insight[]> {
+		return await this.insights
+			.where('severity').equals(severity)
+			.filter(insight => insight.isActive && !insight.dismissedAt)
 			.toArray();
 	}
 
@@ -1904,26 +1607,6 @@ export class BudgicDB extends Dexie {
 		});
 	}
 
-	async softDeleteTagDimension(id: string): Promise<void> {
-		await this.tagDimensions.update(id, { 
-			deletedAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString()
-		});
-	}
-
-	async softDeleteTag(id: string): Promise<void> {
-		await this.tags.update(id, { 
-			deletedAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString()
-		});
-	}
-
-	async softDeleteTransactionTag(id: string): Promise<void> {
-		await this.transactionTags.update(id, { 
-			deletedAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString()
-		});
-	}
 
 	async softDeleteTransaction(id: string): Promise<void> {
 		await this.transactions.update(id, { 
@@ -1932,9 +1615,24 @@ export class BudgicDB extends Dexie {
 		});
 	}
 
-	async softDeleteBankTransaction(id: string): Promise<void> {
-		await this.bankTransactions.update(id, { 
+	async softDeleteCategory(id: string): Promise<void> {
+		await this.categories.update(id, { 
 			deletedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString()
+		});
+	}
+
+	async softDeleteGoal(id: string): Promise<void> {
+		await this.goals.update(id, { 
+			status: 'cancelled',
+			updatedAt: new Date().toISOString()
+		});
+	}
+
+	async softDeleteInsight(id: string): Promise<void> {
+		await this.insights.update(id, { 
+			dismissedAt: new Date().toISOString(),
+			isActive: false,
 			updatedAt: new Date().toISOString()
 		});
 	}
@@ -1949,40 +1647,24 @@ export class BudgicDB extends Dexie {
 		return await this.accounts.toArray();
 	}
 
-	async getAllTagDimensionsIncludingDeleted(): Promise<TagDimension[]> {
-		return await this.tagDimensions.toArray();
-	}
-
-	async getAllTagsIncludingDeleted(): Promise<Tag[]> {
-		return await this.tags.toArray();
+	async getAllCategoriesIncludingDeleted(): Promise<Category[]> {
+		return await this.categories.toArray();
 	}
 
 	async getAllTransactionsIncludingDeleted(): Promise<Transaction[]> {
 		return await this.transactions.toArray();
 	}
 
-	async getAllBankTransactionsIncludingDeleted(): Promise<BankTransaction[]> {
-		return await this.bankTransactions.toArray();
+	async getAllGoalsIncludingDeleted(): Promise<Goal[]> {
+		return await this.goals.toArray();
 	}
 
-
-
-	async getAllCategoryMappingsIncludingDeleted(): Promise<any[]> {
-		// This method is for migration purposes only
-		// Since we're removing category mappings, we'll return an empty array
-		return [];
+	async getAllInsightsIncludingDeleted(): Promise<Insight[]> {
+		return await this.insights.toArray();
 	}
 
-	async getAllAtomicCategoriesIncludingDeleted(): Promise<any[]> {
-		// This method is for migration purposes only
-		// Since we're removing atomic categories, we'll return an empty array
-		return [];
-	}
-
-	async getAllUserCategoriesIncludingDeleted(): Promise<any[]> {
-		// This method is for migration purposes only
-		// Since we're removing user categories, we'll return an empty array
-		return [];
+	async getAllUserActionsIncludingDeleted(): Promise<UserAction[]> {
+		return await this.userActions.toArray();
 	}
 
 	// ============================================================================
@@ -2029,184 +1711,3 @@ export const db = new Proxy({} as BudgicDB, {
     return getDB()[prop as keyof BudgicDB];
   }
 });
-
-// ============================================================================
-// MIGRATION HELPERS
-// ============================================================================
-
-export class MigrationHelper {
-	static async migrateFromOldSchema(
-		oldData: {
-			accounts?: any[];
-			categories?: any[];
-			transactions?: any[];
-			plannedTransactions?: any[];
-			settings?: any[];
-		}
-	): Promise<void> {
-		try {
-			// Clear existing data
-			await db.transaction('rw', 
-				[db.accounts, db.tagDimensions, db.tags, db.transactions, db.dynamicSettings], 
-				async () => {
-					await db.accounts.clear();
-					await db.tagDimensions.clear();
-					await db.tags.clear();
-					await db.transactions.clear();
-					await db.dynamicSettings.clear();
-
-					// Migrate accounts
-					if (oldData.accounts?.length) {
-						const migratedAccounts = oldData.accounts.map(account => ({
-							...account,
-							initialBalance: account.currentBalance || 0,
-							currentBalance: account.currentBalance || 0,
-							isActive: !account.isDeleted
-						}));
-						await db.accounts.bulkAdd(migratedAccounts);
-						console.log(`Migrated ${migratedAccounts.length} accounts`);
-					}
-
-					// Create system tag dimensions
-					const systemDimensions = [
-						{ name: 'what', description: 'What was purchased', required: true, multiSelect: true, isSystem: true },
-						{ name: 'why', description: 'Why was it purchased', required: false, multiSelect: false, isSystem: true },
-						{ name: 'where', description: 'Where was it purchased', required: false, multiSelect: false, isSystem: true }
-					];
-
-					for (const dim of systemDimensions) {
-						await db.tagDimensions.add({
-							id: generateUUID(),
-							...dim,
-							isActive: true,
-							createdAt: new Date().toISOString(),
-							updatedAt: new Date().toISOString(),
-							deletedAt: null
-						});
-					}
-
-					// Migrate categories to what tags
-					if (oldData.categories?.length) {
-						const whatTags = oldData.categories.map(category => ({
-							id: generateUUID(),
-							name: category.name.toLowerCase().replace(/\s+/g, '_'),
-							dimension: 'what',
-							color: '#3B82F6',
-							isActive: !category.isDeleted,
-							createdAt: category.createdAt,
-							updatedAt: category.updatedAt,
-							deletedAt: category.isDeleted ? new Date().toISOString() : null
-						}));
-						await db.tags.bulkAdd(whatTags);
-						console.log(`Migrated ${whatTags.length} what tags`);
-					}
-
-					// Migrate transactions
-					if (oldData.transactions?.length) {
-						const migratedTransactions = oldData.transactions.map(transaction => ({
-							id: transaction.id,
-							type: (transaction.amount >= 0 ? 'income' : 'expense') as 'income' | 'expense',
-							status: (transaction.isPlanned ? 'planned' : 'cleared') as 'planned' | 'cleared',
-							confidence: transaction.confidenceLevel || 'confirmed',
-							accountId: transaction.accountId,
-							amount: transaction.amount || 0,
-							currency: 'USD',
-							description: transaction.description || '',
-							whatTag: transaction.atomicCategoryId ? transaction.atomicCategoryId.toLowerCase().replace(/\s+/g, '_') as any : undefined,
-							whyTag: undefined,
-							payeeId: undefined,
-							plannedDate: transaction.isPlanned ? transaction.transactionDate : undefined,
-							clearedDate: !transaction.isPlanned ? transaction.transactionDate : undefined,
-							bankTransactionId: transaction.bankTransactionId || undefined,
-							splitId: transaction.groupId || undefined,
-							splitName: transaction.groupName || undefined,
-							toAccountId: undefined,
-							recurrenceRule: transaction.isRecurring ? '{}' : undefined,
-							parentRecurrenceId: undefined,
-							reference: transaction.notes || undefined,
-							notes: transaction.notes || undefined,
-							importSource: undefined,
-							createdAt: transaction.createdAt,
-							updatedAt: transaction.updatedAt,
-							deletedAt: transaction.isDeleted ? new Date().toISOString() : null
-						}));
-						await db.transactions.bulkAdd(migratedTransactions);
-						console.log(`Migrated ${migratedTransactions.length} transactions`);
-					}
-
-					// Migrate planned transactions
-					if (oldData.plannedTransactions?.length) {
-						const migratedPlannedTransactions = oldData.plannedTransactions.map(planned => ({
-							id: `planned_${planned.id}`,
-							type: (planned.amount >= 0 ? 'income' : 'expense') as 'income' | 'expense',
-							status: 'planned' as const,
-							confidence: planned.confidenceLevel || 'expected',
-							accountId: planned.accountId,
-							amount: planned.amount || 0,
-							currency: 'USD',
-							description: planned.description || '',
-							whatTag: planned.atomicCategoryId ? planned.atomicCategoryId.toLowerCase().replace(/\s+/g, '_') as any : undefined,
-							whyTag: undefined,
-							payeeId: undefined,
-							plannedDate: planned.plannedDate,
-							plannedAmount: planned.amount || undefined,
-							clearedDate: undefined,
-							bankTransactionId: undefined,
-							splitId: undefined,
-							splitName: undefined,
-							toAccountId: undefined,
-							recurrenceRule: planned.recurrencePattern || undefined,
-							parentRecurrenceId: undefined,
-							reference: planned.notes || undefined,
-							notes: planned.notes || undefined,
-							importSource: undefined,
-							createdAt: planned.createdAt,
-							updatedAt: planned.updatedAt,
-							deletedAt: planned.isDeleted ? new Date().toISOString() : null
-						}));
-						await db.transactions.bulkAdd(migratedPlannedTransactions);
-						console.log(`Migrated ${migratedPlannedTransactions.length} planned transactions`);
-					}
-
-					// Migrate settings
-					if (oldData.settings?.length) {
-						const migratedSettings = oldData.settings.map(setting => ({
-							id: setting.id,
-							key: setting.key || setting.id,
-							value: JSON.stringify(setting),
-							dataType: 'json' as const,
-							createdAt: setting.createdAt,
-							updatedAt: setting.updatedAt,
-							deletedAt: setting.isDeleted ? new Date().toISOString() : null
-						}));
-						await db.dynamicSettings.bulkAdd(migratedSettings);
-						console.log(`Migrated ${migratedSettings.length} settings`);
-					}
-				}
-			);
-
-			console.log('Migration completed successfully');
-		} catch (error) {
-			console.error('Migration failed:', error);
-			throw error;
-		}
-	}
-
-	static async validateMigration(): Promise<{
-		accounts: number;
-		tagDimensions: number;
-		tags: number;
-		transactions: number;
-		bankTransactions: number;
-		settings: number;
-	}> {
-		return {
-			accounts: await db.accounts.count(),
-			tagDimensions: await db.tagDimensions.count(),
-			tags: await db.tags.count(),
-			transactions: await db.transactions.count(),
-			bankTransactions: await db.bankTransactions.count(),
-			settings: await db.dynamicSettings.count()
-		};
-	}
-}

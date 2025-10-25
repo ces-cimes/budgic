@@ -1,0 +1,488 @@
+import { db } from '$lib/core/db';
+import type { Transaction, Account, Category } from '$lib/core/db';
+
+interface SpendingAnalysis {
+    totalSpent: number;
+    averageMonthlySpending: number;
+    topCategories: {
+        categoryId: string;
+        categoryName: string;
+        amount: number;
+        percentage: number;
+    }[];
+    spendingTrend: 'increasing' | 'decreasing' | 'stable';
+    monthlyBreakdown: {
+        month: string;
+        amount: number;
+    }[];
+}
+
+interface IncomeAnalysis {
+    totalIncome: number;
+    averageMonthlyIncome: number;
+    incomeSources: {
+        accountId: string;
+        accountName: string;
+        amount: number;
+        percentage: number;
+    }[];
+    incomeTrend: 'increasing' | 'decreasing' | 'stable';
+    monthlyBreakdown: {
+        month: string;
+        amount: number;
+    }[];
+}
+
+interface FinancialHealthScore {
+    score: number; // 0-100
+    components: {
+        spendingControl: number;
+        savingsRate: number;
+        debtToIncome: number;
+        emergencyFund: number;
+        goalProgress: number;
+    };
+    recommendations: string[];
+}
+
+interface TrendData {
+    period: string;
+    income: number;
+    expenses: number;
+    net: number;
+}
+
+class AnalyticsService {
+    public get ready() {
+        return Promise.resolve();
+    }
+
+    public isLoading() {
+        return false;
+    }
+
+    // ============================================================================
+    // SPENDING ANALYSIS
+    // ============================================================================
+
+    /**
+     * Get comprehensive spending analysis
+     */
+    async getSpendingAnalysis(months: number = 12): Promise<SpendingAnalysis> {
+        const transactions = await db.transactions.toArray();
+        const categories = await db.getActiveCategories();
+        
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - months);
+        
+        const recentTransactions = transactions.filter(tx => 
+            tx.type === 'expense' && 
+            tx.status === 'cleared' && 
+            tx.clearedDate && 
+            new Date(tx.clearedDate) >= cutoffDate
+        );
+
+        const totalSpent = recentTransactions.reduce((sum: number, tx: Transaction) => sum + Math.abs(tx.amount || 0), 0);
+        const averageMonthlySpending = totalSpent / months;
+
+        // Calculate spending by category
+        const categorySpending = new Map<string, { name: string; amount: number }>();
+        
+        recentTransactions.forEach((tx: Transaction) => {
+            if (tx.categoryId) {
+                const category = categories.find(c => c.id === tx.categoryId);
+                const categoryName = category?.name || 'Uncategorized';
+                const current = categorySpending.get(tx.categoryId) || { name: categoryName, amount: 0 };
+                current.amount += Math.abs(tx.amount || 0);
+                categorySpending.set(tx.categoryId, current);
+            }
+        });
+
+        const topCategories = Array.from(categorySpending.entries())
+            .map(([categoryId, data]) => ({
+                categoryId,
+                categoryName: data.name,
+                amount: data.amount,
+                percentage: totalSpent > 0 ? (data.amount / totalSpent) * 100 : 0
+            }))
+            .sort((a, b) => b.amount - a.amount)
+            .slice(0, 10);
+
+        // Calculate spending trend
+        const monthlySpending = this.calculateMonthlyBreakdown(recentTransactions, months);
+        const spendingTrend = this.calculateTrend(monthlySpending.map(m => m.amount));
+
+        return {
+            totalSpent,
+            averageMonthlySpending,
+            topCategories,
+            spendingTrend,
+            monthlyBreakdown: monthlySpending
+        };
+    }
+
+    /**
+     * Get spending analysis for a specific category
+     */
+    async getCategorySpendingAnalysis(categoryId: string, months: number = 12): Promise<{
+        categoryName: string;
+        totalSpent: number;
+        averageMonthlySpending: number;
+        transactionCount: number;
+        monthlyBreakdown: { month: string; amount: number }[];
+        trend: 'increasing' | 'decreasing' | 'stable';
+    }> {
+        const transactions = await db.transactions.toArray();
+        const category = await db.categories.get(categoryId);
+        
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - months);
+        
+        const categoryTransactions = transactions.filter((tx: Transaction) => 
+            tx.categoryId === categoryId && 
+            tx.type === 'expense' && 
+            tx.status === 'cleared' && 
+            tx.clearedDate && 
+            new Date(tx.clearedDate) >= cutoffDate
+        );
+
+        const totalSpent = categoryTransactions.reduce((sum: number, tx: Transaction) => sum + Math.abs(tx.amount || 0), 0);
+        const averageMonthlySpending = totalSpent / months;
+        const monthlyBreakdown = this.calculateMonthlyBreakdown(categoryTransactions, months);
+        const trend = this.calculateTrend(monthlyBreakdown.map(m => m.amount));
+
+        return {
+            categoryName: category?.name || 'Unknown Category',
+            totalSpent,
+            averageMonthlySpending,
+            transactionCount: categoryTransactions.length,
+            monthlyBreakdown,
+            trend
+        };
+    }
+
+    // ============================================================================
+    // INCOME ANALYSIS
+    // ============================================================================
+
+    /**
+     * Get comprehensive income analysis
+     */
+    async getIncomeAnalysis(months: number = 12): Promise<IncomeAnalysis> {
+        const transactions = await db.transactions.toArray();
+        const accounts = await db.getActiveAccounts();
+        
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - months);
+        
+        const recentTransactions = transactions.filter((tx: Transaction) => 
+            tx.type === 'income' && 
+            tx.status === 'cleared' && 
+            tx.clearedDate && 
+            new Date(tx.clearedDate) >= cutoffDate
+        );
+
+        const totalIncome = recentTransactions.reduce((sum: number, tx: Transaction) => sum + (tx.amount || 0), 0);
+        const averageMonthlyIncome = totalIncome / months;
+
+        // Calculate income by account
+        const accountIncome = new Map<string, { name: string; amount: number }>();
+        
+        recentTransactions.forEach((tx: Transaction) => {
+            const account = accounts.find(a => a.id === tx.accountId);
+            const accountName = account?.name || 'Unknown Account';
+            const current = accountIncome.get(tx.accountId) || { name: accountName, amount: 0 };
+            current.amount += tx.amount || 0;
+            accountIncome.set(tx.accountId, current);
+        });
+
+        const incomeSources = Array.from(accountIncome.entries())
+            .map(([accountId, data]) => ({
+                accountId,
+                accountName: data.name,
+                amount: data.amount,
+                percentage: totalIncome > 0 ? (data.amount / totalIncome) * 100 : 0
+            }))
+            .sort((a, b) => b.amount - a.amount);
+
+        // Calculate income trend
+        const monthlyIncome = this.calculateMonthlyBreakdown(recentTransactions, months);
+        const incomeTrend = this.calculateTrend(monthlyIncome.map(m => m.amount));
+
+        return {
+            totalIncome,
+            averageMonthlyIncome,
+            incomeSources,
+            incomeTrend,
+            monthlyBreakdown: monthlyIncome
+        };
+    }
+
+    // ============================================================================
+    // FINANCIAL HEALTH
+    // ============================================================================
+
+    /**
+     * Calculate financial health score
+     */
+    async getFinancialHealthScore(): Promise<FinancialHealthScore> {
+        const accounts = await db.getActiveAccounts();
+        const transactions = await db.transactions.toArray();
+        
+        // Calculate components
+        const spendingControl = await this.calculateSpendingControlScore(transactions);
+        const savingsRate = await this.calculateSavingsRateScore(transactions);
+        const debtToIncome = await this.calculateDebtToIncomeScore(accounts, transactions);
+        const emergencyFund = await this.calculateEmergencyFundScore(accounts, transactions);
+        const goalProgress = await this.calculateGoalProgressScore();
+
+        const score = Math.round((spendingControl + savingsRate + debtToIncome + emergencyFund + goalProgress) / 5);
+        
+        const recommendations = this.generateRecommendations({
+            spendingControl,
+            savingsRate,
+            debtToIncome,
+            emergencyFund,
+            goalProgress
+        });
+
+        return {
+            score,
+            components: {
+                spendingControl,
+                savingsRate,
+                debtToIncome,
+                emergencyFund,
+                goalProgress
+            },
+            recommendations
+        };
+    }
+
+    // ============================================================================
+    // TREND ANALYSIS
+    // ============================================================================
+
+    /**
+     * Get financial trends over time
+     */
+    async getFinancialTrends(months: number = 12): Promise<TrendData[]> {
+        const transactions = await db.transactions.toArray();
+        const cutoffDate = new Date();
+        cutoffDate.setMonth(cutoffDate.getMonth() - months);
+        
+        const recentTransactions = transactions.filter((tx: Transaction) => 
+            tx.status === 'cleared' && 
+            tx.clearedDate && 
+            new Date(tx.clearedDate) >= cutoffDate
+        );
+
+        const monthlyData = new Map<string, { income: number; expenses: number }>();
+        
+        recentTransactions.forEach((tx: Transaction) => {
+            const month = new Date(tx.clearedDate!).toISOString().substring(0, 7); // YYYY-MM
+            const current = monthlyData.get(month) || { income: 0, expenses: 0 };
+            
+            if (tx.type === 'income') {
+                current.income += tx.amount || 0;
+            } else if (tx.type === 'expense') {
+                current.expenses += Math.abs(tx.amount || 0);
+            }
+            
+            monthlyData.set(month, current);
+        });
+
+        return Array.from(monthlyData.entries())
+            .map(([period, data]) => ({
+                period,
+                income: data.income,
+                expenses: data.expenses,
+                net: data.income - data.expenses
+            }))
+            .sort((a, b) => a.period.localeCompare(b.period));
+    }
+
+    // ============================================================================
+    // PRIVATE METHODS
+    // ============================================================================
+
+    /**
+     * Calculate monthly breakdown for transactions
+     */
+    private calculateMonthlyBreakdown(transactions: Transaction[], months: number): { month: string; amount: number }[] {
+        const monthlyData = new Map<string, number>();
+        
+        transactions.forEach(tx => {
+            const month = new Date(tx.clearedDate!).toISOString().substring(0, 7);
+            const current = monthlyData.get(month) || 0;
+            monthlyData.set(month, current + Math.abs(tx.amount || 0));
+        });
+
+        return Array.from(monthlyData.entries())
+            .map(([month, amount]) => ({ month, amount }))
+            .sort((a, b) => a.month.localeCompare(b.month));
+    }
+
+    /**
+     * Calculate trend from array of values
+     */
+    private calculateTrend(values: number[]): 'increasing' | 'decreasing' | 'stable' {
+        if (values.length < 2) return 'stable';
+        
+        const firstHalf = values.slice(0, Math.floor(values.length / 2));
+        const secondHalf = values.slice(Math.floor(values.length / 2));
+        
+        const firstAvg = firstHalf.reduce((sum, val) => sum + val, 0) / firstHalf.length;
+        const secondAvg = secondHalf.reduce((sum, val) => sum + val, 0) / secondHalf.length;
+        
+        const changePercent = ((secondAvg - firstAvg) / firstAvg) * 100;
+        
+        if (changePercent > 5) return 'increasing';
+        if (changePercent < -5) return 'decreasing';
+        return 'stable';
+    }
+
+    /**
+     * Calculate spending control score (0-100)
+     */
+    private async calculateSpendingControlScore(transactions: Transaction[]): Promise<number> {
+        // Simple implementation - can be enhanced with more sophisticated logic
+        const recentTransactions = transactions.filter(tx => 
+            tx.type === 'expense' && 
+            tx.status === 'cleared' && 
+            tx.clearedDate && 
+            new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+        );
+
+        const totalSpending = recentTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+        
+        // Simple scoring based on spending amount (this should be more sophisticated)
+        if (totalSpending < 1000) return 90;
+        if (totalSpending < 2000) return 70;
+        if (totalSpending < 3000) return 50;
+        return 30;
+    }
+
+    /**
+     * Calculate savings rate score (0-100)
+     */
+    private async calculateSavingsRateScore(transactions: Transaction[]): Promise<number> {
+        const recentTransactions = transactions.filter(tx => 
+            tx.status === 'cleared' && 
+            tx.clearedDate && 
+            new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        );
+
+        const totalIncome = recentTransactions
+            .filter(tx => tx.type === 'income')
+            .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+        
+        const totalExpenses = recentTransactions
+            .filter(tx => tx.type === 'expense')
+            .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+
+        if (totalIncome === 0) return 0;
+        
+        const savingsRate = ((totalIncome - totalExpenses) / totalIncome) * 100;
+        
+        if (savingsRate >= 20) return 100;
+        if (savingsRate >= 15) return 80;
+        if (savingsRate >= 10) return 60;
+        if (savingsRate >= 5) return 40;
+        return 20;
+    }
+
+    /**
+     * Calculate debt-to-income ratio score (0-100)
+     */
+    private async calculateDebtToIncomeScore(accounts: Account[], transactions: Transaction[]): Promise<number> {
+        // Simple implementation - assumes credit accounts are debt
+        const creditAccounts = accounts.filter(acc => acc.type === 'credit');
+        const totalDebt = creditAccounts.reduce((sum, acc) => sum + Math.abs(acc.currentBalance), 0);
+        
+        const recentIncome = transactions
+            .filter(tx => tx.type === 'income' && tx.status === 'cleared')
+            .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+        
+        if (recentIncome === 0) return 50; // Neutral if no income data
+        
+        const debtToIncomeRatio = totalDebt / recentIncome;
+        
+        if (debtToIncomeRatio <= 0.1) return 100;
+        if (debtToIncomeRatio <= 0.2) return 80;
+        if (debtToIncomeRatio <= 0.3) return 60;
+        if (debtToIncomeRatio <= 0.4) return 40;
+        return 20;
+    }
+
+    /**
+     * Calculate emergency fund score (0-100)
+     */
+    private async calculateEmergencyFundScore(accounts: Account[], transactions: Transaction[]): Promise<number> {
+        const savingsAccounts = accounts.filter(acc => acc.type === 'savings');
+        const totalSavings = savingsAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
+        
+        const monthlyExpenses = transactions
+            .filter(tx => tx.type === 'expense' && tx.status === 'cleared')
+            .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0) / 3; // Approximate monthly expenses
+        
+        if (monthlyExpenses === 0) return 50;
+        
+        const emergencyFundMonths = totalSavings / monthlyExpenses;
+        
+        if (emergencyFundMonths >= 6) return 100;
+        if (emergencyFundMonths >= 4) return 80;
+        if (emergencyFundMonths >= 3) return 60;
+        if (emergencyFundMonths >= 2) return 40;
+        return 20;
+    }
+
+    /**
+     * Calculate goal progress score (0-100)
+     */
+    private async calculateGoalProgressScore(): Promise<number> {
+        const goals = await db.getActiveGoals();
+        if (goals.length === 0) return 50; // Neutral if no goals
+        
+        // Simple implementation - can be enhanced with actual goal progress calculation
+        const completedGoals = goals.filter(g => g.status === 'completed').length;
+        return Math.round((completedGoals / goals.length) * 100);
+    }
+
+    /**
+     * Generate recommendations based on health score components
+     */
+    private generateRecommendations(components: {
+        spendingControl: number;
+        savingsRate: number;
+        debtToIncome: number;
+        emergencyFund: number;
+        goalProgress: number;
+    }): string[] {
+        const recommendations: string[] = [];
+        
+        if (components.spendingControl < 60) {
+            recommendations.push('Consider tracking your expenses more closely and setting spending limits');
+        }
+        
+        if (components.savingsRate < 60) {
+            recommendations.push('Try to increase your savings rate by reducing expenses or increasing income');
+        }
+        
+        if (components.debtToIncome < 60) {
+            recommendations.push('Focus on paying down high-interest debt to improve your financial health');
+        }
+        
+        if (components.emergencyFund < 60) {
+            recommendations.push('Build an emergency fund with 3-6 months of expenses');
+        }
+        
+        if (components.goalProgress < 60) {
+            recommendations.push('Set specific financial goals and track your progress regularly');
+        }
+        
+        return recommendations;
+    }
+}
+
+export const analyticsService = new AnalyticsService();

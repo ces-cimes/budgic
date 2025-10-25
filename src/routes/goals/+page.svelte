@@ -26,13 +26,12 @@
     ActiveTab,
     CompletedTab,
     type GoalsData,
-    type FinancialGoal,
-    type GoalProgress
+    type Goal
   } from '$lib/components/goals';
   import { goalsService } from '$lib/components/goals/goals-service';
   
   // Services
-  import { settingsService, userActionsService } from '$lib/core/services';
+  import { userService } from '$lib/core/services';
 
   // Tab configuration
   const goalsTabs: TabConfig[] = [
@@ -46,8 +45,8 @@
   let isLoading = $state(true);
   let userCurrency = $state<string>('USD');
   let goalsData = $state<GoalsData | null>(null);
-  let activeGoals = $state<FinancialGoal[]>([]);
-  let completedGoals = $state<FinancialGoal[]>([]);
+  let activeGoals = $state<Goal[]>([]);
+  let completedGoals = $state<Goal[]>([]);
   let error = $state<string | null>(null);
 
 
@@ -70,17 +69,11 @@
       error = null;
 
       // Load user currency preference
-      userCurrency = await settingsService.getCurrency();
+      const preferences = await userService.getUserPreferences();
+      userCurrency = preferences?.currency || 'USD';
 
       // Load goals data
       await loadGoalsData();
-
-      // Track user action
-      await userActionsService.track('progress_viewed', {
-        page: 'goals',
-        activeTab,
-        timestamp: new Date().toISOString()
-      });
 
     } catch (err) {
       error = err instanceof Error ? err.message : 'Failed to load goals data';
@@ -92,15 +85,10 @@
 
   async function loadGoalsData() {
     try {
-      const [goalsDataResult, activeGoalsResult, completedGoalsResult] = await Promise.all([
-        goalsService.getGoalsData(),
-        goalsService.getActiveGoals(),
-        goalsService.getCompletedGoals()
-      ]);
-
+      const goalsDataResult = await goalsService.getGoalsData();
       goalsData = goalsDataResult;
-      activeGoals = activeGoalsResult;
-      completedGoals = completedGoalsResult;
+      activeGoals = goalsDataResult.activeGoals;
+      completedGoals = goalsDataResult.completedGoals;
 
     } catch (err) {
       console.error('Error loading goals data:', err);
@@ -118,12 +106,8 @@
 
   async function handleGoalAction(action: string, goalId: string) {
     try {
-      // Track user action
-      await userActionsService.track('budget_modified', {
-        action,
-        goalId,
-        timestamp: new Date().toISOString()
-      });
+      // Handle goal action (tracking removed for now)
+      console.log('Goal action:', action, goalId);
 
       // Reload data after action
       await loadGoalsData();

@@ -37,9 +37,8 @@
 
   onMount(async () => {
     try {
-      // Get user's preferred first day of week
-      const userPreferences = await planService.getUserPreferences();
-      firstDayOfWeek = userPreferences?.firstDayOfWeek ?? 1;
+      // Get user's preferred first day of week (default to Monday)
+      firstDayOfWeek = 1; // Default to Monday for now
 
       // Set current start week to the current week
       currentStartWeek = planService.getWeekStart(new Date(), firstDayOfWeek);
@@ -58,26 +57,17 @@
 
     // Load each week individually
     for (const weekKey of weekKeys) {
-      if (planService.isWeekCached(weekKey)) {
-        // Week is cached, get it immediately
-        const cached = planService.getCachedWeek(weekKey);
-        if (cached) {
-          newVisibleWeeks.push(cached.projection);
-        }
-      } else {
-        // Week needs to be loaded
-        loadingWeeks.add(weekKey);
-        weekErrors.delete(weekKey);
+      loadingWeeks.add(weekKey);
+      weekErrors.delete(weekKey);
 
-        try {
-          const projection = await planService.getWeekProjection(selectedAccountId, weekKey);
-          newVisibleWeeks.push(projection);
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Failed to load week';
-          weekErrors.set(weekKey, errorMessage);
-        } finally {
-          loadingWeeks.delete(weekKey);
-        }
+      try {
+        const projection = await planService.getWeekProjection(selectedAccountId, weekKey);
+        newVisibleWeeks.push(projection);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load week';
+        weekErrors.set(weekKey, errorMessage);
+      } finally {
+        loadingWeeks.delete(weekKey);
       }
     }
 
@@ -93,7 +83,7 @@
     return keys;
   }
 
-  function getRiskColor(riskLevel: string) {
+  function getRiskColor(riskLevel?: string) {
     switch (riskLevel) {
       case 'safe':
         return 'text-success';
@@ -106,7 +96,7 @@
     }
   }
 
-  function getRiskIcon(riskLevel: string) {
+  function getRiskIcon(riskLevel?: string) {
     switch (riskLevel) {
       case 'safe':
         return CheckCircle;
@@ -317,7 +307,7 @@
                   : 'destructive'}
               class="text-xs"
             >
-              {week.riskLevel.charAt(0).toUpperCase() + week.riskLevel.slice(1)}
+              {week.riskLevel ? week.riskLevel.charAt(0).toUpperCase() + week.riskLevel.slice(1) : 'Safe'}
             </Badge>
           </div>
 
@@ -326,7 +316,7 @@
             <div class="text-left">
               <div class="text-muted-foreground">Start</div>
               <div class="font-medium">
-                {formatTransactionAmountLocal(week.startingBalance)}
+                {formatTransactionAmountLocal(week.startingBalance || 0)}
               </div>
             </div>
             <div class="text-center">
@@ -338,25 +328,25 @@
             <div class="text-right">
               <div class="text-muted-foreground">End</div>
               <div class="font-medium {getRiskColor(week.riskLevel)}">
-                {formatTransactionAmountLocal(week.endingBalance)}
+                {formatTransactionAmountLocal(week.endingBalance || 0)}
               </div>
             </div>
           </div>
 
           <!-- Transactions Preview -->
-          {#if week.transactions.length > 0}
+          {#if week.transactions && week.transactions.length > 0}
             <div
-              class="border-border mt-2 border-t {week.transactions.length > 3
+              class="border-border mt-2 border-t {(week.transactions?.length || 0) > 3
                 ? 'hover:bg-muted/50 cursor-pointer'
                 : ''} -m-1 rounded-md p-1 transition-colors"
-              onclick={week.transactions.length > 3
+              onclick={(week.transactions?.length || 0) > 3
                 ? (e) => {
                     e.stopPropagation();
                     toggleTransactionExpansion(weekId);
                   }
                 : undefined}
-              role={week.transactions.length > 3 ? 'button' : undefined}
-              {...week.transactions.length > 3
+              role={(week.transactions?.length || 0) > 3 ? 'button' : undefined}
+              {...(week.transactions?.length || 0) > 3
                 ? {
                     tabindex: 0,
                     onkeydown: (e) => e.key === 'Enter' && toggleTransactionExpansion(weekId)
@@ -367,9 +357,9 @@
                 <div class="text-muted-foreground text-xs">Transactions:</div>
                 <div class="flex items-center gap-1">
                   <div class="text-muted-foreground text-xs">
-                    {week.transactions.length}
+                    {week.transactions?.length || 0}
                   </div>
-                  {#if week.transactions.length > 3}
+                  {#if (week.transactions?.length || 0) > 3}
                     <div
                       class="text-muted-foreground text-xs transition-transform duration-200 {isExpanded
                         ? 'rotate-180'
@@ -382,7 +372,7 @@
               </div>
 
               <div class="space-y-1">
-                {#each week.transactions.slice(0, isExpanded ? week.transactions.length : week.transactions.length <= 3 ? week.transactions.length : 2) as transaction}
+                {#each (week.transactions || []).slice(0, isExpanded ? (week.transactions?.length || 0) : (week.transactions?.length || 0) <= 3 ? (week.transactions?.length || 0) : 2) as transaction}
                   <div class="flex items-center justify-between text-xs">
                     <span class="truncate">{transaction.description || 'Transaction'}</span>
                     <span
@@ -394,9 +384,9 @@
                     </span>
                   </div>
                 {/each}
-                {#if week.transactions.length > 3 && !isExpanded}
+                {#if (week.transactions?.length || 0) > 3 && !isExpanded}
                   <div class="text-muted-foreground py-0.5 text-center text-xs">
-                    +{week.transactions.length - 2} more
+                    +{(week.transactions?.length || 0) - 2} more
                   </div>
                 {/if}
               </div>

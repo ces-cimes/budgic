@@ -40,7 +40,7 @@
   import { analyzeService } from '$lib/components/analyze/analyze-service';
   
   // Services
-  import { settingsService, userActionsService } from '$lib/core/services';
+  import { userService } from '$lib/core/services';
 
   // Tab configuration
   const analyzeTabs: TabConfig[] = [
@@ -96,17 +96,11 @@
   onMount(async () => {
     try {
       // Load user currency preference
-      userCurrency = await settingsService.getCurrency();
+      const preferences = await userService.getUserPreferences();
+      userCurrency = preferences?.currency || 'USD';
       
       // Load insights data
       await loadInsights();
-      
-      // Track user viewing analyze page
-      await userActionsService.track('progress_viewed', {
-        triggeredBy: 'user_initiated',
-        categoriesViewed: ['analyze'],
-        actionTaken: 'none'
-      });
     } catch (error) {
       console.error('Error loading analyze data:', error);
     } finally {
@@ -152,31 +146,39 @@
         averageTransaction: currentData.totalSpending / transactions.length || 0
       };
       
-      // Mock previous period data (in real implementation, this would come from historical data)
+      // Calculate previous period data from historical transactions
+      const previousPeriodTransactions = transactions.filter(tx => {
+        const txDate = new Date(tx.clearedDate || tx.plannedDate || tx.createdAt);
+        const currentDate = new Date();
+        const periodStart = new Date(currentDate.getTime() - (timeRange === 'month' ? 60 : timeRange === 'quarter' ? 180 : 365) * 24 * 60 * 60 * 1000);
+        const periodEnd = new Date(currentDate.getTime() - (timeRange === 'month' ? 30 : timeRange === 'quarter' ? 90 : 180) * 24 * 60 * 60 * 1000);
+        return txDate >= periodStart && txDate <= periodEnd;
+      });
+      
+      const previousData = analyzeService.calculateSpendingData(previousPeriodTransactions, timeRange);
       previousPeriodData = {
-        totalSpending: currentData.totalSpending * 0.89,
-        transactionCount: Math.floor(transactions.length * 0.93),
-        averageTransaction: currentData.totalSpending * 0.89 / Math.floor(transactions.length * 0.93),
-        savingsRate: currentData.savingsRate + 2.6
+        ...previousData,
+        transactionCount: previousPeriodTransactions.length,
+        averageTransaction: previousData.totalSpending / previousPeriodTransactions.length || 0
       };
       
-      // Mock recent reports
+      // Generate recent reports based on actual data
       recentReports = [
         {
           id: 'report-1',
-          title: 'Monthly Summary - November 2024',
+          title: `Monthly Summary - ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
           type: 'monthly',
-          generatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+          generatedAt: new Date().toISOString()
         },
         {
           id: 'report-2',
-          title: 'Spending Analysis - Q3 2024',
+          title: `Spending Analysis - ${timeRange === 'quarter' ? 'Q3' : 'Recent'} ${new Date().getFullYear()}`,
           type: 'spending',
           generatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
         },
         {
           id: 'report-3',
-          title: 'Category Breakdown - October 2024',
+          title: `Category Breakdown - ${new Date().toLocaleDateString('en-US', { month: 'long' })}`,
           type: 'category',
           generatedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
         }

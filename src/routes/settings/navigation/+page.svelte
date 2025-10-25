@@ -13,6 +13,7 @@
 	} from '$lib/components/ui/card/index.ts';
 	import * as Alert from '$lib/components/ui/alert/index.ts';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import { PageLayout } from '$lib/components/layouts';
 	
 	// Lucide icons
 	import HomeIcon from '@lucide/svelte/icons/home';
@@ -159,125 +160,138 @@
 	});
 </script>
 
-<div class="container max-w-4xl mx-auto p-4 space-y-6">
-	<div class="space-y-2">
-		<h1 class="text-3xl font-bold text-[var(--color-text-primary)]">Navigation Settings</h1>
-		<p class="text-[var(--color-text-secondary)]">
-			Customize the order and visibility of navigation items for desktop and mobile
-		</p>
-	</div>
+<svelte:head>
+	<title>Navigation Settings | Budgic</title>
+</svelte:head>
 
-	{#if successMessage}
-		<Alert.Root variant="default" class="border-[var(--color-sage-green)]">
-			<CheckIcon class="h-4 w-4 text-[var(--color-sage-green)]" />
-			<Alert.Title>Success</Alert.Title>
-			<Alert.Description>{successMessage}</Alert.Description>
-		</Alert.Root>
-	{/if}
-
-	{#if errorMessage}
-		<Alert.Root variant="destructive">
-			<Alert.Title>Error</Alert.Title>
-			<Alert.Description>{errorMessage}</Alert.Description>
-		</Alert.Root>
-	{/if}
-
-	<Alert.Root>
-		<InfoIcon class="h-4 w-4" />
-		<Alert.Title>Pro Tip</Alert.Title>
-		<Alert.Description>
-			Drag and drop items to reorder them. Mobile navigation shows only the first 4 items, with the rest accessible via the "More" button.
-		</Alert.Description>
-	</Alert.Root>
-
-	{#if loading}
-		<div class="flex items-center justify-center py-12">
-			<LoadingSpinner />
+<PageLayout>
+	<div class="container max-w-4xl mx-auto p-4 space-y-6">
+		<div class="space-y-2">
+			<h1 class="text-3xl font-bold text-[var(--color-text-primary)]">Navigation Settings</h1>
+			<p class="text-[var(--color-text-secondary)]">
+				Customize the order and visibility of navigation items for desktop and mobile
+			</p>
 		</div>
-	{:else}
-		<Card class="border border-[var(--color-border)]">
-			<CardHeader>
-				<CardTitle>Navigation Items</CardTitle>
-				<CardDescription>
-					Customize which navigation items appear and in what order
-				</CardDescription>
-			</CardHeader>
-			<CardContent>
-				<div class="space-y-2">
-					{#each items as item, index (item.id)}
-						{@const IconComponent = iconMap[item.icon] || HomeIcon}
-						<div
-							role="listitem"
-							draggable="true"
-							ondragstart={(e) => handleDragStart(e, item)}
-							ondragover={(e) => handleDragOver(e, index)}
-							ondrop={(e) => handleDrop(e, index)}
-							ondragend={handleDragEnd}
-							class="flex items-center gap-4 p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] transition-all
-								{dragOverIndex === index ? 'border-[var(--color-golden-amber)] bg-[var(--color-bg-tertiary)]' : ''}
-								hover:border-[var(--color-border-hover)] cursor-move"
-						>
-							<GripVerticalIcon class="w-5 h-5 text-[var(--color-text-tertiary)] flex-shrink-0" />
-							
-							<div class="flex items-center gap-3 flex-1">
-								<IconComponent class="w-5 h-5 text-[var(--color-text-secondary)]" />
-								<div class="flex-1">
-									<div class="font-medium text-[var(--color-text-primary)]">{item.label}</div>
-									<div class="text-xs text-[var(--color-text-tertiary)]">{item.path}</div>
+
+		{#if successMessage}
+			<Alert.Root variant="default" class="border-[var(--color-sage-green)]">
+				<CheckIcon class="h-4 w-4 text-[var(--color-sage-green)]" />
+				<Alert.Title>Success</Alert.Title>
+				<Alert.Description>{successMessage}</Alert.Description>
+			</Alert.Root>
+		{/if}
+
+		{#if errorMessage}
+			<Alert.Root variant="destructive">
+				<Alert.Title>Error</Alert.Title>
+				<Alert.Description>{errorMessage}</Alert.Description>
+			</Alert.Root>
+		{/if}
+
+		<Alert.Root>
+			<InfoIcon class="h-4 w-4" />
+			<Alert.Title>Pro Tip</Alert.Title>
+			<Alert.Description>
+				Drag and drop items to reorder them. Mobile navigation shows Home, Transactions, Plan, and Analyze in the main bar, with the rest accessible via the "More" button.
+			</Alert.Description>
+		</Alert.Root>
+
+		{#if loading}
+			<div class="flex items-center justify-center py-12">
+				<LoadingSpinner />
+			</div>
+		{:else}
+			<Card class="border border-[var(--color-border)]">
+				<CardHeader>
+					<CardTitle>Navigation Items</CardTitle>
+					<CardDescription>
+						Customize which navigation items appear and in what order
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<div class="space-y-2">
+						{#each items as item, index (item.id)}
+							{@const IconComponent = iconMap[item.icon] || HomeIcon}
+							<div
+								role="listitem"
+								draggable="true"
+								ondragstart={(e) => handleDragStart(e, item)}
+								ondragover={(e) => handleDragOver(e, index)}
+								ondrop={(e) => handleDrop(e, index)}
+								ondragend={handleDragEnd}
+								class="flex items-center gap-4 p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] transition-all
+									{dragOverIndex === index ? 'border-[var(--color-golden-amber)] bg-[var(--color-bg-tertiary)]' : ''}
+									hover:border-[var(--color-border-hover)] cursor-move"
+							>
+								<GripVerticalIcon class="w-5 h-5 text-[var(--color-text-tertiary)] flex-shrink-0" />
+								
+								<div class="flex items-center gap-3 flex-1">
+									<IconComponent class="w-5 h-5 text-[var(--color-text-secondary)]" />
+									<div class="flex-1">
+										<div class="font-medium text-[var(--color-text-primary)] flex items-center gap-2">
+											{item.label}
+											{#if ['dashboard', 'transactions', 'budget', 'analyze'].includes(item.id)}
+												<span class="text-xs bg-[var(--color-golden-amber)] text-[var(--color-warm-charcoal)] px-2 py-1 rounded-full font-medium">
+													Mobile Main
+												</span>
+											{/if}
+										</div>
+										<div class="text-xs text-[var(--color-text-tertiary)]">{item.path}</div>
+									</div>
+								</div>
+
+								<div class="flex items-center gap-4 flex-shrink-0">
+									<!-- Visible toggle -->
+									<div class="flex items-center gap-2">
+										<span class="text-sm text-[var(--color-text-secondary)]">Visible</span>
+										<Switch 
+											checked={item.visible}
+											onCheckedChange={(checked) => toggleVisibility(item.id, 'visible', checked)}
+											disabled={saving}
+										/>
+									</div>
+
+									<!-- Mobile toggle -->
+									<div class="flex items-center gap-2">
+										<span class="text-sm text-[var(--color-text-secondary)]">Mobile</span>
+										<Switch 
+											checked={item.showInMobile}
+											onCheckedChange={(checked) => toggleVisibility(item.id, 'showInMobile', checked)}
+											disabled={saving || !item.visible}
+										/>
+									</div>
+
+									<!-- Desktop toggle -->
+									<div class="flex items-center gap-2">
+										<span class="text-sm text-[var(--color-text-secondary)]">Desktop</span>
+										<Switch 
+											checked={item.showInDesktop}
+											onCheckedChange={(checked) => toggleVisibility(item.id, 'showInDesktop', checked)}
+											disabled={saving || !item.visible}
+										/>
+									</div>
 								</div>
 							</div>
-
-							<div class="flex items-center gap-4 flex-shrink-0">
-								<!-- Visible toggle -->
-								<div class="flex items-center gap-2">
-									<span class="text-sm text-[var(--color-text-secondary)]">Visible</span>
-									<Switch 
-										checked={item.visible}
-										onCheckedChange={(checked) => toggleVisibility(item.id, 'visible', checked)}
-										disabled={saving}
-									/>
-								</div>
-
-								<!-- Mobile toggle -->
-								<div class="flex items-center gap-2">
-									<span class="text-sm text-[var(--color-text-secondary)]">Mobile</span>
-									<Switch 
-										checked={item.showInMobile}
-										onCheckedChange={(checked) => toggleVisibility(item.id, 'showInMobile', checked)}
-										disabled={saving || !item.visible}
-									/>
-								</div>
-
-								<!-- Desktop toggle -->
-								<div class="flex items-center gap-2">
-									<span class="text-sm text-[var(--color-text-secondary)]">Desktop</span>
-									<Switch 
-										checked={item.showInDesktop}
-										onCheckedChange={(checked) => toggleVisibility(item.id, 'showInDesktop', checked)}
-										disabled={saving || !item.visible}
-									/>
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</CardContent>
-			<CardFooter class="flex justify-end gap-2">
-				<Button 
-					variant="outline" 
-					onclick={resetToDefaults}
-					disabled={saving}
-				>
-					Reset to Defaults
-				</Button>
-				<Button 
-					onclick={() => navigationStore.refresh()}
-					disabled={saving}
-				>
-					{saving ? 'Saving...' : 'Refresh'}
-				</Button>
-			</CardFooter>
-		</Card>
-	{/if}
-</div>
+						{/each}
+					</div>
+				</CardContent>
+				<CardFooter class="flex justify-end gap-2">
+					<Button 
+						variant="outline" 
+						onclick={resetToDefaults}
+						disabled={saving}
+					>
+						Reset to Defaults
+					</Button>
+					<Button 
+						onclick={() => navigationStore.refresh()}
+						disabled={saving}
+					>
+						{saving ? 'Saving...' : 'Refresh'}
+					</Button>
+				</CardFooter>
+			</Card>
+		{/if}
+	</div>
+</PageLayout>
 

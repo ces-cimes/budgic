@@ -7,21 +7,22 @@
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { budgetService } from '$lib/core/services/budget-service';
 	import { transactionService } from '$lib/core/services/transaction-service';
-	import type { BudgetCategory, Transaction } from '$lib/core/db';
-	import type { TransactionOrGroup } from '$lib/utils/transaction-utils';
+	import { userService } from '$lib/core/services/user-service';
+	import type { Category, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';
 	import { formatAmount } from '$lib/utils/currency-utils';
-	import { settingsService } from '$lib/core/services/settings-service';
 	import { PageLayout } from '$lib/components/layouts';
 
 	const { data } = $props<{ data: any }>();
 
-	let category = $state<BudgetCategory | null>(null);
-	let transactions = $state<TransactionOrGroup[]>([]);
+	let category = $state<Category | null>(null);
+	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
 	let isEditing = $state(false);
 	let activeTab = $state('overview');
 	let userCurrency = $state<string>('USD');
+	let spent = $state(0);
+	let remaining = $state(0);
 
 
 	const categoryId = $derived($page.params.id);
@@ -35,7 +36,8 @@
 
 	onMount(async () => {
 		// Get user's preferred currency
-		userCurrency = await settingsService.getCurrency();
+		const preferences = await userService.getUserPreferences();
+		userCurrency = preferences?.currency || 'USD';
 		
 		await loadCategory();
 		await loadTransactions();
@@ -44,11 +46,12 @@
 	async function loadCategory() {
 		try {
 			if (categoryId) {
-				const categoryData = await budgetService.getBudgetCategoryById(categoryId);
-				category = categoryData || null;
+				// Get all categories and find the one with matching ID
+				const categories = await budgetService.getBudgetCategories();
+				category = categories.find(cat => cat.id === categoryId) || null;
 				if (!category) {
 					// Category not found, redirect to categories list
-					goto('/budget');
+					goto('/categories');
 					return;
 				}
 			}
@@ -62,9 +65,12 @@
 	async function loadTransactions() {
 		try {
 			if (categoryId) {
-				const result = await transactionService.getTransactionsByBudgetCategory(categoryId, false);
-				// The method returns TransactionOrGroup[] when separateSplits is false
-				transactions = result as TransactionOrGroup[];
+				transactions = await transactionService.getTransactionsByCategory(categoryId);
+				// Calculate spent amount for this category
+				spent = transactions
+					.filter(tx => tx.type === 'expense' && tx.status === 'cleared')
+					.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+				remaining = (category?.budgetAmount || 0) - spent;
 			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
@@ -79,10 +85,11 @@
 		isEditing = false;
 	}
 
-	async function saveCategory(updatedCategory: BudgetCategory) {
+	async function saveCategory(updatedCategory: Category) {
 		try {
 			if (categoryId) {
-				category = await budgetService.updateBudgetCategory(categoryId, updatedCategory);
+				await budgetService.updateBudgetCategory(categoryId, updatedCategory);
+				category = updatedCategory;
 				isEditing = false;
 			}
 		} catch (error) {
@@ -95,7 +102,8 @@
 		
 		if (confirm(`Are you sure you want to delete "${category.name}"? This action cannot be undone.`)) {
 			try {
-				await budgetService.deleteBudgetCategory(category.id);
+				// Soft delete by setting isActive to false
+				await budgetService.updateBudgetCategory(category.id, { isActive: false });
 				goto('/categories');
 			} catch (error) {
 				console.error('Error deleting category:', error);
@@ -105,8 +113,8 @@
 
 	// Calculate spending percentage
 	let spendingPercentage = $derived(
-		category && category.allocatedAmount > 0 
-			? (category.spent / category.allocatedAmount) * 100 
+		category && category.budgetAmount && category.budgetAmount > 0 
+			? (spent / category.budgetAmount) * 100 
 			: 0
 	);
 </script>
@@ -130,14 +138,14 @@
 				<Button.Root 
 					variant="ghost" 
 					size="sm"
-					onclick={() => goto('/budget')}
+					onclick={() => goto('/categories')}
 				>
 					← Back
 				</Button.Root>
 				<div>
 					<h1 class="text-2xl font-bold text-primary">{category.name}</h1>
-					<Badge class={waterfallColors[category.waterfallCategory]}>
-						{category.waterfallCategory}
+					<Badge class={waterfallColors[category.waterfallTier]}>
+						{category.waterfallTier}
 					</Badge>
 				</div>
 			</div>
@@ -175,16 +183,16 @@
 			<Card.Content class="space-y-4">
 				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 					<div>
-						<div class="text-sm font-medium text-secondary">Allocated Amount</div>
-						<p class="text-lg font-semibold">{formatAmount(category.allocatedAmount, userCurrency)}</p>
+						<div class="text-sm font-medium text-secondary">Budget Amount</div>
+						<p class="text-lg font-semibold">{formatAmount(category.budgetAmount || 0, userCurrency)}</p>
 					</div>
 					<div>
 						<div class="text-sm font-medium text-secondary">Spent</div>
-						<p class="text-lg font-semibold text-destructive">{formatAmount(category.spent, userCurrency)}</p>
+						<p class="text-lg font-semibold text-destructive">{formatAmount(spent, userCurrency)}</p>
 					</div>
 					<div>
 						<div class="text-sm font-medium text-secondary">Remaining</div>
-						<p class="text-lg font-semibold text-success">{formatAmount(category.remaining, userCurrency)}</p>
+						<p class="text-lg font-semibold {remaining >= 0 ? 'text-success' : 'text-destructive'}">{formatAmount(remaining, userCurrency)}</p>
 					</div>
 					<div>
 						<div class="text-sm font-medium text-secondary">Priority</div>
@@ -196,22 +204,6 @@
 					<div>
 						<div class="text-sm font-medium text-secondary">Description</div>
 						<p class="text-sm text-tertiary">{category.description}</p>
-					</div>
-				{/if}
-
-				{#if category.isGoalBased && category.goalTarget}
-					<div>
-						<div class="text-sm font-medium text-secondary">Goal Target</div>
-						<p class="text-lg font-semibold">{formatAmount(category.goalTarget, userCurrency)}</p>
-						<div class="w-full bg-muted rounded-full h-2 mt-2">
-							<div 
-								class="bg-primary h-2 rounded-full transition-all duration-300"
-								style="width: {Math.min((category.goalProgress / category.goalTarget) * 100, 100)}%"
-							></div>
-						</div>
-						<p class="text-xs text-tertiary mt-1">
-							{formatAmount(category.goalProgress, userCurrency)} of {formatAmount(category.goalTarget, userCurrency)}
-						</p>
 					</div>
 				{/if}
 			</Card.Content>
@@ -254,29 +246,27 @@
 					<Card.Content>
 						{#if transactions.length > 0}
 							<div class="space-y-2">
-								{#each transactions.slice(0, 10) as group}
+								{#each transactions.slice(0, 10) as transaction}
 									<div class="flex items-center justify-between p-3 border rounded-lg">
 										<div class="flex-1">
 											<div class="flex items-center gap-2">
-												<p class="font-medium">{group.representative.description || 'No description'}</p>
-												{#if group.type === 'split'}
-													<Badge variant="secondary" class="text-xs">Split</Badge>
+												<p class="font-medium">{transaction.description || 'No description'}</p>
+												{#if transaction.groupId}
+													<Badge variant="secondary" class="text-xs">Grouped</Badge>
 												{/if}
 											</div>
 											<p class="text-sm text-tertiary">
-												{new Date(group.representative.clearedDate || group.representative.plannedDate || group.representative.createdAt).toLocaleDateString()}
+												{new Date(transaction.clearedDate || transaction.plannedDate || transaction.createdAt).toLocaleDateString()}
 											</p>
-											{#if group.type === 'split' && group.commonFields.splitName}
-												<p class="text-xs text-tertiary">Split: {group.commonFields.splitName}</p>
+											{#if transaction.groupName}
+												<p class="text-xs text-tertiary">Group: {transaction.groupName}</p>
 											{/if}
 										</div>
 										<div class="text-right">
-											<p class="font-semibold {group.representative.type === 'expense' ? 'text-destructive' : 'text-success'}">
-												{group.representative.type === 'expense' ? '-' : '+'}{formatAmount(group.totalAmount, group.representative.currency)}
+											<p class="font-semibold {transaction.type === 'expense' ? 'text-destructive' : 'text-success'}">
+												{transaction.type === 'expense' ? '-' : '+'}{formatAmount(Math.abs(transaction.amount || 0), transaction.currency)}
 											</p>
-											{#if group.type === 'split'}
-												<p class="text-xs text-tertiary">{group.transactions.length} items</p>
-											{/if}
+											<p class="text-xs text-tertiary capitalize">{transaction.type}</p>
 										</div>
 									</div>
 								{/each}
@@ -293,7 +283,7 @@
 	<div class="text-center py-12">
 		<h2 class="text-xl font-semibold text-primary mb-2">Category not found</h2>
 		<p class="text-tertiary mb-4">The category you're looking for doesn't exist or has been deleted.</p>
-		<Button.Root onclick={() => goto('/budget')}>
+		<Button.Root onclick={() => goto('/categories')}>
 			Back to Categories
 		</Button.Root>
 	</div>

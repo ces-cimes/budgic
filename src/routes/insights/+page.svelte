@@ -28,10 +28,10 @@
     PredictionsTab,
     BadgesTab
   } from '$lib/components/insights/tabs';
-  import { unifiedInsightsService } from '$lib/components/insights/insights-service';
+  import { simpleInsightsService } from '$lib/components/insights/simple-insights-service';
   
   // Services
-  import { settingsService, userActionsService } from '$lib/core/services';
+  import { userService } from '$lib/core/services';
 
   // Tab configuration
   const insightsTabs: TabConfig[] = [
@@ -55,17 +55,14 @@
   onMount(async () => {
     try {
       // Load user currency preference
-      userCurrency = await settingsService.getCurrency();
+      const preferences = await userService.getUserPreferences();
+      userCurrency = preferences?.currency || 'USD';
       
       // Load insights data
       await loadInsightsData();
       
-      // Track user viewing insights page
-      await userActionsService.track('progress_viewed', {
-        triggeredBy: 'user_initiated',
-        categoriesViewed: ['insights'],
-        actionTaken: 'none'
-      });
+      // Start auto-updates
+      simpleInsightsService.startAutoUpdates();
     } catch (error) {
       console.error('Error loading insights data:', error);
       error = error instanceof Error ? error.message : 'Failed to load insights data';
@@ -85,7 +82,8 @@
 
   async function loadInsightsData() {
     try {
-      insights = unifiedInsightsService.getInsights();
+      await simpleInsightsService.updateInsights();
+      insights = simpleInsightsService.getInsights();
     } catch (error) {
       console.error('Error loading insights data:', error);
       error = error instanceof Error ? error.message : 'Failed to load insights data';

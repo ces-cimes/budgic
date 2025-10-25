@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import { accountService, budgetService, transactionService, insightsService, settingsService } from '$lib/core/services';
+  import { accountService, budgetService, transactionService, userService } from '$lib/core/services';
+  import { db } from '$lib/core/db';
   import * as Button from '$lib/components/ui/button/index.ts';
   import { formatMainCurrencyAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
   import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
@@ -23,32 +24,33 @@
   onMount(async () => {
     try {
       // Load user currency preference first
-      userCurrency = await settingsService.getCurrency();
+      const preferences = await userService.getUserPreferences();
+      userCurrency = preferences?.currency || 'USD';
       
       const [accountsData, balanceData, transactionsData, categoriesData] = await Promise.all([
         accountService.getAccounts(),
         accountService.getTotalBalance(),
-        transactionService.getTransactions(), // Get grouped transactions
-        budgetService.getTransactionBudgetCategories()
+        transactionService.getAllTransactions(), // Get all transactions
+        db.getActiveCategories()
       ]);
       
       accounts = accountsData.slice(0, 3); // Show top 3 accounts
       totalBalance = balanceData;
       recentTransactions = transactionsData.slice(0, 5); // Show last 5 transactions
-      budgetCategories = categoriesData.reduce((acc, category) => {
+      budgetCategories = categoriesData.reduce((acc: Record<string, any>, category: any) => {
         acc[category.id] = category;
         return acc;
       }, {} as Record<string, any>);
       
       // Load insights
-      insights = insightsService.getInsights();
+      insights = []; // Simplified - insights will be loaded from insights page
       
-      // Calculate monthly totals using the new system (handles negative amounts correctly)
-      const incomeTransactions = transactionsData.filter((t: any) => t.representative?.type === 'income');
-      const expenseTransactions = transactionsData.filter((t: any) => t.representative?.type === 'expense');
+      // Calculate monthly totals using the simplified transaction system
+      const incomeTransactions = transactionsData.filter((t: any) => t.type === 'income');
+      const expenseTransactions = transactionsData.filter((t: any) => t.type === 'expense');
       
-      monthlyIncome = incomeTransactions.reduce((sum: number, t: any) => sum + (t.totalAmount || 0), 0);
-      monthlyExpenses = expenseTransactions.reduce((sum: number, t: any) => sum + (t.totalAmount || 0), 0);
+      monthlyIncome = incomeTransactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      monthlyExpenses = expenseTransactions.reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
@@ -61,22 +63,15 @@
     return currencyFormat.formatBalance(amount, userCurrency);
   }
 
-  function getCategoryName(transactionOrGroup: any) {
-    const transaction = transactionOrGroup.representative || transactionOrGroup;
-    
-    // First try to resolve budget category name
-    if (transaction.budgetCategoryId && budgetCategories[transaction.budgetCategoryId]) {
-      return budgetCategories[transaction.budgetCategoryId].name;
+  function getCategoryName(transaction: any) {
+    // Try to resolve category name from budgetCategories
+    if (transaction.categoryId && budgetCategories[transaction.categoryId]) {
+      return budgetCategories[transaction.categoryId].name;
     }
     
-    // Fallback to whatTag if available
-    if (transaction.whatTag) {
-      return transaction.whatTag.charAt(0).toUpperCase() + transaction.whatTag.slice(1).replace(/_/g, ' ');
-    }
-    
-    // Last resort: format the budget category ID if it exists
-    if (transaction.budgetCategoryId) {
-      return transaction.budgetCategoryId.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+    // Last resort: format the category ID if it exists
+    if (transaction.categoryId) {
+      return transaction.categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
     }
     
     return 'Uncategorized';
@@ -195,28 +190,28 @@
     
     <div class="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
       <div class="divide-y divide-border">
-        {#each recentTransactions as transactionOrGroup}
+        {#each recentTransactions as transaction (transaction.id)}
           <div class="p-6 hover:bg-accent transition-colors cursor-pointer">
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-4">
                 <div class="w-12 h-12 bg-muted rounded-full flex items-center justify-center text-xl">
-                  {getCategoryIcon(getCategoryName(transactionOrGroup))}
+                  {getCategoryIcon(getCategoryName(transaction))}
                 </div>
                 <div>
-                  <div class="font-medium text-primary">{(transactionOrGroup.representative || transactionOrGroup).description || 'No description'}</div>
-                  <div class="text-sm text-muted-foreground">{getCategoryName(transactionOrGroup)}</div>
-                  <div class="text-xs text-muted-foreground/70">{getAccountName((transactionOrGroup.commonFields || transactionOrGroup).accountId)} • {formatDate((transactionOrGroup.representative || transactionOrGroup).clearedDate || (transactionOrGroup.representative || transactionOrGroup).plannedDate || (transactionOrGroup.representative || transactionOrGroup).createdAt)}</div>
-                  {#if transactionOrGroup.type === 'split'}
+                  <div class="font-medium text-primary">{transaction.description || 'No description'}</div>
+                  <div class="text-sm text-muted-foreground">{getCategoryName(transaction)}</div>
+                  <div class="text-xs text-muted-foreground/70">{getAccountName(transaction.accountId)} • {formatDate(transaction.clearedDate || transaction.plannedDate || transaction.createdAt)}</div>
+                  {#if transaction.groupId}
                     <div class="text-xs text-muted-foreground/70 mt-1">
-                      Split transaction ({transactionOrGroup.transactions?.length || 0} parts)
+                      Grouped transaction
                     </div>
                   {/if}
                 </div>
               </div>
               
               <div class="text-right">
-                <div class="font-semibold {((transactionOrGroup.totalAmount || transactionOrGroup.amount) ?? 0) >= 0 ? 'text-success' : 'text-alert'}">
-                  {formatTransactionAmount(transactionOrGroup.totalAmount || transactionOrGroup.amount, (transactionOrGroup.representative || transactionOrGroup).currency || userCurrency, true)}
+                <div class="font-semibold {(transaction.amount ?? 0) >= 0 ? 'text-success' : 'text-alert'}">
+                  {formatTransactionAmount(transaction.amount, transaction.currency || userCurrency, true)}
                 </div>
               </div>
             </div>

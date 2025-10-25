@@ -1,275 +1,165 @@
-import type { Transaction } from '$lib/core/db';
+import type { Transaction, Category } from '$lib/core/db';
 
-export interface FinancialNeeds {
-    survival: {
-        housing: number;
-        utilities: number;
-        food: number;
-        transport: number;
-        healthcare: number;
-        buffer: number;
+export interface WaterfallBudget {
+    survival: number;
+    security: number;
+    growth: number;
+    lifestyle: number;
+}
+
+export interface BudgetAllocation {
+    categoryId: string;
+    categoryName: string;
+    tier: 'survival' | 'security' | 'growth' | 'lifestyle';
+    priority: number;
+    allocatedAmount: number;
+    spentAmount: number;
+    remainingAmount: number;
+    percentageUsed: number;
+}
+
+/**
+ * Calculate waterfall budget allocation based on income and categories
+ */
+export function calculateWaterfallBudget(
+    monthlyIncome: number,
+    categories: Category[]
+): WaterfallBudget {
+    // Simplified waterfall percentages
+    const survivalPercentage = 0.6; // 60% for survival needs
+    const securityPercentage = 0.2; // 20% for security
+    const growthPercentage = 0.15; // 15% for growth
+    const lifestylePercentage = 0.05; // 5% for lifestyle
+
+    return {
+        survival: monthlyIncome * survivalPercentage,
+        security: monthlyIncome * securityPercentage,
+        growth: monthlyIncome * growthPercentage,
+        lifestyle: monthlyIncome * lifestylePercentage
     };
-    security: {
-        emergencyFundTarget: number;
-        monthlyContribution: number;
-        insurance: number;
-        debtPayments: number;
+}
+
+/**
+ * Allocate budget amounts to categories within each tier
+ */
+export function allocateBudgetToCategories(
+    waterfallBudget: WaterfallBudget,
+    categories: Category[],
+    transactions: Transaction[]
+): BudgetAllocation[] {
+    const allocations: BudgetAllocation[] = [];
+
+    // Group categories by tier
+    const categoriesByTier = {
+        survival: categories.filter(c => c.waterfallTier === 'survival'),
+        security: categories.filter(c => c.waterfallTier === 'security'),
+        growth: categories.filter(c => c.waterfallTier === 'growth'),
+        lifestyle: categories.filter(c => c.waterfallTier === 'lifestyle')
     };
-    growth: {
-        minimumInvestment: number;
-        education: number;
-        skills: number;
-    };
-    lifestyle: {
-        entertainment: number;
-        hobbies: number;
-        discretionary: number;
-    };
-}
 
-export interface IncomeLevel {
-    level: 'low' | 'medium' | 'high';
-    range: { min: number; max: number };
-    survivalBuffer: number;
-    securityMultiplier: number;
-    growthMultiplier: number;
-}
-
-/**
- * Standard financial needs for different income levels
- */
-export const STANDARD_NEEDS: FinancialNeeds = {
-    survival: {
-        housing: 1200,
-        utilities: 200,
-        food: 400,
-        transport: 300,
-        healthcare: 150,
-        buffer: 0 // Will be calculated based on income level
-    },
-    security: {
-        emergencyFundTarget: 15000, // 6 months of $2500 expenses
-        monthlyContribution: 500,
-        insurance: 200,
-        debtPayments: 300
-    },
-    growth: {
-        minimumInvestment: 300,
-        education: 200,
-        skills: 100
-    },
-    lifestyle: {
-        entertainment: 200,
-        hobbies: 100,
-        discretionary: 100
-    }
-};
-
-/**
- * Income levels with their characteristics
- */
-export const INCOME_LEVELS: IncomeLevel[] = [
-    {
-        level: 'low',
-        range: { min: 0, max: 3000 },
-        survivalBuffer: 0.05, // 5% buffer
-        securityMultiplier: 0.8, // 80% of standard
-        growthMultiplier: 0.6 // 60% of standard
-    },
-    {
-        level: 'medium',
-        range: { min: 3001, max: 8000 },
-        survivalBuffer: 0.1, // 10% buffer
-        securityMultiplier: 1.0, // Standard
-        growthMultiplier: 1.0 // Standard
-    },
-    {
-        level: 'high',
-        range: { min: 8001, max: Infinity },
-        survivalBuffer: 0.15, // 15% buffer
-        securityMultiplier: 1.2, // 120% of standard
-        growthMultiplier: 1.3 // 130% of standard
-    }
-];
-
-/**
- * Determine income level based on monthly income
- */
-export function determineIncomeLevel(income: number): IncomeLevel {
-    return INCOME_LEVELS.find(level => 
-        income >= level.range.min && income <= level.range.max
-    ) || INCOME_LEVELS[1]; // Default to medium
-}
-
-/**
- * Calculate monthly essential expenses from spending history
- */
-export function calculateMonthlyEssentialExpenses(spendingHistory: Transaction[]): number {
-    const essentialTags = ['rent', 'mortgage', 'utilities', 'groceries', 'food', 'transport', 'healthcare', 'insurance'];
-    
-    const essentialTransactions = spendingHistory.filter(tx => 
-        tx.whatTag && essentialTags.some(tag => 
-            tx.whatTag.toLowerCase().includes(tag)
-        )
-    );
-    
-    const totalEssential = essentialTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-    return totalEssential / 12; // Average monthly
-}
-
-/**
- * Calculate emergency fund target based on spending history
- */
-export function calculateEmergencyFundTarget(spendingHistory: Transaction[]): number {
-    const monthlyExpenses = calculateMonthlyEssentialExpenses(spendingHistory);
-    return monthlyExpenses * 6; // 6 months of expenses
-}
-
-/**
- * Check if emergency fund is complete
- */
-export function isEmergencyFundComplete(currentAmount: number, target: number): boolean {
-    return currentAmount >= target;
-}
-
-/**
- * Calculate monthly spending averages by category
- */
-export function calculateMonthlySpendingAverages(spendingHistory: Transaction[]): Record<string, number> {
-    const categoryTotals: Record<string, number> = {};
-    const categoryCounts: Record<string, number> = {};
-    
-    // Group transactions by month and category
-    const monthlyGroups = new Map<string, Transaction[]>();
-    
-    for (const tx of spendingHistory) {
-        if (!tx.clearedDate) continue;
-        
-        const monthKey = tx.clearedDate.substring(0, 7); // YYYY-MM
-        if (!monthlyGroups.has(monthKey)) {
-            monthlyGroups.set(monthKey, []);
+    // Calculate spent amounts per category
+    const spentByCategory = new Map<string, number>();
+    transactions.forEach(tx => {
+        if (tx.categoryId && tx.type === 'expense') {
+            const spent = spentByCategory.get(tx.categoryId) || 0;
+            spentByCategory.set(tx.categoryId, spent + Math.abs(tx.amount || 0));
         }
-        monthlyGroups.get(monthKey)!.push(tx);
-    }
-    
-    // Calculate totals for each category across all months
-    for (const transactions of monthlyGroups.values()) {
-        for (const tx of transactions) {
-            const category = tx.whatTag && tx.whatTag.length > 0 ? tx.whatTag : 'uncategorized';
-            categoryTotals[category] = (categoryTotals[category] || 0) + Math.abs(tx.amount);
-            categoryCounts[category] = (categoryCounts[category] || 0) + 1;
-        }
-    }
-    
-    // Calculate averages
-    const averages: Record<string, number> = {};
-    const monthCount = monthlyGroups.size;
-    
-    for (const category in categoryTotals) {
-        averages[category] = categoryTotals[category] / monthCount;
-    }
-    
-    return averages;
+    });
+
+    // Allocate budget for each tier
+    Object.entries(categoriesByTier).forEach(([tier, tierCategories]) => {
+        const tierBudget = waterfallBudget[tier as keyof WaterfallBudget];
+        const totalPriority = tierCategories.reduce((sum, cat) => sum + cat.priority, 0);
+
+        tierCategories.forEach(category => {
+            const priorityWeight = category.priority / totalPriority;
+            const allocatedAmount = tierBudget * priorityWeight;
+            const spentAmount = spentByCategory.get(category.id) || 0;
+            const remainingAmount = Math.max(0, allocatedAmount - spentAmount);
+            const percentageUsed = allocatedAmount > 0 ? (spentAmount / allocatedAmount) * 100 : 0;
+
+            allocations.push({
+                categoryId: category.id,
+                categoryName: category.name,
+                tier: category.waterfallTier,
+                priority: category.priority,
+                allocatedAmount,
+                spentAmount,
+                remainingAmount,
+                percentageUsed
+            });
+        });
+    });
+
+    return allocations.sort((a, b) => {
+        // Sort by tier priority, then by category priority
+        const tierOrder = { survival: 1, security: 2, growth: 3, lifestyle: 4 };
+        const tierDiff = tierOrder[a.tier] - tierOrder[b.tier];
+        return tierDiff !== 0 ? tierDiff : a.priority - b.priority;
+    });
 }
 
 /**
- * Calculate actual financial needs from spending history
+ * Calculate budget health score (0-100)
  */
-export function calculateActualFinancialNeeds(spendingHistory: Transaction[]): {
-    survival: { total: number; breakdown: Record<string, number> };
-    security: { total: number; breakdown: Record<string, number> };
-    growth: { total: number; breakdown: Record<string, number> };
-    lifestyle: { total: number; breakdown: Record<string, number> };
-} {
-    const monthlyAverages = calculateMonthlySpendingAverages(spendingHistory);
-    
-    const categories = {
-        survival: ['rent', 'mortgage', 'utilities', 'groceries', 'food', 'transport', 'healthcare', 'insurance'],
-        security: ['emergency', 'savings', 'debt', 'loan', 'credit', 'retirement', 'investment'],
-        growth: ['education', 'learning', 'skills', 'training', 'course', 'book', 'business'],
-        lifestyle: ['entertainment', 'hobbies', 'discretionary', 'luxury', 'vacation', 'travel', 'dining', 'shopping']
-    };
-    
-    const result = {
-        survival: { total: 0, breakdown: {} as Record<string, number> },
-        security: { total: 0, breakdown: {} as Record<string, number> },
-        growth: { total: 0, breakdown: {} as Record<string, number> },
-        lifestyle: { total: 0, breakdown: {} as Record<string, number> }
-    };
-    
-    for (const [category, keywords] of Object.entries(categories)) {
-        for (const [tag, amount] of Object.entries(monthlyAverages)) {
-            if (keywords.some(keyword => tag.toLowerCase().includes(keyword))) {
-                result[category as keyof typeof result].total += amount;
-                result[category as keyof typeof result].breakdown[tag] = amount;
-            }
-        }
-    }
-    
-    return result;
-}
+export function calculateBudgetHealth(allocations: BudgetAllocation[]): number {
+    if (allocations.length === 0) return 100;
 
-/**
- * Sum survival needs
- */
-export function sumSurvivalNeeds(survival: FinancialNeeds['survival']): number {
-    return Object.values(survival).reduce((sum, value) => sum + value, 0);
-}
-
-/**
- * Sum security needs
- */
-export function sumSecurityNeeds(security: FinancialNeeds['security']): number {
-    return Object.values(security).reduce((sum, value) => sum + value, 0);
-}
-
-/**
- * Sum growth needs
- */
-export function sumGrowthNeeds(growth: FinancialNeeds['growth']): number {
-    return Object.values(growth).reduce((sum, value) => sum + value, 0);
-}
-
-/**
- * Sum lifestyle needs
- */
-export function sumLifestyleNeeds(lifestyle: FinancialNeeds['lifestyle']): number {
-    return Object.values(lifestyle).reduce((sum, value) => sum + value, 0);
-}
-
-/**
- * Calculate budget allocation percentages
- */
-export function calculateBudgetAllocation(income: number, needs: FinancialNeeds): Record<string, number> {
-    const survivalTotal = sumSurvivalNeeds(needs.survival);
-    const securityTotal = sumSecurityNeeds(needs.security);
-    const growthTotal = sumGrowthNeeds(needs.growth);
-    const lifestyleTotal = sumLifestyleNeeds(needs.lifestyle);
+    const totalAllocated = allocations.reduce((sum, alloc) => sum + alloc.allocatedAmount, 0);
+    const totalSpent = allocations.reduce((sum, alloc) => sum + alloc.spentAmount, 0);
     
-    const totalNeeds = survivalTotal + securityTotal + growthTotal + lifestyleTotal;
+    if (totalAllocated === 0) return 100;
     
-    if (income < totalNeeds) {
-        // Prioritize survival, then security, then growth, then lifestyle
-        const survivalPercent = Math.min(100, (survivalTotal / income) * 100);
-        const remainingIncome = income - survivalTotal;
-        
-        const securityPercent = remainingIncome > 0 ? Math.min(100, (securityTotal / remainingIncome) * 100) : 0;
-        const growthPercent = remainingIncome > securityTotal ? Math.min(100, (growthTotal / (remainingIncome - securityTotal)) * 100) : 0;
-        const lifestylePercent = 100 - survivalPercent - securityPercent - growthPercent;
-        
-        return {
-            survival: survivalPercent,
-            security: securityPercent,
-            growth: growthPercent,
-            lifestyle: Math.max(0, lifestylePercent)
-        };
+    const utilizationRate = totalSpent / totalAllocated;
+    
+    // Health score based on utilization rate
+    // 0-80% utilization = excellent (90-100 score)
+    // 80-100% utilization = good (70-90 score)
+    // 100-120% utilization = fair (50-70 score)
+    // >120% utilization = poor (0-50 score)
+    
+    if (utilizationRate <= 0.8) {
+        return Math.max(90, 100 - (utilizationRate * 12.5));
+    } else if (utilizationRate <= 1.0) {
+        return Math.max(70, 90 - ((utilizationRate - 0.8) * 100));
+    } else if (utilizationRate <= 1.2) {
+        return Math.max(50, 70 - ((utilizationRate - 1.0) * 100));
     } else {
-        // Can afford all needs, distribute proportionally
-        return {
-            survival: (survivalTotal / totalNeeds) * 100,
-            security: (securityTotal / totalNeeds) * 100,
-            growth: (growthTotal / totalNeeds) * 100,
-            lifestyle: (lifestyleTotal / totalNeeds) * 100
-        };
+        return Math.max(0, 50 - ((utilizationRate - 1.2) * 250));
     }
-} 
+}
+
+/**
+ * Get budget recommendations based on current spending patterns
+ */
+export function getBudgetRecommendations(allocations: BudgetAllocation[]): string[] {
+    const recommendations: string[] = [];
+    
+    // Check for overspending
+    const overspentCategories = allocations.filter(alloc => alloc.percentageUsed > 100);
+    if (overspentCategories.length > 0) {
+        recommendations.push(`Consider reducing spending in: ${overspentCategories.map(c => c.categoryName).join(', ')}`);
+    }
+    
+    // Check for underutilized categories
+    const underutilizedCategories = allocations.filter(alloc => alloc.percentageUsed < 50 && alloc.allocatedAmount > 100);
+    if (underutilizedCategories.length > 0) {
+        recommendations.push(`You have unused budget in: ${underutilizedCategories.map(c => c.categoryName).join(', ')}`);
+    }
+    
+    // Check tier balance
+    const tierTotals = allocations.reduce((acc, alloc) => {
+        acc[alloc.tier] = (acc[alloc.tier] || 0) + alloc.spentAmount;
+        return acc;
+    }, {} as Record<string, number>);
+    
+    const totalSpent = Object.values(tierTotals).reduce((sum, amount) => sum + amount, 0);
+    if (totalSpent > 0) {
+        const survivalPercentage = (tierTotals.survival || 0) / totalSpent;
+        if (survivalPercentage > 0.8) {
+            recommendations.push('Consider allocating more to security and growth categories');
+        }
+    }
+    
+    return recommendations;
+}

@@ -5,9 +5,8 @@
   import * as Button from '$lib/components/ui/button/index.ts';
   import { Input } from '$lib/components/ui/input/index.ts';
   import * as Switch from '$lib/components/ui/switch/index.ts';
-  import { currencyService } from '$lib/core/services/currency-service';
   import { onMount } from 'svelte';
-  import type { Currency, Account } from '$lib/core/db';
+  import type { Account } from '$lib/core/db';
   import { formSchema } from './AccountForm.schema';
 
   interface Props {
@@ -37,8 +36,54 @@
   let errors = $state<Record<string, string>>({});
   let isSubmitting = $state(false);
 
-  let currencies = $state<Currency[] | any[]>([]);
-  let isLoadingCurrencies = $state(true);
+  let currencies = $state<any[]>([]);
+  let isLoadingCurrencies = $state(false);
+
+  // Static currency list since currencyService was removed
+  const staticCurrencies = [
+    {
+      code: 'USD',
+      name: 'US Dollar',
+      symbol: '$',
+      placement: 'before',
+      decimalPlaces: 2
+    },
+    {
+      code: 'EUR',
+      name: 'Euro',
+      symbol: '€',
+      placement: 'before',
+      decimalPlaces: 2
+    },
+    {
+      code: 'GBP',
+      name: 'British Pound',
+      symbol: '£',
+      placement: 'before',
+      decimalPlaces: 2
+    },
+    {
+      code: 'JPY',
+      name: 'Japanese Yen',
+      symbol: '¥',
+      placement: 'before',
+      decimalPlaces: 0
+    },
+    {
+      code: 'CAD',
+      name: 'Canadian Dollar',
+      symbol: 'C$',
+      placement: 'before',
+      decimalPlaces: 2
+    },
+    {
+      code: 'AUD',
+      name: 'Australian Dollar',
+      symbol: 'A$',
+      placement: 'before',
+      decimalPlaces: 2
+    }
+  ];
 
   // Use actual account types from the database schema
   const accountTypes = [
@@ -152,41 +197,11 @@
   }
 
   onMount(async () => {
-    try {
-      const activeCurrencies = await currencyService.getActiveCurrencies();
-      currencies = activeCurrencies.map(curr => ({
-        ...curr,
-        label: `${curr.code} - ${curr.name}`,
-      }));
-    } catch (error) {
-      console.error('Failed to load currencies:', error);
-      // Fallback to basic currencies
-      currencies = [
-        {
-          code: 'USD',
-          name: 'US Dollar',
-          symbol: '$',
-          placement: 'before',
-          decimalPlaces: 2
-        },
-        {
-          code: 'EUR',
-          name: 'Euro',
-          symbol: '€',
-          placement: 'before',
-          decimalPlaces: 2
-        },
-        {
-          code: 'GBP',
-          name: 'British Pound',
-          symbol: '£',
-          placement: 'before',
-          decimalPlaces: 2
-        }
-      ];
-    } finally {
-      isLoadingCurrencies = false;
-    }
+    // Use static currencies since currencyService was removed
+    currencies = staticCurrencies.map(curr => ({
+      ...curr,
+      label: `${curr.code} - ${curr.name}`,
+    }));
   });
 </script>
 

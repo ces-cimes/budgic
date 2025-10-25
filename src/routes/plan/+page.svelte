@@ -33,7 +33,7 @@
   import { planService } from '$lib/components/plan/plan-service';
   
   // Services
-  import { settingsService, userActionsService } from '$lib/core/services';
+  import { userService } from '$lib/core/services';
 
   // Tab configuration
   const planTabs: TabConfig[] = [
@@ -54,7 +54,7 @@
 
 
   // Derived values
-  const criticalAlerts = $derived(planningData?.insights?.filter(i => i.type === 'balance_warning').length || 0);
+  const criticalAlerts = $derived(planningData?.insights?.filter((i: any) => i.type === 'balance_warning').length || 0);
   
   // Calculate planning metrics
   const totalPlannedIncome = $derived(() => {
@@ -72,7 +72,8 @@
   onMount(async () => {
     try {
       // Load user currency preference
-      userCurrency = await settingsService.getCurrency();
+      const preferences = await userService.getUserPreferences();
+      userCurrency = preferences?.currency || 'USD';
       
       // Get the first active account for now
       const accounts = await planService.getAccounts();
@@ -88,12 +89,8 @@
       // Load planning data
       await loadPlanningData();
       
-      // Track user viewing plan page
-      await userActionsService.track('progress_viewed', {
-        triggeredBy: 'user_initiated',
-        categoriesViewed: ['plan'],
-        actionTaken: 'none'
-      });
+      // Track user viewing plan page (simplified - no tracking for now)
+      console.log('User viewed plan page');
     } catch (error) {
       console.error('Error loading plan data:', error);
       error = error instanceof Error ? error.message : 'Failed to load planning data';

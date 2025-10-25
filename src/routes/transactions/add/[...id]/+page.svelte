@@ -3,14 +3,10 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { transactionService } from '$lib/core/services/transaction-service';
-	import { transferService } from '$lib/core/services/transfer-service';
 	import { accountService } from '$lib/core/services/account-service';
 	import { budgetService } from '$lib/core/services/budget-service';
-	import { payeeService } from '$lib/core/services/payee-service';
-	import { tagService } from '$lib/core/services/tag-service';
-	import type { Account, Transaction, WhatTagType } from '$lib/core/db';
-	import type { TransactionBudgetCategory } from '$lib/core/services/budget-service';
-	import type { Payee } from '$lib/core/db';
+	import { db } from '$lib/core/db';
+	import type { Account, Transaction, Category } from '$lib/core/db';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import * as RadioGroup from '$lib/components/ui/radio-group/index.ts';
@@ -23,9 +19,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 
 	let accounts = $state<Account[]>([]);
-	let budgetCategories = $state<TransactionBudgetCategory[]>([]);
-	let payees = $state<Payee[]>([]);
-	let whatTags = $state<{ value: WhatTagType; label: string }[]>([]);
+	let categories = $state<Category[]>([]);
 	let transaction = $state<Transaction | null>(null);
 	
 	// Form state
@@ -34,9 +28,7 @@
 	let amount = $state(0);
 	let transactionType = $state<Transaction['type']>('expense');
 	let status = $state<Transaction['status']>('cleared');
-	let selectedBudgetCategory = $state('');
-	let selectedPayee = $state('');
-	let selectedWhatTag = $state<WhatTagType | ''>('');
+	let selectedCategory = $state('');
 	let notes = $state('');
 	let reference = $state('');
 	let toAccountId = $state('');
@@ -44,8 +36,8 @@
 	let clearedDate = $state('');
 	let isRecurring = $state(false);
 	let recurrenceRule = $state('');
-	let isSplitTransaction = $state(false);
-	let splitName = $state('');
+	let isGroupTransaction = $state(false);
+	let groupName = $state('');
 	let isLoading = $state(false);
 	let error = $state('');
 	
@@ -53,61 +45,23 @@
 	let transferFeeAmount = $state(0);
 	let transferFeeAccountId = $state('');
 	let transferFeeCategoryId = $state('');
-	let transferFeeWhatTag = $state<WhatTagType | ''>('');
 	let hasTransferFee = $state(false);
 
 
 	// UI state
 	let activeTab = $state('basic');
 
-	// What tag options
-	const whatTagOptions: { value: WhatTagType; label: string }[] = [
-		{ value: 'coffee', label: 'Coffee' },
-		{ value: 'groceries', label: 'Groceries' },
-		{ value: 'dining', label: 'Dining' },
-		{ value: 'gas', label: 'Gas' },
-		{ value: 'rent', label: 'Rent' },
-		{ value: 'utilities', label: 'Utilities' },
-		{ value: 'entertainment', label: 'Entertainment' },
-		{ value: 'clothing', label: 'Clothing' },
-		{ value: 'electronics', label: 'Electronics' },
-		{ value: 'medical', label: 'Medical' },
-		{ value: 'transportation', label: 'Transportation' },
-		{ value: 'shopping', label: 'Shopping' },
-		{ value: 'income', label: 'Income' },
-		{ value: 'freelance', label: 'Freelance' },
-		{ value: 'investment', label: 'Investment' },
-		{ value: 'gift', label: 'Gift' },
-		{ value: 'salary', label: 'Salary' },
-		{ value: 'maintenance', label: 'Maintenance' },
-		{ value: 'insurance', label: 'Insurance' },
-		{ value: 'fitness', label: 'Fitness' },
-		{ value: 'hobbies', label: 'Hobbies' },
-		{ value: 'streaming', label: 'Streaming' },
-		{ value: 'parking', label: 'Parking' },
-		{ value: 'tolls', label: 'Tolls' },
-		{ value: 'other', label: 'Other' }
-	];
-
-	// Computed properties
-	let isEditMode = $derived(!!transaction);
-	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
-	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Transaction' : 'Create Transaction'));
-
 	onMount(async () => {
 		try {
-			[accounts, budgetCategories, payees] = await Promise.all([
+			[accounts, categories] = await Promise.all([
 				accountService.getAccounts(),
-				budgetService.getTransactionBudgetCategories(),
-				payeeService.getAllPayees()
+				db.getActiveCategories()
 			]);
-			
-			whatTags = whatTagOptions;
 			
 			// Check if we have an ID parameter (edit mode)
 			const transactionId = $page.params.id;
 			if (transactionId) {
-				transaction = await transactionService.getTransactionById(transactionId);
+				transaction = await transactionService.getTransaction(transactionId);
 				if (transaction) {
 					// Populate form with existing transaction data
 					selectedAccount = transaction.accountId;
@@ -115,9 +69,7 @@
 					amount = transaction.amount || 0;
 					transactionType = transaction.type;
 					status = transaction.status;
-					selectedBudgetCategory = transaction.budgetCategoryId || '';
-					selectedWhatTag = transaction.whatTag || '';
-					selectedPayee = transaction.payeeId || '';
+					selectedCategory = transaction.categoryId || '';
 					notes = transaction.notes || '';
 					reference = transaction.reference || '';
 					toAccountId = transaction.toAccountId || '';
@@ -125,8 +77,8 @@
 					clearedDate = transaction.clearedDate ? new Date(transaction.clearedDate).toISOString().slice(0, 16) : '';
 					isRecurring = !!transaction.recurrenceRule;
 					recurrenceRule = transaction.recurrenceRule || '';
-					isSplitTransaction = !!transaction.splitName;
-					splitName = transaction.splitName || '';
+					isGroupTransaction = !!transaction.groupName;
+					groupName = transaction.groupName || '';
 				} else {
 					error = 'Transaction not found';
 				}
@@ -147,6 +99,11 @@
 		}
 	});
 
+	// Computed properties
+	let isEditMode = $derived(!!transaction);
+	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
+	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Transaction' : 'Create Transaction'));
+
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 		isLoading = true;
@@ -163,62 +120,48 @@
 			if (amount === 0) {
 				throw new Error('Please enter a valid amount (cannot be zero)');
 			}
-			if (transactionType === 'expense' && !selectedBudgetCategory) {
-				throw new Error('Please select a budget category for expenses');
+			if (transactionType === 'expense' && !selectedCategory) {
+				throw new Error('Please select a category for expenses');
 			}
 			if (transactionType === 'transfer' && !toAccountId) {
 				throw new Error('Please select a destination account for transfers');
 			}
 
 			// Prepare transaction data
-			const transactionData = {
+			const transactionData: any = {
 				accountId: selectedAccount,
 				description: description.trim(),
 				amount: amount,
 				type: transactionType,
 				status: status,
 				currency: 'USD', // Default currency
-				whatTag: selectedWhatTag || undefined,
-				budgetCategoryId: selectedBudgetCategory || undefined,
-				payeeId: selectedPayee || undefined,
+				categoryId: selectedCategory || undefined,
 				notes: notes || undefined,
 				reference: reference || undefined,
 				toAccountId: transactionType === 'transfer' ? toAccountId : undefined,
 				plannedDate: status === 'planned' ? (plannedDate ? new Date(plannedDate).toISOString() : undefined) : undefined,
 				clearedDate: status === 'cleared' ? (clearedDate ? new Date(clearedDate).toISOString() : undefined) : undefined,
 				recurrenceRule: isRecurring ? recurrenceRule : undefined,
-				splitName: isSplitTransaction ? splitName : undefined
+				groupName: isGroupTransaction ? groupName : undefined,
+				groupId: isGroupTransaction ? crypto.randomUUID() : undefined
 			};
+
+			// Handle transfer details if it's a transfer
+			if (transactionType === 'transfer' && hasTransferFee) {
+				transactionData.transferDetails = {
+					toAccountId: toAccountId!,
+					transferAmount: Math.abs(amount),
+					feeAmount: transferFeeAmount,
+					feeAccountId: transferFeeAccountId || selectedAccount,
+					feeCategoryId: transferFeeCategoryId || undefined
+				};
+			}
 
 			// Create or update transaction
 			if (isEditMode && transaction) {
 				await transactionService.updateTransaction(transaction.id, transactionData);
-			} else if (transactionType === 'transfer') {
-				// Use new single transaction transfer service
-				await transferService.createTransfer(
-					selectedAccount,
-					toAccountId!,
-					Math.abs(amount), // Ensure positive amount
-					description.trim(),
-					{
-						status,
-						currency: 'USD',
-						whatTag: selectedWhatTag === '' ? undefined : selectedWhatTag,
-						budgetCategoryId: selectedBudgetCategory,
-						payeeId: selectedPayee,
-						notes: notes,
-						reference: reference,
-						plannedDate: status === 'planned' ? (plannedDate ? new Date(plannedDate).toISOString() : undefined) : undefined,
-						clearedDate: status === 'cleared' ? (clearedDate ? new Date(clearedDate).toISOString() : undefined) : undefined,
-						// Fee options
-						feeAmount: hasTransferFee ? transferFeeAmount : 0,
-						feeAccountId: transferFeeAccountId || selectedAccount,
-						feeCategoryId: transferFeeCategoryId || 'banking_fees',
-						feeWhatTag: transferFeeWhatTag || 'banking_fees'
-					}
-				);
 			} else {
-				await transactionService.createNewTransaction(transactionData);
+				await transactionService.createTransaction(transactionData);
 			}
 
 			// Redirect to transactions list
@@ -231,26 +174,22 @@
 		}
 	}
 
-	function getBudgetCategoryColor(categoryName: string): string {
-		const category = budgetCategories.find(cat => cat.name === categoryName);
+	function getCategoryColor(categoryId: string): string {
+		const category = categories.find(cat => cat.id === categoryId);
 		return category?.color || '#6B7280';
 	}
 
-	function getBudgetStatusText(categoryName: string): string {
-		const category = budgetCategories.find(cat => cat.name === categoryName);
+	function getCategoryStatusText(categoryId: string): string {
+		const category = categories.find(cat => cat.id === categoryId);
 		if (!category) return '';
 		
-		const remaining = category.remaining;
-		const allocated = category.allocatedAmount;
-		const percentage = allocated > 0 ? (remaining / allocated) * 100 : 0;
-		
-		if (remaining < 0) {
-			return `Over budget by $${Math.abs(remaining).toFixed(2)}`;
-		} else if (percentage < 20) {
-			return `Low budget: $${remaining.toFixed(2)} remaining`;
-		} else {
-			return `$${remaining.toFixed(2)} remaining`;
+		const allocated = category.budgetAmount || 0;
+		if (allocated === 0) {
+			return 'No budget set';
 		}
+		
+		// For now, we'll show just the allocated amount since we don't have spent calculation
+		return `$${allocated.toFixed(2)} budgeted`;
 	}
 
 	function formatDateForInput(dateString: string): string {
@@ -466,31 +405,13 @@
 										<Label.Root for="feeCategory">Fee Category</Label.Root>
 										<Select.Root type="single" bind:value={transferFeeCategoryId}>
 											<Select.Trigger>
-												{transferFeeCategoryId ? budgetCategories.find(c => c.id === transferFeeCategoryId)?.name : "Select fee category"}
+												{transferFeeCategoryId ? categories.find(c => c.id === transferFeeCategoryId)?.name : "Select fee category"}
 											</Select.Trigger>
 											<Select.Content>
 												<Select.Item value="">Use default (Banking Fees)</Select.Item>
-												{#each budgetCategories as category}
+												{#each categories as category}
 													<Select.Item value={category.id}>
 														{category.name}
-													</Select.Item>
-												{/each}
-											</Select.Content>
-										</Select.Root>
-									</div>
-									
-									<!-- Fee What Tag -->
-									<div class="space-y-2">
-										<Label.Root for="feeWhatTag">Fee What Tag</Label.Root>
-										<Select.Root type="single" bind:value={transferFeeWhatTag}>
-											<Select.Trigger>
-												{transferFeeWhatTag ? whatTags.find(t => t.value === transferFeeWhatTag)?.label : "Select fee what tag"}
-											</Select.Trigger>
-											<Select.Content>
-												<Select.Item value="">Use default (Banking Fees)</Select.Item>
-												{#each whatTags as tag}
-													<Select.Item value={tag.value}>
-														{tag.label}
 													</Select.Item>
 												{/each}
 											</Select.Content>
@@ -573,116 +494,78 @@
 
 				<!-- Categorization Tab -->
 				<Tabs.Content value="categorization" class="space-y-6 mt-6">
-					<!-- Budget Category (only for expenses) -->
-					{#if transactionType === 'expense'}
-						<div class="space-y-2">
-							<Label.Root for="budgetCategory">Budget Category *</Label.Root>
-							<Select.Root type="single" bind:value={selectedBudgetCategory} required>
-								<Select.Trigger>
-									{selectedBudgetCategory ? budgetCategories.find(c => c.id === selectedBudgetCategory)?.name : "Select a budget category"}
-								</Select.Trigger>
-								<Select.Content>
-									<Select.Item value="">Select a budget category</Select.Item>
-									{#each budgetCategories as category}
-										<Select.Item value={category.id} style="color: {category.color}">
-											{category.name} - {getBudgetStatusText(category.name)}
-										</Select.Item>
-									{/each}
-								</Select.Content>
-							</Select.Root>
-							
-							{#if selectedBudgetCategory}
-								<div class="mt-2 text-sm text-muted-foreground">
-									{getBudgetStatusText(selectedBudgetCategory)}
-								</div>
-							{/if}
-						</div>
-					{/if}
-
-					<!-- What Tag -->
+					<!-- Category (for all transaction types) -->
 					<div class="space-y-2">
-						<Label.Root for="whatTag">What Tag</Label.Root>
-						<Select.Root type="single" bind:value={selectedWhatTag}>
+						<Label.Root for="category">Category</Label.Root>
+						<Select.Root type="single" bind:value={selectedCategory}>
 							<Select.Trigger>
-								{selectedWhatTag ? whatTags.find(t => t.value === selectedWhatTag)?.label : "Select what tag (optional)"}
+								{selectedCategory ? categories.find(c => c.id === selectedCategory)?.name : "Select a category (optional)"}
 							</Select.Trigger>
 							<Select.Content>
-								<Select.Item value="">Select what tag (optional)</Select.Item>
-								{#each whatTags as tag}
-									<Select.Item value={tag.value}>
-										{tag.label}
+								<Select.Item value="">Select a category (optional)</Select.Item>
+								{#each categories as category}
+									<Select.Item value={category.id} style="color: {category.color}">
+										{category.name} - {getCategoryStatusText(category.id)}
 									</Select.Item>
 								{/each}
 							</Select.Content>
 						</Select.Root>
-					</div>
-
-					<!-- Payee -->
-					<div class="space-y-2">
-						<Label.Root for="payee">Payee</Label.Root>
-						<Select.Root type="single" bind:value={selectedPayee}>
-							<Select.Trigger>
-								{selectedPayee ? payees.find(p => p.id === selectedPayee)?.name : "Select payee (optional)"}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="">Select payee (optional)</Select.Item>
-								{#each payees as payee}
-									<Select.Item value={payee.id}>
-										{payee.name}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
+						
+						{#if selectedCategory}
+							<div class="mt-2 text-sm text-muted-foreground">
+								{getCategoryStatusText(selectedCategory)}
+							</div>
+						{/if}
 					</div>
 				</Tabs.Content>
 
 
 				<!-- Advanced Tab -->
 				<Tabs.Content value="advanced" class="space-y-6 mt-6">
-					<!-- Split Transaction -->
+					<!-- Group Transaction -->
 					<div class="space-y-4">
 						<div class="flex items-center space-x-2">
-							<Switch.Root bind:checked={isSplitTransaction} />
-							<Label.Root for="split">This is a split transaction</Label.Root>
+							<Switch.Root bind:checked={isGroupTransaction} />
+							<Label.Root for="group">This is a grouped transaction</Label.Root>
 						</div>
 						<p class="text-xs text-muted-foreground">
-							Split transactions allow you to divide a single transaction across multiple budget categories
+							Grouped transactions allow you to combine multiple related transactions together
 						</p>
 						
-						{#if isSplitTransaction}
+						{#if isGroupTransaction}
 							<div class="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
 								<div class="space-y-2">
-									<Label.Root for="splitName">Split Name *</Label.Root>
+									<Label.Root for="groupName">Group Name *</Label.Root>
 									<Input.Root
-										id="splitName"
-										bind:value={splitName}
-										placeholder="e.g., Grocery Shopping Split"
+										id="groupName"
+										bind:value={groupName}
+										placeholder="e.g., Grocery Shopping Group"
 										required
 									/>
 									<p class="text-xs text-muted-foreground">
-										This will group related split transactions together
+										This will group related transactions together
 									</p>
 								</div>
 
-								<!-- Split Transaction Parts -->
+								<!-- Group Transaction Info -->
 								<div class="space-y-3">
-									<Label.Root>Split Parts</Label.Root>
+									<Label.Root>Group Information</Label.Root>
 									<div class="space-y-3">
 										<!-- Main transaction amount -->
 										<div class="flex items-center space-x-2 p-3 bg-background rounded border">
 											<div class="flex-1">
 												<Label.Root class="text-sm font-medium">Main Transaction</Label.Root>
-												<p class="text-xs text-muted-foreground">This is the total amount being split</p>
+												<p class="text-xs text-muted-foreground">This is the primary transaction in the group</p>
 											</div>
 											<div class="text-right">
 												<span class="font-mono text-lg">${amount || '0.00'}</span>
 											</div>
 										</div>
 
-										<!-- Split parts will be handled by the backend -->
+										<!-- Additional transactions will be handled separately -->
 										<div class="text-center py-4 text-muted-foreground">
-											<p class="text-sm">Split parts will be created automatically</p>
-											<p class="text-xs">Each part can be assigned to different budget categories</p>
+											<p class="text-sm">Additional transactions can be added to this group later</p>
+											<p class="text-xs">All transactions with the same group name will be displayed together</p>
 										</div>
 									</div>
 								</div>
@@ -742,26 +625,26 @@
 		</form>
 	</section>
 
-	<!-- Budget Categories Overview -->
-	{#if transactionType === 'expense' && budgetCategories.length > 0}
+	<!-- Categories Overview -->
+	{#if transactionType === 'expense' && categories.length > 0}
 		<section class="bg-muted rounded-lg p-6">
-			<h2 class="text-lg font-semibold text-primary mb-4">Budget Categories Overview</h2>
+			<h2 class="text-lg font-semibold text-primary mb-4">Categories Overview</h2>
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-				{#each budgetCategories as category}
+				{#each categories as category}
 					<div class="bg-card rounded-lg p-4 border border-border">
 						<div class="flex items-center justify-between mb-2">
 							<span class="font-medium" style="color: {category.color}">
 								{category.name}
 							</span>
 							<span class="text-sm text-muted-foreground">
-								{category.waterfallCategory}
+								{category.waterfallTier}
 							</span>
 						</div>
 						<div class="text-sm text-muted-foreground">
-							${category.allocatedAmount.toFixed(2)} allocated
+							${(category.budgetAmount || 0).toFixed(2)} allocated
 						</div>
 						<div class="text-sm text-muted-foreground">
-							{getBudgetStatusText(category.name)}
+							{getCategoryStatusText(category.id)}
 						</div>
 					</div>
 				{/each}

@@ -9,8 +9,8 @@
   import { Input } from '$lib/components/ui/input/index.ts';
   import { Label } from '$lib/components/ui/label/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
-  import { settingsService } from '$lib/core/services/index.ts';
-  import { populateSampleData, clearSampleData, clearAllData } from '$lib/core/sample-data-new';
+  import { userService } from '$lib/core/services/index.ts';
+  import { populateSampleData, clearAllData } from '$lib/core/test-data';
   import { onMount } from 'svelte';
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
@@ -36,25 +36,25 @@
   // Load user preferences on mount
   onMount(async () => {
     try {
-      userPreferences = await settingsService.getUserPreferences();
+      userPreferences = await userService.getUserPreferences();
       if (userPreferences) {
         username = userPreferences.username || 'User';
-        notificationsEnabled = userPreferences.notificationsEnabled ?? true;
+        notificationsEnabled = userPreferences.analyticsEnabled ?? true;
         autoCategorizationEnabled = userPreferences.enablePredictiveAnalytics ?? true;
-        stressDetectionEnabled = userPreferences.enableEmotionalIntelligence ?? true;
+        stressDetectionEnabled = userPreferences.enableAdvancedFeatures ?? true;
       } else {
         // Create default preferences if none exist
-        userPreferences = await settingsService.createUserPreferences({
+        userPreferences = await userService.updateUserPreferences({
           username: 'User',
-          notificationsEnabled: true,
+          analyticsEnabled: true,
           enablePredictiveAnalytics: true,
-          enableEmotionalIntelligence: true,
+          enableAdvancedFeatures: true,
           theme: 'dark'
         });
         username = userPreferences.username;
-        notificationsEnabled = userPreferences.notificationsEnabled;
+        notificationsEnabled = userPreferences.analyticsEnabled;
         autoCategorizationEnabled = userPreferences.enablePredictiveAnalytics;
-        stressDetectionEnabled = userPreferences.enableEmotionalIntelligence;
+        stressDetectionEnabled = userPreferences.enableAdvancedFeatures;
       }
     } catch (error) {
       console.error('Failed to load user preferences:', error);
@@ -77,11 +77,11 @@
     
     isSaving = true;
     try {
-      await settingsService.updateUserPreferences({
+      await userService.updateUserPreferences({
         username,
-        notificationsEnabled,
+        analyticsEnabled: notificationsEnabled,
         enablePredictiveAnalytics: autoCategorizationEnabled,
-        enableEmotionalIntelligence: stressDetectionEnabled,
+        enableAdvancedFeatures: stressDetectionEnabled,
         theme: darkModeEnabled ? 'dark' : 'light'
       });
     } catch (error) {
@@ -116,22 +116,6 @@
     }
   }
 
-  async function handleClearSampleData() {
-    if (isDevActionLoading) return;
-    
-    isDevActionLoading = true;
-    devActionMessage = null;
-    
-    try {
-      await clearSampleData();
-      devActionMessage = 'Sample data cleared successfully';
-    } catch (error) {
-      console.error('Error clearing sample data:', error);
-      devActionMessage = 'Error clearing sample data: ' + (error instanceof Error ? error.message : 'Unknown error');
-    } finally {
-      isDevActionLoading = false;
-    }
-  }
 
   async function handlePopulateSampleData() {
     if (isDevActionLoading) return;
@@ -154,16 +138,13 @@
     {
       title: 'Personal Settings',
       items: [
-        { name: 'Profile Settings', description: 'Update your personal information and financial context', icon: '👤', href: '/settings/profile' },
-        { name: 'Security & Privacy', description: 'Control data sharing and privacy preferences', icon: '🔒', href: '/settings/security' }
+        { name: 'Profile Settings', description: 'Update your personal information', icon: '👤', href: '/settings/profile' }
       ]
     },
     {
       title: 'App Preferences',
       items: [
-        { name: 'Notifications', description: 'Configure alerts and reminders', icon: '🔔', href: '/settings/notifications' },
-        { name: 'Display Settings', description: 'Theme, language, currency, and accessibility', icon: '🎨', href: '/settings/display' },
-        { name: 'Data Management', description: 'Export, import, and manage your financial data', icon: '📊', href: '/settings/data' }
+        { name: 'Display Settings', description: 'Theme, language, and currency preferences', icon: '🎨', href: '/settings/display' }
       ]
     }
   ];
@@ -239,22 +220,6 @@
             <div class="flex items-center justify-between space-x-4">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  🔔
-                </div>
-                <div>
-                  <div class="font-medium text-primary">Push Notifications</div>
-                  <div class="text-sm text-muted-foreground">Get alerts for important events</div>
-                </div>
-              </div>
-              <Switch
-                bind:checked={notificationsEnabled}
-                aria-label="Toggle push notifications"
-              />
-            </div>
-    
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
                   🌙
                 </div>
                 <div>
@@ -274,29 +239,45 @@
                   🤖
                 </div>
                 <div>
-                  <div class="font-medium text-primary">Auto Categorization</div>
-                  <div class="text-sm text-muted-foreground">AI-powered transaction sorting</div>
+                  <div class="font-medium text-primary">Predictive Analytics</div>
+                  <div class="text-sm text-muted-foreground">AI-powered insights and recommendations</div>
                 </div>
               </div>
               <Switch
                 bind:checked={autoCategorizationEnabled}
-                aria-label="Toggle auto categorization"
+                aria-label="Toggle predictive analytics"
               />
             </div>
     
             <div class="flex items-center justify-between space-x-4">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  😌
+                  📊
                 </div>
                 <div>
-                  <div class="font-medium text-primary">Stress Detection</div>
-                  <div class="text-sm text-muted-foreground">Monitor financial stress levels</div>
+                  <div class="font-medium text-primary">Analytics</div>
+                  <div class="text-sm text-muted-foreground">Track usage and improve the app</div>
+                </div>
+              </div>
+              <Switch
+                bind:checked={notificationsEnabled}
+                aria-label="Toggle analytics"
+              />
+            </div>
+    
+            <div class="flex items-center justify-between space-x-4">
+              <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
+                  ⚡
+                </div>
+                <div>
+                  <div class="font-medium text-primary">Advanced Features</div>
+                  <div class="text-sm text-muted-foreground">Enable advanced financial tools</div>
                 </div>
               </div>
               <Switch
                 bind:checked={stressDetectionEnabled}
-                aria-label="Toggle stress detection"
+                aria-label="Toggle advanced features"
               />
             </div>
           </div>
@@ -319,7 +300,7 @@
               </Alert.Root>
             {/if}
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button 
                 onclick={handleClearAllData} 
                 disabled={isDevActionLoading}
@@ -329,17 +310,6 @@
                   <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 {/if}
                 Clear All Data
-              </button>
-              
-              <button 
-                onclick={handleClearSampleData} 
-                disabled={isDevActionLoading}
-                class="w-full px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {#if isDevActionLoading}
-                  <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                {/if}
-                Clear Sample Data
               </button>
               
               <button 
@@ -388,45 +358,6 @@
       {/each}
     </section>
 
-    <!-- Quick Access -->
-    <section class="mt-8">
-      <h2 class="text-xl font-semibold text-primary mb-4">Quick Access</h2>
-      <div class="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
-        <div class="divide-y divide-border">
-          <button 
-            onclick={() => goto('/accounts')}
-            class="w-full p-6 text-left hover:bg-accent transition-colors"
-          >
-            <div class="flex items-center space-x-4">
-              <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                🏦
-              </div>
-              <div class="flex-1">
-                <div class="font-medium text-primary">Manage Accounts</div>
-                <div class="text-sm text-muted-foreground">Add, edit, or remove your financial accounts</div>
-              </div>
-              <div class="text-muted-foreground">→</div>
-            </div>
-          </button>
-          
-          <button 
-            onclick={() => goto('/budget')}
-            class="w-full p-6 text-left hover:bg-accent transition-colors"
-          >
-            <div class="flex items-center space-x-4">
-              <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                🏷️
-              </div>
-              <div class="flex-1">
-                <div class="font-medium text-primary">Manage Categories</div>
-                <div class="text-sm text-muted-foreground">Organize your budget categories and tags</div>
-              </div>
-              <div class="text-muted-foreground">→</div>
-            </div>
-          </button>
-        </div>
-      </div>
-    </section>
 
     <!-- Data Management -->
     <section class="mt-8">

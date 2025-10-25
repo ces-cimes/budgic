@@ -1,46 +1,36 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import { settingsService } from '$lib/core/services/settings-service';
+  import { userService } from '$lib/core/services';
   import { PageLayout } from '$lib/components/layouts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
-  import { Switch } from '$lib/components/ui/switch/index.ts';
   import * as Alert from '$lib/components/ui/alert/index.ts';
   import { db } from '$lib/core/db';
-  import type { UserPreferences } from '$lib/core/db';
 
   // State
   let isLoading = $state(true);
-  let isSaving = $state(false);
   let isExporting = $state(false);
   let isImporting = $state(false);
   let error = $state<string | null>(null);
   let success = $state<string | null>(null);
   
-  // Data settings
-  let autoImportEnabled = $state(false);
+  // Data settings - simplified for current schema
   let exportFormat = $state<'json' | 'csv' | 'pdf'>('json');
-  let cacheEnabled = $state(true);
-  let offlineModeEnabled = $state(false);
-
 
   // Export format options
   const exportFormatOptions = [
     { value: 'json', label: 'JSON', description: 'Complete data backup (recommended)' },
-    { value: 'csv', label: 'CSV', description: 'Spreadsheet format for transactions' },
-    { value: 'pdf', label: 'PDF', description: 'Readable report format' }
+    { value: 'csv', label: 'CSV', description: 'Spreadsheet format' },
+    { value: 'pdf', label: 'PDF', description: 'Printable report' }
   ];
 
   // Load user preferences on mount
   onMount(async () => {
     try {
-      const preferences = await settingsService.getUserPreferences();
+      const preferences = await userService.getUserPreferences();
       if (preferences) {
-        autoImportEnabled = preferences.autoImportEnabled ?? false;
-        exportFormat = preferences.exportFormat || 'json';
-        cacheEnabled = preferences.cacheEnabled ?? true;
-        offlineModeEnabled = preferences.offlineModeEnabled ?? false;
+        exportFormat = 'json'; // Default format
       }
     } catch (err) {
       error = 'Failed to load data settings';
@@ -49,30 +39,6 @@
       isLoading = false;
     }
   });
-
-  // Save preferences
-  async function savePreferences() {
-    if (isSaving) return;
-    
-    isSaving = true;
-    error = null;
-    success = null;
-    
-    try {
-      await settingsService.updateUserPreferences({
-        autoImportEnabled,
-        exportFormat,
-        cacheEnabled,
-        offlineModeEnabled
-      });
-      success = 'Data settings saved successfully';
-    } catch (err) {
-      error = 'Failed to save data settings';
-      console.error('Error saving preferences:', err);
-    } finally {
-      isSaving = false;
-    }
-  }
 
   // Export data
   async function exportData() {
@@ -87,8 +53,10 @@
       const data = {
         accounts: await db.accounts.toArray(),
         transactions: await db.transactions.toArray(),
-        tags: await db.tags.toArray(),
-        budgetCategories: await db.budgetCategories.toArray(),
+        categories: await db.categories.toArray(),
+        goals: await db.goals.toArray(),
+        insights: await db.insights.toArray(),
+        userActions: await db.userActions.toArray(),
         userPreferences: await db.userPreferences.toArray(),
         exportDate: new Date().toISOString(),
         version: '1.0'
@@ -134,9 +102,9 @@
         throw new Error('Invalid export file format');
       }
       
-      // Import settings if present
-      if (data.settings) {
-        await settingsService.importSettings(data.settings);
+      // Import user preferences if present
+      if (data.userPreferences && data.userPreferences.length > 0) {
+        await userService.updateUserPreferences(data.userPreferences[0]);
       }
       
       success = 'Data imported successfully';
@@ -161,12 +129,11 @@
       await Promise.all([
         db.accounts.clear(),
         db.transactions.clear(),
-        db.bankTransactions.clear(),
-        db.tags.clear(),
-        db.budgetCategories.clear(),
-        db.userPreferences.clear(),
-        db.dynamicSettings.clear(),
-        db.userActions.clear()
+        db.categories.clear(),
+        db.goals.clear(),
+        db.insights.clear(),
+        db.userActions.clear(),
+        db.userPreferences.clear()
       ]);
       
       success = 'All data cleared successfully';
@@ -179,14 +146,6 @@
       console.error('Error clearing data:', err);
     }
   }
-
-  // Reset to defaults
-  function resetToDefaults() {
-    autoImportEnabled = false;
-    exportFormat = 'json';
-    cacheEnabled = true;
-    offlineModeEnabled = false;
-  }
 </script>
 
 <svelte:head>
@@ -194,8 +153,6 @@
 </svelte:head>
 
 <PageLayout>
-  
-
   <div class="container mx-auto px-4 py-6 max-w-4xl">
     <!-- Header -->
     <header class="mb-8">
@@ -226,100 +183,47 @@
         </Alert.Root>
       {/if}
 
-      <!-- Data Settings -->
-      <form onsubmit={(e) => { e.preventDefault(); savePreferences(); }} class="space-y-8">
-        <!-- Data Preferences -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Data Preferences</Card.Title>
-            <Card.Description>Configure how your data is handled</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-6">
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  📥
-                </div>
-                <div>
-                  <div class="font-medium text-primary">Auto Import</div>
-                  <div class="text-sm text-muted-foreground">Automatically import data from connected accounts</div>
-                </div>
-              </div>
-              <Switch
-                bind:checked={autoImportEnabled}
-                aria-label="Toggle auto import"
-              />
-            </div>
+      <!-- Export Settings -->
+      <Card.Root class="mb-8">
+        <Card.Header>
+          <Card.Title>Export Settings</Card.Title>
+          <Card.Description>Choose your preferred export format</Card.Description>
+        </Card.Header>
+        <Card.Content class="space-y-4">
+          <div class="space-y-2">
+            <label for="export-format" class="text-sm font-medium text-primary">Export Format</label>
+            <select 
+              id="export-format"
+              bind:value={exportFormat}
+              class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+            >
+              {#each exportFormatOptions as option}
+                <option value={option.value}>{option.label} - {option.description}</option>
+              {/each}
+            </select>
+          </div>
+        </Card.Content>
+      </Card.Root>
 
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  💾
-                </div>
-                <div>
-                  <div class="font-medium text-primary">Cache Enabled</div>
-                  <div class="text-sm text-muted-foreground">Store frequently accessed data for faster performance</div>
-                </div>
-              </div>
-              <Switch
-                bind:checked={cacheEnabled}
-                aria-label="Toggle cache"
-              />
-            </div>
-
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  📱
-                </div>
-                <div>
-                  <div class="font-medium text-primary">Offline Mode</div>
-                  <div class="text-sm text-muted-foreground">Work without internet connection</div>
-                </div>
-              </div>
-              <Switch
-                bind:checked={offlineModeEnabled}
-                aria-label="Toggle offline mode"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <label for="export-format-select" class="text-sm font-medium text-primary">Default Export Format</label>
-              <select 
-                id="export-format-select"
-                bind:value={exportFormat}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
-              >
-                {#each exportFormatOptions as option}
-                  <option value={option.value}>{option.label}</option>
-                {/each}
-              </select>
-            </div>
-          </Card.Content>
-        </Card.Root>
-
+      <!-- Data Actions -->
+      <div class="space-y-6">
         <!-- Export Data -->
         <Card.Root>
           <Card.Header>
             <Card.Title>Export Data</Card.Title>
-            <Card.Description>Download your financial data for backup or migration</Card.Description>
+            <Card.Description>Download a backup of all your financial data</Card.Description>
           </Card.Header>
-          <Card.Content class="space-y-4">
-            <div class="flex items-center gap-4">
-              <Button.Root 
-                type="button" 
-                onclick={exportData}
-                disabled={isExporting}
-              >
-                {#if isExporting}
-                  <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {/if}
-                Export Data
-              </Button.Root>
-              <span class="text-sm text-muted-foreground">
-                Downloads all your data in {exportFormat.toUpperCase()} format
-              </span>
-            </div>
+          <Card.Content>
+            <Button.Root 
+              onclick={exportData} 
+              disabled={isExporting}
+              class="w-full"
+            >
+              {#if isExporting}
+                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              {/if}
+              Export Data ({exportFormat.toUpperCase()})
+            </Button.Root>
           </Card.Content>
         </Card.Root>
 
@@ -327,107 +231,42 @@
         <Card.Root>
           <Card.Header>
             <Card.Title>Import Data</Card.Title>
-            <Card.Description>Restore data from a previous export</Card.Description>
+            <Card.Description>Restore data from a previous backup</Card.Description>
           </Card.Header>
-          <Card.Content class="space-y-4">
-            <div class="flex items-center gap-4">
-              <input
-                type="file"
-                accept=".json"
-                onchange={importData}
-                disabled={isImporting}
-                class="hidden"
-                id="import-file"
-              />
-              <Button.Root 
-                type="button" 
-                variant="outline"
-                onclick={() => document.getElementById('import-file')?.click()}
-                disabled={isImporting}
-              >
-                {#if isImporting}
-                  <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                {/if}
-                Import Data
-              </Button.Root>
-              <span class="text-sm text-muted-foreground">
-                Select a JSON export file to restore
-              </span>
-            </div>
+          <Card.Content>
+            <input
+              type="file"
+              accept=".json"
+              onchange={importData}
+              disabled={isImporting}
+              class="w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+            />
+            <p class="text-sm text-muted-foreground mt-2">
+              Select a JSON export file to restore your data
+            </p>
           </Card.Content>
         </Card.Root>
 
-        <!-- Account Management -->
+        <!-- Clear Data -->
         <Card.Root>
           <Card.Header>
-            <Card.Title>Account Management</Card.Title>
-            <Card.Description>Manage your accounts and financial data</Card.Description>
+            <Card.Title>Clear All Data</Card.Title>
+            <Card.Description>Permanently delete all your financial data</Card.Description>
           </Card.Header>
-          <Card.Content class="space-y-4">
-            <div class="flex items-center gap-4">
-              <Button.Root 
-                type="button" 
-                variant="outline"
-                onclick={() => goto('/accounts')}
-              >
-                Manage Accounts
-              </Button.Root>
-              <span class="text-sm text-muted-foreground">
-                Add, edit, or remove your financial accounts
-              </span>
-            </div>
-            
-            <div class="flex items-center gap-4">
-              <Button.Root 
-                type="button" 
-                variant="outline"
-                onclick={() => goto('/budget')}
-              >
-                Manage Categories
-              </Button.Root>
-              <span class="text-sm text-muted-foreground">
-                Organize your budget categories and tags
-              </span>
-            </div>
+          <Card.Content>
+            <Button.Root 
+              variant="destructive"
+              onclick={clearAllData}
+              class="w-full"
+            >
+              Clear All Data
+            </Button.Root>
+            <p class="text-sm text-muted-foreground mt-2">
+              ⚠️ This action cannot be undone. Make sure to export your data first.
+            </p>
           </Card.Content>
         </Card.Root>
-
-        <!-- Danger Zone -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title class="text-destructive">Danger Zone</Card.Title>
-            <Card.Description>Irreversible actions that will permanently delete data</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-4">
-            <div class="flex items-center gap-4">
-              <Button.Root 
-                type="button" 
-                variant="destructive"
-                onclick={clearAllData}
-              >
-                Delete All Data
-              </Button.Root>
-              <span class="text-sm text-destructive/80">
-                Permanently delete all accounts, transactions, and settings
-              </span>
-            </div>
-          </Card.Content>
-        </Card.Root>
-
-        <!-- Actions -->
-        <div class="flex gap-4">
-          <Button.Root type="submit" disabled={isSaving}>
-            {#if isSaving}
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            {/if}
-            Save Changes
-          </Button.Root>
-          
-          <Button.Root type="button" variant="outline" onclick={resetToDefaults}>
-            Reset to Defaults
-          </Button.Root>
-        </div>
-      </form>
+      </div>
     {/if}
   </div>
 </PageLayout>

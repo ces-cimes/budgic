@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { budgetService } from '$lib/core/services/budget-service';
-	import type { WaterfallCategory } from '$lib/core/services/budget-service';
+	import type { Category } from '$lib/core/db';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import * as Input from '$lib/components/ui/input/index.ts';
 	import * as Label from '$lib/components/ui/label/index.ts';
@@ -19,37 +19,26 @@
 
 	// Form state
 	let name = $state('');
-	let waterfallCategory = $state<WaterfallCategory>('lifestyle');
-	let allocatedAmount = $state(0);
+	let type = $state<Category['type']>('expense');
+	let waterfallTier = $state<Category['waterfallTier']>('lifestyle');
+	let budgetAmount = $state<number | undefined>(undefined);
 	let priority = $state(1);
-	let recurringPeriod = $state<'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly' | 'custom'>('monthly');
-	let customPeriodDays = $state<number | undefined>(undefined);
 	let color = $state('#6B7280');
 	let description = $state('');
-
-	// Goal settings
-	let isGoalBased = $state(false);
-	let goalTarget = $state<number | undefined>(undefined);
-
-	// Advanced settings
-	let maxCarryoverPercent = $state(0.2);
-	let autoAdjustmentsEnabled = $state(true);
+	let isActive = $state(true);
 
 
-	const waterfallOptions: { value: WaterfallCategory; label: string; description: string }[] = [
+	const waterfallOptions: { value: Category['waterfallTier']; label: string; description: string }[] = [
 		{ value: 'survival', label: 'Survival', description: 'Essential needs for basic living' },
 		{ value: 'security', label: 'Security', description: 'Financial safety and stability' },
 		{ value: 'growth', label: 'Growth', description: 'Personal and financial development' },
 		{ value: 'lifestyle', label: 'Lifestyle', description: 'Discretionary spending and enjoyment' }
 	];
 
-	const recurringPeriodOptions = [
-		{ value: 'daily', label: 'Daily' },
-		{ value: 'weekly', label: 'Weekly' },
-		{ value: 'biweekly', label: 'Bi-weekly (every 2 weeks)' },
-		{ value: 'monthly', label: 'Monthly' },
-		{ value: 'yearly', label: 'Yearly' },
-		{ value: 'custom', label: 'Custom' }
+	const typeOptions: { value: Category['type']; label: string; description: string }[] = [
+		{ value: 'expense', label: 'Expense', description: 'Categories for spending money' },
+		{ value: 'income', label: 'Income', description: 'Categories for earning money' },
+		{ value: 'transfer', label: 'Transfer', description: 'Categories for moving money between accounts' }
 	];
 
 	const colorOptions = [
@@ -75,31 +64,24 @@
 			if (!name.trim()) {
 				throw new Error('Category name is required');
 			}
-			if (allocatedAmount <= 0) {
-				throw new Error('Allocated amount must be greater than 0');
-			}
-			if (recurringPeriod === 'custom' && (!customPeriodDays || customPeriodDays <= 0)) {
-				throw new Error('Custom period days must be specified and greater than 0');
-			}
-			if (isGoalBased && (!goalTarget || goalTarget <= 0)) {
-				throw new Error('Goal target must be specified and greater than 0');
+			if (budgetAmount !== undefined && budgetAmount < 0) {
+				throw new Error('Budget amount cannot be negative');
 			}
 
-			// Create the budget category
-			await budgetService.createBudgetCategory(name.trim(), waterfallCategory, allocatedAmount, {
+			// Create the category
+			await budgetService.createCategory({
+				name: name.trim(),
+				type,
+				waterfallTier,
 				priority,
-				recurringPeriod,
-				customPeriodDays: recurringPeriod === 'custom' ? customPeriodDays : undefined,
-				isGoalBased,
-				goalTarget: isGoalBased ? goalTarget : undefined,
-				maxCarryoverPercent,
-				autoAdjustmentsEnabled,
+				budgetAmount,
 				color,
-				description: description.trim() || undefined
+				description: description.trim() || undefined,
+				isActive
 			});
 
 			// Redirect to categories list
-			goto('/budget');
+			goto('/categories');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create category';
 			console.error(err);
@@ -141,7 +123,7 @@
 			<Button
 				type="button"
 				variant="outline"
-				onclick={() => goto('/budget')}
+				onclick={() => goto('/categories')}
 				disabled={isLoading}
 				class="grow"
 			>
@@ -171,10 +153,8 @@
 			<form id="category-form" onsubmit={handleSubmit} class="space-y-4">
 			<!-- Tabs for different sections -->
 			<Tabs.Root bind:value={activeTab} class="w-full">
-				<Tabs.List class="grid w-full grid-cols-3">
-					<Tabs.Trigger value="basic">Basic Info</Tabs.Trigger>
-					<Tabs.Trigger value="goals">Goals</Tabs.Trigger>
-					<Tabs.Trigger value="advanced">Advanced</Tabs.Trigger>
+				<Tabs.List class="grid w-full grid-cols-1">
+					<Tabs.Trigger value="basic">Category Information</Tabs.Trigger>
 				</Tabs.List>
 
 				<!-- Basic Information Tab -->
@@ -196,12 +176,32 @@
 								/>
 							</div>
 
-							<!-- Waterfall Category -->
+							<!-- Category Type -->
 							<div class="space-y-2">
-								<Label.Root for="waterfallCategory">Priority Level *</Label.Root>
-								<Select.Root type="single" bind:value={waterfallCategory}>
+								<Label.Root for="type">Category Type *</Label.Root>
+								<Select.Root type="single" bind:value={type}>
 									<Select.Trigger>
-										{waterfallOptions.find(opt => opt.value === waterfallCategory)?.label || "Select priority level"}
+										{typeOptions.find(opt => opt.value === type)?.label || "Select category type"}
+									</Select.Trigger>
+									<Select.Content>
+										{#each typeOptions as option}
+											<Select.Item value={option.value}>
+												<div>
+													<div class="font-medium">{option.label}</div>
+													<div class="text-sm text-muted-foreground">{option.description}</div>
+												</div>
+											</Select.Item>
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</div>
+
+							<!-- Waterfall Tier -->
+							<div class="space-y-2">
+								<Label.Root for="waterfallTier">Priority Level *</Label.Root>
+								<Select.Root type="single" bind:value={waterfallTier}>
+									<Select.Trigger>
+										{waterfallOptions.find(opt => opt.value === waterfallTier)?.label || "Select priority level"}
 									</Select.Trigger>
 									<Select.Content>
 										{#each waterfallOptions as option}
@@ -216,9 +216,9 @@
 								</Select.Root>
 							</div>
 
-							<!-- Priority within waterfall category -->
+							<!-- Priority within waterfall tier -->
 							<div class="space-y-2">
-								<Label.Root for="priority">Priority (within {waterfallCategory})</Label.Root>
+								<Label.Root for="priority">Priority (within {waterfallTier})</Label.Root>
 								<Input.Root
 									id="priority"
 									type="number"
@@ -229,54 +229,24 @@
 								<p class="text-xs text-muted-foreground">Lower numbers = higher priority</p>
 							</div>
 
-							<!-- Allocated Amount -->
+							<!-- Budget Amount -->
 							<div class="space-y-2">
-								<Label.Root for="allocatedAmount">Allocated Amount *</Label.Root>
+								<Label.Root for="budgetAmount">Budget Amount (Optional)</Label.Root>
 								<div class="relative">
 									<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">$</span>
 									<Input.Root
-										id="allocatedAmount"
+										id="budgetAmount"
 										type="number"
-										bind:value={allocatedAmount}
+										bind:value={budgetAmount}
 										placeholder="0.00"
 										step="0.01"
 										class="pl-8"
-										required
 									/>
 								</div>
+								<p class="text-xs text-muted-foreground">
+									Leave empty if you don't want to set a budget for this category
+								</p>
 							</div>
-
-							<!-- Recurring Period -->
-							<div class="space-y-2">
-								<Label.Root for="recurringPeriod">Budget Period *</Label.Root>
-								<Select.Root type="single" bind:value={recurringPeriod}>
-									<Select.Trigger>
-										{recurringPeriodOptions.find(opt => opt.value === recurringPeriod)?.label || "Select period"}
-									</Select.Trigger>
-									<Select.Content>
-										{#each recurringPeriodOptions as option}
-											<Select.Item value={option.value}>
-												{option.label}
-											</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</div>
-
-							<!-- Custom Period Days -->
-							{#if recurringPeriod === 'custom'}
-								<div class="space-y-2">
-									<Label.Root for="customPeriodDays">Custom Period (days) *</Label.Root>
-									<Input.Root
-										id="customPeriodDays"
-										type="number"
-										bind:value={customPeriodDays}
-										placeholder="30"
-										min="1"
-										required
-									/>
-								</div>
-							{/if}
 
 							<!-- Color -->
 							<div class="space-y-2">
@@ -312,91 +282,15 @@
 									class="w-full px-3 py-2 border border-input rounded-md bg-background text-primary resize-none focus:ring-2 focus:ring-ring focus:border-transparent"
 								></textarea>
 							</div>
-						</Card.Content>
-					</Card.Root>
-				</Tabs.Content>
 
-				<!-- Goals & Tracking Tab -->
-				<Tabs.Content value="goals" class="space-y-4">
-					<Card.Root>
-						<Card.Header>
-							<Card.Title>Goal Settings</Card.Title>
-							<Card.Description>Set up goals and tracking for this category</Card.Description>
-						</Card.Header>
-						<Card.Content class="space-y-4">
-							<!-- Goal-based category -->
-							<div class="space-y-4">
-								<div class="flex items-center space-x-2">
-									<Switch.Root bind:checked={isGoalBased} />
-									<Label.Root for="goalBased">This is a goal-based category</Label.Root>
-								</div>
-								<p class="text-xs text-muted-foreground">
-									Goal-based categories track progress toward a specific target amount
-								</p>
-							</div>
-
-							{#if isGoalBased}
-								<div class="space-y-2">
-									<Label.Root for="goalTarget">Goal Target Amount *</Label.Root>
-									<div class="relative">
-										<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">$</span>
-										<Input.Root
-											id="goalTarget"
-											type="number"
-											bind:value={goalTarget}
-											placeholder="0.00"
-											step="0.01"
-											class="pl-8"
-											required
-										/>
-									</div>
-									<p class="text-xs text-muted-foreground">
-										The total amount you want to save or spend toward this goal
-									</p>
-								</div>
-							{/if}
-						</Card.Content>
-					</Card.Root>
-				</Tabs.Content>
-
-				<!-- Advanced Tab -->
-				<Tabs.Content value="advanced" class="space-y-4">
-					<Card.Root>
-						<Card.Header>
-							<Card.Title>Advanced Settings</Card.Title>
-							<Card.Description>Fine-tune how this category behaves</Card.Description>
-						</Card.Header>
-						<Card.Content class="space-y-4">
-							<!-- Max Carryover Percent -->
+							<!-- Active Status -->
 							<div class="space-y-2">
-								<Label.Root for="maxCarryoverPercent">Max Carryover Percentage</Label.Root>
 								<div class="flex items-center space-x-2">
-									<Input.Root
-										id="maxCarryoverPercent"
-										type="number"
-										bind:value={maxCarryoverPercent}
-										min="0"
-										max="1"
-										step="0.01"
-										class="w-24"
-									/>
-									<span class="text-sm text-muted-foreground">
-										({Math.round(maxCarryoverPercent * 100)}% of allocated amount)
-									</span>
+									<Switch.Root bind:checked={isActive} />
+									<Label.Root for="isActive">Category is active</Label.Root>
 								</div>
 								<p class="text-xs text-muted-foreground">
-									Maximum percentage of allocated amount that can be borrowed from this category
-								</p>
-							</div>
-
-							<!-- Auto Adjustments -->
-							<div class="space-y-4">
-								<div class="flex items-center space-x-2">
-									<Switch.Root bind:checked={autoAdjustmentsEnabled} />
-									<Label.Root for="autoAdjustments">Enable Automatic Adjustments</Label.Root>
-								</div>
-								<p class="text-xs text-muted-foreground">
-									Allow the system to automatically borrow from this category when others are overspent
+									Inactive categories won't appear in transaction forms but will be preserved for historical data
 								</p>
 							</div>
 						</Card.Content>

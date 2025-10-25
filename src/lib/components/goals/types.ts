@@ -1,46 +1,15 @@
 // Goals-specific types and interfaces
-import type { LucideIcon } from '@lucide/svelte';
 
 // TabConfig is now shared - import from shared types
 export type { TabConfig } from '$lib/components/shared/types';
 
-// Financial Goal types
-export interface FinancialGoal {
-  id: string;
-  name: string;
-  description?: string;
-  targetAmount: number;
-  currentAmount: number;
-  currency: string;
-  category: GoalCategory;
-  priority: GoalPriority;
-  status: GoalStatus;
-  targetDate?: string;
-  createdAt: string;
-  updatedAt: string;
-  completedAt?: string;
-  monthlyContribution?: number;
-  isRecurring?: boolean;
-  parentGoalId?: string; // For sub-goals
-  tags?: string[];
-}
+// Import core Goal type from database
+export type { Goal } from '$lib/core/db';
 
-export type GoalCategory = 
-  | 'emergency_fund'
-  | 'vacation'
-  | 'house_down_payment'
-  | 'car_purchase'
-  | 'education'
-  | 'retirement'
-  | 'debt_payoff'
-  | 'investment'
-  | 'wedding'
-  | 'home_improvement'
-  | 'other';
-
-export type GoalPriority = 'low' | 'medium' | 'high' | 'critical';
-
-export type GoalStatus = 'active' | 'paused' | 'completed' | 'cancelled';
+// Goal-specific enums (re-exported for convenience)
+export type GoalCategory = Goal['category'];
+export type GoalPriority = Goal['priority'];
+export type GoalStatus = Goal['status'];
 
 // Goal Progress tracking
 export interface GoalProgress {
@@ -75,15 +44,14 @@ export type GoalInsightType =
 
 // Goals Data aggregation
 export interface GoalsData {
-  totalGoals: number;
-  activeGoals: number;
-  completedGoals: number;
+  activeGoals: Goal[];
+  completedGoals: Goal[];
+  allGoals: Goal[];
   totalTargetValue: number;
   totalCurrentValue: number;
   overallProgress: number;
   averageProgress: number;
   monthlyContributionTotal: number;
-  estimatedCompletionDate?: string;
   categoryBreakdown: Record<GoalCategory, {
     count: number;
     totalValue: number;
@@ -93,6 +61,15 @@ export interface GoalsData {
     count: number;
     totalValue: number;
   }>;
+  insights: GoalInsight[];
+  analytics: {
+    totalGoals: number;
+    activeGoalsCount: number;
+    completedGoalsCount: number;
+    averageGoalValue: number;
+    completionRate: number;
+  };
+  totalGoals: number;
 }
 
 // Goal creation/update forms
@@ -106,7 +83,6 @@ export interface CreateGoalRequest {
   targetDate?: string;
   monthlyContribution?: number;
   isRecurring?: boolean;
-  parentGoalId?: string;
   tags?: string[];
 }
 
@@ -121,7 +97,6 @@ export interface UpdateGoalRequest {
   targetDate?: string;
   monthlyContribution?: number;
   isRecurring?: boolean;
-  parentGoalId?: string;
   tags?: string[];
 }
 

@@ -2,8 +2,8 @@
 	import { Plus, Search, ChevronLeft, ChevronRight, Clock, CheckCircle, Calendar, Group } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { transactionService, settingsService, accountService, budgetService } from '$lib/core/services';
-	import { calculateTransactionImpact } from '$lib/core/db';  
+	import { transactionService, userService, accountService, budgetService } from '$lib/core/services';
+	import { calculateTransactionImpact, db } from '$lib/core/db';  
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Toggle } from '$lib/components/ui/toggle/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
@@ -68,8 +68,7 @@
 		// Filter by pending status
 		if (showPendingOnly) {
 			filtered = filtered.filter(t => {
-				const transaction = t.representative || t;
-				return transaction.status === 'pending' || transaction.status === 'planned';
+				return t.status === 'pending' || t.status === 'planned';
 			});
 		}
 		
@@ -79,7 +78,6 @@
 			const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59);
 			
 			filtered = filtered.filter(t => {
-				const transaction = t.representative || t;
 				const transactionDate = new Date(getTransactionDate(t));
 				return transactionDate >= monthStart && transactionDate <= monthEnd;
 			});
@@ -92,10 +90,69 @@
 			return dateB.getTime() - dateA.getTime();
 		});
 		
+		// Group transactions by groupId first, then by date
+		const transactionGroups = new Map<string, any[]>();
+		const standaloneTransactions: any[] = [];
+		
+		filtered.forEach(transaction => {
+			if (transaction.groupId) {
+				if (!transactionGroups.has(transaction.groupId)) {
+					transactionGroups.set(transaction.groupId, []);
+				}
+				transactionGroups.get(transaction.groupId)!.push(transaction);
+			} else {
+				standaloneTransactions.push(transaction);
+			}
+		});
+		
+		// Create group objects for grouped transactions
+		const groupedTransactions: any[] = [];
+		transactionGroups.forEach((groupTransactions, groupId) => {
+			// Sort group transactions by date
+			groupTransactions.sort((a, b) => {
+				const dateA = new Date(getTransactionDate(a));
+				const dateB = new Date(getTransactionDate(b));
+				return dateB.getTime() - dateA.getTime();
+			});
+			
+			// Create a group object representing the entire group
+			const firstTransaction = groupTransactions[0];
+			const totalAmount = groupTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+			
+			groupedTransactions.push({
+				id: groupId,
+				type: 'group',
+				groupId: groupId,
+				groupName: firstTransaction.groupName || 'Grouped Transaction',
+				description: firstTransaction.description || 'Grouped Transaction',
+				amount: totalAmount,
+				currency: firstTransaction.currency,
+				status: firstTransaction.status,
+				clearedDate: firstTransaction.clearedDate,
+				plannedDate: firstTransaction.plannedDate,
+				createdAt: firstTransaction.createdAt,
+				accountId: firstTransaction.accountId,
+				categoryId: firstTransaction.categoryId,
+				transactions: groupTransactions,
+				totalAmount: totalAmount,
+				isGroup: true
+			});
+		});
+		
+		// Combine grouped and standalone transactions
+		const allTransactions = [...groupedTransactions, ...standaloneTransactions];
+		
+		// Sort all transactions by date (most recent first)
+		allTransactions.sort((a, b) => {
+			const dateA = new Date(getTransactionDate(a));
+			const dateB = new Date(getTransactionDate(b));
+			return dateB.getTime() - dateA.getTime();
+		});
+		
 		// Group by date
 		const grouped = new Map<string, { group: DateGroup; transactions: any[] }>();
 		
-		filtered.forEach(transaction => {
+		allTransactions.forEach(transaction => {
 			const transactionDate = new Date(getTransactionDate(transaction));
 			const groupKey = getGroupKey(transactionDate, groupingMode);
 			
@@ -124,37 +181,36 @@
 		// Flatten the grouped transactions for stats calculation
 		const allTransactions = filteredTransactions().flatMap(group => group.transactions);
 		
-		// Calculate income: sum of positive income transactions + negative income transactions (both contribute to income total)
+		// Calculate income: sum of income transactions
 		// Exclude transfers as they are internal movements between accounts
 		const income = allTransactions
-			.filter(t => (t.representative || t).type === 'income')
+			.filter(t => t.type === 'income')
 			.reduce((sum, t) => {
-				const amount = t.totalAmount || t.amount || 0;
+				const amount = t.isGroup ? t.totalAmount : (t.amount || 0);
 				return sum + amount; // Income can be positive or negative
 			}, 0);
 		
-		// Calculate expenses: sum of positive expense transactions + negative expense transactions (both contribute to expense total)
+		// Calculate expenses: sum of expense transactions
 		// Exclude transfers as they are internal movements between accounts
 		const expenses = allTransactions
-			.filter(t => (t.representative || t).type === 'expense')
+			.filter(t => t.type === 'expense')
 			.reduce((sum, t) => {
-				const amount = t.totalAmount || t.amount || 0;
-				return sum + amount; // Expenses can be positive or negative
+				const amount = t.isGroup ? t.totalAmount : (t.amount || 0);
+				return sum + Math.abs(amount); // Expenses are always positive in calculations
 			}, 0);
 		
 		// Calculate net using the proper transaction impact calculation
 		// For transfers, use the amount directly since they are internal movements
 		const net = allTransactions.reduce((sum, t) => {
-			const transaction = t.representative || t;
-			const amount = t.totalAmount || t.amount || 0;
+			const amount = t.isGroup ? t.totalAmount : (t.amount || 0);
 			
 			// For transfers, use the amount directly (they are internal movements)
-			if (transaction.type === 'transfer') {
+			if (t.type === 'transfer') {
 				return sum + amount;
 			}
 			
 			// For other transactions, use the proper impact calculation
-			return sum + calculateTransactionImpact({ ...transaction, amount });
+			return sum + calculateTransactionImpact({ ...t, amount });
 		}, 0);
 		
 		return { income, expenses, net };
@@ -176,12 +232,13 @@
 	onMount(async () => {
 		try {
 			// Load user currency preference first
-			userCurrency = await settingsService.getCurrency();
+			const preferences = await userService.getUserPreferences();
+			userCurrency = preferences?.currency || 'USD';
 			
 			// Load accounts and budget categories for name resolution
 			const [accountsData, budgetCategoriesData] = await Promise.all([
 				accountService.getAccounts(),
-				budgetService.getTransactionBudgetCategories()
+				db.getActiveCategories()
 			]);
 			
 			accounts = accountsData.reduce((acc, account) => {
@@ -196,7 +253,7 @@
 			
 			console.log('Budget categories loaded:', budgetCategoriesData.length, 'categories');
 			
-			const transactionsData = await transactionService.getTransactions();
+			const transactionsData = await transactionService.getAllTransactions();
 			console.log('Raw transactions data:', transactionsData);
 			transactions = transactionsData;
 			console.log('Processed transactions:', transactions);
@@ -213,7 +270,7 @@
 	// Handle transaction click
 	function handleTransactionClick(transaction: any) {
 		// Navigate to transaction detail or edit page
-		const transactionId = transaction.representative?.id || transaction.id;
+		const transactionId = transaction.id;
 		goto(`/transactions/add/${transactionId}`);
 	}
 
@@ -262,55 +319,44 @@
 		return accounts[accountId]?.name || 'Unknown Account';
 	}
 
-	function getCategoryName(transactionOrGroup: any) {
-		const transaction = transactionOrGroup.representative || transactionOrGroup;
-		
-		// First try to resolve budget category name
-		if (transaction.budgetCategoryId && budgetCategories[transaction.budgetCategoryId]) {
-			return budgetCategories[transaction.budgetCategoryId].name;
+	function getCategoryName(transaction: any) {
+		// Try to resolve category name from budgetCategories
+		if (transaction.categoryId && budgetCategories[transaction.categoryId]) {
+			return budgetCategories[transaction.categoryId].name;
 		}
 		
-		// Fallback to whatTag if available
-		if (transaction.whatTag) {
-			return transaction.whatTag.charAt(0).toUpperCase() + transaction.whatTag.slice(1).replace(/_/g, ' ');
-		}
-		
-		// Last resort: format the budget category ID if it exists
-		if (transaction.budgetCategoryId) {
-			return transaction.budgetCategoryId.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+		// Last resort: format the category ID if it exists
+		if (transaction.categoryId) {
+			return transaction.categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 		}
 		return 'Uncategorized';
 	}
 
-	function getConfidencePercentage(transactionOrGroup: any) {
-		const transaction = transactionOrGroup.representative || transactionOrGroup;
+	function getConfidencePercentage(transaction: any) {
 		if (transaction.confidence === 'confirmed') return 95;
 		if (transaction.confidence === 'expected') return 75;
 		if (transaction.confidence === 'estimated') return 50;
 		return 0;
 	}
 
-	function getTransactionDescription(transactionOrGroup: any) {
-		const transaction = transactionOrGroup.representative || transactionOrGroup;
+	function getTransactionDescription(transaction: any) {
 		return transaction.description || 'No description';
 	}
 
-	function getTransactionDate(transactionOrGroup: any) {
-		const transaction = transactionOrGroup.representative || transactionOrGroup;
+	function getTransactionDate(transaction: any) {
 		return transaction.clearedDate || transaction.plannedDate || transaction.createdAt;
 	}
 
-	function getTransactionAmount(transactionOrGroup: any) {
-		return transactionOrGroup.totalAmount || transactionOrGroup.amount || 0;
+	function getTransactionAmount(transaction: any) {
+		return transaction.isGroup ? transaction.totalAmount : (transaction.amount || 0);
 	}
 
-	function getTransactionCurrency(transactionOrGroup: any) {
-		const transaction = transactionOrGroup.representative || transactionOrGroup;
+	function getTransactionCurrency(transaction: any) {
 		return transaction.currency || userCurrency;
 	}
 
-	function getTransactionAccountId(transactionOrGroup: any) {
-		return (transactionOrGroup.commonFields || transactionOrGroup).accountId;
+	function getTransactionAccountId(transaction: any) {
+		return transaction.accountId;
 	}
 
 	// Calculate totals for a date group
@@ -568,24 +614,24 @@
 				<!-- Transactions in this date group -->
 				<div class="space-y-1">
 					{#each dateGroup.transactions as transactionOrGroup}
-						{#if transactionOrGroup.type === 'split'}
-							<!-- Split Transaction Group -->
+						{#if transactionOrGroup.isGroup}
+							<!-- Grouped Transaction -->
 							<TransactionItem 
-								transaction={transactionOrGroup.representative || transactionOrGroup}
+								transaction={transactionOrGroup}
 								onClick={handleTransactionClick}
 								context="transactions"
 								showDate={false}
-								isSplitGroup={true}
-								splitTransactions={transactionOrGroup.transactions}
+								isGroup={true}
+								groupTransactions={transactionOrGroup.transactions}
 								totalAmount={getTransactionAmount(transactionOrGroup)}
-								splitDescription={getTransactionDescription(transactionOrGroup)}
-								splitCategory={getCategoryName(transactionOrGroup)}
-								splitCurrency={getTransactionCurrency(transactionOrGroup)}
+								groupDescription={getTransactionDescription(transactionOrGroup)}
+								groupCategory={getCategoryName(transactionOrGroup)}
+								groupCurrency={getTransactionCurrency(transactionOrGroup)}
 							/>
 						{:else}
 							<!-- Single Transaction -->
 							<TransactionItem 
-								transaction={transactionOrGroup.representative || transactionOrGroup}
+								transaction={transactionOrGroup}
 								onClick={() => handleTransactionClick(transactionOrGroup)}
 								context="transactions"
 								showDate={false}

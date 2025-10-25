@@ -5,7 +5,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
 	import { accountService } from '$lib/core/services/account-service';
 	import { transactionService } from '$lib/core/services/transaction-service';
-	import { settingsService } from '$lib/core/services/settings-service';
+	import { userService } from '$lib/core/services/user-service';
 	import AccountForm from '$lib/components/AccountForm.svelte';
 	import type { Account, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';
@@ -35,7 +35,8 @@
 
 	onMount(async () => {
 		// Load user currency preference first
-		userCurrency = await settingsService.getCurrency();
+		const preferences = await userService.getUserPreferences();
+		userCurrency = preferences?.currency || 'USD';
 		
 		await loadAccount();
 		await loadTransactions();
@@ -44,7 +45,7 @@
 	async function loadAccount() {
 		try {
 			if (accountId) {
-				const accountData = await accountService.getAccountById(accountId);
+				const accountData = await accountService.getAccount(accountId);
 				account = accountData || null;
 				if (!account) {
 					// Account not found, redirect to accounts list
@@ -63,7 +64,7 @@
 	async function loadTransactions() {
 		try {
 			if (accountId) {
-				transactions = await transactionService.getTransactionsRelatedToAccount(accountId);
+				transactions = await transactionService.getTransactionsByAccount(accountId);
 			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
@@ -195,8 +196,8 @@
 										</p>
 									</div>
 									<div class="text-right">
-										<p class="font-semibold {transaction.amount >= 0 ? 'text-success' : 'text-destructive'}">
-											{formatBalance(transaction.amount, transaction.currency)}
+										<p class="font-semibold {(transaction.amount ?? 0) >= 0 ? 'text-success' : 'text-destructive'}">
+											{formatBalance(transaction.amount ?? 0, transaction.currency)}
 										</p>
 										<p class="text-sm text-muted-foreground capitalize">{transaction.type}</p>
 									</div>

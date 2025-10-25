@@ -1,25 +1,24 @@
 <script lang="ts">
 	import { RefreshCcw, Clock, CheckCircle, AlertCircle, XCircle, Split, ChevronDown } from '@lucide/svelte';
 	import type { Transaction } from '$lib/core/db';
-	import { settingsService } from '$lib/core/services/settings-service';
 	import { longpress } from '$lib/actions/longpress';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { db } from '$lib/core/db';
 
 	interface Props {
-		transaction: Transaction;
-		onClick?: (transaction: Transaction) => void;
-		onLongPress?: (transaction: Transaction) => void;
+		transaction: Transaction | any; // Allow grouped transaction objects
+		onClick?: (transaction: Transaction | any) => void;
+		onLongPress?: (transaction: Transaction | any) => void;
 		isSelected?: boolean;
 		context?: 'main' | 'transactions' | 'plan';
 		showDate?: boolean;
-		// Split transaction props
-		isSplitGroup?: boolean;
-		splitTransactions?: Transaction[];
+		// Grouped transaction props
+		isGroup?: boolean;
+		groupTransactions?: Transaction[];
 		totalAmount?: number;
-		splitDescription?: string;
-		splitCategory?: string;
-		splitCurrency?: string;
+		groupDescription?: string;
+		groupCategory?: string;
+		groupCurrency?: string;
 		defaultExpanded?: boolean;
 	}
 
@@ -30,13 +29,13 @@
 		isSelected = false,
 		context = 'main',
 		showDate = true,
-		// Split transaction props
-		isSplitGroup = false,
-		splitTransactions = [],
+		// Grouped transaction props
+		isGroup = false,
+		groupTransactions = [],
 		totalAmount = 0,
-		splitDescription = '',
-		splitCategory = '',
-		splitCurrency = 'USD',
+		groupDescription = '',
+		groupCategory = '',
+		groupCurrency = 'USD',
 		defaultExpanded = false
 	}: Props = $props();
 
@@ -151,8 +150,8 @@
 		if (isTransfer()) {
 			return 'Transfer';
 		}
-		if (isSplitGroup) {
-			return splitDescription || 'Split transaction';
+		if (isGroup) {
+			return groupDescription || 'Grouped transaction';
 		}
 		return transaction.description || '';
 	});
@@ -162,7 +161,7 @@
 		if (isTransfer()) {
 			return transferDetails()?.transferAmount || 0;
 		}
-		if (isSplitGroup) {
+		if (isGroup) {
 			return totalAmount;
 		}
 		return transaction.amount || 0;
@@ -173,14 +172,38 @@
 		if (isTransfer()) {
 			return transaction.currency;
 		}
-		if (isSplitGroup) {
-			return splitCurrency;
+		if (isGroup) {
+			return groupCurrency;
 		}
 		return transaction.currency;
 	});
 
 	// Get account names for transfer display
 	let transferAccountNames = $state('Account Transfer');
+	
+	// State for grouped transaction expansion
+	let isExpanded = $state(defaultExpanded);
+	
+	// Toggle expansion for grouped transactions
+	function toggleExpansion() {
+		if (isGroup) {
+			isExpanded = !isExpanded;
+		}
+	}
+	
+	// Helper function to get category name from a transaction
+	async function getCategoryName(transaction: any): Promise<string> {
+		if (transaction.categoryId) {
+			try {
+				const category = await db.categories.get(transaction.categoryId);
+				return category?.name || 'Uncategorized';
+			} catch (error) {
+				console.warn('Failed to load category:', error);
+				return 'Uncategorized';
+			}
+		}
+		return 'Uncategorized';
+	}
 	
 	$effect(() => {
 		if (isTransfer() && transferDetails()) {
@@ -206,11 +229,10 @@
 		if (isTransfer()) {
 			return 'Transfer';
 		}
-		if (isSplitGroup) {
-			return splitCategory || 'Uncategorized';
+		if (isGroup) {
+			return groupCategory || 'Uncategorized';
 		}
-		if (transaction.budgetCategoryId) return transaction.budgetCategoryId;
-		if (transaction.whatTag) return transaction.whatTag;
+		if (transaction.categoryId) return transaction.categoryId;
 		return 'Uncategorized';
 	});
 
@@ -242,7 +264,7 @@
 
 	// Calculate the actual balance impact of the transaction
 	const calculateTransactionImpact = (transaction: Transaction): number => {
-		const amount = isSplitGroup ? displayAmount() : (transaction.amount || 0);
+		const amount = isGroup ? displayAmount() : (transaction.amount || 0);
 		switch (transaction.type) {
 			case 'income':
 				return amount; // Positive adds, negative subtracts
@@ -330,8 +352,7 @@
 	let buttonElement = $state<HTMLButtonElement | undefined>(undefined);
 	let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
-	// Split transaction collapsible state
-	let isExpanded = $state(defaultExpanded);
+	// Grouped/split transaction collapsible state (already declared above at line 185)
 
 	const handleLongPressStart = () => {
 		// Add a small delay before showing visual feedback to prevent accidental triggers
@@ -448,8 +469,8 @@
 		// Add context-specific styling
 		baseClass += ` ${contextStyling()}`;
 		
-		// Add category accent for non-split transactions
-		if (!isSplitGroup) {
+		// Add category accent for non-grouped transactions
+		if (!isGroup) {
 			baseClass += ` ${getCategoryAccent(primaryTag())}`;
 		}
 		
@@ -532,8 +553,8 @@
 				</div>
 			</button>
 		</div>
-	{:else if isSplitGroup}
-		<!-- Split Transaction Group -->
+	{:else if isGroup}
+		<!-- Grouped Transaction -->
 		<div 
 			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
 				   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
@@ -546,7 +567,7 @@
 			<!-- Subtle gradient overlay for depth -->
 			<div class="absolute inset-0 bg-gradient-to-br from-warm-ivory/[0.02] to-transparent pointer-events-none"></div>
 			
-			<!-- Split group content with two clickable areas -->
+			<!-- Grouped transaction content with two clickable areas -->
 			<div class="flex">
 				<!-- Main content area - clickable to open transaction -->
 				<button
@@ -574,7 +595,7 @@
 								<div class="font-medium text-primary">{transactionDescription()}</div>
 								<div class="text-sm text-muted-foreground">{primaryTag()}</div>
 								<div class="text-xs text-muted-foreground/70">
-									Split transaction ({splitTransactions.length} parts)
+									Grouped transaction ({groupTransactions.length} parts)
 								</div>
 							</div>
 						</div>
@@ -597,10 +618,10 @@
 						touch-manipulation cursor-pointer
 						hover:bg-bg-tertiary/30 active:bg-bg-tertiary/50"
 					style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
-					onclick={() => isExpanded = !isExpanded}
-					aria-label={isExpanded ? 'Collapse split details' : 'Expand split details'}
+					onclick={toggleExpansion}
+					aria-label={isExpanded ? 'Collapse group details' : 'Expand group details'}
 					aria-expanded={isExpanded}
-					aria-controls="split-transactions-{transaction.id}"
+					aria-controls="group-transactions-{transaction.id}"
 				>
 					<ChevronDown 
 						class="w-5 h-5 text-text-secondary transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}"
@@ -609,22 +630,25 @@
 				</button>
 			</div>
 			
-			<!-- Individual split transactions -->
+			<!-- Individual grouped transactions -->
 			{#if isExpanded}
-				<div id="split-transactions-{transaction.id}" class="px-4 pb-4 space-y-2" role="region" aria-label="Split transaction details">
-					{#each splitTransactions as splitTransaction}
-						<div class="bg-bg-tertiary/50 rounded-lg p-3 border border-bg-surface {getCategoryAccent(splitTransaction.budgetCategoryId || splitTransaction.whatTag || 'Uncategorized')}">
+				<div id="group-transactions-{transaction.id}" class="px-4 pb-4 space-y-2" role="region" aria-label="Grouped transaction details">
+					{#each groupTransactions as groupTransaction}
+						<div class="bg-bg-tertiary/50 rounded-lg p-3 border border-bg-surface {getCategoryAccent(groupTransaction.categoryId || 'Uncategorized')}">
 							<div class="flex items-center justify-between">
 								<div class="min-w-0 flex-1">
-									{#if splitTransaction.description}
+									<div class="text-sm font-medium text-text-primary">
+										{groupTransaction.description || 'No description'}
+									</div>
+									{#if groupTransaction.categoryId}
 										<div class="text-xs text-text-secondary truncate mt-1">
-											{splitTransaction.description}
+											Category: {groupTransaction.categoryId}
 										</div>
 									{/if}
 								</div>
 								<div class="text-right ml-3">
-									<div class="font-semibold text-sm {(splitTransaction.amount ?? 0) >= 0 ? 'text-success' : 'text-alert'}">
-										{formatTransactionAmount(splitTransaction.amount, splitTransaction.currency, true)}
+									<div class="font-semibold text-sm {(groupTransaction.amount ?? 0) >= 0 ? 'text-success' : 'text-alert'}">
+										{formatTransactionAmount(groupTransaction.amount, groupTransaction.currency, true)}
 									</div>
 								</div>
 							</div>

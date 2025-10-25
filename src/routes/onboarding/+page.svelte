@@ -6,19 +6,25 @@
   import * as Progress from '$lib/components/ui/progress/index.ts';
   import * as Select from '$lib/components/ui/select/index.ts';
   import * as Label from '$lib/components/ui/label/index.ts';
+  import * as Alert from '$lib/components/ui/alert/index.ts';
   import { PageLayout } from '$lib/components/layouts';
+  import { userService } from '$lib/core/services';
+  import type { UserPreferences } from '$lib/core/db';
 
   const { data } = $props<{ data: any }>();
 
   let currentStep = $state(1);
   let totalSteps = 4;
+  let isSaving = $state(false);
+  let error = $state<string | null>(null);
+  
   let formData = $state({
-    name: '',
-    email: '',
+    username: '',
     currency: 'USD',
-    monthlyIncome: '',
-    financialGoals: [] as string[],
-    experienceLevel: 'beginner'
+    theme: 'dark' as 'light' | 'dark',
+    language: 'en' as 'en' | 'ru',
+    userMaturityLevel: 'beginner' as 'beginner' | 'intermediate' | 'advanced' | 'expert',
+    financialGoals: [] as string[]
   });
 
 
@@ -26,7 +32,12 @@
     { value: 'USD', label: 'USD - US Dollar' },
     { value: 'EUR', label: 'EUR - Euro' },
     { value: 'GBP', label: 'GBP - British Pound' },
-    { value: 'CAD', label: 'CAD - Canadian Dollar' }
+    { value: 'JPY', label: 'JPY - Japanese Yen' },
+    { value: 'CAD', label: 'CAD - Canadian Dollar' },
+    { value: 'AUD', label: 'AUD - Australian Dollar' },
+    { value: 'CHF', label: 'CHF - Swiss Franc' },
+    { value: 'CNY', label: 'CNY - Chinese Yuan' },
+    { value: 'RUB', label: 'RUB - Russian Ruble' }
   ];
 
   const goals: Array<{ id: string; label: string; icon: string }> = [
@@ -38,10 +49,11 @@
     { id: 'budget_better', label: 'Create better budget', icon: '📋' }
   ];
 
-  const experienceLevels: Array<{ value: string; label: string }> = [
+  const experienceLevels: Array<{ value: 'beginner' | 'intermediate' | 'advanced' | 'expert'; label: string }> = [
     { value: 'beginner', label: 'Beginner - New to budgeting' },
     { value: 'intermediate', label: 'Intermediate - Some experience' },
-    { value: 'advanced', label: 'Advanced - Experienced budgeter' }
+    { value: 'advanced', label: 'Advanced - Experienced budgeter' },
+    { value: 'expert', label: 'Expert - Financial professional' }
   ];
 
   function nextStep() {
@@ -65,10 +77,49 @@
     }
   }
 
-  function handleSubmit() {
-    // In a real app, this would submit to your API
-    console.log('Onboarding data:', formData);
-    goto('/');
+  async function handleSubmit() {
+    if (isSaving) return;
+    
+    isSaving = true;
+    error = null;
+    
+    try {
+      // Create user preferences from onboarding data
+      const userPreferences: Partial<UserPreferences> = {
+        username: formData.username,
+        currency: formData.currency,
+        theme: formData.theme,
+        language: formData.language,
+        userMaturityLevel: formData.userMaturityLevel,
+        onboardingCompleted: true,
+        enableAdvancedFeatures: formData.userMaturityLevel === 'advanced' || formData.userMaturityLevel === 'expert',
+        enablePredictiveAnalytics: true,
+        analyticsEnabled: true,
+        backupEnabled: true
+      };
+      
+      // Save user preferences
+      await userService.updateUserPreferences(userPreferences);
+      
+      // Track onboarding completion
+      await userService.trackUserAction({
+        action: 'onboarding_completed',
+        details: JSON.stringify({
+          username: formData.username,
+          currency: formData.currency,
+          maturityLevel: formData.userMaturityLevel,
+          goalsSelected: formData.financialGoals.length
+        })
+      });
+      
+      // Redirect to main app
+      goto('/');
+    } catch (err) {
+      error = 'Failed to save onboarding data. Please try again.';
+      console.error('Onboarding error:', err);
+    } finally {
+      isSaving = false;
+    }
   }
 
   function getStepTitle() {
@@ -117,6 +168,13 @@
         <p class="text-muted-foreground">{getStepDescription()}</p>
       </div>
 
+      <!-- Error Message -->
+      {#if error}
+        <Alert.Root variant="destructive" class="mb-6">
+          <Alert.Description>{error}</Alert.Description>
+        </Alert.Root>
+      {/if}
+
       <!-- Step 1: Welcome -->
       {#if currentStep === 1}
         <div class="text-center space-y-6">
@@ -150,24 +208,12 @@
       {#if currentStep === 2}
         <form class="space-y-6">
           <div class="space-y-2">
-            <Label.Root for="name">Full Name</Label.Root>
+            <Label.Root for="username">Username</Label.Root>
             <input
-              id="name"
+              id="username"
               type="text"
-              bind:value={formData.name}
-              placeholder="Enter your full name"
-              class="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              required
-            />
-          </div>
-
-          <div class="space-y-2">
-            <Label.Root for="email">Email Address</Label.Root>
-            <input
-              id="email"
-              type="email"
-              bind:value={formData.email}
-              placeholder="Enter your email"
+              bind:value={formData.username}
+              placeholder="Enter your username"
               class="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
               required
             />
@@ -188,18 +234,29 @@
           </div>
 
           <div class="space-y-2">
-            <Label.Root for="monthlyIncome">Monthly Income (Optional)</Label.Root>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">$</span>
-              <input
-                id="monthlyIncome"
-                type="number"
-                bind:value={formData.monthlyIncome}
-                placeholder="0.00"
-                step="0.01"
-                class="w-full pl-8 pr-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              />
-            </div>
+            <Label.Root for="theme">Theme</Label.Root>
+            <Select.Root type="single" bind:value={formData.theme}>
+              <Select.Trigger>
+                {formData.theme === 'light' ? 'Light Theme' : 'Dark Theme'}
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="light">Light Theme</Select.Item>
+                <Select.Item value="dark">Dark Theme</Select.Item>
+              </Select.Content>
+            </Select.Root>
+          </div>
+
+          <div class="space-y-2">
+            <Label.Root for="language">Language</Label.Root>
+            <Select.Root type="single" bind:value={formData.language}>
+              <Select.Trigger>
+                {formData.language === 'en' ? 'English' : 'Русский'}
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="en">English</Select.Item>
+                <Select.Item value="ru">Русский</Select.Item>
+              </Select.Content>
+            </Select.Root>
           </div>
         </form>
       {/if}
@@ -231,8 +288,8 @@
           <div class="space-y-4">
             {#each experienceLevels as level}
               <button
-                class="w-full p-4 border-2 rounded-xl text-left transition-all {formData.experienceLevel === level.value ? 'border-primary bg-primary/10' : 'border-border hover:border-border/80'}"
-                onclick={() => formData.experienceLevel = level.value}
+                class="w-full p-4 border-2 rounded-xl text-left transition-all {formData.userMaturityLevel === level.value ? 'border-primary bg-primary/10' : 'border-border hover:border-border/80'}"
+                onclick={() => formData.userMaturityLevel = level.value}
               >
                 <div class="font-medium text-primary">{level.label}</div>
               </button>
@@ -252,7 +309,10 @@
         </Button.Root>
 
         {#if currentStep === totalSteps}
-          <Button.Root onclick={handleSubmit}>
+          <Button.Root onclick={handleSubmit} disabled={isSaving}>
+            {#if isSaving}
+              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            {/if}
             Get Started
           </Button.Root>
         {:else}

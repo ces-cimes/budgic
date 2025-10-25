@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Plus, CreditCard, Wallet, PiggyBank } from '@lucide/svelte';
   import { onMount } from 'svelte';
-  import { accountService, settingsService } from '$lib/core/services';
+  import { accountService, userService } from '$lib/core/services';
   import { goto } from '$app/navigation';
   import { Button } from '$lib/components/ui/button/index.ts';
   import { Separator } from '$lib/components/ui/separator/index.ts';
@@ -34,15 +34,17 @@
   onMount(async () => {
     try {
       // Load user currency preference first
-      userCurrency = await settingsService.getCurrency();
+      const preferences = await userService.getUserPreferences();
+      userCurrency = preferences?.currency || 'USD';
       
-      const accountsWithBalances = await accountService.getAccountsWithBalances();
+      const accountsData = await accountService.getAccounts();
+      const totalBalanceValue = await accountService.getTotalBalance();
       
-      accounts = accountsWithBalances.map(({ account, balance }) => ({
+      accounts = accountsData.map((account: any) => ({
         ...account,
-        balance
+        balance: account.currentBalance
       }));
-      totalBalance = accountsWithBalances.reduce((sum, { balance }) => sum + balance, 0);
+      totalBalance = totalBalanceValue;
     } catch (error) {
       console.error('Error loading accounts:', error);
     }

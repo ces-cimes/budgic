@@ -1,9 +1,5 @@
 import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
-import type { Account } from '$lib/core/db';
-import { validationService } from './validation-service';
-import { accountCache } from './caching-service';
-
-// Using centralized caching service
+import type { Account, Transaction } from '$lib/core/db';
 
 class AccountService {
     // Public interface
@@ -20,250 +16,167 @@ class AccountService {
     }
 
     // ============================================================================
-    // CACHE MANAGEMENT
+    // ACCOUNT MANAGEMENT
     // ============================================================================
 
     /**
-     * Clear balance cache for a specific account or all accounts
+     * Create a new account
      */
-    clearBalanceCache(accountId?: string): void {
-        if (accountId) {
-            accountCache.delete(`balance_${accountId}`);
-        } else {
-            // Clear all balance-related cache entries
-            const keys = accountCache.keys();
-            for (const key of keys) {
-                if (key.startsWith('balance_')) {
-                    accountCache.delete(key);
-                }
-            }
-        }
-    }
-
-    /**
-     * Get cached balance if available and not expired
-     */
-    private getCachedBalance(accountId: string): number | null {
-        return accountCache.get(`balance_${accountId}`) || null;
-    }
-
-    /**
-     * Set cached balance for an account
-     */
-    private setCachedBalance(accountId: string, balance: number): void {
-        accountCache.set(`balance_${accountId}`, balance, 5 * 60 * 1000); // 5 minutes TTL
-    }
-
-    async getAccounts(): Promise<Account[]> {
-        return await db.getActiveAccounts();
-    }
-
-    // Update all method calls similarly
-    async createAccount(accountData: Partial<Account>): Promise<Account> {
-        // Validate account data before creation
-        const validation = await validationService.validateAccountCreation(accountData);
-        if (!validation.isValid) {
-            throw new Error(`Invalid account data: ${validation.errors.join(', ')}`);
-        }
-
-        const newAccount: Account = {
+    async createAccount(data: {
+        name: string;
+        type: Account['type'];
+        currency: string;
+        initialBalance?: number;
+    }): Promise<Account> {
+        const account: Account = {
             id: generateUUID(),
-            name: accountData.name!,
-            type: accountData.type!,
-            currency: accountData.currency || 'USD',
-            initialBalance: accountData.initialBalance || 0,
-            currentBalance: accountData.currentBalance || 0,
-            isActive: accountData.isActive ?? true,
+            name: data.name,
+            type: data.type,
+            currency: data.currency,
+            initialBalance: data.initialBalance || 0,
+            currentBalance: data.initialBalance || 0,
+            isActive: true,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             deletedAt: null
         };
-        
-        await db.accounts.add(newAccount);
-        return newAccount;
-    }
 
-    async updateAccount(id: string, updates: Partial<Account>): Promise<void> {
-        // Validate account data before update
-        const validation = await validationService.validateAccountUpdate(id, updates);
-        if (!validation.isValid) {
-            throw new Error(`Invalid account data: ${validation.errors.join(', ')}`);
-        }
-
-        await db.accounts.update(id, {
-            ...updates,
-            updatedAt: new Date().toISOString()
-        });
-    }
-
-    // Soft-delete an account by setting deletedAt flag
-    async deleteAccount(id: string): Promise<void> {
-        await db.softDeleteAccount(id);
-        console.debug('[AccountService] Account soft-deleted successfully: ', id);
-    }
-
-    // Get account by ID (including soft-deleted ones)
-    async getAccountById(id: string) {
-        const account = await db.accounts.get(id);
-        
-        if (account) {
-            console.debug('[AccountService] Found account:', account);
-        } else {
-            console.debug('[AccountService] Account not found for ID:', id);
-        }
-        
+        await db.accounts.add(account);
         return account;
     }
 
-    // Get accounts by type (excluding soft-deleted ones)
+    /**
+     * Get all active accounts
+     */
+    async getAccounts(): Promise<Account[]> {
+        return await db.getActiveAccounts();
+    }
+
+    /**
+     * Get account by ID
+     */
+    async getAccount(id: string): Promise<Account | null> {
+        return await db.accounts.get(id) || null;
+    }
+
+    /**
+     * Update account
+     */
+    async updateAccount(id: string, updates: Partial<Pick<Account, 'name' | 'type' | 'currency' | 'isActive'>>): Promise<Account> {
+        const account = await db.accounts.get(id);
+        if (!account) {
+            throw new Error(`Account ${id} not found`);
+        }
+
+        const updatedAccount = {
+            ...account,
+            ...updates,
+            updatedAt: new Date().toISOString()
+        };
+
+        await db.accounts.update(id, updatedAccount);
+        return updatedAccount;
+    }
+
+    /**
+     * Delete account (soft delete)
+     */
+    async deleteAccount(id: string): Promise<void> {
+        await db.softDeleteAccount(id);
+    }
+
+    /**
+     * Get account balance
+     */
+    async getAccountBalance(accountId: string): Promise<number> {
+        return await db.getAccountBalance(accountId);
+    }
+
+    /**
+     * Recalculate account balance from transactions
+     */
+    async recalculateAccountBalance(accountId: string): Promise<number> {
+        return await db.recalculateAccountBalance(accountId);
+    }
+
+    /**
+     * Get accounts by type
+     */
     async getAccountsByType(type: Account['type']): Promise<Account[]> {
-        console.debug('[AccountService] Getting accounts by type:', type);
         return await db.getAccountsByType(type);
     }
 
-    // Get account balance (cached version for UI display)
-    async getAccountBalance(accountId: string, includePending: boolean = false): Promise<number> {
-        console.debug('[AccountService] Getting balance for account:', accountId, 'includePending:', includePending);
-        
-        // Check cache first (only for non-pending balances)
-        if (!includePending) {
-            const cachedBalance = this.getCachedBalance(accountId);
-            if (cachedBalance !== null) {
-                console.debug('[AccountService] Using cached balance:', cachedBalance);
-                return cachedBalance;
-            }
-        }
-
-        const account = await this.getAccountById(accountId);
-        
-        if (!account) {
-            console.error('[AccountService] Account not found for balance check:', accountId);
-            throw new Error('Account not found');
-        }
-
-        console.debug('[AccountService] Retrieving transactions for account...');
-        const transactions = await db.getTransactionsByAccount(accountId);
-        console.debug('[AccountService] Found', transactions.length, 'transactions for account');
-
-        // Filter out planned transactions if includePending is false
-        const relevantTransactions = includePending 
-            ? transactions 
-            : transactions.filter(t => t.status !== 'planned');
-        
-        console.debug('[AccountService] Using', relevantTransactions.length, 'transactions for balance calculation');
-
-        console.debug('[AccountService] Calculating balance...');
-        const transactionBalance = relevantTransactions.reduce((total, transaction) => {
-            console.debug('[AccountService] Processing transaction:', transaction.id, 'amount:', transaction.amount);
-            // Use transfer impact calculation for transfers, regular amount for others
-            const impact = transaction.type === 'transfer' 
-                ? calculateTransferImpact(transaction, accountId)
-                : transaction.amount;
-            return total + impact;
-        }, 0);
-
-        // Include initial balance in the calculation
-        const balance = account.initialBalance + transactionBalance;
-        console.debug('[AccountService] Final balance calculated:', balance, '(initial:', account.initialBalance, '+ transactions:', transactionBalance, ')');
-        
-        // Cache the result (only for non-pending balances)
-        if (!includePending) {
-            this.setCachedBalance(accountId, balance);
-        }
-        
-        return balance;
-    }
-
-    // Get account balance with real-time calculation (for critical operations)
-    async getAccountBalanceRealTime(accountId: string, includePending: boolean = false): Promise<number> {
-        console.debug('[AccountService] Getting real-time balance for account:', accountId, 'includePending:', includePending);
-        
-        const account = await this.getAccountById(accountId);
-        
-        if (!account) {
-            console.error('[AccountService] Account not found for balance check:', accountId);
-            throw new Error('Account not found');
-        }
-
-        const transactions = await db.getTransactionsByAccount(accountId);
-        
-        // Filter out planned transactions if includePending is false
-        const relevantTransactions = includePending 
-            ? transactions 
-            : transactions.filter(t => t.status !== 'planned');
-        
-        const transactionBalance = relevantTransactions.reduce((total, transaction) => {
-            return total + transaction.amount;
-        }, 0);
-
-        // Include initial balance in the calculation
-        const balance = account.initialBalance + transactionBalance;
-        console.debug('[AccountService] Real-time balance calculated:', balance, '(initial:', account.initialBalance, '+ transactions:', transactionBalance, ')');
-        return balance;
-    }
-
-    // Update account balance
-    async updateAccountBalance(accountId: string, amount: number): Promise<void> {
-        await db.updateAccountBalance(accountId, amount);
-    }
-
-    // Recalculate account balance from transactions and update stored balance
-    async recalculateAccountBalance(accountId: string): Promise<number> {
-        const balance = await this.getAccountBalanceRealTime(accountId);
-        await this.updateAccountBalance(accountId, balance);
-        this.clearBalanceCache(accountId);
-        return balance;
-    }
-
-    // Refresh all account balances (useful after bulk operations)
-    async refreshAllAccountBalances(): Promise<void> {
-        console.debug('[AccountService] Refreshing all account balances...');
-        const accounts = await this.getAccounts();
-        
-        for (const account of accounts) {
-            await this.recalculateAccountBalance(account.id);
-        }
-        
-        console.debug('[AccountService] All account balances refreshed');
-    }
-
-    // Get accounts with their current balances (cached for performance)
-    async getAccountsWithBalances(): Promise<{ account: Account; balance: number }[]> {
-        const accounts = await this.getAccounts();
-        const results: { account: Account; balance: number }[] = [];
-
-        for (const account of accounts) {
-            const balance = await this.getAccountBalance(account.id);
-            results.push({ account, balance });
-        }
-
-        return results;
-    }
-
-    // Get accounts with real-time balances (for critical operations)
-    async getAccountsWithRealTimeBalances(): Promise<{ account: Account; balance: number }[]> {
-        const accounts = await this.getAccounts();
-        const results: { account: Account; balance: number }[] = [];
-
-        for (const account of accounts) {
-            const balance = await this.getAccountBalanceRealTime(account.id);
-            results.push({ account, balance });
-        }
-
-        return results;
-    }
-
-    // Get total balance across all accounts
+    /**
+     * Get total balance across all accounts
+     */
     async getTotalBalance(): Promise<number> {
         const accounts = await this.getAccounts();
-        let total = 0;
+        return accounts.reduce((total, account) => total + account.currentBalance, 0);
+    }
 
-        for (const account of accounts) {
-            const balance = await this.getAccountBalance(account.id);
-            total += balance;
+    /**
+     * Get balance by account type
+     */
+    async getBalanceByType(): Promise<Record<Account['type'], number>> {
+        const accounts = await this.getAccounts();
+        const balances: Record<Account['type'], number> = {
+            checking: 0,
+            savings: 0,
+            credit: 0,
+            cash: 0,
+            investment: 0,
+            crypto: 0
+        };
+
+        accounts.forEach(account => {
+            balances[account.type] += account.currentBalance;
+        });
+
+        return balances;
+    }
+
+    /**
+     * Get account balance impact for a transaction
+     */
+    getTransactionImpact(transaction: Transaction, accountId: string): number {
+        if (transaction.type === 'transfer') {
+            return calculateTransferImpact(transaction, accountId);
         }
+        
+        // For non-transfer transactions, check if this is the account
+        if (transaction.accountId === accountId) {
+            switch (transaction.type) {
+                case 'income':
+                    return transaction.amount || 0;
+                case 'expense':
+                    return -(transaction.amount || 0);
+                case 'adjustment':
+                    return transaction.amount || 0;
+                default:
+                    return 0;
+            }
+        }
+        
+        return 0;
+    }
 
-        return total;
+    /**
+     * Validate account balance consistency
+     */
+    async validateAccountBalance(accountId: string): Promise<{ isValid: boolean; error?: string; calculatedBalance: number }> {
+        const calculatedBalance = await this.recalculateAccountBalance(accountId);
+        const account = await this.getAccount(accountId);
+        
+        if (!account) {
+            return { isValid: false, error: 'Account not found', calculatedBalance: 0 };
+        }
+        
+        const isValid = Math.abs(account.currentBalance - calculatedBalance) < 0.01;
+        return {
+            isValid,
+            error: isValid ? undefined : 'Balance mismatch detected',
+            calculatedBalance
+        };
     }
 }
 

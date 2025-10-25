@@ -17,12 +17,12 @@
     ExternalLink
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
-  import type { GoalsData, FinancialGoal, GoalInsight } from '../types';
+  import type { GoalsData, Goal } from '../types';
 
   interface Props {
     goalsData: GoalsData | null;
-    activeGoals: FinancialGoal[];
-    completedGoals: FinancialGoal[];
+    activeGoals: Goal[];
+    completedGoals: Goal[];
     userCurrency: string;
     onGoalAction: (action: string, goalId: string) => void;
   }
