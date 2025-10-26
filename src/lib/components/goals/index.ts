@@ -7,4 +7,4 @@ export { default as CompletedTab } from './tabs/CompletedTab.svelte';
 export * from './types';
 
 // Export service
-export { goalsService } from './goals-service';
+export { goalsService } from '$lib/core/services';

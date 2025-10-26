@@ -3,7 +3,7 @@
   import { registerServiceWorker, handleOfflineStatus } from '$lib/pwa';
   import { onMount } from 'svelte';
   import { ModeWatcher } from 'mode-watcher';
-  import { simpleInsightsService } from '$lib/components/insights/simple-insights-service';
+  import { insightsService, crossRouteSyncService } from '$lib/core/services';
   import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { AppLayout } from '$lib/components/layouts';
   import { Toaster } from '$lib/components/ui/sonner';
@@ -15,14 +15,18 @@
     handleOfflineStatus();
     
     // Start insights service auto-updates
-    simpleInsightsService.startAutoUpdates();
+    insightsService.startAutoUpdates();
+    
+    // Start cross-route sync service
+    crossRouteSyncService.start();
 
     // Initialize navigation store
     navigationStore.initialize();
     
     // Cleanup on unmount
     return () => {
-      simpleInsightsService.stopAutoUpdates();
+      insightsService.stopAutoUpdates();
+      crossRouteSyncService.stop();
       navigationStore.stopBadgeUpdates();
     };
   });

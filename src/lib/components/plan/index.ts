@@ -5,5 +5,5 @@ export * from './tabs/index.js';
 export * from './types.js';
 
 // Service
-export * from './plan-service.js';
+export { planService } from '$lib/core/services';
 

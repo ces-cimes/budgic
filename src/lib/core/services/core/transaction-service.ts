@@ -1,6 +1,7 @@
 import { db, validateTransactionGroup, validateNewGroupTransaction, generateUUID } from '$lib/core/db';
 import type { Transaction } from '$lib/core/db';
 import { accountService } from './account-service';
+import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 
 class TransactionService {
     public get ready() {
@@ -32,6 +33,9 @@ class TransactionService {
         // Update account balance
         await accountService.recalculateAccountBalance(transaction.accountId);
         
+        // Emit sync event for transaction creation
+        await crossRouteSyncService.onTransactionCreated(transaction);
+        
         return transaction;
     }
 
@@ -62,6 +66,9 @@ class TransactionService {
         // Update account balance
         await accountService.recalculateAccountBalance(transaction.accountId);
         
+        // Emit sync event for transaction update
+        await crossRouteSyncService.onTransactionUpdated(updatedTransaction, updates);
+        
         return updatedTransaction;
     }
 
@@ -78,6 +85,9 @@ class TransactionService {
         
         // Update account balance
         await accountService.recalculateAccountBalance(transaction.accountId);
+        
+        // Emit sync event for transaction deletion
+        await crossRouteSyncService.onTransactionDeleted(id);
     }
 
     /**

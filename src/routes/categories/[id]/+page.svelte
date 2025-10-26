@@ -5,9 +5,7 @@
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
-	import { budgetService } from '$lib/core/services/budget-service';
-	import { transactionService } from '$lib/core/services/transaction-service';
-	import { userService } from '$lib/core/services/user-service';
+	import { budgetService, transactionService, userService } from '$lib/core/services';
 	import type { Category, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';
 	import { formatAmount } from '$lib/utils/currency-utils';

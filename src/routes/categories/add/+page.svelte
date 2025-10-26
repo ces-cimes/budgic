@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { budgetService } from '$lib/core/services/budget-service';
+	import { budgetService } from '$lib/core/services';
 	import type { Category } from '$lib/core/db';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import * as Input from '$lib/components/ui/input/index.ts';

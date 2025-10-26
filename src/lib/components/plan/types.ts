@@ -3,21 +3,15 @@ import type {
   DailyAllowance,
   WeeklyProjection,
   PlanningInsight,
-  PlanningData,
-  WeekKey,
-  CachedWeek,
-  WeekLoadingState
-} from '$lib/core/services/planning-service';
+  PlanningData
+} from '$lib/core/services/pages/plan-service';
 
 // Re-export for convenience
 export type {
   DailyAllowance,
   WeeklyProjection,
   PlanningInsight,
-  PlanningData,
-  WeekKey,
-  CachedWeek,
-  WeekLoadingState
+  PlanningData
 };
 
 // TabConfig is now shared - import from shared types
@@ -67,6 +61,13 @@ export interface FinancialGoal {
   status: 'active' | 'paused' | 'completed' | 'cancelled';
   createdAt: string;
   updatedAt: string;
+}
+
+// Component props
+export interface GoalsTabProps {
+  userCurrency: string;
+  selectedAccountId?: string;
+  onSetGoal?: () => void;
 }
 
 // Planning recommendation types

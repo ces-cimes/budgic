@@ -14,7 +14,7 @@
     TrendingDown
   } from '@lucide/svelte';
   import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
-  import { planService } from '../plan-service';
+  import { planService } from '$lib/core/services';
   import type { ProjectionsTabProps, WeeklyProjection } from '../types.js';
 
   const { 
@@ -266,7 +266,7 @@
     {#each visibleWeeks as week, index}
       {@const RiskIcon = getRiskIcon(week.riskLevel)}
       {@const isCurrentWeekFlag = isCurrentWeek(week)}
-      {@const netChange = week.plannedIncome - week.plannedExpenses}
+      {@const netChange = week.projectedIncome - week.projectedExpenses}
       {@const weekId = getWeekId(week)}
       {@const isSelected = selectedWeekId === weekId}
       {@const isExpanded = expandedTransactions.has(weekId)}
@@ -289,7 +289,7 @@
               <div>
                 <div class="flex items-center gap-2">
                   <span class="text-primary font-medium">
-                    {getWeekRange(week.weekStart, week.weekEnd)}
+                    {getWeekRange(week.weekStart.toISOString(), week.weekEnd.toISOString())}
                   </span>
                   {#if isCurrentWeekFlag}
                     <Badge variant="secondary" class="px-2 py-0.5 text-xs">Current</Badge>

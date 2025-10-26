@@ -9,7 +9,7 @@ import type {
   GoalPriority,
   GoalStatus,
   GoalAnalytics
-} from './types';
+} from '$lib/components/goals/types';
 
 export class GoalsService {
   // Get comprehensive goals data

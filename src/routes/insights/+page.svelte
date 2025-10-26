@@ -28,10 +28,9 @@
     PredictionsTab,
     BadgesTab
   } from '$lib/components/insights/tabs';
-  import { simpleInsightsService } from '$lib/components/insights/simple-insights-service';
   
   // Services
-  import { userService } from '$lib/core/services';
+  import { userService, insightsService } from '$lib/core/services';
 
   // Tab configuration
   const insightsTabs: TabConfig[] = [
@@ -62,7 +61,7 @@
       await loadInsightsData();
       
       // Start auto-updates
-      simpleInsightsService.startAutoUpdates();
+      insightsService.startAutoUpdates();
     } catch (error) {
       console.error('Error loading insights data:', error);
       error = error instanceof Error ? error.message : 'Failed to load insights data';
@@ -82,8 +81,11 @@
 
   async function loadInsightsData() {
     try {
-      await simpleInsightsService.updateInsights();
-      insights = simpleInsightsService.getInsights();
+      // Generate cross-route insights
+      await insightsService.generateCrossRouteInsights();
+      
+      // Load insights from database
+      insights = await insightsService.getInsights();
     } catch (error) {
       console.error('Error loading insights data:', error);
       error = error instanceof Error ? error.message : 'Failed to load insights data';
@@ -101,6 +103,7 @@
   async function handleRefresh() {
     isLoading = true;
     try {
+      await insightsService.forceUpdate();
       await loadInsightsData();
     } finally {
       isLoading = false;

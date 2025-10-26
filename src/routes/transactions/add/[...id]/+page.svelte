@@ -2,9 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { transactionService } from '$lib/core/services/transaction-service';
-	import { accountService } from '$lib/core/services/account-service';
-	import { budgetService } from '$lib/core/services/budget-service';
+	import { transactionService, accountService, budgetService } from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import type { Account, Transaction, Category } from '$lib/core/db';
 	import * as Form from '$lib/components/ui/form/index.ts';

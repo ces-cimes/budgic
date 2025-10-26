@@ -15,6 +15,9 @@
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
   import type { GoalsTabProps, FinancialGoal } from '../types.js';
+  import { goalService } from '$lib/core/services';
+  import { onMount } from 'svelte';
+  import type { Goal } from '$lib/core/db';
 
   const { 
     userCurrency, 
@@ -22,35 +25,51 @@
     onSetGoal 
   }: GoalsTabProps = $props();
 
-  // Mock goals data - in real implementation, this would come from a service
-  let goals = $state<FinancialGoal[]>([
-    {
-      id: 'goal-1',
-      title: 'Emergency Fund',
-      description: 'Build a 6-month emergency fund',
-      targetAmount: 15000,
-      currentAmount: 8500,
-      targetDate: '2024-12-31',
-      priority: 'high',
-      category: 'emergency',
-      status: 'active',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-11-01'
-    },
-    {
-      id: 'goal-2',
-      title: 'Vacation Fund',
-      description: 'Save for summer vacation',
-      targetAmount: 3000,
-      currentAmount: 1200,
-      targetDate: '2024-06-01',
-      priority: 'medium',
-      category: 'savings',
-      status: 'active',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-11-01'
+  // Real goals data from database
+  let goals = $state<FinancialGoal[]>([]);
+  let isLoading = $state(true);
+
+  // Load goals on mount
+  onMount(async () => {
+    isLoading = true;
+    try {
+      const dbGoals = await goalService.getGoals();
+      // Transform database Goal to FinancialGoal
+      // Map database categories to FinancialGoal categories
+      const categoryMap: Record<string, 'emergency' | 'savings' | 'debt' | 'investment' | 'purchase' | 'other'> = {
+        'emergency_fund': 'emergency',
+        'vacation': 'purchase',
+        'house_down_payment': 'savings',
+        'car_purchase': 'purchase',
+        'education': 'investment',
+        'retirement': 'investment',
+        'debt_payoff': 'debt',
+        'wedding': 'purchase',
+        'home_improvement': 'purchase',
+        'investment': 'investment',
+        'other': 'other'
+      };
+
+      goals = dbGoals.map(goal => ({
+        id: goal.id,
+        title: goal.name,
+        description: goal.description,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        targetDate: goal.targetDate || '',
+        priority: (goal.priority === 'critical' ? 'high' : goal.priority) as 'high' | 'medium' | 'low',
+        category: (categoryMap[goal.category] || 'other') as 'emergency' | 'savings' | 'debt' | 'investment' | 'purchase' | 'other',
+        status: goal.status,
+        createdAt: goal.createdAt,
+        updatedAt: goal.updatedAt
+      } as FinancialGoal));
+    } catch (error) {
+      console.error('Error loading goals:', error);
+      goals = [];
+    } finally {
+      isLoading = false;
     }
-  ]);
+  });
 
   function formatCurrency(amount: number): string {
     return formatAmount(amount, userCurrency);
@@ -141,9 +160,23 @@
     </Button>
   </div>
 
+  <!-- Loading State -->
+  {#if isLoading}
+    <div class="text-center py-12">
+      <div class="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
+        <svg class="w-10 h-10 text-muted-foreground animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+      <p class="text-muted-foreground">Loading goals...</p>
+    </div>
+  {/if}
+
   <!-- Goals List -->
-  <div class="space-y-4">
-    {#each goals as goal (goal.id)}
+  {#if !isLoading}
+    <div class="space-y-4">
+      {#each goals as goal (goal.id)}
       {@const PriorityIcon = getPriorityIcon(goal.priority)}
       {@const CategoryIcon = getCategoryIcon(goal.category)}
       {@const progressPercentage = getProgressPercentage(goal)}
@@ -223,11 +256,11 @@
           {/if}
         </CardContent>
       </Card>
-    {/each}
-  </div>
+      {/each}
+    </div>
 
-  <!-- Empty State -->
-  {#if goals.length === 0}
+    <!-- Empty State -->
+    {#if goals.length === 0}
     <Card class="border-border">
       <CardContent class="flex flex-col items-center justify-center py-12 text-center">
         <Target class="text-muted-foreground mb-4" size={48} />
@@ -241,6 +274,7 @@
         </Button>
       </CardContent>
     </Card>
+    {/if}
   {/if}
 </div>
 

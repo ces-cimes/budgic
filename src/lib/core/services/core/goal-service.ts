@@ -1,4 +1,5 @@
 import { db, generateUUID } from '$lib/core/db';
+import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 import type { Goal, Transaction } from '$lib/core/db';
 
 interface GoalProgress {
@@ -70,6 +71,10 @@ class GoalService {
         };
 
         await db.goals.add(goal);
+        
+        // Emit sync event for goal creation
+        await crossRouteSyncService.onGoalCreated(goal);
+        
         return goal;
     }
 
@@ -115,6 +120,15 @@ class GoalService {
         }
 
         await db.goals.update(id, updatedGoal);
+        
+        // Emit sync event for goal update
+        await crossRouteSyncService.onGoalUpdated(updatedGoal, updates);
+        
+        // If goal was completed, emit completion event
+        if (updates.status === 'completed' && !goal.completedAt) {
+            await crossRouteSyncService.onGoalCompleted(updatedGoal);
+        }
+        
         return updatedGoal;
     }
 
@@ -123,6 +137,9 @@ class GoalService {
      */
     async deleteGoal(id: string): Promise<void> {
         await db.softDeleteGoal(id);
+        
+        // Emit sync event for goal deletion
+        await crossRouteSyncService.onGoalDeleted(id);
     }
 
     /**

@@ -1,8 +1,8 @@
 import { db } from './db';
-import { accountService } from './services/account-service';
-import { transactionService } from './services/transaction-service';
-import { budgetService } from './services/budget-service';
-import { userService } from './services/user-service';
+import { accountService } from './services/core/account-service';
+import { transactionService } from './services/core/transaction-service';
+import { budgetService } from './services/core/budget-service';
+import { userService } from './services/core/user-service';
 import type { Account, Transaction } from './db';
 
 export async function populateSampleData() {

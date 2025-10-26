@@ -9,7 +9,7 @@
   import * as Textarea from '$lib/components/ui/textarea/index.ts';
   import * as Select from '$lib/components/ui/select/index.ts';
   import { ArrowLeft, Save } from '@lucide/svelte';
-  import { goalsService } from '$lib/components/goals/goals-service';
+  import { goalsService } from '$lib/core/services';
   import type { CreateGoalRequest, GoalCategory, GoalPriority } from '$lib/components/goals/types';
 
   // State

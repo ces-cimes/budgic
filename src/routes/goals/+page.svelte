@@ -28,10 +28,7 @@
     type GoalsData,
     type Goal
   } from '$lib/components/goals';
-  import { goalsService } from '$lib/components/goals/goals-service';
-  
-  // Services
-  import { userService } from '$lib/core/services';
+  import { goalsService, userService } from '$lib/core/services';
 
   // Tab configuration
   const goalsTabs: TabConfig[] = [

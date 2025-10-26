@@ -872,7 +872,8 @@ export class BudgicDB extends Dexie {
 	constructor() {
 		super('BudgicDB');
 		
-		this.version(5).stores({
+		// Database schema versions
+		this.version(6).stores({
 			// Core entities - simplified to 8 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
@@ -894,7 +895,8 @@ export class BudgicDB extends Dexie {
 			'[insightType+severity]': 'type, severity',
 			'[categoryType+tier]': 'type, waterfallTier',
 			'[goalCategory+status]': 'category, status',
-			'[userAction+timestamp]': 'action, timestamp'
+			'[userAction+timestamp]': 'action, timestamp',
+			'[type+goalId]': 'type, goalId'
 		});
 
 		// Add validation hooks

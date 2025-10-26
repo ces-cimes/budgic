@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { PatternsTabProps, BehavioralPattern } from '../types';
+  import { insightsService } from '$lib/core/services';
+  import { onMount } from 'svelte';
 
   interface Props {
     userCurrency: string;
@@ -10,66 +12,21 @@
 
   const { userCurrency, isLoading, onRecommendation, className = '' }: Props = $props();
 
-  // Mock patterns for demonstration
-  const mockPatterns = $derived(() => {
-    return [
-      {
-        id: '1',
-        type: 'transaction_timing',
-        title: 'Evening Transaction Pattern',
-        description: 'You typically add transactions in the evening (7-9 PM)',
-        confidence: 85,
-        frequency: 'daily',
-        impact: 'medium',
-        actionable: true,
-        recommendation: 'Consider setting up recurring transactions for frequent expenses',
-        metadata: {
-          pattern: 'Evening logging',
-          percentage: 78,
-          timeframe: '7-9 PM',
-          category: 'system'
-        },
-        createdAt: new Date().toISOString(),
-        lastObserved: new Date().toISOString()
-      },
-      {
-        id: '2',
-        type: 'budget_adherence',
-        title: 'Weekday Budget Success',
-        description: 'You\'re 15% better at staying within budget on weekdays',
-        confidence: 72,
-        frequency: 'weekly',
-        impact: 'high',
-        actionable: true,
-        recommendation: 'Plan weekend spending in advance',
-        metadata: {
-          pattern: 'Weekday adherence',
-          percentage: 15,
-          timeframe: 'Monday-Friday',
-          category: 'security'
-        },
-        createdAt: new Date().toISOString(),
-        lastObserved: new Date().toISOString()
-      },
-      {
-        id: '3',
-        type: 'engagement',
-        title: 'Monday Budget Checking',
-        description: 'You check your budget most frequently on Mondays',
-        confidence: 68,
-        frequency: 'weekly',
-        impact: 'low',
-        actionable: false,
-        metadata: {
-          pattern: 'Monday engagement',
-          percentage: 45,
-          timeframe: 'Monday',
-          category: 'system'
-        },
-        createdAt: new Date().toISOString(),
-        lastObserved: new Date().toISOString()
-      }
-    ] as BehavioralPattern[];
+  // Real patterns from insights service
+  let patterns = $state<BehavioralPattern[]>([]);
+  let localLoading = $state(false);
+
+  // Load patterns on mount
+  onMount(async () => {
+    localLoading = true;
+    try {
+      patterns = await insightsService.getBehavioralPatternInsights() as BehavioralPattern[];
+    } catch (error) {
+      console.error('Error loading patterns:', error);
+      patterns = [];
+    } finally {
+      localLoading = false;
+    }
   });
 
   function handleRecommendation(patternId: string) {
@@ -138,8 +95,18 @@
       </p>
     </div>
 
-    <!-- Patterns List -->
-    {#if mockPatterns().length === 0}
+    <!-- Loading State -->
+    {#if isLoading || localLoading}
+      <div class="text-center py-12">
+        <div class="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
+          <svg class="w-10 h-10 text-muted-foreground animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <p class="text-muted-foreground">Loading patterns...</p>
+      </div>
+    {:else if patterns.length === 0}
       <div class="text-center py-12">
         <div class="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
           <svg class="w-10 h-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -153,7 +120,7 @@
       </div>
     {:else}
       <div class="space-y-4">
-        {#each mockPatterns() as pattern (pattern.id)}
+        {#each patterns as pattern (pattern.id)}
           <div class="bg-card border border-border rounded-lg p-4">
             <div class="flex items-start gap-3">
               <!-- Pattern Icon -->

@@ -1,10 +1,18 @@
-// Core Services - Simplified Architecture
-export { accountService } from './account-service';
-export { transactionService } from './transaction-service';
-export { budgetService } from './budget-service';
-export { goalService } from './goal-service';
-export { analyticsService } from './analytics-service';
-export { userService } from './user-service';
+/**
+ * Budgic Services
+ * 
+ * Centralized service exports organized by category for better maintainability.
+ * All services follow consistent patterns and are designed to be stateless and testable.
+ */
+
+// Core business logic services
+export * from './core';
+
+// Analytics and insights services
+export * from './analytics';
+
+// Page-specific services
+export * from './pages';
 
 // Re-export types from db for convenience
 export type {

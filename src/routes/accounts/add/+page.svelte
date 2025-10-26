@@ -1,15 +1,26 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import * as Button from '$lib/components/ui/button/index.ts';
-  import { accountService } from '$lib/core/services/account-service';
+  import { accountService } from '$lib/core/services';
   import AccountForm from '$lib/components/AccountForm.svelte';
   import type { Account } from '$lib/core/db';
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
 
   async function handleSubmit(accountData: Partial<Account>) {
+    // Validate required fields
+    if (!accountData.name || !accountData.type || !accountData.currency) {
+      console.error('Missing required fields');
+      return;
+    }
+
     // Create account using the account service
-    const newAccount = await accountService.createAccount(accountData);
+    const newAccount = await accountService.createAccount({
+      name: accountData.name,
+      type: accountData.type,
+      currency: accountData.currency,
+      initialBalance: accountData.initialBalance
+    });
     console.log('Account created successfully:', newAccount);
     
     // Navigate back to accounts page

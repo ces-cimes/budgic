@@ -37,10 +37,7 @@
     type ReportSettings,
     type ReportType
   } from '$lib/components/analyze';
-  import { analyzeService } from '$lib/components/analyze/analyze-service';
-  
-  // Services
-  import { userService } from '$lib/core/services';
+  import { analyzeService, userService } from '$lib/core/services';
 
   // Tab configuration
   const analyzeTabs: TabConfig[] = [

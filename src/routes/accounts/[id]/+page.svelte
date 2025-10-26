@@ -3,9 +3,7 @@
 	import { onMount } from 'svelte';
 	import * as Button from '$lib/components/ui/button/index.ts';
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
-	import { accountService } from '$lib/core/services/account-service';
-	import { transactionService } from '$lib/core/services/transaction-service';
-	import { userService } from '$lib/core/services/user-service';
+	import { accountService, transactionService, userService } from '$lib/core/services';
 	import AccountForm from '$lib/components/AccountForm.svelte';
 	import type { Account, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';

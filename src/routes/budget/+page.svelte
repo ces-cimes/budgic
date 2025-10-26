@@ -30,10 +30,7 @@
     type DailyAllowance,
     type WeeklyProjection
   } from '$lib/components/plan';
-  import { planService } from '$lib/components/plan/plan-service';
-  
-  // Services
-  import { userService } from '$lib/core/services';
+  import { planService, userService } from '$lib/core/services';
 
   // Tab configuration
   const budgetTabs: TabConfig[] = [
@@ -121,11 +118,8 @@
     try {
       // Load comprehensive planning data
       planningData = await planService.getPlanningData(selectedAccountId);
-      
-      if (planningData) {
-        dailyAllowance = planningData.dailyAllowance;
-        weeklyProjections = planningData.weeklyProjections;
-      }
+      dailyAllowance = await planService.getDailyAllowance(selectedAccountId);
+      weeklyProjections = await planService.getWeeklyProjections(selectedAccountId);
     } catch (error) {
       console.error('Error loading planning data:', error);
       error = error instanceof Error ? error.message : 'Failed to load planning data';

@@ -1,6 +1,28 @@
 import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
 import type { Account, Transaction } from '$lib/core/db';
 
+/**
+ * Account Service
+ * 
+ * Handles all account-related operations including CRUD operations,
+ * balance calculations, and account management. This service provides
+ * a clean interface for managing financial accounts in the application.
+ * 
+ * @example
+ * ```typescript
+ * import { accountService } from '$lib/core/services';
+ * 
+ * // Create a new account
+ * const account = await accountService.createAccount({
+ *   name: 'Emergency Fund',
+ *   type: 'savings',
+ *   currency: 'USD'
+ * });
+ * 
+ * // Get all accounts
+ * const accounts = await accountService.getAccounts();
+ * ```
+ */
 class AccountService {
     // Public interface
     public get ready() {
@@ -20,7 +42,25 @@ class AccountService {
     // ============================================================================
 
     /**
-     * Create a new account
+     * Create a new account with validation and initial setup
+     * 
+     * @param data - Account creation data
+     * @param data.name - Account name (required, 1-100 characters)
+     * @param data.type - Account type (checking, savings, credit, cash, investment)
+     * @param data.currency - Currency code (3-letter ISO code)
+     * @param data.initialBalance - Initial balance (defaults to 0)
+     * @returns Promise resolving to the created account
+     * @throws {Error} If account creation fails or validation errors occur
+     * 
+     * @example
+     * ```typescript
+     * const account = await accountService.createAccount({
+     *   name: 'Emergency Fund',
+     *   type: 'savings',
+     *   currency: 'USD',
+     *   initialBalance: 5000
+     * });
+     * ```
      */
     async createAccount(data: {
         name: string;
@@ -46,21 +86,59 @@ class AccountService {
     }
 
     /**
-     * Get all active accounts
+     * Get all active accounts ordered by creation date
+     * 
+     * @returns Promise resolving to array of active accounts
+     * @throws {Error} If database query fails
+     * 
+     * @example
+     * ```typescript
+     * const accounts = await accountService.getAccounts();
+     * console.log(`Found ${accounts.length} active accounts`);
+     * ```
      */
     async getAccounts(): Promise<Account[]> {
         return await db.getActiveAccounts();
     }
 
     /**
-     * Get account by ID
+     * Get a specific account by its unique identifier
+     * 
+     * @param id - Account unique identifier
+     * @returns Promise resolving to the account or null if not found
+     * @throws {Error} If database query fails
+     * 
+     * @example
+     * ```typescript
+     * const account = await accountService.getAccount('account-123');
+     * if (account) {
+     *   console.log(`Account: ${account.name}`);
+     * }
+     * ```
      */
     async getAccount(id: string): Promise<Account | null> {
         return await db.accounts.get(id) || null;
     }
 
     /**
-     * Update account
+     * Update account properties with validation
+     * 
+     * @param id - Account unique identifier
+     * @param updates - Partial account data to update
+     * @param updates.name - New account name (optional)
+     * @param updates.type - New account type (optional)
+     * @param updates.currency - New currency code (optional)
+     * @param updates.isActive - Active status (optional)
+     * @returns Promise resolving to the updated account
+     * @throws {Error} If account not found or update fails
+     * 
+     * @example
+     * ```typescript
+     * const updated = await accountService.updateAccount('account-123', {
+     *   name: 'Updated Account Name',
+     *   isActive: false
+     * });
+     * ```
      */
     async updateAccount(id: string, updates: Partial<Pick<Account, 'name' | 'type' | 'currency' | 'isActive'>>): Promise<Account> {
         const account = await db.accounts.get(id);
@@ -79,21 +157,53 @@ class AccountService {
     }
 
     /**
-     * Delete account (soft delete)
+     * Soft delete an account (marks as deleted but preserves data)
+     * 
+     * @param id - Account unique identifier
+     * @returns Promise that resolves when deletion is complete
+     * @throws {Error} If account not found or deletion fails
+     * 
+     * @example
+     * ```typescript
+     * await accountService.deleteAccount('account-123');
+     * ```
      */
     async deleteAccount(id: string): Promise<void> {
         await db.softDeleteAccount(id);
     }
 
     /**
-     * Get account balance
+     * Get the current balance of an account
+     * 
+     * @param accountId - Account unique identifier
+     * @returns Promise resolving to the current balance
+     * @throws {Error} If account not found or balance calculation fails
+     * 
+     * @example
+     * ```typescript
+     * const balance = await accountService.getAccountBalance('account-123');
+     * console.log(`Current balance: $${balance}`);
+     * ```
      */
     async getAccountBalance(accountId: string): Promise<number> {
         return await db.getAccountBalance(accountId);
     }
 
     /**
-     * Recalculate account balance from transactions
+     * Recalculate account balance from all associated transactions
+     * 
+     * This method recalculates the account balance by summing all transactions
+     * associated with the account. Useful for ensuring data consistency.
+     * 
+     * @param accountId - Account unique identifier
+     * @returns Promise resolving to the recalculated balance
+     * @throws {Error} If account not found or calculation fails
+     * 
+     * @example
+     * ```typescript
+     * const newBalance = await accountService.recalculateAccountBalance('account-123');
+     * console.log(`Recalculated balance: $${newBalance}`);
+     * ```
      */
     async recalculateAccountBalance(accountId: string): Promise<number> {
         return await db.recalculateAccountBalance(accountId);
@@ -180,4 +290,17 @@ class AccountService {
     }
 }
 
+/**
+ * Singleton instance of AccountService
+ * 
+ * This is the main export for the account service. Use this instance
+ * throughout the application for all account-related operations.
+ * 
+ * @example
+ * ```typescript
+ * import { accountService } from '$lib/core/services';
+ * 
+ * const accounts = await accountService.getAccounts();
+ * ```
+ */
 export const accountService = new AccountService();

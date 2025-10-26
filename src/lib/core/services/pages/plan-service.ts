@@ -1,4 +1,4 @@
-import { accountService, userService, transactionService, budgetService } from '$lib/core/services';
+import { accountService, userService, transactionService, budgetService, crossRouteSyncService, insightsService } from '$lib/core/services';
 import type { Account } from '$lib/core/db';
 
 // Simplified types for planning
@@ -201,7 +201,46 @@ class PlanService {
    * Get planning insights for an account
    */
   async getPlanningInsights(accountId: string): Promise<PlanningInsight[]> {
-    return [];
+    try {
+      // Get planning data
+      const planningData = await this.getPlanningData(accountId);
+      const insights: PlanningInsight[] = [];
+
+      // Generate insights based on planning data
+      if (planningData.netProjectedChange < 0) {
+        insights.push({
+          id: 'negative-projection',
+          type: 'balance_warning',
+          message: `Projected negative balance of ${Math.abs(planningData.netProjectedChange).toFixed(2)}`,
+          severity: 'high',
+          actionable: true
+        });
+      }
+
+      if (planningData.totalPlannedExpenses > planningData.totalPlannedIncome * 0.8) {
+        insights.push({
+          id: 'high-expense-ratio',
+          type: 'expense_alert',
+          message: 'Planned expenses are high relative to income',
+          severity: 'medium',
+          actionable: true
+        });
+      }
+
+      // Emit sync event for planning insights generation
+      await crossRouteSyncService.emitSyncEvent({
+        type: 'budget_updated',
+        entityId: accountId,
+        entityType: 'budget',
+        data: { planningData, insights },
+        timestamp: new Date().toISOString()
+      });
+
+      return insights;
+    } catch (error) {
+      console.error('Error getting planning insights:', error);
+      return [];
+    }
   }
 
   /**
@@ -290,10 +329,31 @@ class PlanService {
   }
 
   /**
-   * Get week insights for a specific week
+   * Create planning insights in the database
    */
-  async getWeekInsights(accountId: string, weekKey: string): Promise<PlanningInsight[]> {
-    return [];
+  async createPlanningInsights(accountId: string): Promise<void> {
+    try {
+      const insights = await this.getPlanningInsights(accountId);
+      
+      // Create insights in the database
+      for (const insight of insights) {
+        await insightsService.createInsight({
+          type: 'budget_approaching', // Map planning insight types to database types
+          severity: insight.severity === 'high' ? 'alert' : 
+                   insight.severity === 'medium' ? 'warning' : 'info',
+          title: insight.message,
+          message: insight.message,
+          actionable: insight.actionable,
+          metadata: {
+            accountId,
+            insightType: insight.type,
+            sourceRoute: 'plan'
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error creating planning insights:', error);
+    }
   }
 
   /**

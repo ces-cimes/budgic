@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Plus, Calendar, DollarSign, Type } from '@lucide/svelte';
-  import { transactionService } from '$lib/core/services/transaction-service';
-  import { accountService } from '$lib/core/services/account-service';
+  import { transactionService, accountService, userService } from '$lib/core/services';
   import { Button } from '$lib/components/ui/button/index.ts';
   import { Input } from '$lib/components/ui/input/index.ts';
   import { Label } from '$lib/components/ui/label/index.ts';
@@ -10,7 +9,6 @@
   import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '$lib/components/ui/dialog/index.ts';
   import type { Account, TransactionType } from '$lib/core/db';
   import { formatAmount } from '$lib/utils/currency-utils';
-  import { settingsService } from '$lib/core/services/settings-service';
 
   interface Props {
     onTransactionAdded?: () => void;
@@ -33,7 +31,8 @@
 
   onMount(async () => {
     // Get user's preferred currency
-    userCurrency = await settingsService.getCurrency();
+    const preferences = await userService.getUserPreferences();
+    userCurrency = preferences?.currency || 'USD';
     
     accounts = await accountService.getAccounts();
     // Set default date to tomorrow
@@ -59,10 +58,7 @@
         currency: userCurrency
       };
 
-      await transactionService.createNewTransaction(transactionData);
-      
-      // Clear balance cache to ensure fresh data
-      accountService.clearBalanceCache(accountId);
+      await transactionService.createTransaction(transactionData);
       
       // Reset form
       amount = '';

@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { PredictionsTabProps, PredictionInsight } from '../types';
+  import { insightsService } from '$lib/core/services';
+  import { onMount } from 'svelte';
 
   interface Props {
     userCurrency: string;
@@ -10,79 +12,21 @@
 
   const { userCurrency, isLoading, onAction, className = '' }: Props = $props();
 
-  // Mock predictions for demonstration
-  const mockPredictions = $derived(() => {
-    return [
-      {
-        id: '1',
-        type: 'spending_forecast',
-        title: 'Monthly Spending Forecast',
-        description: 'Based on your patterns, you\'ll likely spend $2,400 this month',
-        confidence: 78,
-        timeframe: 'This month',
-        predictedValue: 2400,
-        currentValue: 1800,
-        variance: 600,
-        riskLevel: 'medium',
-        actionable: true,
-        actionText: 'Review Budget',
-        actionUrl: '/plan',
-        metadata: {
-          algorithm: 'Historical Pattern Analysis',
-          factors: ['Previous months', 'Current trends', 'Seasonal patterns'],
-          historicalData: [2200, 2100, 2300, 2000],
-          category: 'system'
-        },
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: '2',
-        type: 'goal_completion',
-        title: 'Emergency Fund Goal',
-        description: 'At current rate, you\'ll reach your emergency fund goal by March 2024',
-        confidence: 85,
-        timeframe: 'March 2024',
-        predictedValue: 10000,
-        currentValue: 7500,
-        variance: 2500,
-        riskLevel: 'low',
-        actionable: true,
-        actionText: 'View Goal',
-        actionUrl: '/goals',
-        metadata: {
-          algorithm: 'Goal Progress Analysis',
-          factors: ['Current savings rate', 'Goal amount', 'Time remaining'],
-          historicalData: [5000, 6000, 7000, 7500],
-          category: 'security'
-        },
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: '3',
-        type: 'budget_risk',
-        title: 'Entertainment Budget Risk',
-        description: 'You\'re on track to exceed your entertainment budget by 15%',
-        confidence: 72,
-        timeframe: 'This month',
-        predictedValue: 1150,
-        currentValue: 800,
-        variance: 150,
-        riskLevel: 'high',
-        actionable: true,
-        actionText: 'Adjust Budget',
-        actionUrl: '/plan',
-        metadata: {
-          algorithm: 'Budget Trend Analysis',
-          factors: ['Current spending', 'Budget limit', 'Spending velocity'],
-          historicalData: [900, 950, 1000, 800],
-          category: 'lifestyle'
-        },
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
-      }
-    ] as PredictionInsight[];
+  // Real predictions from insights service
+  let predictions = $state<PredictionInsight[]>([]);
+  let localLoading = $state(false);
+
+  // Load predictions on mount
+  onMount(async () => {
+    localLoading = true;
+    try {
+      predictions = await insightsService.getPredictionInsights();
+    } catch (error) {
+      console.error('Error loading predictions:', error);
+      predictions = [];
+    } finally {
+      localLoading = false;
+    }
   });
 
   function handleAction(predictionId: string) {
@@ -165,8 +109,18 @@
       </p>
     </div>
 
-    <!-- Predictions List -->
-    {#if mockPredictions().length === 0}
+    <!-- Loading State -->
+    {#if isLoading || localLoading}
+      <div class="text-center py-12">
+        <div class="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
+          <svg class="w-10 h-10 text-muted-foreground animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <p class="text-muted-foreground">Loading predictions...</p>
+      </div>
+    {:else if predictions.length === 0}
       <div class="text-center py-12">
         <div class="w-20 h-20 mx-auto mb-6 bg-muted rounded-full flex items-center justify-center">
           <svg class="w-10 h-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -180,7 +134,7 @@
       </div>
     {:else}
       <div class="space-y-4">
-        {#each mockPredictions() as prediction (prediction.id)}
+        {#each predictions as prediction (prediction.id)}
           <div class="bg-card border border-border rounded-lg p-4">
             <div class="flex items-start gap-3">
               <!-- Prediction Icon -->
