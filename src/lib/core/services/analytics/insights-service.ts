@@ -524,12 +524,46 @@ class InsightsService {
 
         await db.transaction('rw', [db.insights], async () => {
             for (const insight of insights) {
-                // Check if similar insight already exists
-                const existingInsight = await db.insights
-                    .where('[type+goalId]')
-                    .equals([insight.type, insight.goalId || ''])
-                    .filter(i => i.isActive && !i.dismissedAt)
-                    .first();
+                // Check if similar insight already exists based on type, goalId/categoryId, and title
+                let existingInsight = null;
+                
+                // For insights with goalId, check using the composite index [type+goalId]
+                if (insight.goalId) {
+                    existingInsight = await db.insights
+                        .where('[type+goalId]')
+                        .equals([insight.type, insight.goalId])
+                        .filter(i => i.isActive && !i.dismissedAt && i.title === insight.title)
+                        .first();
+                }
+                
+                // For insights with categoryId, check using type index and filter by categoryId
+                if (!existingInsight && insight.categoryId) {
+                    existingInsight = await db.insights
+                        .where('type')
+                        .equals(insight.type)
+                        .filter(i => 
+                            i.isActive && 
+                            !i.dismissedAt && 
+                            i.title === insight.title &&
+                            i.categoryId === insight.categoryId
+                        )
+                        .first();
+                }
+                
+                // For insights without specific identifiers, check by type and title within last 24 hours
+                if (!existingInsight) {
+                    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                    existingInsight = await db.insights
+                        .where('type')
+                        .equals(insight.type)
+                        .filter(i => 
+                            i.isActive && 
+                            !i.dismissedAt && 
+                            i.title === insight.title &&
+                            i.createdAt > oneDayAgo
+                        )
+                        .first();
+                }
 
                 if (!existingInsight) {
                     await db.insights.add(insight);
@@ -561,28 +595,61 @@ class InsightsService {
         confidence: number;
         metadata: Record<string, any>;
     } {
-        // Simple pattern analysis - in a real implementation, this would be more sophisticated
+        if (transactions.length === 0) {
+            return {
+                hasUnusualSpending: false,
+                message: '',
+                confidence: 0,
+                metadata: {}
+            };
+        }
+
+        // Get transactions from the last 7 and 30 days
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        
         const recentTransactions = transactions.filter(tx => 
             tx.status === 'cleared' && 
-            new Date(tx.clearedDate || tx.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
+            new Date(tx.clearedDate || tx.createdAt).getTime() > sevenDaysAgo
+        );
+
+        const historicalTransactions = transactions.filter(tx => 
+            tx.status === 'cleared' && 
+            new Date(tx.clearedDate || tx.createdAt).getTime() > thirtyDaysAgo &&
+            new Date(tx.clearedDate || tx.createdAt).getTime() <= sevenDaysAgo
         );
 
         const totalSpent = recentTransactions
             .filter(tx => tx.type === 'expense')
             .reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
-        // If spending is unusually high (placeholder logic)
-        if (totalSpent > 1000) { // This would be calculated based on historical averages
-            return {
-                hasUnusualSpending: true,
-                message: 'Your spending this week is higher than usual. Consider reviewing your expenses.',
-                confidence: 75,
-                metadata: {
-                    totalSpent,
-                    transactionCount: recentTransactions.length,
-                    averageTransaction: totalSpent / recentTransactions.length
-                }
-            };
+        const historicalTotal = historicalTransactions
+            .filter(tx => tx.type === 'expense')
+            .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+        // Calculate average weekly spending over the last 30 days (excluding this week)
+        const averageWeeklySpending = historicalTotal / 3; // Approximately 3 weeks in 30 days
+
+        // Only flag as unusual if spending is significantly higher than historical average
+        // and if we have enough historical data to make a comparison
+        if (averageWeeklySpending > 0 && recentTransactions.length > 3) {
+            const spendingRatio = totalSpent / averageWeeklySpending;
+            
+            // Flag if spending is 50% higher than average
+            if (spendingRatio > 1.5) {
+                return {
+                    hasUnusualSpending: true,
+                    message: `Your spending this week is ${Math.round((spendingRatio - 1) * 100)}% higher than your average. Consider reviewing your expenses.`,
+                    confidence: 75,
+                    metadata: {
+                        totalSpent,
+                        averageWeeklySpending,
+                        spendingRatio,
+                        transactionCount: recentTransactions.length,
+                        averageTransaction: totalSpent / recentTransactions.length
+                    }
+                };
+            }
         }
 
         return {
