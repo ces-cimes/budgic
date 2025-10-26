@@ -37,8 +37,7 @@
 
 	const typeOptions: { value: Category['type']; label: string; description: string }[] = [
 		{ value: 'expense', label: 'Expense', description: 'Categories for spending money' },
-		{ value: 'income', label: 'Income', description: 'Categories for earning money' },
-		{ value: 'transfer', label: 'Transfer', description: 'Categories for moving money between accounts' }
+		{ value: 'income', label: 'Income', description: 'Categories for earning money' }
 	];
 
 	const colorOptions = [

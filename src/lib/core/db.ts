@@ -615,7 +615,7 @@ const AccountSchema = BaseSchema.extend({
 // Unified Category Schema (replaces what/why tags, payees, and budget categories)
 const CategorySchema = BaseSchema.extend({
 	name: z.string().min(1),                    // "groceries", "rent", "Netflix"
-	type: z.enum(['expense', 'income', 'transfer']),
+	type: z.enum(['expense', 'income']),
 	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle']),
 	priority: z.number().min(1),                // Within tier
 	budgetAmount: z.number().min(0).optional(),  // Optional budget allocation

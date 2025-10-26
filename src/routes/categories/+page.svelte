@@ -20,7 +20,7 @@
 	let isLoading = $state(true);
 	let error = $state('');
 	let activeState = $state<'active' | 'inactive' | 'all'>('active');
-	let categoryType = $state<'all' | 'expense' | 'income' | 'transfer'>('all');
+	let categoryType = $state<'all' | 'expense' | 'income'>('all');
 
 	// Drag and drop state
 	let draggedCategory = $state<Category | null>(null);
@@ -366,8 +366,7 @@
 			selectOptions={[
 				{ value: 'all', label: 'All Types', description: 'View all category types' },
 				{ value: 'expense', label: 'Expense', description: 'Spending categories' },
-				{ value: 'income', label: 'Income', description: 'Earning categories' },
-				{ value: 'transfer', label: 'Transfer', description: 'Transfer categories' }
+				{ value: 'income', label: 'Income', description: 'Earning categories' }
 			]}
 			selectPlaceholder="Filter by type"
 			onSelectChange={(value) => categoryType = (value || 'all') as typeof categoryType}

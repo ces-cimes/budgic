@@ -65,10 +65,7 @@ async function createSampleCategories() {
             { name: 'Savings', type: 'expense' as const, waterfallTier: 'security' as const, priority: 2 },
             { name: 'Education', type: 'expense' as const, waterfallTier: 'growth' as const, priority: 1 },
             { name: 'Entertainment', type: 'expense' as const, waterfallTier: 'lifestyle' as const, priority: 1 },
-            { name: 'Dining Out', type: 'expense' as const, waterfallTier: 'lifestyle' as const, priority: 2 },
-            
-            // Transfer categories
-            { name: 'Account Transfer', type: 'transfer' as const, waterfallTier: 'survival' as const, priority: 1 }
+            { name: 'Dining Out', type: 'expense' as const, waterfallTier: 'lifestyle' as const, priority: 2 }
         ];
 
         const categoryMapping: Record<string, string> = {};
@@ -237,7 +234,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
             {
                 accountId: accounts.checking.id,
                 type: 'expense' as const,
-                categoryId: categories['account-transfer-category'],
+                categoryId: categories['savings-category'],
                 amount: 300,
                 currency: 'USD',
                 description: 'Credit card payment',
