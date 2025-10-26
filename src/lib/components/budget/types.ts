@@ -4,7 +4,7 @@ import type {
   WeeklyProjection,
   PlanningInsight,
   PlanningData
-} from '$lib/core/services/pages/plan-service';
+} from '$lib/core/services/pages/planning-service';
 
 // Re-export for convenience
 export type {

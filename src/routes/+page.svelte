@@ -167,7 +167,7 @@
         <div class="text-sm text-muted-foreground">Connect new account</div>
       </Button.Root>
       
-      <Button.Root onclick={() => goto('/plan')} variant="outline" class="p-4 h-auto flex-col items-start">
+      <Button.Root onclick={() => goto('/budget')} variant="outline" class="p-4 h-auto flex-col items-start">
         <div class="font-medium text-primary mb-1">View Budget</div>
         <div class="text-sm text-muted-foreground">Check your plan</div>
       </Button.Root>
@@ -269,7 +269,7 @@
   <section class="mb-8">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xl font-semibold text-primary">Budget Overview</h2>
-      <Button.Root variant="ghost" onclick={() => goto('/plan')}>
+      <Button.Root variant="ghost" onclick={() => goto('/budget')}>
         View Details
       </Button.Root>
     </div>

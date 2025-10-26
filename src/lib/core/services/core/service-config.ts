@@ -209,7 +209,7 @@ class ServiceConfigManager {
             'crossRouteSyncService',
             'analyzeService',
             'goalsService',
-            'planService'
+            'planningService'
         ];
 
         services.forEach(serviceName => {

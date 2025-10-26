@@ -29,7 +29,7 @@
     type PlanningData,
     type DailyAllowance,
     type WeeklyProjection
-  } from '$lib/components/plan';
+  } from '$lib/components/budget';
   import { planService, userService } from '$lib/core/services';
 
   // Tab configuration
@@ -87,9 +87,9 @@
       await loadPlanningData();
       
       // Track user viewing plan page (simplified - no tracking for now)
-      console.log('User viewed plan page');
+      console.log('User viewed budget page');
     } catch (error) {
-      console.error('Error loading plan data:', error);
+      console.error('Error loading budget data:', error);
       error = error instanceof Error ? error.message : 'Failed to load planning data';
     } finally {
       isLoading = false;

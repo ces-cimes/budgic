@@ -9,4 +9,4 @@
 
 export { analyzeService } from './analyze-service';
 export { goalsService } from './goals-service';
-export { planService } from './plan-service';
+export { planningService as planService } from './planning-service';

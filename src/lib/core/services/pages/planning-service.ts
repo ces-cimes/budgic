@@ -470,4 +470,4 @@ class PlanService {
   }
 }
 
-export const planService = new PlanService();
+export const planningService = new PlanService();

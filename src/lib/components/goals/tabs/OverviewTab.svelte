@@ -316,7 +316,7 @@
         <Button.Root 
           variant="outline" 
           size="sm" 
-          onclick={() => goto('/plan?tab=budget')}
+          onclick={() => goto('/budget?tab=budget')}
         >
           <BarChart3 class="h-4 w-4 mr-2" />
           View Budget Impact
@@ -338,7 +338,7 @@
           <Button.Root 
             variant="ghost" 
             size="sm"
-            onclick={() => goto('/plan?tab=budget')}
+            onclick={() => goto('/budget?tab=budget')}
           >
             <ExternalLink class="h-4 w-4" />
           </Button.Root>
@@ -350,7 +350,7 @@
             variant="link" 
             size="sm" 
             class="p-0 h-auto text-blue-600"
-            onclick={() => goto('/plan?tab=budget')}
+            onclick={() => goto('/budget?tab=budget')}
           >
             View detailed budget analysis
           </Button.Root>
