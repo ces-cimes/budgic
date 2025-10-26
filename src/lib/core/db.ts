@@ -873,30 +873,16 @@ export class BudgicDB extends Dexie {
 		super('BudgicDB');
 		
 		// Database schema versions
-		this.version(6).stores({
+		this.version(7).stores({
 			// Core entities - simplified to 8 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
-			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt',
-			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt',
-			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt',
+			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
-			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt',
-			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt',
-			
-			// Performance optimization indexes - optimized for common queries
-			'[accountId+status]': 'accountId, status',
-			'[accountId+clearedDate]': 'accountId, clearedDate',
-			'[categoryId+status]': 'categoryId, status',
-			'[groupId+status]': 'groupId, status',
-			'[plannedDate+status]': 'plannedDate, status',
-			'[clearedDate+type]': 'clearedDate, type',
-			'[goalId+status]': 'goalId, status',
-			'[insightType+severity]': 'type, severity',
-			'[categoryType+tier]': 'type, waterfallTier',
-			'[goalCategory+status]': 'category, status',
-			'[userAction+timestamp]': 'action, timestamp',
-			'[type+goalId]': 'type, goalId'
+			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]'
 		});
 
 		// Add validation hooks
