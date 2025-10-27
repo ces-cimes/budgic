@@ -796,6 +796,7 @@ const InsightSchema = BaseSchema.extend({
 	actionText: z.string().optional(),
 	actionUrl: z.string().optional(),
 	dismissedAt: z.string().datetime().optional(),
+	readAt: z.string().datetime().optional(),
 	expiresAt: z.string().datetime().optional(),
 	isActive: z.boolean().default(true),
 	metadata: z.string().optional() // JSON string
@@ -1582,6 +1583,53 @@ export class BudgicDB extends Dexie {
 			.where('severity').equals(severity)
 			.filter(insight => insight.isActive && !insight.dismissedAt)
 			.toArray();
+	}
+
+	async getUnreadInsights(): Promise<Insight[]> {
+		return await this.insights
+			.filter(insight => 
+				insight.isActive && 
+				!insight.dismissedAt && 
+				!insight.readAt
+			)
+			.toArray();
+	}
+
+	async getUnreadCount(): Promise<number> {
+		const unread = await this.getUnreadInsights();
+		return unread.length;
+	}
+
+	async getUnreadBySeverity(severity?: Insight['severity']): Promise<Insight[]> {
+		if (severity) {
+			return await this.insights
+				.where('severity').equals(severity)
+				.filter(insight => 
+					insight.isActive && 
+					!insight.dismissedAt && 
+					!insight.readAt
+				)
+				.toArray();
+		}
+		return await this.getUnreadInsights();
+	}
+
+	async markInsightAsRead(id: string): Promise<void> {
+		await this.insights.update(id, {
+			readAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString()
+		});
+	}
+
+	async markAllInsightsAsRead(): Promise<void> {
+		const unread = await this.getUnreadInsights();
+		const updates = unread.map(insight => 
+			this.insights.update(insight.id, {
+				readAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			})
+		);
+		await Promise.all(updates);
 	}
 
 	// ============================================================================

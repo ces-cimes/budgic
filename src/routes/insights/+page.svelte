@@ -49,7 +49,6 @@
 
   // Derived values
   const insightsCount = $derived(() => insights.filter(i => i.isActive).length);
-  const criticalAlerts = $derived(() => insights.filter(i => i.severity === 'alert' && i.isActive).length);
 
   onMount(async () => {
     try {
@@ -123,13 +122,6 @@
       description="Financial intelligence and behavioral patterns"
       variant="with-tabs"
       buttonProps={[
-        {
-          text: `${criticalAlerts()} alerts`,
-          variant: criticalAlerts() > 0 ? "destructive" : "secondary",
-          size: "sm",
-          icon: Bell,
-          disabled: true
-        },
         {
           onclick: handleRefresh,
           size: "sm",

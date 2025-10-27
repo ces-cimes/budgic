@@ -4,6 +4,7 @@
 	import { Button, type ButtonProps } from "$lib/components/ui/button/index.js";
 	import { goto } from '$app/navigation';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
+	import NotificationButton from './NotificationButton.svelte';
 
 	interface ButtonConfig {
 		text?: string;
@@ -82,8 +83,13 @@
 			{/if}
 		</div>
 		
-		{#if buttonProps.length > 0}
-			<div class="flex items-center gap-2">
+		<div class="flex items-center gap-2">
+			<!-- Notification button (mobile only) -->
+			{#if sidebar.isMobile}
+				<NotificationButton />
+			{/if}
+			
+			{#if buttonProps.length > 0}
 				{#each buttonProps as buttonConfig}
 					<Button
 						onclick={buttonConfig.onclick}
@@ -104,8 +110,8 @@
 						{/if}
 					</Button>
 				{/each}
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 	
 	{#if children}

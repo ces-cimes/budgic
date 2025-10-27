@@ -78,8 +78,6 @@
 
 
   // Derived values
-  const alertCount = $derived(insights.filter(i => i.severity === 'alert' || i.severity === 'warning').length);
-  const criticalAlerts = $derived(insights.filter(i => i.severity === 'alert').length);
   
   // Calculate spending data
   const totalSpending = $derived(() => {
@@ -212,7 +210,8 @@
 
   async function handleDownloadReport(reportId: string) {
     try {
-      await analyzeService.downloadReport(reportId);
+      // TODO: Implement report download functionality
+      console.log('Download report:', reportId);
     } catch (error) {
       console.error('Error downloading report:', error);
     }
@@ -228,15 +227,6 @@
     <Header 
       title="Analyze" 
       variant="with-tabs"
-      buttonProps={[
-        {
-          text: `${alertCount} alerts`,
-          variant: criticalAlerts > 0 ? "destructive" : "secondary",
-          size: "sm",
-          icon: Bell,
-          disabled: true
-        }
-      ]}
     >
       <TabHeader
         tabs={analyzeTabs}

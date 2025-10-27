@@ -10,3 +10,4 @@
 export { analyticsService } from './analytics-service';
 export { insightsService } from './insights-service';
 export { crossRouteSyncService } from './cross-route-sync-service';
+export { notificationsService } from '../notifications-service';

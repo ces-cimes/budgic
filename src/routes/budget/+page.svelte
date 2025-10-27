@@ -6,7 +6,6 @@
   import Header from '$lib/components/Header.svelte';
   import { Button } from '$lib/components/ui/button/index.ts';
   import { 
-    Bell, 
     BarChart3, 
     TrendingUp, 
     DollarSign,
@@ -51,7 +50,6 @@
 
 
   // Derived values
-  const criticalAlerts = $derived(planningData?.insights?.filter((i: any) => i.type === 'balance_warning').length || 0);
   
   // Calculate planning metrics
   const totalPlannedIncome = $derived(() => {
@@ -160,13 +158,6 @@
       title="Budget" 
       variant="with-tabs"
       buttonProps={[
-        {
-          text: `${criticalAlerts} alerts`,
-          variant: criticalAlerts > 0 ? "destructive" : "secondary",
-          size: "sm",
-          icon: Bell,
-          disabled: true
-        },
         {
           onclick: handleRefresh,
           size: "sm",

@@ -3,7 +3,7 @@
   import { registerServiceWorker, handleOfflineStatus } from '$lib/pwa';
   import { onMount } from 'svelte';
   import { ModeWatcher } from 'mode-watcher';
-  import { insightsService, crossRouteSyncService } from '$lib/core/services';
+  import { insightsService, crossRouteSyncService, notificationsService } from '$lib/core/services';
   import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { AppLayout } from '$lib/components/layouts';
   import { Toaster } from '$lib/components/ui/sonner';
@@ -20,6 +20,9 @@
     // Start cross-route sync service
     crossRouteSyncService.start();
 
+    // Initialize notifications service
+    notificationsService.initialize();
+
     // Initialize navigation store
     navigationStore.initialize();
     
@@ -27,6 +30,7 @@
     return () => {
       insightsService.stopAutoUpdates();
       crossRouteSyncService.stop();
+      notificationsService.stopPolling();
       navigationStore.stopBadgeUpdates();
     };
   });

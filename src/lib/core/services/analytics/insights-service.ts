@@ -79,6 +79,49 @@ class InsightsService {
     }
 
     /**
+     * Get unread insights
+     */
+    async getUnreadInsights(): Promise<Insight[]> {
+        return await db.getUnreadInsights();
+    }
+
+    /**
+     * Get unread count
+     */
+    async getUnreadCount(): Promise<number> {
+        return await db.getUnreadCount();
+    }
+
+    /**
+     * Get unread insights by severity
+     */
+    async getUnreadBySeverity(severity: Insight['severity']): Promise<Insight[]> {
+        return await db.getUnreadBySeverity(severity);
+    }
+
+    /**
+     * Mark an insight as read
+     */
+    async markAsRead(insightId: string): Promise<void> {
+        await db.markInsightAsRead(insightId);
+    }
+
+    /**
+     * Mark all insights as read
+     */
+    async markAllAsRead(): Promise<void> {
+        await db.markAllInsightsAsRead();
+    }
+
+    /**
+     * Get unread alerts count (severity === 'alert')
+     */
+    async getUnreadAlertsCount(): Promise<number> {
+        const alerts = await this.getUnreadBySeverity('alert');
+        return alerts.length;
+    }
+
+    /**
      * Create a new insight
      */
     async createInsight(data: {
