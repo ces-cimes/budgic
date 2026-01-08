@@ -200,12 +200,11 @@ export function searchTransaction(
 	const t = transaction.representative || transaction;
 	
 	// Get all searchable text fields
+	// Note: whatTag and whyTag removed in simplified schema - using categoryId instead
 	const searchableFields = [
 		t.description || '',
 		getCategoryName(transaction),
 		getAccountName(getTransactionAccountId(transaction)),
-		t.whatTag || '',
-		t.whyTag || '',
 		t.notes || ''
 	].map(field => field.toLowerCase());
 	

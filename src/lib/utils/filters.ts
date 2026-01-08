@@ -94,10 +94,11 @@ export function createTransactionFilters() {
             (transaction: Transaction) => transaction.accountId === accountId,
 
         /**
-         * Filter by what tag
+         * Filter by category ID
+         * Note: Replaces byWhatTag - whatTag removed in simplified schema
          */
-        byWhatTag: (whatTag: string) => 
-            (transaction: Transaction) => transaction.whatTag === whatTag,
+        byCategoryId: (categoryId: string) => 
+            (transaction: Transaction) => transaction.categoryId === categoryId,
 
         /**
          * Filter transactions within a date range
