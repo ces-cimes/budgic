@@ -14,7 +14,10 @@
 	import * as Input from '$lib/components/ui/input/index.ts';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import * as Tabs from '$lib/components/ui/tabs/index.ts';
+	import * as Dialog from '$lib/components/ui/dialog/index.ts';
+	import { Trash2 } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
+	import Header from '$lib/components/Header.svelte';
 
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
@@ -48,6 +51,8 @@
 
 	// UI state
 	let activeTab = $state('basic');
+	let showDeleteDialog = $state(false);
+	let isDeleting = $state(false);
 
 	onMount(async () => {
 		try {
@@ -100,7 +105,7 @@
 	// Computed properties
 	let isEditMode = $derived(!!transaction);
 	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
-	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Transaction' : 'Create Transaction'));
+	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update' : 'Create'));
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -195,6 +200,25 @@
 		const date = new Date(dateString);
 		return date.toISOString().slice(0, 16);
 	}
+
+	async function handleDelete() {
+		if (!transaction) return;
+		
+		isDeleting = true;
+		error = '';
+
+		try {
+			await transactionService.deleteTransaction(transaction.id);
+			// Redirect to transactions list after successful deletion
+			goto('/transactions');
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to delete transaction';
+			console.error(err);
+			showDeleteDialog = false;
+		} finally {
+			isDeleting = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -202,10 +226,25 @@
 </svelte:head>
 
 <PageLayout>
-	
+	{#snippet topBar()}
+		<!-- Header -->
+		<Header 
+			title={pageTitle}
+			showBackButton={true}
+			backButtonLink="/transactions"
+			backButtonLabel="Back to Transactions"
+		>
+			<p class="text-muted-foreground text-sm">
+				{#if isEditMode}
+					Edit transaction details and information
+				{:else}
+					Create a new transaction to track your income or expenses
+				{/if}
+			</p>
+		</Header>
+	{/snippet}
 
 	<div class="container mx-auto px-4 py-8 max-w-4xl">
-	<h1 class="text-3xl font-bold text-primary mb-8">{pageTitle}</h1>
 
 	{#if error}
 		<Alert.Root variant="destructive" class="mb-6">
@@ -216,7 +255,7 @@
 
 	<!-- Transaction Form -->
 	<section class="mb-8">
-		<form onsubmit={handleSubmit} class="space-y-6">
+		<form id="transaction-form" onsubmit={handleSubmit} class="space-y-6">
 			<!-- Transaction Type and Status - Always Visible -->
 			<div class="space-y-6 mb-8">
 				<!-- Transaction Type -->
@@ -600,26 +639,6 @@
 					</div>
 				</Tabs.Content>
 			</Tabs.Root>
-
-			<!-- Submit Button -->
-			<div class="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 md:left-64 z-50">
-				<div class="flex justify-end space-x-4 max-w-4xl mx-auto">
-					<Button.Root
-						type="button"
-						variant="outline"
-						onclick={() => goto('/transactions')}
-						disabled={isLoading}
-					>
-						Cancel
-					</Button.Root>
-					<Button.Root
-						type="submit"
-						disabled={isLoading}
-					>
-						{submitButtonText}
-					</Button.Root>
-				</div>
-			</div>
 		</form>
 	</section>
 
@@ -650,4 +669,86 @@
 		</section>
 	{/if}
 	</div>
+
+	{#snippet bottomBar()}
+		<!-- Action buttons for form submission -->
+		<div class="flex justify-between max-w-4xl mx-auto px-4">
+			<!-- Delete Button (only in edit mode) -->
+			{#if isEditMode}
+				<Button.Root
+					type="button"
+					variant="destructive"
+					onclick={() => showDeleteDialog = true}
+					disabled={isLoading || isDeleting}
+					class="flex items-center gap-2"
+				>
+					<Trash2 size={16} />
+					Delete
+				</Button.Root>
+			{:else}
+				<div></div>
+			{/if}
+			
+			<div class="flex space-x-4">
+				<Button.Root
+					type="button"
+					variant="outline"
+					onclick={() => goto('/transactions')}
+					disabled={isLoading || isDeleting}
+				>
+					Cancel
+				</Button.Root>
+				<Button.Root
+					type="submit"
+					form="transaction-form"
+					disabled={isLoading || isDeleting}
+				>
+					{submitButtonText}
+				</Button.Root>
+			</div>
+		</div>
+	{/snippet}
+
+	<!-- Delete Confirmation Dialog -->
+	<Dialog.Root bind:open={showDeleteDialog}>
+		<Dialog.Content class="sm:max-w-md">
+			<Dialog.Header>
+				<Dialog.Title>Delete Transaction</Dialog.Title>
+				<Dialog.Description>
+					Are you sure you want to delete this transaction? This action cannot be undone.
+					{#if transaction}
+						<br />
+						<br />
+						<strong>Transaction:</strong> {transaction.description || 'Untitled'}
+						{#if transaction.amount !== undefined}
+							<br />
+							<strong>Amount:</strong> ${Math.abs(transaction.amount).toFixed(2)}
+						{/if}
+					{/if}
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+				<Button.Root
+					variant="outline"
+					onclick={() => showDeleteDialog = false}
+					disabled={isDeleting}
+				>
+					Cancel
+				</Button.Root>
+				<Button.Root
+					variant="destructive"
+					onclick={handleDelete}
+					disabled={isDeleting}
+					class="flex items-center gap-2"
+				>
+					{#if isDeleting}
+						<span>Deleting...</span>
+					{:else}
+						<Trash2 size={16} />
+						<span>Delete Transaction</span>
+					{/if}
+				</Button.Root>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
 </PageLayout>

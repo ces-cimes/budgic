@@ -54,7 +54,8 @@
 
 	// Derived filtered transactions with fuzzy search and date grouping
 	let filteredTransactions = $derived(() => {
-		let filtered = [...transactions];
+		// Filter out null, undefined, or deleted transactions
+		let filtered = transactions.filter(t => t && !t.deletedAt);
 		
 		// Filter by search query using fuzzy search
 		if (searchQuery.trim()) {
@@ -255,7 +256,8 @@
 			
 			const transactionsData = await transactionService.getAllTransactions();
 			console.log('Raw transactions data:', transactionsData);
-			transactions = transactionsData;
+			// Filter out any null/undefined or deleted transactions as a safety measure
+			transactions = transactionsData.filter(t => t && !t.deletedAt);
 			console.log('Processed transactions:', transactions);
 		} catch (error) {
 			console.error('Error loading transactions:', error);
@@ -320,6 +322,9 @@
 	}
 
 	function getCategoryName(transaction: any) {
+		if (!transaction) {
+			return 'Unknown';
+		}
 		// Try to resolve category name from budgetCategories
 		if (transaction.categoryId && budgetCategories[transaction.categoryId]) {
 			return budgetCategories[transaction.categoryId].name;
@@ -340,23 +345,30 @@
 	}
 
 	function getTransactionDescription(transaction: any) {
-		return transaction.description || 'No description';
+		return transaction?.description || 'No description';
 	}
 
 	function getTransactionDate(transaction: any) {
+		if (!transaction) {
+			// Return a default date if transaction is null/undefined
+			return new Date().toISOString();
+		}
 		return transaction.clearedDate || transaction.plannedDate || transaction.createdAt;
 	}
 
 	function getTransactionAmount(transaction: any) {
+		if (!transaction) {
+			return 0;
+		}
 		return transaction.isGroup ? transaction.totalAmount : (transaction.amount || 0);
 	}
 
 	function getTransactionCurrency(transaction: any) {
-		return transaction.currency || userCurrency;
+		return transaction?.currency || userCurrency;
 	}
 
 	function getTransactionAccountId(transaction: any) {
-		return transaction.accountId;
+		return transaction?.accountId || '';
 	}
 
 	// Calculate totals for a date group
