@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { userService } from '$lib/core/services';
+  import { db } from '$lib/core/db';
   import { PageLayout } from '$lib/components/layouts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
@@ -18,19 +19,7 @@
   let theme = $state<'light' | 'dark'>('dark');
   let language = $state<'en' | 'ru'>('en');
   let currency = $state('USD');
-
-  // Currency options (common currencies)
-  const currencyOptions = [
-    { value: 'USD', label: 'US Dollar (USD)', symbol: '$' },
-    { value: 'EUR', label: 'Euro (EUR)', symbol: '€' },
-    { value: 'GBP', label: 'British Pound (GBP)', symbol: '£' },
-    { value: 'JPY', label: 'Japanese Yen (JPY)', symbol: '¥' },
-    { value: 'CAD', label: 'Canadian Dollar (CAD)', symbol: 'C$' },
-    { value: 'AUD', label: 'Australian Dollar (AUD)', symbol: 'A$' },
-    { value: 'CHF', label: 'Swiss Franc (CHF)', symbol: 'CHF' },
-    { value: 'CNY', label: 'Chinese Yuan (CNY)', symbol: '¥' },
-    { value: 'RUB', label: 'Russian Ruble (RUB)', symbol: '₽' }
-  ];
+  let currencyOptions = $state<Array<{ value: string; label: string; symbol: string }>>([]);
 
   // Language options
   const languageOptions = [
@@ -38,18 +27,46 @@
     { value: 'ru', label: 'Русский' }
   ];
 
-  // Load user preferences on mount
+  // Load user preferences and currencies on mount
   onMount(async () => {
     try {
+      // Load active currencies from database
+      const activeCurrencies = await db.getActiveCurrencies();
+      currencyOptions = activeCurrencies
+        .filter(c => c.isActive)
+        .sort((a, b) => {
+          // Sort system currencies first, then by code
+          if (a.isSystem && !b.isSystem) return -1;
+          if (!a.isSystem && b.isSystem) return 1;
+          return a.code.localeCompare(b.code);
+        })
+        .map(c => ({
+          value: c.code,
+          label: `${c.name} (${c.code})`,
+          symbol: c.symbol
+        }));
+
+      // If no currencies found, use default USD
+      if (currencyOptions.length === 0) {
+        currencyOptions = [{ value: 'USD', label: 'US Dollar (USD)', symbol: '$' }];
+      }
+
+      // Load user preferences
       const preferences = await userService.getUserPreferences();
       if (preferences) {
         theme = preferences.theme || 'dark';
         language = preferences.language || 'en';
-        currency = preferences.currency || 'USD';
+        // Validate currency exists in available currencies
+        const currencyExists = currencyOptions.some(c => c.value === preferences.currency);
+        currency = currencyExists ? (preferences.currency || 'USD') : (currencyOptions[0]?.value || 'USD');
       }
     } catch (err) {
       error = 'Failed to load display settings';
       console.error('Error loading preferences:', err);
+      // Fallback to default currency if loading fails
+      if (currencyOptions.length === 0) {
+        currencyOptions = [{ value: 'USD', label: 'US Dollar (USD)', symbol: '$' }];
+      }
     } finally {
       isLoading = false;
     }

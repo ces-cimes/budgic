@@ -9,7 +9,7 @@
   import * as Alert from '$lib/components/ui/alert/index.ts';
   import { PageLayout } from '$lib/components/layouts';
   import { userService } from '$lib/core/services';
-  import type { UserPreferences } from '$lib/core/db';
+  import { db, type UserPreferences, type Currency } from '$lib/core/db';
 
   const { data } = $props<{ data: any }>();
 
@@ -17,6 +17,8 @@
   let totalSteps = 4;
   let isSaving = $state(false);
   let error = $state<string | null>(null);
+  let isLoading = $state(true);
+  let currencies = $state<Array<{ value: string; label: string }>>([]);
   
   let formData = $state({
     username: '',
@@ -27,18 +29,52 @@
     financialGoals: [] as string[]
   });
 
+  // Load currencies and user preferences on mount
+  onMount(async () => {
+    try {
+      // Load active currencies from database
+      const activeCurrencies = await db.getActiveCurrencies();
+      currencies = activeCurrencies
+        .filter(c => c.isActive)
+        .sort((a, b) => {
+          // Sort system currencies first, then by code
+          if (a.isSystem && !b.isSystem) return -1;
+          if (!a.isSystem && b.isSystem) return 1;
+          return a.code.localeCompare(b.code);
+        })
+        .map(c => ({
+          value: c.code,
+          label: `${c.code} - ${c.name}`
+        }));
 
-  const currencies: Array<{ value: string; label: string }> = [
-    { value: 'USD', label: 'USD - US Dollar' },
-    { value: 'EUR', label: 'EUR - Euro' },
-    { value: 'GBP', label: 'GBP - British Pound' },
-    { value: 'JPY', label: 'JPY - Japanese Yen' },
-    { value: 'CAD', label: 'CAD - Canadian Dollar' },
-    { value: 'AUD', label: 'AUD - Australian Dollar' },
-    { value: 'CHF', label: 'CHF - Swiss Franc' },
-    { value: 'CNY', label: 'CNY - Chinese Yuan' },
-    { value: 'RUB', label: 'RUB - Russian Ruble' }
-  ];
+      // If no currencies found, use default USD
+      if (currencies.length === 0) {
+        currencies = [{ value: 'USD', label: 'USD - US Dollar' }];
+      }
+
+      // Load existing preferences if available (but don't redirect)
+      const preferences = await userService.getUserPreferences();
+      if (preferences.username) formData.username = preferences.username;
+      if (preferences.currency) {
+        // Validate currency exists in available currencies
+        const currencyExists = currencies.some(c => c.value === preferences.currency);
+        formData.currency = currencyExists ? preferences.currency : currencies[0]?.value || 'USD';
+      } else {
+        formData.currency = currencies[0]?.value || 'USD';
+      }
+      if (preferences.theme) formData.theme = preferences.theme;
+      if (preferences.language) formData.language = preferences.language;
+      if (preferences.userMaturityLevel) formData.userMaturityLevel = preferences.userMaturityLevel;
+    } catch (err) {
+      console.error('Error loading data:', err);
+      // Fallback to default currency if loading fails
+      if (currencies.length === 0) {
+        currencies = [{ value: 'USD', label: 'USD - US Dollar' }];
+      }
+    } finally {
+      isLoading = false;
+    }
+  });
 
   const goals: Array<{ id: string; label: string; icon: string }> = [
     { id: 'save_money', label: 'Save more money', icon: '💰' },
@@ -86,7 +122,7 @@
     try {
       // Create user preferences from onboarding data
       const userPreferences: Partial<UserPreferences> = {
-        username: formData.username,
+        username: formData.username || 'User',
         currency: formData.currency,
         theme: formData.theme,
         language: formData.language,
@@ -122,6 +158,50 @@
     }
   }
 
+  async function handleSkip() {
+    if (isSaving) return;
+    
+    isSaving = true;
+    error = null;
+    
+    try {
+      // Save minimal preferences with onboarding marked as completed
+      const userPreferences: Partial<UserPreferences> = {
+        username: formData.username || 'User',
+        currency: formData.currency,
+        theme: formData.theme,
+        language: formData.language,
+        userMaturityLevel: formData.userMaturityLevel,
+        onboardingCompleted: true,
+        enableAdvancedFeatures: false,
+        enablePredictiveAnalytics: true,
+        analyticsEnabled: true,
+        backupEnabled: true
+      };
+      
+      // Save user preferences
+      await userService.updateUserPreferences(userPreferences);
+      
+      // Track onboarding skip
+      await userService.trackUserAction({
+        action: 'onboarding_skipped',
+        details: JSON.stringify({
+          step: currentStep,
+          username: formData.username || 'User',
+          currency: formData.currency
+        })
+      });
+      
+      // Redirect to main app
+      goto('/');
+    } catch (err) {
+      error = 'Failed to skip onboarding. Please try again.';
+      console.error('Onboarding skip error:', err);
+    } finally {
+      isSaving = false;
+    }
+  }
+
   function getStepTitle() {
     switch (currentStep) {
       case 1: return 'Welcome to Budgic';
@@ -148,8 +228,14 @@
 </svelte:head>
 
 <PageLayout>
-  
-
+  {#if isLoading}
+    <div class="min-h-screen bg-background flex items-center justify-center">
+      <div class="text-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p class="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  {:else}
   <div class="min-h-screen bg-background flex items-center justify-center p-4">
   <div class="w-full max-w-2xl">
     <!-- Progress Bar -->
@@ -300,13 +386,25 @@
 
       <!-- Navigation Buttons -->
       <div class="flex justify-between mt-8">
-        <Button.Root
-          variant="outline"
-          onclick={prevStep}
-          disabled={currentStep === 1}
-        >
-          Previous
-        </Button.Root>
+        <div class="flex gap-2">
+          <Button.Root
+            variant="outline"
+            onclick={prevStep}
+            disabled={currentStep === 1 || isSaving}
+          >
+            Previous
+          </Button.Root>
+          {#if currentStep > 1}
+            <Button.Root
+              variant="ghost"
+              onclick={handleSkip}
+              disabled={isSaving}
+              class="text-muted-foreground"
+            >
+              Skip
+            </Button.Root>
+          {/if}
+        </div>
 
         {#if currentStep === totalSteps}
           <Button.Root onclick={handleSubmit} disabled={isSaving}>
@@ -316,7 +414,7 @@
             Get Started
           </Button.Root>
         {:else}
-          <Button.Root onclick={nextStep}>
+          <Button.Root onclick={nextStep} disabled={isSaving}>
             Next
           </Button.Root>
         {/if}
@@ -324,4 +422,5 @@
     </div>
   </div>
   </div>
+  {/if}
 </PageLayout> 
