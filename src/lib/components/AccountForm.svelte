@@ -49,8 +49,19 @@
     { value: 'crypto' as const, label: 'Cryptocurrency', icon: '₿' }
   ];
 
+  const currentCurrency = $derived(
+    currencies.find((c) => c.code === currency) ?? {
+      code: 'USD',
+      name: 'US Dollar',
+      symbol: '$',
+      placement: 'before' as const,
+      decimalPlaces: 2,
+      label: 'USD - US Dollar'
+    }
+  );
+
   const triggerContent = $derived(
-    currencies.find((c: any) => c.code === currency)?.name ?? 'Select currency'
+    currentCurrency.name ?? 'Select currency'
   );
 
   const accountTypeTriggerContent = $derived(
@@ -259,16 +270,16 @@
   <div class="space-y-2">
     <Label for="initialBalance">Initial Balance</Label>
     <div class="relative">
-      <span class="absolute {currencies.find((c: any) => c.code === currency)?.placement === 'before' ? 'left-3' : 'right-3'} top-1/2 transform -translate-y-1/2 text-muted-foreground">{currencies.find((c: any) => c.code === currency)?.symbol}</span>
+      <span class="absolute {currentCurrency.placement === 'before' ? 'left-3' : 'right-3'} top-1/2 transform -translate-y-1/2 text-muted-foreground">{currentCurrency.symbol}</span>
       <Input
         id="initialBalance"
         bind:value={initialBalance}
         placeholder={(() => {
-          const decimalPlaces = currencies.find((c: any) => c.code === currency)?.decimalPlaces ?? 2;
+          const decimalPlaces = currentCurrency.decimalPlaces ?? 2;
           return `0.${'0'.repeat(decimalPlaces)}`;
         })()}
-        step={10 ** -currencies.find((c: any) => c.code === currency)?.decimalPlaces}
-        class={`${currencies.find((c: any) => c.code === currency)?.placement === 'before' ? 'pl-8' : 'pr-8'} ${errors.initialBalance ? 'border-destructive' : ''}`}
+        step={10 ** -currentCurrency.decimalPlaces}
+        class={`${currentCurrency.placement === 'before' ? 'pl-8' : 'pr-8'} ${errors.initialBalance ? 'border-destructive' : ''}`}
       />
     </div>
     {#if errors.initialBalance}
