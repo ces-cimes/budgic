@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PredictionsTabProps, PredictionInsight } from '../types';
   import { insightsService } from '$lib/core/services';
+  import { formatAmount } from '$lib/utils/currency-utils';
   import { onMount } from 'svelte';
 
   interface Props {
@@ -81,10 +82,7 @@
   }
 
   function formatCurrency(amount: number) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    return formatAmount(amount, userCurrency);
   }
 
   function formatTimeRemaining(expiresAt: string) {
