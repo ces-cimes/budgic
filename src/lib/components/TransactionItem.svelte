@@ -4,6 +4,8 @@
 	import { longpress } from '$lib/actions/longpress';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { db } from '$lib/core/db';
+	import { getPriorityName, getPriorityColor } from '$lib/utils/priority-utils';
+	import { getConstraintName, getConstraintInfo } from '$lib/utils/directional-constraint-utils';
 
 	interface Props {
 		transaction: Transaction | any; // Allow grouped transaction objects
@@ -742,6 +744,21 @@
 									</span>
 								</div>
 							{/if}
+							
+							<!-- Priority and Constraint badges -->
+							<div class="flex items-center space-x-1 mt-1 flex-wrap gap-1">
+								{#if transaction.priority}
+									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface {getPriorityColor(transaction.priority)}">
+										Priority {transaction.priority} - {getPriorityName(transaction.priority)}
+									</span>
+								{/if}
+								{#if transaction.directionalConstraint && transaction.directionalConstraint !== 'none'}
+									{@const constraintInfo = getConstraintInfo(transaction.directionalConstraint)}
+									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
+										{constraintInfo?.icon} {constraintInfo?.name}
+									</span>
+								{/if}
+							</div>
 						</div>
 					</div>
 					

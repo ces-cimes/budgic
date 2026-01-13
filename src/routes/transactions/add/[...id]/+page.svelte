@@ -18,6 +18,9 @@
 	import { Trash2 } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
+	import type { DirectionalConstraint } from '$lib/core/db';
+	import { PRIORITY_LEVELS, suggestPriority } from '$lib/utils/priority-utils';
+	import { DIRECTIONAL_CONSTRAINTS, suggestConstraint } from '$lib/utils/directional-constraint-utils';
 
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
@@ -47,6 +50,13 @@
 	let transferFeeAccountId = $state('');
 	let transferFeeCategoryId = $state('');
 	let hasTransferFee = $state(false);
+	
+	// Optimization fields
+	let priority = $state<number | undefined>(undefined);
+	let directionalConstraint = $state<DirectionalConstraint | undefined>(undefined);
+	
+	// String version of priority for Select component (Select expects strings)
+	let priorityString = $state<string>('');
 
 
 	// UI state
@@ -82,6 +92,12 @@
 					recurrenceRule = transaction.recurrenceRule || '';
 					isGroupTransaction = !!transaction.groupName;
 					groupName = transaction.groupName || '';
+					priority = transaction.priority;
+					priorityString = transaction.priority?.toString() || '';
+					directionalConstraint = transaction.directionalConstraint || undefined;
+					// Reset suggestion flags when editing
+					hasSuggestedPriority = true;
+					hasSuggestedConstraint = true;
 				} else {
 					error = 'Transaction not found';
 				}
@@ -106,6 +122,31 @@
 	let isEditMode = $derived(!!transaction);
 	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
 	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update' : 'Create'));
+
+	// Auto-suggest priority and constraint when category or type changes
+	// Only suggest once when category/type is first set, not on every change
+	let hasSuggestedPriority = $state(false);
+	let hasSuggestedConstraint = $state(false);
+	
+	$effect(() => {
+		// Only auto-suggest for new transactions (not when editing)
+		if (!isEditMode && (selectedCategory || transactionType)) {
+			const category = selectedCategory ? categories.find(c => c.id === selectedCategory) : undefined;
+			const categoryName = category?.name;
+			
+			// Auto-suggest priority if not set and haven't suggested yet
+			if (!hasSuggestedPriority && priority === undefined && (transactionType || categoryName)) {
+				priority = suggestPriority(transactionType, categoryName);
+				hasSuggestedPriority = true;
+			}
+			
+			// Auto-suggest constraint if not set and haven't suggested yet
+			if (!hasSuggestedConstraint && directionalConstraint === undefined && (transactionType || categoryName)) {
+				directionalConstraint = suggestConstraint(transactionType, categoryName, isRecurring);
+				hasSuggestedConstraint = true;
+			}
+		}
+	});
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -146,7 +187,9 @@
 				clearedDate: status === 'cleared' ? (clearedDate ? new Date(clearedDate).toISOString() : undefined) : undefined,
 				recurrenceRule: isRecurring ? recurrenceRule : undefined,
 				groupName: isGroupTransaction ? groupName : undefined,
-				groupId: isGroupTransaction ? crypto.randomUUID() : undefined
+				groupId: isGroupTransaction ? crypto.randomUUID() : undefined,
+				priority: priority,
+				directionalConstraint: directionalConstraint === 'none' ? undefined : directionalConstraint
 			};
 
 			// Handle transfer details if it's a transfer
@@ -636,6 +679,99 @@
 						<p class="text-xs text-muted-foreground">
 							Optional notes for your own reference
 						</p>
+					</div>
+
+					<!-- Priority Scoring -->
+					<div class="space-y-2">
+						<Label.Root for="priority">Priority (1-10)</Label.Root>
+						<Select.Root 
+							type="single" 
+							value={priorityString}
+							onValueChange={(value) => {
+								if (value && value !== '') {
+									const numValue = parseInt(value, 10);
+									if (!isNaN(numValue)) {
+										priority = numValue;
+										priorityString = value;
+									}
+								} else {
+									priority = undefined;
+									priorityString = '';
+								}
+							}}
+						>
+							<Select.Trigger>
+								{priority ? `${priority} - ${PRIORITY_LEVELS.find(p => p.value === priority)?.name || 'Unknown'}` : "Select priority (optional)"}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="">No priority set</Select.Item>
+								{#each PRIORITY_LEVELS as level}
+									<Select.Item value={level.value.toString()}>
+										{level.value} - {level.name}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						{#if priority}
+							{@const level = PRIORITY_LEVELS.find(p => p.value === priority)}
+							{#if level}
+								<div class="mt-2 p-3 bg-muted/50 rounded-lg border border-border">
+									<p class="text-sm font-medium text-primary mb-1">{level.name}</p>
+									<p class="text-xs text-muted-foreground mb-2">{level.description}</p>
+									{#if level.examples.length > 0}
+										<p class="text-xs text-muted-foreground">
+											<strong>Examples:</strong> {level.examples.join(', ')}
+										</p>
+									{/if}
+								</div>
+							{/if}
+						{:else}
+							<p class="text-xs text-muted-foreground">
+								Priority helps the optimization system understand transaction importance. Higher numbers = more important.
+							</p>
+						{/if}
+					</div>
+
+					<!-- Directional Constraint -->
+					<div class="space-y-2">
+						<Label.Root for="directionalConstraint">Directional Constraint</Label.Root>
+						<Select.Root 
+							type="single" 
+							value={directionalConstraint || 'none'}
+							onValueChange={(value) => {
+								directionalConstraint = (value === 'none' || value === '') ? undefined : (value as DirectionalConstraint);
+							}}
+						>
+							<Select.Trigger>
+								{directionalConstraint && directionalConstraint !== 'none' ? DIRECTIONAL_CONSTRAINTS.find(c => c.value === directionalConstraint)?.name : "Select constraint (optional)"}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="none">No constraint</Select.Item>
+								{#each DIRECTIONAL_CONSTRAINTS.filter(c => c.value !== 'none') as constraint}
+									<Select.Item value={constraint.value}>
+										{constraint.icon} {constraint.name}
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+						{#if directionalConstraint && directionalConstraint !== 'none'}
+							{@const constraint = DIRECTIONAL_CONSTRAINTS.find(c => c.value === directionalConstraint)}
+							{#if constraint}
+								<div class="mt-2 p-3 bg-muted/50 rounded-lg border border-border">
+									<p class="text-sm font-medium text-primary mb-1">{constraint.icon} {constraint.name}</p>
+									<p class="text-xs text-muted-foreground mb-2">{constraint.description}</p>
+									{#if constraint.examples.length > 0}
+										<p class="text-xs text-muted-foreground">
+											<strong>Examples:</strong> {constraint.examples.join(', ')}
+										</p>
+									{/if}
+								</div>
+							{/if}
+						{:else}
+							<p class="text-xs text-muted-foreground">
+								Controls how the transaction date can be moved during optimization. Leave empty for full flexibility.
+							</p>
+						{/if}
 					</div>
 				</Tabs.Content>
 			</Tabs.Root>

@@ -672,6 +672,14 @@ export const WhyTag = z.enum([
 
 // Removed WhereTag enum - location is now handled by Payee schema
 
+// Directional Constraint enum for transaction optimization
+export const DirectionalConstraint = z.enum([
+	'none',        // No constraint - can move forward or backward
+	'forward-only', // Can only move forward (e.g., subscription renewals)
+	'backward-only', // Can only move backward (e.g., bill payments)
+	'fixed'        // Cannot be moved (e.g., fixed date commitments)
+]);
+
 const TransactionSchema = BaseSchema.extend({
 	type: TransactionType,
 	status: TransactionStatus,
@@ -717,7 +725,11 @@ const TransactionSchema = BaseSchema.extend({
 	// Metadata - shared across all splits
 	reference: z.string().optional(),
 	notes: z.string().optional(),
-	importSource: z.string().optional()
+	importSource: z.string().optional(),
+	
+	// Optimization fields
+	priority: z.number().min(1).max(10).optional(), // Priority score 1-10 (higher = more important)
+	directionalConstraint: DirectionalConstraint.optional() // Constraint on date movement
 });
 
 
@@ -854,6 +866,7 @@ export const TransactionUtils = {
 
 // System dimension types
 export type TransactionType = z.infer<typeof TransactionType>;
+export type DirectionalConstraint = z.infer<typeof DirectionalConstraint>;
 
 // ============================================================================
 // DATABASE CLASS
