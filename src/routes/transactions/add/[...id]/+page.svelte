@@ -808,8 +808,7 @@
 
 	{#snippet bottomBar()}
 		<!-- Action buttons for form submission - Sticky on mobile -->
-		<div class="sticky bottom-0 bg-background border-t border-border py-3 md:py-4 z-10">
-			<div class="flex justify-between max-w-2xl mx-auto px-4">
+		<div class="flex justify-between max-w-2xl mx-auto px-4">
 			<!-- Delete Button (only in edit mode) -->
 			{#if isEditMode}
 				<Button.Root
@@ -842,7 +841,6 @@
 				>
 					{submitButtonText}
 				</Button.Root>
-			</div>
 			</div>
 		</div>
 	{/snippet}
