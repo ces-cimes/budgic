@@ -13,14 +13,16 @@
 	import * as Button from '$lib/components/ui/button/index.ts';
 	import * as Input from '$lib/components/ui/input/index.ts';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
-	import * as Tabs from '$lib/components/ui/tabs/index.ts';
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
-	import { Trash2 } from '@lucide/svelte';
+	import * as Sheet from '$lib/components/ui/sheet/index.ts';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
+	import { Trash2, HelpCircle, ChevronDown } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import type { DirectionalConstraint } from '$lib/core/db';
+	import type { DirectionalConstraint, CurrencyInfo } from '$lib/core/db';
 	import { PRIORITY_LEVELS, suggestPriority } from '$lib/utils/priority-utils';
 	import { DIRECTIONAL_CONSTRAINTS, suggestConstraint } from '$lib/utils/directional-constraint-utils';
+	import { getCurrencyInfo } from '$lib/utils/currency-utils';
 
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
@@ -30,6 +32,7 @@
 	let selectedAccount = $state('');
 	let description = $state('');
 	let amount = $state(0);
+	let currency = $state('USD');
 	let transactionType = $state<Transaction['type']>('expense');
 	let status = $state<Transaction['status']>('cleared');
 	let selectedCategory = $state('');
@@ -44,6 +47,14 @@
 	let groupName = $state('');
 	let isLoading = $state(false);
 	let error = $state('');
+	
+	// Currency selection state
+	let currencies = $state<Array<{ code: string; name: string; symbol: string; placement: 'before' | 'after'; decimalPlaces: number }>>([]);
+	let showCurrencySheet = $state(false);
+	
+	// Currency button ref and dynamic padding
+	let currencyButtonRef: HTMLButtonElement | null = $state(null);
+	let currencyButtonPadding = $state(64); // Default padding in pixels (button width + spacing)
 	
 	// Transfer fee fields
 	let transferFeeAmount = $state(0);
@@ -60,9 +71,99 @@
 
 
 	// UI state
-	let activeTab = $state('basic');
 	let showDeleteDialog = $state(false);
 	let isDeleting = $state(false);
+	
+	// Computed date label
+	let dateLabel = $derived(() => {
+		if (status === 'cleared') return 'Date *';
+		if (status === 'planned') return 'Planned Date *';
+		if (status === 'pending') return 'Date';
+		return 'Date';
+	});
+	
+	// Get current currency info
+	let currentCurrencyInfo = $derived(() => {
+		return getCurrencyInfo(currency) || {
+			code: 'USD',
+			name: 'US Dollar',
+			symbol: '$',
+			placement: 'before' as const,
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		};
+	});
+	
+	// Get currency symbol for display
+	let currencySymbol = $derived(() => currentCurrencyInfo().symbol);
+	
+	// Get account currency when account is selected
+	$effect(() => {
+		if (selectedAccount && accounts.length > 0) {
+			const account = accounts.find(a => a.id === selectedAccount);
+			if (account && account.currency) {
+				// Only update currency if it's not set yet (new transaction) or if editing and currency matches account
+				if (!transaction || transaction.currency === account.currency) {
+					currency = account.currency;
+				}
+			}
+		}
+	});
+	
+	// Measure currency button width and update padding
+	$effect(() => {
+		// Trigger measurement when currency changes
+		const currentCurrency = currency;
+		
+		if (currencyButtonRef) {
+			// Use ResizeObserver to track button width changes
+			const resizeObserver = new ResizeObserver((entries) => {
+				for (const entry of entries) {
+					const width = entry.contentRect.width;
+					// Add 8px (0.5rem) base spacing + 8px (pl-2) for extra breathing room
+					currencyButtonPadding = width + 12;
+				}
+			});
+			
+			resizeObserver.observe(currencyButtonRef);
+			
+			// Initial measurement with a small delay to ensure DOM is updated
+			const updatePadding = () => {
+				if (currencyButtonRef) {
+					const width = currencyButtonRef.offsetWidth;
+					// Add 8px (0.5rem) base spacing + 8px (pl-2) for extra breathing room
+					currencyButtonPadding = width + 12;
+				}
+			};
+			
+			// Immediate measurement
+			updatePadding();
+			
+			// Also measure after a short delay to catch any layout changes
+			const timeoutId = setTimeout(updatePadding, 50);
+			
+			return () => {
+				resizeObserver.disconnect();
+				clearTimeout(timeoutId);
+			};
+		}
+	});
+
+	// Mobile keyboard handling - scroll to focused input
+	function handleInputFocus(event: FocusEvent) {
+		const target = event.target as HTMLElement;
+		if (target && 'scrollIntoView' in target) {
+			// Small delay to ensure keyboard is shown
+			setTimeout(() => {
+				target.scrollIntoView({ 
+					behavior: 'smooth', 
+					block: 'center',
+					inline: 'nearest'
+				});
+			}, 300);
+		}
+	}
 
 	onMount(async () => {
 		try {
@@ -70,6 +171,35 @@
 				accountService.getAccounts(),
 				db.getActiveCategories()
 			]);
+			
+			// Load available currencies
+			const activeCurrencies = await db.getActiveCurrencies();
+			currencies = activeCurrencies
+				.filter(c => c.isActive)
+				.sort((a, b) => {
+					// Sort system currencies first, then by code
+					if (a.isSystem && !b.isSystem) return -1;
+					if (!a.isSystem && b.isSystem) return 1;
+					return a.code.localeCompare(b.code);
+				})
+				.map(curr => ({
+					code: curr.code,
+					name: curr.name,
+					symbol: curr.symbol,
+					placement: curr.placement,
+					decimalPlaces: curr.decimalPlaces
+				}));
+			
+			// If no currencies found, use default USD
+			if (currencies.length === 0) {
+				currencies = [{
+					code: 'USD',
+					name: 'US Dollar',
+					symbol: '$',
+					placement: 'before' as const,
+					decimalPlaces: 2
+				}];
+			}
 			
 			// Check if we have an ID parameter (edit mode)
 			const transactionId = $page.params.id;
@@ -80,6 +210,7 @@
 					selectedAccount = transaction.accountId;
 					description = transaction.description || '';
 					amount = transaction.amount || 0;
+					currency = transaction.currency || 'USD';
 					transactionType = transaction.type;
 					status = transaction.status;
 					selectedCategory = transaction.categoryId || '';
@@ -106,6 +237,8 @@
 				if (accounts.length > 0) {
 					selectedAccount = accounts[0].id;
 					transferFeeAccountId = accounts[0].id; // Default fee account to first account
+					// Set currency to account currency
+					currency = accounts[0].currency || 'USD';
 				}
 				// Set default dates
 				const now = new Date();
@@ -178,7 +311,7 @@
 				amount: amount,
 				type: transactionType,
 				status: status,
-				currency: 'USD', // Default currency
+				currency: currency,
 				categoryId: selectedCategory || undefined,
 				notes: notes || undefined,
 				reference: reference || undefined,
@@ -220,24 +353,6 @@
 		}
 	}
 
-	function getCategoryColor(categoryId: string): string {
-		const category = categories.find(cat => cat.id === categoryId);
-		return category?.color || '#6B7280';
-	}
-
-	function getCategoryStatusText(categoryId: string): string {
-		const category = categories.find(cat => cat.id === categoryId);
-		if (!category) return '';
-		
-		const allocated = category.budgetAmount || 0;
-		if (allocated === 0) {
-			return 'No budget set';
-		}
-		
-		// For now, we'll show just the allocated amount since we don't have spent calculation
-		return `$${allocated.toFixed(2)} budgeted`;
-	}
-
 	function formatDateForInput(dateString: string): string {
 		if (!dateString) return '';
 		const date = new Date(dateString);
@@ -270,24 +385,15 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<!-- Header -->
 		<Header 
 			title={pageTitle}
 			showBackButton={true}
 			backButtonLink="/transactions"
 			backButtonLabel="Back to Transactions"
-		>
-			<p class="text-muted-foreground text-sm">
-				{#if isEditMode}
-					Edit transaction details and information
-				{:else}
-					Create a new transaction to track your income or expenses
-				{/if}
-			</p>
-		</Header>
+		/>
 	{/snippet}
 
-	<div class="container mx-auto px-4 py-8 max-w-4xl">
+	<div class="container mx-auto px-4 py-4 md:py-6 max-w-2xl">
 
 	{#if error}
 		<Alert.Root variant="destructive" class="mb-6">
@@ -297,10 +403,10 @@
 	{/if}
 
 	<!-- Transaction Form -->
-	<section class="mb-8">
-		<form id="transaction-form" onsubmit={handleSubmit} class="space-y-6">
+	<section class="mb-6">
+		<form id="transaction-form" onsubmit={handleSubmit} class="space-y-4">
 			<!-- Transaction Type and Status - Always Visible -->
-			<div class="space-y-6 mb-8">
+			<div class="space-y-4 mb-6">
 				<!-- Transaction Type -->
 				<div class="space-y-2">
 					<Label.Root>Transaction Type *</Label.Root>
@@ -325,58 +431,118 @@
 				</div>
 
 				<!-- Transaction Status -->
-				<div class="space-y-4">
+				<div class="space-y-2">
 					<Label.Root>Transaction Status *</Label.Root>
-					<RadioGroup.Root bind:value={status} class="grid grid-cols-1 md:grid-cols-3 gap-4">
-						<!-- Cleared Transaction -->
-						<div class="border rounded-lg p-4 {status === 'cleared' ? 'border-primary bg-primary/5' : 'border-border'}">
-							<div class="flex items-center space-x-2 mb-2">
-								<RadioGroup.Item value="cleared" id="cleared" />
-								<Label.Root for="cleared" class="font-medium">Cleared</Label.Root>
-							</div>
-							<p class="text-sm text-muted-foreground">Transaction has been completed and affects your account balance</p>
+					<RadioGroup.Root bind:value={status} class="flex flex-wrap gap-3">
+						<div class="flex items-center space-x-2">
+							<RadioGroup.Item value="cleared" id="cleared" />
+							<Label.Root for="cleared">Cleared</Label.Root>
 						</div>
-
-						<!-- Planned Transaction -->
-						<div class="border rounded-lg p-4 {status === 'planned' ? 'border-primary bg-primary/5' : 'border-border'}">
-							<div class="flex items-center space-x-2 mb-2">
-								<RadioGroup.Item value="planned" id="planned" />
-								<Label.Root for="planned" class="font-medium">Planned</Label.Root>
-							</div>
-							<p class="text-sm text-muted-foreground">Future transaction that hasn't happened yet</p>
+						<div class="flex items-center space-x-2">
+							<RadioGroup.Item value="planned" id="planned" />
+							<Label.Root for="planned">Planned</Label.Root>
 						</div>
-
-						<!-- Pending Transaction -->
-						<div class="border rounded-lg p-4 {status === 'pending' ? 'border-primary bg-primary/5' : 'border-border'}">
-							<div class="flex items-center space-x-2 mb-2">
-								<RadioGroup.Item value="pending" id="pending" />
-								<Label.Root for="pending" class="font-medium">Pending</Label.Root>
-							</div>
-							<p class="text-sm text-muted-foreground">Transaction is processing or awaiting confirmation</p>
+						<div class="flex items-center space-x-2">
+							<RadioGroup.Item value="pending" id="pending" />
+							<Label.Root for="pending">Pending</Label.Root>
 						</div>
 					</RadioGroup.Root>
 				</div>
 			</div>
 
-			<!-- Tabs for different sections -->
-			<Tabs.Root bind:value={activeTab} class="w-full">
-				<Tabs.List class="grid w-full grid-cols-3">
-					<Tabs.Trigger value="basic">Basic Info</Tabs.Trigger>
-					<Tabs.Trigger value="categorization">Categorization</Tabs.Trigger>
-					<Tabs.Trigger value="advanced">Advanced</Tabs.Trigger>
-				</Tabs.List>
+			<!-- Main Form Fields -->
+			<div class="space-y-4">
+				<!-- Account Selection -->
+				<div class="space-y-2">
+					<Label.Root for="account">Account *</Label.Root>
+					<Select.Root type="single" bind:value={selectedAccount} required>
+						<Select.Trigger>
+							{selectedAccount ? accounts.find(a => a.id === selectedAccount)?.name : "Select an account"}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="">Select an account</Select.Item>
+							{#each accounts as account}
+								<Select.Item value={account.id}>
+									{account.name} (${account.currentBalance.toFixed(2)})
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
 
-				<!-- Basic Information Tab -->
-				<Tabs.Content value="basic" class="space-y-6 mt-6">
-					<!-- Account Selection -->
+				<!-- Description -->
+				<div class="space-y-2">
+					<Label.Root for="description">Description *</Label.Root>
+					<Input.Root
+						id="description"
+						bind:value={description}
+						placeholder="e.g., Grocery shopping, Salary deposit"
+						required
+						onfocus={handleInputFocus}
+					/>
+				</div>
+
+				<!-- Amount -->
+				<div class="space-y-2">
+					<Label.Root for="amount">Amount *</Label.Root>
+					<div class="relative flex items-center">
+						<button
+							type="button"
+							bind:this={currencyButtonRef}
+							onclick={() => showCurrencySheet = true}
+							class="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-secondary transition-colors z-10"
+							aria-label="Change currency"
+						>
+							<span class="text-sm font-medium text-primary">{currencySymbol()}</span>
+							<ChevronDown class="w-3 h-3 text-muted-foreground" />
+						</button>
+						<Input.Root
+							id="amount"
+							type="number"
+							bind:value={amount}
+							placeholder="0.00"
+							step={(() => {
+								const decimals = currentCurrencyInfo().decimalPlaces;
+								if (decimals === 0) return '1';
+								if (decimals === 1) return '0.1';
+								if (decimals === 2) return '0.01';
+								return `0.${'0'.repeat(decimals - 1)}1`;
+							})()}
+							style="padding-left: {currencyButtonPadding}px;"
+							required
+							onfocus={handleInputFocus}
+						/>
+					</div>
+				</div>
+
+				<!-- Category -->
+				<div class="space-y-2">
+					<Label.Root for="category">Category</Label.Root>
+					<Select.Root type="single" bind:value={selectedCategory}>
+						<Select.Trigger>
+							{selectedCategory ? categories.find(c => c.id === selectedCategory)?.name : "Select a category (optional)"}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="">Select a category (optional)</Select.Item>
+							{#each categories as category}
+								<Select.Item value={category.id} style="color: {category.color}">
+									{category.name}
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+
+				<!-- Transfer Destination (only for transfers) -->
+				{#if transactionType === 'transfer'}
 					<div class="space-y-2">
-						<Label.Root for="account">Account *</Label.Root>
-						<Select.Root type="single" bind:value={selectedAccount} required>
+						<Label.Root for="toAccount">Destination Account *</Label.Root>
+						<Select.Root type="single" bind:value={toAccountId} required>
 							<Select.Trigger>
-								{selectedAccount ? accounts.find(a => a.id === selectedAccount)?.name : "Select an account"}
+								{toAccountId ? accounts.find(a => a.id === toAccountId)?.name : "Select destination account"}
 							</Select.Trigger>
 							<Select.Content>
-								<Select.Item value="">Select an account</Select.Item>
+								<Select.Item value="">Select destination account</Select.Item>
 								{#each accounts as account}
 									<Select.Item value={account.id}>
 										{account.name} (${account.currentBalance.toFixed(2)})
@@ -385,430 +551,265 @@
 							</Select.Content>
 						</Select.Root>
 					</div>
-
-					<!-- Description -->
-					<div class="space-y-2">
-						<Label.Root for="description">Description *</Label.Root>
-						<Input.Root
-							id="description"
-							bind:value={description}
-							placeholder="e.g., Grocery shopping, Salary deposit"
-							required
-						/>
-					</div>
-
-					<!-- Amount -->
-					<div class="space-y-2">
-						<Label.Root for="amount">Amount *</Label.Root>
-						<div class="relative">
-							<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">$</span>
-							<Input.Root
-								id="amount"
-								type="number"
-								bind:value={amount}
-								placeholder="0.00"
-								step="0.01"
-								class="pl-8"
-								required
-							/>
-						</div>
-						<div class="text-xs text-muted-foreground mt-1">
-							💡 Use negative amounts for: cashback (expenses), fees (income), refunds, etc.
-						</div>
-					</div>
-
-					<!-- Transfer Destination (only for transfers) -->
-					{#if transactionType === 'transfer'}
+					
+					<!-- Transfer Fee (simplified) -->
+					{#if hasTransferFee}
 						<div class="space-y-2">
-							<Label.Root for="toAccount">Destination Account *</Label.Root>
-							<Select.Root type="single" bind:value={toAccountId} required>
+							<div class="flex items-center justify-between">
+								<Label.Root for="transferFee">Transfer Fee</Label.Root>
+								<button
+									type="button"
+									onclick={() => hasTransferFee = false}
+									class="text-xs text-muted-foreground hover:text-primary"
+								>
+									Remove
+								</button>
+							</div>
+							<div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+								<div class="relative">
+									<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">{currencySymbol()}</span>
+									<Input.Root
+										id="feeAmount"
+										type="number"
+										bind:value={transferFeeAmount}
+										placeholder="0.00"
+										step={(() => {
+											const decimals = currentCurrencyInfo().decimalPlaces;
+											if (decimals === 0) return '1';
+											if (decimals === 1) return '0.1';
+											if (decimals === 2) return '0.01';
+											return `0.${'0'.repeat(decimals - 1)}1`;
+										})()}
+										class="pl-8"
+										min="0"
+										onfocus={handleInputFocus}
+									/>
+								</div>
+								<Select.Root type="single" bind:value={transferFeeAccountId}>
+									<Select.Trigger class="text-sm">
+										{transferFeeAccountId ? accounts.find(a => a.id === transferFeeAccountId)?.name : "Account"}
+									</Select.Trigger>
+									<Select.Content>
+										<Select.Item value="">Source account</Select.Item>
+										{#each accounts as account}
+											<Select.Item value={account.id}>{account.name}</Select.Item>
+										{/each}
+									</Select.Content>
+								</Select.Root>
+								<Select.Root type="single" bind:value={transferFeeCategoryId}>
+									<Select.Trigger class="text-sm">
+										{transferFeeCategoryId ? categories.find(c => c.id === transferFeeCategoryId)?.name : "Category"}
+									</Select.Trigger>
+									<Select.Content>
+										<Select.Item value="">Default</Select.Item>
+										{#each categories as category}
+											<Select.Item value={category.id}>{category.name}</Select.Item>
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							</div>
+						</div>
+					{:else}
+						<button
+							type="button"
+							onclick={() => hasTransferFee = true}
+							class="text-sm text-muted-foreground hover:text-primary"
+						>
+							+ Add transfer fee
+						</button>
+					{/if}
+				{/if}
+
+				<!-- Consolidated Date Field -->
+				<div class="space-y-2">
+					<Label.Root for="transactionDate">{dateLabel()}</Label.Root>
+					{#if status === 'cleared'}
+						<Input.Root
+							id="transactionDate"
+							type="datetime-local"
+							bind:value={clearedDate}
+							required
+							onfocus={handleInputFocus}
+						/>
+					{:else if status === 'planned'}
+						<Input.Root
+							id="transactionDate"
+							type="datetime-local"
+							bind:value={plannedDate}
+							required
+							onfocus={handleInputFocus}
+						/>
+					{:else}
+						<Input.Root
+							id="transactionDate"
+							type="datetime-local"
+							bind:value={clearedDate}
+							onfocus={handleInputFocus}
+						/>
+					{/if}
+				</div>
+
+				<!-- Recurring Transaction (only for planned/cleared) -->
+				{#if status === 'planned' || status === 'cleared'}
+					<div class="space-y-2">
+						<div class="flex items-center space-x-2">
+							<Switch.Root bind:checked={isRecurring} />
+							<Label.Root for="recurring">Recurring transaction</Label.Root>
+						</div>
+						
+						{#if isRecurring}
+							<Select.Root type="single" bind:value={recurrenceRule}>
 								<Select.Trigger>
-									{toAccountId ? accounts.find(a => a.id === toAccountId)?.name : "Select destination account"}
+									{recurrenceRule || "Select frequency"}
 								</Select.Trigger>
 								<Select.Content>
-									<Select.Item value="">Select destination account</Select.Item>
-									{#each accounts as account}
-										<Select.Item value={account.id}>
-											{account.name} (${account.currentBalance.toFixed(2)})
+									<Select.Item value="daily">Daily</Select.Item>
+									<Select.Item value="weekly">Weekly</Select.Item>
+									<Select.Item value="biweekly">Bi-weekly</Select.Item>
+									<Select.Item value="monthly">Monthly</Select.Item>
+									<Select.Item value="quarterly">Quarterly</Select.Item>
+									<Select.Item value="yearly">Yearly</Select.Item>
+								</Select.Content>
+							</Select.Root>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- Advanced Options -->
+				<div class="border-t border-border pt-6 mt-6">
+					<div class="mb-4">
+						<h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wide">Advanced Options</h3>
+					</div>
+					<div class="space-y-4">
+						<!-- Group Transaction -->
+						<div class="space-y-2">
+							<div class="flex items-center space-x-2">
+								<Switch.Root bind:checked={isGroupTransaction} />
+								<Label.Root for="group">Grouped transaction</Label.Root>
+							</div>
+							
+								{#if isGroupTransaction}
+									<Input.Root
+										id="groupName"
+										bind:value={groupName}
+										placeholder="Group name"
+										required
+										onfocus={handleInputFocus}
+									/>
+								{/if}
+						</div>
+
+						<!-- Reference -->
+						<div class="space-y-2">
+							<Label.Root for="reference">Reference</Label.Root>
+							<Input.Root
+								id="reference"
+								bind:value={reference}
+								placeholder="e.g., Check #1234, Invoice #ABC123"
+								onfocus={handleInputFocus}
+							/>
+						</div>
+
+						<!-- Notes -->
+						<div class="space-y-2">
+							<Label.Root for="notes">Notes</Label.Root>
+							<textarea
+								id="notes"
+								bind:value={notes}
+								placeholder="Additional notes..."
+								rows="3"
+								class="w-full px-3 py-2 border border-input rounded-md bg-background text-primary resize-none focus:ring-2 focus:ring-ring focus:border-transparent"
+								onfocus={handleInputFocus}
+							></textarea>
+						</div>
+
+						<!-- Priority -->
+						<div class="space-y-2">
+							<div class="flex items-center gap-2">
+								<Label.Root for="priority">Priority</Label.Root>
+								<Tooltip.Root>
+									<Tooltip.Trigger>
+										<HelpCircle class="w-4 h-4 text-muted-foreground" />
+									</Tooltip.Trigger>
+									<Tooltip.Content>
+										<p class="max-w-xs">Priority helps the optimization system understand transaction importance. Higher numbers = more important.</p>
+									</Tooltip.Content>
+								</Tooltip.Root>
+							</div>
+							<Select.Root 
+								type="single" 
+								value={priorityString}
+								onValueChange={(value) => {
+									if (value && value !== '') {
+										const numValue = parseInt(value, 10);
+										if (!isNaN(numValue)) {
+											priority = numValue;
+											priorityString = value;
+										}
+									} else {
+										priority = undefined;
+										priorityString = '';
+									}
+								}}
+							>
+								<Select.Trigger>
+									{priority ? `${priority} - ${PRIORITY_LEVELS.find(p => p.value === priority)?.name || 'Unknown'}` : "Select priority"}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="">No priority</Select.Item>
+									{#each PRIORITY_LEVELS as level}
+										<Select.Item value={level.value.toString()}>
+											{level.value} - {level.name}
 										</Select.Item>
 									{/each}
 								</Select.Content>
 							</Select.Root>
 						</div>
-						
-						<!-- Transfer Fee (optional) -->
-						<div class="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
-							<div class="flex items-center space-x-2">
-								<Switch.Root bind:checked={hasTransferFee} />
-								<Label.Root for="transferFee">This transfer has a fee</Label.Root>
-							</div>
-							
-							{#if hasTransferFee}
-								<div class="space-y-3">
-									<!-- Fee Amount -->
-									<div class="space-y-2">
-										<Label.Root for="feeAmount">Fee Amount *</Label.Root>
-										<div class="relative">
-											<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">$</span>
-											<Input.Root
-												id="feeAmount"
-												type="number"
-												bind:value={transferFeeAmount}
-												placeholder="0.00"
-												step="0.01"
-												class="pl-8"
-												min="0"
-											/>
-										</div>
-									</div>
-									
-									<!-- Fee Account -->
-									<div class="space-y-2">
-										<Label.Root for="feeAccount">Fee Account</Label.Root>
-										<Select.Root type="single" bind:value={transferFeeAccountId}>
-											<Select.Trigger>
-												{transferFeeAccountId ? accounts.find(a => a.id === transferFeeAccountId)?.name : "Select fee account (default: source account)"}
-											</Select.Trigger>
-											<Select.Content>
-												<Select.Item value="">Use source account</Select.Item>
-												{#each accounts as account}
-													<Select.Item value={account.id}>
-														{account.name} (${account.currentBalance.toFixed(2)})
-													</Select.Item>
-												{/each}
-											</Select.Content>
-										</Select.Root>
-									</div>
-									
-									<!-- Fee Category -->
-									<div class="space-y-2">
-										<Label.Root for="feeCategory">Fee Category</Label.Root>
-										<Select.Root type="single" bind:value={transferFeeCategoryId}>
-											<Select.Trigger>
-												{transferFeeCategoryId ? categories.find(c => c.id === transferFeeCategoryId)?.name : "Select fee category"}
-											</Select.Trigger>
-											<Select.Content>
-												<Select.Item value="">Use default (Banking Fees)</Select.Item>
-												{#each categories as category}
-													<Select.Item value={category.id}>
-														{category.name}
-													</Select.Item>
-												{/each}
-											</Select.Content>
-										</Select.Root>
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/if}
 
-					<!-- Date Selection Based on Status -->
-					{#if status === 'cleared'}
+						<!-- Directional Constraint -->
 						<div class="space-y-2">
-							<Label.Root for="clearedDate">When did this transaction occur? *</Label.Root>
-							<Input.Root
-								id="clearedDate"
-								type="datetime-local"
-								bind:value={clearedDate}
-								required
-							/>
-							<p class="text-xs text-muted-foreground">This date will be used for balance calculations and reporting</p>
-						</div>
-					{/if}
-
-					{#if status === 'planned'}
-						<div class="space-y-2">
-							<Label.Root for="plannedDate">When do you plan for this transaction? *</Label.Root>
-							<Input.Root
-								id="plannedDate"
-								type="datetime-local"
-								bind:value={plannedDate}
-								required
-							/>
-							<p class="text-xs text-muted-foreground">This helps with budget planning and future balance projections</p>
-						</div>
-					{/if}
-
-					{#if status === 'pending'}
-						<div class="space-y-2">
-							<Label.Root for="pendingDate">When did this transaction start processing?</Label.Root>
-							<Input.Root
-								id="pendingDate"
-								type="datetime-local"
-								bind:value={clearedDate}
-							/>
-							<p class="text-xs text-muted-foreground">Optional: When the transaction was initiated</p>
-						</div>
-					{/if}
-
-					<!-- Recurring Transaction (only for planned/cleared) -->
-					{#if status === 'planned' || status === 'cleared'}
-						<div class="space-y-4">
-							<div class="flex items-center space-x-2">
-								<Switch.Root bind:checked={isRecurring} />
-								<Label.Root for="recurring">This is a recurring transaction</Label.Root>
+							<div class="flex items-center gap-2">
+								<Label.Root for="directionalConstraint">Directional Constraint</Label.Root>
+								<Tooltip.Root>
+									<Tooltip.Trigger>
+										<HelpCircle class="w-4 h-4 text-muted-foreground" />
+									</Tooltip.Trigger>
+									<Tooltip.Content>
+										<p class="max-w-xs">Controls how the transaction date can be moved during optimization. Leave empty for full flexibility.</p>
+									</Tooltip.Content>
+								</Tooltip.Root>
 							</div>
-							
-							{#if isRecurring}
-								<div class="space-y-2">
-									<Label.Root for="recurrenceRule">How often does this repeat? *</Label.Root>
-									<Select.Root type="single" bind:value={recurrenceRule}>
-										<Select.Trigger>
-											{recurrenceRule || "Select frequency"}
-										</Select.Trigger>
-										<Select.Content>
-											<Select.Item value="daily">Daily</Select.Item>
-											<Select.Item value="weekly">Weekly</Select.Item>
-											<Select.Item value="biweekly">Bi-weekly (every 2 weeks)</Select.Item>
-											<Select.Item value="monthly">Monthly</Select.Item>
-											<Select.Item value="quarterly">Quarterly (every 3 months)</Select.Item>
-											<Select.Item value="yearly">Yearly</Select.Item>
-										</Select.Content>
-									</Select.Root>
-									<p class="text-xs text-muted-foreground">This will help create future instances automatically</p>
-								</div>
-							{/if}
+							<Select.Root 
+								type="single" 
+								value={directionalConstraint || 'none'}
+								onValueChange={(value) => {
+									directionalConstraint = (value === 'none' || value === '') ? undefined : (value as DirectionalConstraint);
+								}}
+							>
+								<Select.Trigger>
+									{directionalConstraint && directionalConstraint !== 'none' ? DIRECTIONAL_CONSTRAINTS.find(c => c.value === directionalConstraint)?.name : "Select constraint"}
+								</Select.Trigger>
+								<Select.Content>
+									<Select.Item value="none">No constraint</Select.Item>
+									{#each DIRECTIONAL_CONSTRAINTS.filter(c => c.value !== 'none') as constraint}
+										<Select.Item value={constraint.value}>
+											{constraint.icon} {constraint.name}
+										</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
 						</div>
-					{/if}
-				</Tabs.Content>
-
-				<!-- Categorization Tab -->
-				<Tabs.Content value="categorization" class="space-y-6 mt-6">
-					<!-- Category (for all transaction types) -->
-					<div class="space-y-2">
-						<Label.Root for="category">Category</Label.Root>
-						<Select.Root type="single" bind:value={selectedCategory}>
-							<Select.Trigger>
-								{selectedCategory ? categories.find(c => c.id === selectedCategory)?.name : "Select a category (optional)"}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="">Select a category (optional)</Select.Item>
-								{#each categories as category}
-									<Select.Item value={category.id} style="color: {category.color}">
-										{category.name} - {getCategoryStatusText(category.id)}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						
-						{#if selectedCategory}
-							<div class="mt-2 text-sm text-muted-foreground">
-								{getCategoryStatusText(selectedCategory)}
-							</div>
-						{/if}
 					</div>
-				</Tabs.Content>
-
-
-				<!-- Advanced Tab -->
-				<Tabs.Content value="advanced" class="space-y-6 mt-6">
-					<!-- Group Transaction -->
-					<div class="space-y-4">
-						<div class="flex items-center space-x-2">
-							<Switch.Root bind:checked={isGroupTransaction} />
-							<Label.Root for="group">This is a grouped transaction</Label.Root>
-						</div>
-						<p class="text-xs text-muted-foreground">
-							Grouped transactions allow you to combine multiple related transactions together
-						</p>
-						
-						{#if isGroupTransaction}
-							<div class="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
-								<div class="space-y-2">
-									<Label.Root for="groupName">Group Name *</Label.Root>
-									<Input.Root
-										id="groupName"
-										bind:value={groupName}
-										placeholder="e.g., Grocery Shopping Group"
-										required
-									/>
-									<p class="text-xs text-muted-foreground">
-										This will group related transactions together
-									</p>
-								</div>
-
-								<!-- Group Transaction Info -->
-								<div class="space-y-3">
-									<Label.Root>Group Information</Label.Root>
-									<div class="space-y-3">
-										<!-- Main transaction amount -->
-										<div class="flex items-center space-x-2 p-3 bg-background rounded border">
-											<div class="flex-1">
-												<Label.Root class="text-sm font-medium">Main Transaction</Label.Root>
-												<p class="text-xs text-muted-foreground">This is the primary transaction in the group</p>
-											</div>
-											<div class="text-right">
-												<span class="font-mono text-lg">${amount || '0.00'}</span>
-											</div>
-										</div>
-
-										<!-- Additional transactions will be handled separately -->
-										<div class="text-center py-4 text-muted-foreground">
-											<p class="text-sm">Additional transactions can be added to this group later</p>
-											<p class="text-xs">All transactions with the same group name will be displayed together</p>
-										</div>
-									</div>
-								</div>
-							</div>
-						{/if}
-					</div>
-
-					<!-- Reference -->
-					<div class="space-y-2">
-						<Label.Root for="reference">Reference</Label.Root>
-						<Input.Root
-							id="reference"
-							bind:value={reference}
-							placeholder="e.g., Check #1234, Invoice #ABC123"
-						/>
-						<p class="text-xs text-muted-foreground">
-							Optional reference number or identifier
-						</p>
-					</div>
-
-					<!-- Notes -->
-					<div class="space-y-2">
-						<Label.Root for="notes">Notes</Label.Root>
-						<textarea
-							id="notes"
-							bind:value={notes}
-							placeholder="Additional notes about this transaction..."
-							rows="3"
-							class="w-full px-3 py-2 border border-input rounded-md bg-background text-primary resize-none focus:ring-2 focus:ring-ring focus:border-transparent"
-						></textarea>
-						<p class="text-xs text-muted-foreground">
-							Optional notes for your own reference
-						</p>
-					</div>
-
-					<!-- Priority Scoring -->
-					<div class="space-y-2">
-						<Label.Root for="priority">Priority (1-10)</Label.Root>
-						<Select.Root 
-							type="single" 
-							value={priorityString}
-							onValueChange={(value) => {
-								if (value && value !== '') {
-									const numValue = parseInt(value, 10);
-									if (!isNaN(numValue)) {
-										priority = numValue;
-										priorityString = value;
-									}
-								} else {
-									priority = undefined;
-									priorityString = '';
-								}
-							}}
-						>
-							<Select.Trigger>
-								{priority ? `${priority} - ${PRIORITY_LEVELS.find(p => p.value === priority)?.name || 'Unknown'}` : "Select priority (optional)"}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="">No priority set</Select.Item>
-								{#each PRIORITY_LEVELS as level}
-									<Select.Item value={level.value.toString()}>
-										{level.value} - {level.name}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						{#if priority}
-							{@const level = PRIORITY_LEVELS.find(p => p.value === priority)}
-							{#if level}
-								<div class="mt-2 p-3 bg-muted/50 rounded-lg border border-border">
-									<p class="text-sm font-medium text-primary mb-1">{level.name}</p>
-									<p class="text-xs text-muted-foreground mb-2">{level.description}</p>
-									{#if level.examples.length > 0}
-										<p class="text-xs text-muted-foreground">
-											<strong>Examples:</strong> {level.examples.join(', ')}
-										</p>
-									{/if}
-								</div>
-							{/if}
-						{:else}
-							<p class="text-xs text-muted-foreground">
-								Priority helps the optimization system understand transaction importance. Higher numbers = more important.
-							</p>
-						{/if}
-					</div>
-
-					<!-- Directional Constraint -->
-					<div class="space-y-2">
-						<Label.Root for="directionalConstraint">Directional Constraint</Label.Root>
-						<Select.Root 
-							type="single" 
-							value={directionalConstraint || 'none'}
-							onValueChange={(value) => {
-								directionalConstraint = (value === 'none' || value === '') ? undefined : (value as DirectionalConstraint);
-							}}
-						>
-							<Select.Trigger>
-								{directionalConstraint && directionalConstraint !== 'none' ? DIRECTIONAL_CONSTRAINTS.find(c => c.value === directionalConstraint)?.name : "Select constraint (optional)"}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="none">No constraint</Select.Item>
-								{#each DIRECTIONAL_CONSTRAINTS.filter(c => c.value !== 'none') as constraint}
-									<Select.Item value={constraint.value}>
-										{constraint.icon} {constraint.name}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						{#if directionalConstraint && directionalConstraint !== 'none'}
-							{@const constraint = DIRECTIONAL_CONSTRAINTS.find(c => c.value === directionalConstraint)}
-							{#if constraint}
-								<div class="mt-2 p-3 bg-muted/50 rounded-lg border border-border">
-									<p class="text-sm font-medium text-primary mb-1">{constraint.icon} {constraint.name}</p>
-									<p class="text-xs text-muted-foreground mb-2">{constraint.description}</p>
-									{#if constraint.examples.length > 0}
-										<p class="text-xs text-muted-foreground">
-											<strong>Examples:</strong> {constraint.examples.join(', ')}
-										</p>
-									{/if}
-								</div>
-							{/if}
-						{:else}
-							<p class="text-xs text-muted-foreground">
-								Controls how the transaction date can be moved during optimization. Leave empty for full flexibility.
-							</p>
-						{/if}
-					</div>
-				</Tabs.Content>
-			</Tabs.Root>
+				</div>
+			</div>
 		</form>
 	</section>
-
-	<!-- Categories Overview -->
-	{#if transactionType === 'expense' && categories.length > 0}
-		<section class="bg-muted rounded-lg p-6">
-			<h2 class="text-lg font-semibold text-primary mb-4">Categories Overview</h2>
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-				{#each categories as category}
-					<div class="bg-card rounded-lg p-4 border border-border">
-						<div class="flex items-center justify-between mb-2">
-							<span class="font-medium" style="color: {category.color}">
-								{category.name}
-							</span>
-							<span class="text-sm text-muted-foreground">
-								{category.waterfallTier}
-							</span>
-						</div>
-						<div class="text-sm text-muted-foreground">
-							${(category.budgetAmount || 0).toFixed(2)} allocated
-						</div>
-						<div class="text-sm text-muted-foreground">
-							{getCategoryStatusText(category.id)}
-						</div>
-					</div>
-				{/each}
-			</div>
-		</section>
-	{/if}
 	</div>
 
 	{#snippet bottomBar()}
-		<!-- Action buttons for form submission -->
-		<div class="flex justify-between max-w-4xl mx-auto px-4">
+		<!-- Action buttons for form submission - Sticky on mobile -->
+		<div class="sticky bottom-0 bg-background border-t border-border py-3 md:py-4 z-10">
+			<div class="flex justify-between max-w-2xl mx-auto px-4">
 			<!-- Delete Button (only in edit mode) -->
 			{#if isEditMode}
 				<Button.Root
@@ -841,6 +842,7 @@
 				>
 					{submitButtonText}
 				</Button.Root>
+			</div>
 			</div>
 		</div>
 	{/snippet}
@@ -887,4 +889,41 @@
 			</Dialog.Footer>
 		</Dialog.Content>
 	</Dialog.Root>
+
+	<!-- Currency Selection Sheet -->
+	<Sheet.Root bind:open={showCurrencySheet}>
+		<Sheet.Content side="bottom" class="sm:max-w-md mx-auto">
+			<Sheet.Header>
+				<Sheet.Title>Select Currency</Sheet.Title>
+				<Sheet.Description>
+					Choose the currency for this transaction
+				</Sheet.Description>
+			</Sheet.Header>
+			<div class="max-h-[60vh] overflow-y-auto py-4">
+				<div class="space-y-1">
+					{#each currencies as curr}
+						<button
+							type="button"
+							onclick={() => {
+								currency = curr.code;
+								showCurrencySheet = false;
+							}}
+							class="w-full flex items-center justify-between px-4 py-3 rounded-md hover:bg-secondary transition-colors text-left {currency === curr.code ? 'bg-secondary border border-primary' : ''}"
+						>
+							<div class="flex items-center gap-3">
+								<span class="text-lg font-medium">{curr.symbol}</span>
+								<div class="flex flex-col">
+									<span class="text-sm font-medium text-primary">{curr.name}</span>
+									<span class="text-xs text-muted-foreground">{curr.code}</span>
+								</div>
+							</div>
+							{#if currency === curr.code}
+								<div class="w-2 h-2 rounded-full bg-primary"></div>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			</div>
+		</Sheet.Content>
+	</Sheet.Root>
 </PageLayout>
