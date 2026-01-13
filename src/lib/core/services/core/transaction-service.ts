@@ -30,8 +30,10 @@ class TransactionService {
 
         await db.transactions.add(transaction);
         
-        // Update account balance
-        await accountService.recalculateAccountBalance(transaction.accountId);
+        // Update account balance only if accountId is present
+        if (transaction.accountId) {
+            await accountService.recalculateAccountBalance(transaction.accountId);
+        }
         
         // Emit sync event for transaction creation
         await crossRouteSyncService.onTransactionCreated(transaction);
@@ -63,8 +65,18 @@ class TransactionService {
 
         await db.transactions.update(id, updatedTransaction);
         
-        // Update account balance
-        await accountService.recalculateAccountBalance(transaction.accountId);
+        // Update account balance for both old and new accountId (if changed)
+        const accountIds = new Set<string>();
+        if (transaction.accountId) {
+            accountIds.add(transaction.accountId);
+        }
+        if (updatedTransaction.accountId) {
+            accountIds.add(updatedTransaction.accountId);
+        }
+        
+        for (const accountId of accountIds) {
+            await accountService.recalculateAccountBalance(accountId);
+        }
         
         // Emit sync event for transaction update
         await crossRouteSyncService.onTransactionUpdated(updatedTransaction, updates);
@@ -83,8 +95,10 @@ class TransactionService {
 
         await db.softDeleteTransaction(id);
         
-        // Update account balance
-        await accountService.recalculateAccountBalance(transaction.accountId);
+        // Update account balance only if accountId is present
+        if (transaction.accountId) {
+            await accountService.recalculateAccountBalance(transaction.accountId);
+        }
         
         // Emit sync event for transaction deletion
         await crossRouteSyncService.onTransactionDeleted(id);
@@ -151,8 +165,10 @@ class TransactionService {
 
         const groupId = await db.createTransactionGroup(groupTransactions, groupName);
         
-        // Update account balances for affected accounts
-        const accountIds = new Set(groupTransactions.map(tx => tx.accountId));
+        // Update account balances for affected accounts (filter out null accountIds)
+        const accountIds = new Set(groupTransactions
+            .map(tx => tx.accountId)
+            .filter((id): id is string => id !== undefined && id !== null));
         for (const accountId of accountIds) {
             await accountService.recalculateAccountBalance(accountId);
         }
@@ -205,8 +221,9 @@ class TransactionService {
         
         await db.deleteTransactionGroup(groupId);
         
-        // Update account balances for affected accounts
-            for (const accountId of accountIds) {
+        // Update account balances for affected accounts (filter out null accountIds)
+        const validAccountIds = Array.from(accountIds).filter((id): id is string => id !== undefined && id !== null);
+        for (const accountId of validAccountIds) {
             await accountService.recalculateAccountBalance(accountId);
         }
     }
@@ -225,7 +242,7 @@ class TransactionService {
         await db.addTransactionToGroup(transactionId, groupId);
         
         const transaction = await db.transactions.get(transactionId);
-        if (transaction) {
+        if (transaction && transaction.accountId) {
             await accountService.recalculateAccountBalance(transaction.accountId);
         }
     }
@@ -237,7 +254,9 @@ class TransactionService {
         const transaction = await db.transactions.get(transactionId);
         if (transaction) {
             await db.removeTransactionFromGroup(transactionId);
-            await accountService.recalculateAccountBalance(transaction.accountId);
+            if (transaction.accountId) {
+                await accountService.recalculateAccountBalance(transaction.accountId);
+            }
         }
     }
 

@@ -317,7 +317,8 @@
 		return 'bg-alert';
 	}
 
-	function getAccountName(accountId: string) {
+	function getAccountName(accountId: string | undefined | null) {
+		if (!accountId) return 'Unassigned Account';
 		return accounts[accountId]?.name || 'Unknown Account';
 	}
 
@@ -368,7 +369,7 @@
 	}
 
 	function getTransactionAccountId(transaction: any) {
-		return transaction?.accountId || '';
+		return transaction?.accountId || null;
 	}
 
 	// Calculate totals for a date group

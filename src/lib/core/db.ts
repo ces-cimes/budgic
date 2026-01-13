@@ -362,10 +362,11 @@ export function validateTransactionGroup(groupTransactions: Transaction[]): {
 	}
 	
 	// All transactions must have the same accountId (for non-transfers)
+	// Allow all to be null, or all to have the same accountId
 	if (type !== 'transfer') {
 		const accountId = groupTransactions[0].accountId;
 		if (!groupTransactions.every(tx => tx.accountId === accountId)) {
-			errors.push('All transactions must have the same accountId (except for transfers)');
+			errors.push('All transactions must have the same accountId (except for transfers). All can be null for planned transactions.');
 		}
 	}
 	
@@ -454,6 +455,10 @@ export function validateTransfer(transaction: Transaction): {
 	const { toAccountId, transferAmount, feeAmount } = transaction.transferDetails;
 	
 	// Basic validations
+	if (!transaction.accountId) {
+		errors.push('Transfer must specify source account');
+	}
+	
 	if (!toAccountId) {
 		errors.push('Transfer must specify destination account');
 	}
@@ -466,7 +471,7 @@ export function validateTransfer(transaction: Transaction): {
 		errors.push('Fee amount cannot be negative');
 	}
 	
-	if (transaction.accountId === toAccountId) {
+	if (transaction.accountId && transaction.accountId === toAccountId) {
 		errors.push('Cannot transfer to the same account');
 	}
 	
@@ -506,10 +511,11 @@ export function validateNewGroupTransaction(groupTransactions: Omit<Transaction,
 	}
 	
 	// All transactions must have the same accountId (for non-transfers)
+	// Allow all to be null, or all to have the same accountId
 	if (type !== 'transfer') {
 		const accountId = groupTransactions[0].accountId;
 		if (!groupTransactions.every(tx => tx.accountId === accountId)) {
-			errors.push('All transactions must have the same accountId (except for transfers)');
+			errors.push('All transactions must have the same accountId (except for transfers). All can be null for planned transactions.');
 		}
 	}
 	
@@ -686,7 +692,7 @@ const TransactionSchema = BaseSchema.extend({
 	confidence: ConfidenceLevel.optional(), // Only for planned status
 	
 	// Core fields (always present)
-	accountId: z.string(),
+	accountId: z.string().optional(), // Optional for planned transactions, required for cleared/pending
 	amount: z.number().optional(), // Optional for transfers - they use transferDetails
 	currency: z.string().min(3).max(3), // Shared across all splits
 	description: z.string().optional(), // Can be customized per split transaction
@@ -1025,6 +1031,20 @@ export class BudgicDB extends Dexie {
 		// Transaction validation
 		this.transactions.hook('creating', (primKey, obj, trans) => {
 			try {
+				// Status-based accountId validation
+				// Transfers always require accountId (source account)
+				if (obj.type === 'transfer') {
+					if (!obj.accountId) {
+						throw new Error('Account is required for transfer transactions');
+					}
+				} else {
+					// For non-transfer transactions, require accountId for cleared and pending
+					if ((obj.status === 'cleared' || obj.status === 'pending') && !obj.accountId) {
+						throw new Error('Account is required for cleared and pending transactions');
+					}
+					// accountId is optional for planned transactions
+				}
+
 				// Enhanced validation - skip amount validation for transfers
 				if (obj.type !== 'transfer') {
 					const amountValidation = CurrencyUtils.validateAmount(obj.amount, obj.currency);
@@ -1064,6 +1084,27 @@ export class BudgicDB extends Dexie {
 					modifications.updatedAt = new Date().toISOString();
 				}
 				const updated = { ...obj, ...modifications };
+				
+				// Status-based accountId validation on update
+				// Check if status is being changed to cleared or pending
+				const newStatus = modifications.status !== undefined ? modifications.status : obj.status;
+				
+				// Transfers always require accountId
+				if (obj.type === 'transfer' || updated.type === 'transfer') {
+					const accountId = modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
+					if (!accountId) {
+						throw new Error('Account is required for transfer transactions');
+					}
+				} else {
+					// For non-transfer transactions, require accountId when status is cleared or pending
+					if ((newStatus === 'cleared' || newStatus === 'pending')) {
+						const accountId = modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
+						if (!accountId) {
+							throw new Error('Account is required when changing status to cleared or pending');
+						}
+					}
+				}
+				
 				TransactionSchema.parse(updated);
 			} catch (error) {
 				console.error('Transaction update validation failed:', error);
