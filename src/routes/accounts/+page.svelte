@@ -9,6 +9,9 @@
   import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
+  import { getBufferStatus, getBufferAmount } from '$lib/utils/account-metadata-utils';
+  import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp } from '@lucide/svelte';
+  import type { Account } from '$lib/core/db';
   
   const { data } = $props<{ data: any }>();
 
@@ -40,7 +43,7 @@
       const accountsData = await accountService.getAccounts();
       const totalBalanceValue = await accountService.getTotalBalance();
       
-      accounts = accountsData.map((account: any) => ({
+      accounts = accountsData.map((account: Account) => ({
         ...account,
         balance: account.currentBalance
       }));
@@ -52,6 +55,36 @@
 
   function formatBalance(balance: number, currency: string, showPlus: boolean = false) {
     return formatTransactionAmount(balance, currency, showPlus);
+  }
+
+  function getBufferStatusIcon(status: ReturnType<typeof getBufferStatus>) {
+    switch (status) {
+      case 'optimal':
+        return CheckCircle2;
+      case 'comfort':
+        return TrendingUp;
+      case 'warning':
+        return AlertTriangle;
+      case 'critical':
+        return AlertCircle;
+      default:
+        return null;
+    }
+  }
+
+  function getBufferStatusColor(status: ReturnType<typeof getBufferStatus>) {
+    switch (status) {
+      case 'optimal':
+        return 'text-success';
+      case 'comfort':
+        return 'text-info';
+      case 'warning':
+        return 'text-warning';
+      case 'critical':
+        return 'text-destructive';
+      default:
+        return 'text-muted-foreground';
+    }
   }
 </script>
 
@@ -93,17 +126,30 @@
     <h2 class="text-xl font-semibold text-primary mb-4">Your Accounts</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {#each accounts as account}
+        {@const bufferStatus = (account.type === 'checking' || account.type === 'savings') ? getBufferStatus(account) : null}
+        {@const bufferAmount = (account.type === 'checking' || account.type === 'savings') ? getBufferAmount(account) : 0}
+        {@const StatusIcon = bufferStatus ? getBufferStatusIcon(bufferStatus) : null}
         <button 
           type="button"
           class="bg-card rounded-2xl p-6 shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer text-left w-full"
           onclick={() => goto(`/accounts/${account.id}`)}
         >
           <div class="flex items-start justify-between">
-            <div>
-              <h3 class="font-semibold text-primary mb-2">{account.name}</h3>
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <h3 class="font-semibold text-primary">{account.name}</h3>
+                {#if StatusIcon && bufferAmount > 0}
+                  <svelte:component this={StatusIcon} class="w-4 h-4 {getBufferStatusColor(bufferStatus)}" />
+                {/if}
+              </div>
               <div class="text-2xl font-bold {account.balance >= 0 ? 'text-success' : 'text-alert'}">
                 {formatBalance(account.balance, account.currency)}
               </div>
+              {#if bufferAmount > 0 && bufferStatus && (bufferStatus === 'warning' || bufferStatus === 'critical')}
+                <div class="text-xs mt-1 {bufferStatus === 'critical' ? 'text-destructive' : 'text-warning'}">
+                  Buffer: {formatBalance(bufferAmount, account.currency)}
+                </div>
+              {/if}
             </div>
             <div class="text-right">
               <div class="text-sm text-muted-foreground capitalize">{account.type}</div>

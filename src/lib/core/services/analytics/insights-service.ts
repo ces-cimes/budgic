@@ -2,7 +2,10 @@ import { db, generateUUID } from '$lib/core/db';
 import { analyticsService } from './analytics-service';
 import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
-import type { Insight, Goal, Transaction, Category } from '$lib/core/db';
+import { accountService } from '../core/account-service';
+import { transactionService } from '../core/transaction-service';
+import { getBufferStatus, getBufferAmount, getBufferDeficit } from '$lib/utils/account-metadata-utils';
+import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 
 interface CrossRouteInsightData {
     goals: Goal[];
@@ -10,6 +13,7 @@ interface CrossRouteInsightData {
     categories: Category[];
     budgetData: any;
     analyticsData: any;
+    accounts: Account[];
 }
 
 interface InsightGenerationContext {
@@ -216,6 +220,10 @@ class InsightsService {
             const analyticsInsights = await this.generateAnalyticsInsights(crossRouteData.analyticsData, crossRouteData.transactions);
             newInsights.push(...analyticsInsights);
 
+            // Buffer insights
+            const bufferInsights = await this.generateBufferInsights(crossRouteData.accounts, crossRouteData.transactions);
+            newInsights.push(...bufferInsights);
+
             // Behavioral insights (if enabled)
             if (context.includeBehavioral) {
                 const behavioralInsights = await this.generateBehavioralInsights(crossRouteData);
@@ -243,12 +251,13 @@ class InsightsService {
      * Gather data from all routes
      */
     private async gatherCrossRouteData(context: InsightGenerationContext): Promise<CrossRouteInsightData> {
-        const [goals, transactions, categories, budgetData, analyticsData] = await Promise.all([
+        const [goals, transactions, categories, budgetData, analyticsData, accounts] = await Promise.all([
             goalService.getGoals(),
             db.getActiveTransactions(),
             db.getActiveCategories(),
             budgetService.getBudgetSummary(),
-            analyticsService.getSpendingAnalysis(1) // Current month
+            analyticsService.getSpendingAnalysis(1), // Current month
+            accountService.getAccounts()
         ]);
 
         return {
@@ -256,7 +265,8 @@ class InsightsService {
             transactions,
             categories,
             budgetData,
-            analyticsData
+            analyticsData,
+            accounts
         };
     }
 
@@ -415,6 +425,116 @@ class InsightsService {
                         confidence: 100,
                         actionable: true,
                         actionText: 'Adjust Budget',
+                        isActive: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        deletedAt: null
+                    });
+                }
+            }
+        }
+
+        return insights;
+    }
+
+    // ============================================================================
+    // BUFFER INSIGHTS GENERATION
+    // ============================================================================
+
+    /**
+     * Generate insights for account buffer management
+     */
+    private async generateBufferInsights(accounts: Account[], transactions: Transaction[]): Promise<Insight[]> {
+        const insights: Insight[] = [];
+
+        for (const account of accounts) {
+            // Only check buffer for checking and savings accounts
+            if (account.type !== 'checking' && account.type !== 'savings') {
+                continue;
+            }
+
+            const bufferAmount = getBufferAmount(account);
+            if (bufferAmount === 0) {
+                continue; // No buffer set
+            }
+
+            const bufferStatus = getBufferStatus(account);
+            const deficit = getBufferDeficit(account);
+
+            // Critical buffer alert
+            if (bufferStatus === 'critical') {
+                insights.push({
+                    id: generateUUID(),
+                    type: 'budget_alert',
+                    severity: 'alert',
+                    title: `Critical: ${account.name} Below Buffer`,
+                    message: `${account.name} is ${deficit.toFixed(2)} ${account.currency} below the recommended buffer of ${bufferAmount.toFixed(2)} ${account.currency}. Consider transferring funds to maintain your safety buffer.`,
+                    amount: deficit,
+                    threshold: bufferAmount,
+                    confidence: 100,
+                    actionable: true,
+                    actionText: 'View Account',
+                    actionUrl: `/accounts/${account.id}`,
+                    metadata: JSON.stringify({
+                        accountId: account.id,
+                        accountName: account.name,
+                        bufferAmount,
+                        currentBalance: account.currentBalance,
+                        deficit
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+            // Warning buffer alert
+            else if (bufferStatus === 'warning') {
+                insights.push({
+                    id: generateUUID(),
+                    type: 'budget_alert',
+                    severity: 'warning',
+                    title: `Warning: ${account.name} Approaching Buffer`,
+                    message: `${account.name} is approaching the buffer threshold. Current balance: ${account.currentBalance.toFixed(2)} ${account.currency}, Buffer: ${bufferAmount.toFixed(2)} ${account.currency}.`,
+                    amount: account.currentBalance,
+                    threshold: bufferAmount,
+                    confidence: 90,
+                    actionable: true,
+                    actionText: 'View Account',
+                    actionUrl: `/accounts/${account.id}`,
+                    metadata: JSON.stringify({
+                        accountId: account.id,
+                        accountName: account.name,
+                        bufferAmount,
+                        currentBalance: account.currentBalance
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+            // Positive insight for optimal buffer
+            else if (bufferStatus === 'optimal' && account.currentBalance >= bufferAmount * 1.5) {
+                // Only create positive insights occasionally to avoid spam
+                const shouldCreate = Math.random() < 0.1; // 10% chance
+                if (shouldCreate) {
+                    insights.push({
+                        id: generateUUID(),
+                        type: 'achievement',
+                        severity: 'success',
+                        title: `${account.name} Has Healthy Buffer`,
+                        message: `Great job! ${account.name} has a healthy buffer above the recommended amount.`,
+                        amount: account.currentBalance,
+                        threshold: bufferAmount,
+                        confidence: 100,
+                        actionable: false,
+                        metadata: JSON.stringify({
+                            accountId: account.id,
+                            accountName: account.name,
+                            bufferAmount,
+                            currentBalance: account.currentBalance
+                        }),
                         isActive: true,
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString(),

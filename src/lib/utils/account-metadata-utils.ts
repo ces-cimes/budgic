@@ -114,17 +114,82 @@ export function wouldTriggerOverdraft(account: Account, amount: number): boolean
 }
 
 /**
+ * Calculate recommended buffer based on spending patterns and account type
+ * This provides smart defaults when user hasn't set a custom buffer
+ */
+export async function calculateRecommendedBuffer(
+	account: Account,
+	transactions?: Array<{ amount: number; clearedDate?: string; type: string }>
+): Promise<number> {
+	// If user has set a custom buffer, use it
+	if (account.metadata?.bufferAmount !== undefined) {
+		return account.metadata.bufferAmount;
+	}
+
+	// Calculate based on account type and historical data
+	switch (account.type) {
+		case 'checking': {
+			// For checking accounts, calculate based on average monthly expenses
+			let monthlyExpenses = 0;
+			
+			if (transactions && transactions.length > 0) {
+				// Get expenses from last 3 months
+				const now = new Date();
+				const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+				
+				const recentExpenses = transactions
+					.filter(t => {
+						if (t.type !== 'expense') return false;
+						if (!t.clearedDate) return false;
+						const date = new Date(t.clearedDate);
+						return date >= threeMonthsAgo;
+					})
+					.map(t => Math.abs(t.amount || 0));
+				
+				if (recentExpenses.length > 0) {
+					const totalExpenses = recentExpenses.reduce((sum, amt) => sum + amt, 0);
+					// Average over the number of months we have data for
+					const monthsOfData = Math.max(1, Math.ceil((now.getTime() - threeMonthsAgo.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+					monthlyExpenses = totalExpenses / monthsOfData;
+				}
+			}
+			
+			// Default buffer: 1 month of expenses, minimum $500, or minimum balance requirement
+			const calculatedBuffer = monthlyExpenses > 0 
+				? Math.max(monthlyExpenses, 500)
+				: Math.max(500, account.metadata?.minimumBalance || 0);
+			
+			return Math.max(calculatedBuffer, account.metadata?.minimumBalance || 0);
+		}
+		
+		case 'savings': {
+			// Savings accounts: 10% of balance or $1000, whichever is higher
+			return Math.max(1000, account.currentBalance * 0.1);
+		}
+		
+		case 'credit': {
+			// Credit cards: typically don't need buffers (they have credit limits)
+			return 0;
+		}
+		
+		default:
+			return 0;
+	}
+}
+
+/**
  * Get buffer amount (user-defined or calculated default)
+ * For async calculation with transaction data, use calculateRecommendedBuffer
  */
 export function getBufferAmount(account: Account): number {
 	if (account.metadata?.bufferAmount !== undefined) {
 		return account.metadata.bufferAmount;
 	}
 
-	// Default buffer calculation based on account type
+	// Default buffer calculation based on account type (synchronous fallback)
 	switch (account.type) {
 		case 'checking':
-			// Default to 1 month of average expenses or $500, whichever is higher
+			// Default to minimum balance or $500, whichever is higher
 			return Math.max(500, account.metadata?.minimumBalance || 0);
 		case 'savings':
 			// Savings accounts typically have larger buffers
@@ -135,11 +200,79 @@ export function getBufferAmount(account: Account): number {
 }
 
 /**
+ * Buffer status levels
+ */
+export type BufferStatus = 'optimal' | 'comfort' | 'warning' | 'critical';
+
+/**
+ * Get buffer status based on current balance vs buffer amount
+ */
+export function getBufferStatus(account: Account): BufferStatus {
+	const buffer = getBufferAmount(account);
+	const balance = account.currentBalance;
+	
+	if (buffer === 0) {
+		return 'optimal'; // No buffer requirement
+	}
+	
+	const ratio = balance / buffer;
+	
+	if (ratio >= 1.5) {
+		return 'optimal'; // 150%+ of buffer
+	} else if (ratio >= 1.0) {
+		return 'comfort'; // 100-150% of buffer
+	} else if (ratio >= 0.5) {
+		return 'warning'; // 50-100% of buffer
+	} else {
+		return 'critical'; // Below 50% of buffer
+	}
+}
+
+/**
+ * Get buffer thresholds for visualization
+ */
+export function getBufferThresholds(account: Account): {
+	critical: number;
+	warning: number;
+	comfort: number;
+	optimal: number;
+} {
+	const buffer = getBufferAmount(account);
+	
+	return {
+		critical: buffer * 0.5,  // Below 50% of buffer
+		warning: buffer * 1.0,    // At buffer level
+		comfort: buffer * 1.25,   // 25% above buffer
+		optimal: buffer * 1.5     // 50% above buffer
+	};
+}
+
+/**
  * Check if account balance is within buffer range
  */
 export function isWithinBuffer(account: Account): boolean {
 	const buffer = getBufferAmount(account);
 	return account.currentBalance >= buffer;
+}
+
+/**
+ * Get buffer deficit (how much below buffer the account is)
+ * Returns 0 if account is above buffer
+ */
+export function getBufferDeficit(account: Account): number {
+	const buffer = getBufferAmount(account);
+	const deficit = buffer - account.currentBalance;
+	return Math.max(0, deficit);
+}
+
+/**
+ * Get buffer surplus (how much above buffer the account is)
+ * Returns 0 if account is below buffer
+ */
+export function getBufferSurplus(account: Account): number {
+	const buffer = getBufferAmount(account);
+	const surplus = account.currentBalance - buffer;
+	return Math.max(0, surplus);
 }
 
 /**

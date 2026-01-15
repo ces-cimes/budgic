@@ -9,6 +9,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { Pencil } from '@lucide/svelte';
+	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
 
 	const { data } = $props<{ data: any }>();
 
@@ -130,6 +131,16 @@
 				</div>
 			</div>
 		</section>
+
+		<!-- Buffer Status -->
+		{#if account && (account.type === 'checking' || account.type === 'savings')}
+			<section class="mb-8">
+				<div class="bg-card rounded-xl p-6 shadow-sm border border-border">
+					<h2 class="text-xl font-semibold text-primary mb-4">Buffer Status</h2>
+					<BufferVisualization {account} showDetails={true} />
+				</div>
+			</section>
+		{/if}
 
 		<!-- Transactions List -->
 		<section class="space-y-4">
