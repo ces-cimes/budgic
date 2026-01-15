@@ -5,6 +5,7 @@
 	import { transactionService, accountService, budgetService, userService } from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import type { Account, Transaction, Category } from '$lib/core/db';
+	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
@@ -16,7 +17,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
 	import * as Sheet from '$lib/components/ui/sheet/index.ts';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
-	import { Trash2, HelpCircle, ChevronDown } from '@lucide/svelte';
+	import { Trash2, HelpCircle, ChevronDown, Tag } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { FormFieldGrid, FormErrorAlert, AdvancedOptionsSection, LabelWithTooltip } from '$lib/components/forms';
@@ -335,11 +336,15 @@
 			if (amount === 0) {
 				throw new Error('Please enter a valid amount (cannot be zero)');
 			}
-			if (transactionType === 'expense' && !selectedCategory) {
-				throw new Error('Please select a category for expenses');
-			}
 			if (transactionType === 'transfer' && !toAccountId) {
 				throw new Error('Please select a destination account for transfers');
+			}
+
+			// Auto-assign "Uncategorized" category for expenses without a category
+			let finalCategoryId = selectedCategory;
+			if (transactionType === 'expense' && !selectedCategory) {
+				const uncategorizedCategory = await getOrCreateUncategorizedCategory();
+				finalCategoryId = uncategorizedCategory.id;
 			}
 
 			// Prepare transaction data
@@ -350,7 +355,7 @@
 				type: transactionType,
 				status: status,
 				currency: currency,
-				categoryId: selectedCategory || undefined,
+				categoryId: finalCategoryId || undefined,
 				notes: notes || undefined,
 				reference: reference || undefined,
 				toAccountId: transactionType === 'transfer' ? toAccountId : undefined,
@@ -564,6 +569,19 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
+
+				<!-- Uncategorized prompt for expenses -->
+				{#if transactionType === 'expense' && !selectedCategory}
+					<Alert.Root variant="default" class="border-warning/20 bg-warning/5">
+						<Alert.Title class="flex items-center gap-2">
+							<Tag class="w-4 h-4" />
+							Uncategorized Transaction
+						</Alert.Title>
+						<Alert.Description>
+							This expense will be automatically assigned to "Uncategorized". Consider selecting a category for better budget tracking and analytics.
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
 
 				<!-- Transfer Destination (only for transfers) -->
 				{#if transactionType === 'transfer'}

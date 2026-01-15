@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { RefreshCcw, Clock, CheckCircle, AlertCircle, XCircle, Split, ChevronDown } from '@lucide/svelte';
-	import type { Transaction } from '$lib/core/db';
+	import { RefreshCcw, Clock, CheckCircle, AlertCircle, XCircle, Split, ChevronDown, Tag } from '@lucide/svelte';
+	import type { Transaction, Category } from '$lib/core/db';
 	import { longpress } from '$lib/actions/longpress';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { db } from '$lib/core/db';
 	import { getPriorityName, getPriorityColor } from '$lib/utils/priority-utils';
 	import { getConstraintName, getConstraintInfo } from '$lib/utils/directional-constraint-utils';
+	import { isUncategorizedCategory } from '$lib/utils/category-utils';
 
 	interface Props {
 		transaction: Transaction | any; // Allow grouped transaction objects
@@ -236,6 +237,28 @@
 		}
 		if (transaction.categoryId) return transaction.categoryId;
 		return 'Uncategorized';
+	});
+
+	// Check if transaction is uncategorized
+	let category = $state<Category | null>(null);
+	let isUncategorized = $derived(() => {
+		if (isTransfer() || transaction.type !== 'expense') return false;
+		if (isGroup) {
+			return groupCategory === 'Uncategorized' || !groupCategory;
+		}
+		if (!transaction.categoryId) return true;
+		return category ? isUncategorizedCategory(category) : false;
+	});
+
+	// Load category to check if it's uncategorized
+	$effect(() => {
+		if (!isGroup && transaction.categoryId && transaction.type === 'expense') {
+			db.categories.get(transaction.categoryId).then(cat => {
+				category = cat || null;
+			}).catch(() => {
+				category = null;
+			});
+		}
 	});
 
 	// Get category icon for split groups
@@ -727,6 +750,14 @@
 								<h3 class="font-semibold text-text-primary capitalize truncate text-base">
 									{primaryTag().toString().replace('_', ' ')}
 								</h3>
+
+								<!-- Uncategorized indicator badge -->
+								{#if isUncategorized()}
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/20" title="This transaction needs to be categorized">
+										<Tag class="w-3 h-3" />
+										Uncategorized
+									</span>
+								{/if}
 							</div>
 							
 							<!-- Description with improved typography -->

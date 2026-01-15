@@ -190,7 +190,11 @@
       return edited[field as keyof typeof edited] as number | string | undefined;
     }
     const config = getConfig(currencyCode);
-    return config ? config[field] : undefined;
+    if (!config) return undefined;
+    const value = config[field];
+    // Filter out null and boolean values, only return number, string, or undefined
+    if (value === null || typeof value === 'boolean') return undefined;
+    return value as number | string | undefined;
   }
 
   // Update edited value
@@ -332,7 +336,10 @@
                       min="0"
                       step="0.01"
                       value={getValue(currency.code, 'defaultCheckingBuffer')?.toString() || ''}
-                      oninput={(e) => updateValue(currency.code, 'defaultCheckingBuffer', parseFloat(e.target.value) || 0)}
+                      oninput={(e) => {
+                        const target = e.currentTarget as HTMLInputElement;
+                        updateValue(currency.code, 'defaultCheckingBuffer', parseFloat(target.value) || 0);
+                      }}
                     />
                   </div>
                   <div class="space-y-2">
@@ -343,7 +350,10 @@
                       min="0"
                       step="0.01"
                       value={getValue(currency.code, 'defaultSavingsBuffer')?.toString() || ''}
-                      oninput={(e) => updateValue(currency.code, 'defaultSavingsBuffer', parseFloat(e.target.value) || 0)}
+                      oninput={(e) => {
+                        const target = e.currentTarget as HTMLInputElement;
+                        updateValue(currency.code, 'defaultSavingsBuffer', parseFloat(target.value) || 0);
+                      }}
                     />
                   </div>
                   <div class="space-y-2">
@@ -354,7 +364,10 @@
                       min="0"
                       step="0.01"
                       value={getValue(currency.code, 'defaultMinimumBalance')?.toString() || ''}
-                      oninput={(e) => updateValue(currency.code, 'defaultMinimumBalance', parseFloat(e.target.value) || 0)}
+                      oninput={(e) => {
+                        const target = e.currentTarget as HTMLInputElement;
+                        updateValue(currency.code, 'defaultMinimumBalance', parseFloat(target.value) || 0);
+                      }}
                     />
                   </div>
                   <div class="space-y-2">
@@ -365,7 +378,10 @@
                       min="0"
                       step="0.01"
                       value={getValue(currency.code, 'maxAmountLimit')?.toString() || ''}
-                      oninput={(e) => updateValue(currency.code, 'maxAmountLimit', parseFloat(e.target.value) || 0)}
+                      oninput={(e) => {
+                        const target = e.currentTarget as HTMLInputElement;
+                        updateValue(currency.code, 'maxAmountLimit', parseFloat(target.value) || 0);
+                      }}
                     />
                   </div>
                 </div>
