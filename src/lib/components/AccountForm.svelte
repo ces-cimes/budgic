@@ -1,14 +1,14 @@
 <script lang="ts">
-  import * as Form from '$lib/components/ui/form/index.ts';
   import * as Select from '$lib/components/ui/select/index.ts';
-  import { Label } from '$lib/components/ui/label/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
+  import * as Label from '$lib/components/ui/label/index.ts';
   import { Input } from '$lib/components/ui/input/index.ts';
   import * as Switch from '$lib/components/ui/switch/index.ts';
   import { onMount } from 'svelte';
   import { db, type Account, type AccountMetadata } from '$lib/core/db';
   import { formSchema } from './AccountForm.schema';
   import AccountMetadataForm from './AccountMetadataForm.svelte';
+  import { FormFieldGrid, FormErrorAlert, CurrencyInput, AdvancedOptionsSection } from '$lib/components/forms';
+  import { createMobileInputFocusHandler } from '$lib/utils/mobile-input-utils';
 
   interface Props {
     account?: Partial<Account>;
@@ -40,6 +40,10 @@
   let currencies = $state<Array<{ code: string; name: string; symbol: string; placement: 'before' | 'after'; decimalPlaces: number; label: string }>>([]);
   let isLoadingCurrencies = $state(false);
   let accountMetadata = $state<Partial<AccountMetadata>>(account.metadata || {});
+  let initialBalanceNumber = $state(account.initialBalance || 0);
+  
+  const formId = 'account-form';
+  const handleFocus = createMobileInputFocusHandler();
 
   // Use actual account types from the database schema
   const accountTypes = [
@@ -51,20 +55,17 @@
     { value: 'crypto' as const, label: 'Cryptocurrency', icon: '₿' }
   ];
 
-  const currentCurrency = $derived(
-    currencies.find((c) => c.code === currency) ?? {
-      code: 'USD',
-      name: 'US Dollar',
-      symbol: '$',
-      placement: 'before' as const,
-      decimalPlaces: 2,
-      label: 'USD - US Dollar'
+  // Sync initialBalance string with number
+  $effect(() => {
+    const num = parseFloat(initialBalance);
+    if (!isNaN(num)) {
+      initialBalanceNumber = num;
     }
-  );
-
-  const triggerContent = $derived(
-    currentCurrency.name ?? 'Select currency'
-  );
+  });
+  
+  $effect(() => {
+    initialBalance = initialBalanceNumber.toString();
+  });
 
   const accountTypeTriggerContent = $derived(
     accountTypes.find(type => type.value === accountType)?.label ?? 'Select account type'
@@ -222,142 +223,102 @@
 </script>
 
 <!-- General Error Display -->
-{#if errors.general}
-  <div class="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-    <p class="text-sm text-destructive">{errors.general}</p>
-  </div>
-{/if}
+<FormErrorAlert error={errors.general || null} />
 
 <!-- Account Form -->
-<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-6">
-  <div class="space-y-2">
-    <Label for="accountName">Account Name</Label>
-    <Input 
-      id="accountName"
-      bind:value={accountName}
-      placeholder="e.g., Main Checking, Emergency Fund"
-      class={errors.accountName ? 'border-destructive' : ''}
-    />
-    {#if errors.accountName}
-      <p class="text-sm text-destructive">{errors.accountName}</p>
-    {/if}
-  </div>
-
-  <div class="space-y-2">
-    <Label for="accountType">Account Type</Label>
-    <Select.Root type="single" bind:value={accountType}>
-      <Select.Trigger class="w-full">
-        {accountTypeTriggerContent}
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Group>
-          {#each accountTypes as type (type.value)}
-            <Select.Item
-              value={type.value}
-              label={type.label}
-            >
-              <div class="flex items-center space-x-2">
-                <span>{type.icon}</span>
-                <span>{type.label}</span>
-              </div>
-            </Select.Item>
-          {/each}
-        </Select.Group>
-      </Select.Content>
-    </Select.Root>
-    {#if errors.accountType}
-      <p class="text-sm text-destructive">{errors.accountType}</p>
-    {/if}
-  </div>
-
-  <div class="space-y-2">
-    <Label for="initialBalance">Initial Balance</Label>
-    <div class="relative">
-      <span class="absolute {currentCurrency.placement === 'before' ? 'left-3' : 'right-3'} top-1/2 transform -translate-y-1/2 text-muted-foreground">{currentCurrency.symbol}</span>
-      <Input
-        id="initialBalance"
-        bind:value={initialBalance}
-        placeholder={(() => {
-          const decimalPlaces = currentCurrency.decimalPlaces ?? 2;
-          return `0.${'0'.repeat(decimalPlaces)}`;
-        })()}
-        step={10 ** -currentCurrency.decimalPlaces}
-        class={`${currentCurrency.placement === 'before' ? 'pl-8' : 'pr-8'} ${errors.initialBalance ? 'border-destructive' : ''}`}
+<form id={formId} onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="space-y-4">
+  <FormFieldGrid>
+    <!-- Account Name -->
+    <Label.Root for="accountName" class="">Account Name *</Label.Root>
+    <div>
+      <Input 
+        id="accountName"
+        bind:value={accountName}
+        placeholder="e.g., Main Checking, Emergency Fund"
+        class={errors.accountName ? 'border-destructive' : ''}
+        onfocus={handleFocus}
       />
+      {#if errors.accountName}
+        <p class="text-sm text-destructive mt-1" role="alert">{errors.accountName}</p>
+      {/if}
     </div>
-    {#if errors.initialBalance}
-      <p class="text-sm text-destructive">{errors.initialBalance}</p>
-    {/if}
-  </div>
 
-  <div class="space-y-2">
-    <Label for="currency">Currency</Label>
-    <Select.Root type="single" bind:value={currency}>
-      <Select.Trigger class="w-full">
-        {#if isLoadingCurrencies}
-          Loading currencies...
-        {:else}
-          {triggerContent}
-        {/if}
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Group>
-          {#each currencies as curr (curr.code)}
-            <Select.Item
-              value={curr.code}
-              label={curr.label}
-            >
-              {curr.label}
-            </Select.Item>
-          {/each}
-        </Select.Group>
-      </Select.Content>
-    </Select.Root>
-    {#if errors.currency}
-      <p class="text-sm text-destructive">{errors.currency}</p>
-    {/if}
-  </div>
-
-  <div class="space-y-2">
-    <div class="flex items-center space-x-2">
-      <Switch.Root bind:checked={isActive} />
-      <Label for="isActive">Account is active</Label>
+    <!-- Account Type -->
+    <Label.Root for="accountType" class="">Account Type *</Label.Root>
+    <div>
+      <Select.Root type="single" bind:value={accountType}>
+        <Select.Trigger class="w-full">
+          {accountTypeTriggerContent}
+        </Select.Trigger>
+        <Select.Content>
+          <Select.Group>
+            {#each accountTypes as type (type.value)}
+              <Select.Item
+                value={type.value}
+                label={type.label}
+              >
+                <div class="flex items-center space-x-2">
+                  <span>{type.icon}</span>
+                  <span>{type.label}</span>
+                </div>
+              </Select.Item>
+            {/each}
+          </Select.Group>
+        </Select.Content>
+      </Select.Root>
+      {#if errors.accountType}
+        <p class="text-sm text-destructive mt-1" role="alert">{errors.accountType}</p>
+      {/if}
     </div>
-    <p class="text-xs text-muted-foreground">
-      Inactive accounts won't appear in transaction forms but will be preserved for historical data
-    </p>
-  </div>
 
-  <!-- Account Metadata Form -->
-  <AccountMetadataForm
-    accountType={accountType}
-    metadata={accountMetadata}
-    currency={currency}
-    onMetadataChange={(metadata) => {
-      accountMetadata = metadata;
-    }}
-  />
+    <!-- Initial Balance -->
+    <Label.Root for="initialBalance" class="">Initial Balance</Label.Root>
+    <CurrencyInput
+      id="initialBalance"
+      value={initialBalanceNumber}
+      currency={currency}
+      currencies={currencies}
+      onValueChange={(val) => {
+        initialBalanceNumber = val;
+        initialBalance = val.toString();
+      }}
+      onCurrencyChange={(code) => {
+        currency = code;
+      }}
+      error={errors.initialBalance}
+    />
 
-  <div class="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 md:left-64 z-50">
-    <div class="flex justify-end space-x-4 max-w-2xl mx-auto">
-      <Button.Root
-        type="button"
-        variant="outline"
-        onclick={onCancel}
-        disabled={isSubmitting || isLoading}
-      >
-        {cancelLabel}
-      </Button.Root>
-      <Button.Root
-        type="submit"
-        disabled={isSubmitting || isLoading}
-      >
-        {#if isSubmitting}
-          Saving...
-        {:else}
-          {submitLabel}
-        {/if}
-      </Button.Root>
+    <!-- Account Active -->
+    <Label.Root for="isActive" class="">Active</Label.Root>
+    <div class="space-y-2">
+      <div class="flex items-center space-x-2">
+        <Switch.Root bind:checked={isActive} />
+        <Label.Root for="isActive" class="font-normal">Account is active</Label.Root>
+      </div>
+      <p class="text-xs text-muted-foreground">
+        Inactive accounts won't appear in transaction forms but will be preserved for historical data
+      </p>
     </div>
+  </FormFieldGrid>
+
+  <!-- Advanced Options -->
+  <div class="border-t border-border pt-6 mt-6">
+    <div class="mb-4 space-y-2">
+      <h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wide">Advanced Options</h3>
+      <p class="text-xs text-muted-foreground mb-4">
+        Configure account-specific settings to enable optimization features like fee avoidance,
+        credit utilization tracking, and buffer management.
+      </p>
+    </div>
+    <FormFieldGrid>
+      <AccountMetadataForm
+        accountType={accountType}
+        metadata={accountMetadata}
+        currency={currency}
+        onMetadataChange={(metadata) => {
+          accountMetadata = metadata;
+        }}
+      />
+    </FormFieldGrid>
   </div>
 </form> 

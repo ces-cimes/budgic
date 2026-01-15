@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
+	import { LabelWithTooltip } from '$lib/components/forms';
 	import type { Account, AccountMetadata } from '$lib/core/db';
 	import {
 		getRelevantMetadataFields,
@@ -25,7 +26,6 @@
 	// Get relevant fields for this account type
 	const relevantFields = $derived(getRelevantMetadataFields(accountType));
 	const showMetadata = $derived(relevantFields.length > 0);
-	let isOpen = $state(false);
 
 	// State for metadata fields
 	let metadataState = $state<Partial<AccountMetadata>>(metadata || {});
@@ -154,134 +154,117 @@
 		}
 		return undefined;
 	}
+
+	function getTooltipText(field: keyof AccountMetadata): string {
+		switch (field) {
+			case 'minimumBalance':
+				return 'Minimum balance to maintain in this account';
+			case 'overdraftLimit':
+				return 'Maximum overdraft amount allowed';
+			case 'overdraftFee':
+				return 'Fee charged per overdraft occurrence';
+			case 'interestRate':
+				return 'Annual interest rate (APY) for savings accounts';
+			case 'creditLimit':
+				return 'Maximum credit limit for this card';
+			case 'apr':
+				return 'Annual percentage rate for credit card';
+			case 'statementCloseDate':
+				return 'Day of month when statement closes (1-31)';
+			case 'paymentDueDate':
+				return 'Day of month when payment is due (1-31)';
+			case 'bufferAmount':
+				return 'Safety buffer amount to maintain in account';
+			default:
+				return 'Optional field for account optimization';
+		}
+	}
 </script>
 
 {#if showMetadata}
-	<div class="space-y-4">
-		<button
-			type="button"
-			onclick={() => (isOpen = !isOpen)}
-			class="flex items-center justify-between w-full p-3 rounded-lg border border-border hover:bg-accent transition-colors"
+	{#each relevantFields as field (field)}
+		<!-- Label with Tooltip -->
+		<LabelWithTooltip 
+			for={field} 
+			tooltip={getTooltipText(field)}
 		>
-			<div class="flex items-center space-x-2">
-				<span class="text-sm font-medium">Account Metadata</span>
-				<span class="text-xs text-muted-foreground">(Optional)</span>
-			</div>
-			<span class="text-sm text-muted-foreground">
-				{isOpen ? 'Hide' : 'Show'} advanced settings
-			</span>
-		</button>
-
-		{#if isOpen}
-			<div class="space-y-4 pt-2">
-				<p class="text-xs text-muted-foreground mb-4">
-					Configure account-specific settings to enable optimization features like fee avoidance,
-					credit utilization tracking, and buffer management.
-				</p>
-
-				<div class="space-y-4">
-					{#each relevantFields as field (field)}
-						<div class="space-y-2">
-							<Label for={field}>{formatMetadataFieldLabel(field)}</Label>
-							{#if field === 'accountType' && accountType === 'investment'}
-								{@const fieldValue = metadataState?.[field] ?? ''}
-								<select
-									id={field}
-									value={String(fieldValue)}
-									onchange={(e) => updateField(field, e.currentTarget.value)}
-									class="w-full px-3 py-2 border border-border rounded-md bg-background"
-								>
-									<option value="">Select account type</option>
-									<option value="IRA">IRA</option>
-									<option value="401k">401k</option>
-									<option value="brokerage">Brokerage</option>
-									<option value="other">Other</option>
-								</select>
-							{:else}
-								<div class="relative">
-									{#if (
-										field === 'minimumBalance' ||
-										field === 'overdraftLimit' ||
-										field === 'overdraftFee' ||
-										field === 'creditLimit' ||
-										field === 'minimumPayment' ||
-										field === 'loanBalance' ||
-										field === 'transferLimit' ||
-										field === 'bufferAmount'
-									)}
-										<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-											{currency === 'USD' ? '$' : currency}
-										</span>
-										{@const fieldValue = metadataState?.[field] ?? ''}
-										<Input
-											id={field}
-											type={getInputType(field)}
-											value={String(fieldValue)}
-											oninput={(e) => updateField(field, e.currentTarget.value)}
-											placeholder={getInputPlaceholder(field)}
-											step={getInputStep(field)}
-											min={getInputMin(field)}
-											max={getInputMax(field)}
-											class="pl-8"
-										/>
-									{:else if field === 'interestRate' || field === 'apr'}
-										{@const fieldValue = metadataState?.[field] ?? ''}
-										<Input
-											id={field}
-											type="number"
-											value={String(fieldValue)}
-											oninput={(e) => updateField(field, e.currentTarget.value)}
-											placeholder={getInputPlaceholder(field)}
-											step={getInputStep(field)}
-											min={getInputMin(field)}
-											max={getInputMax(field)}
-											class="pr-8"
-										/>
-										<span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-											%
-										</span>
-									{:else}
-										{@const fieldValue = metadataState?.[field] ?? ''}
-										<Input
-											id={field}
-											type={getInputType(field)}
-											value={String(fieldValue)}
-											oninput={(e) => updateField(field, e.currentTarget.value)}
-											placeholder={getInputPlaceholder(field)}
-											step={getInputStep(field)}
-											min={getInputMin(field)}
-											max={getInputMax(field)}
-										/>
-									{/if}
-								</div>
-							{/if}
-							<p class="text-xs text-muted-foreground">
-								{#if field === 'minimumBalance'}
-									Minimum balance to maintain in this account
-								{:else if field === 'overdraftLimit'}
-									Maximum overdraft amount allowed
-								{:else if field === 'overdraftFee'}
-									Fee charged per overdraft occurrence
-								{:else if field === 'interestRate'}
-									Annual interest rate (APY) for savings accounts
-								{:else if field === 'creditLimit'}
-									Maximum credit limit for this card
-								{:else if field === 'apr'}
-									Annual percentage rate for credit card
-								{:else if field === 'statementCloseDate'}
-									Day of month when statement closes (1-31)
-								{:else if field === 'paymentDueDate'}
-									Day of month when payment is due (1-31)
-								{:else if field === 'bufferAmount'}
-									Safety buffer amount to maintain in account
-								{:else}
-									Optional field for account optimization
-								{/if}
-							</p>
-						</div>
-					{/each}
+			{formatMetadataFieldLabel(field)}
+		</LabelWithTooltip>
+		
+		<!-- Input -->
+		<div>
+			{#if field === 'accountType' && accountType === 'investment'}
+				{@const fieldValue = metadataState?.[field] ?? ''}
+				<select
+					id={field}
+					value={String(fieldValue)}
+					onchange={(e) => updateField(field, e.currentTarget.value)}
+					class="w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+				>
+					<option value="">Select account type</option>
+					<option value="IRA">IRA</option>
+					<option value="401k">401k</option>
+					<option value="brokerage">Brokerage</option>
+					<option value="other">Other</option>
+				</select>
+			{:else}
+				<div class="relative">
+					{#if (
+						field === 'minimumBalance' ||
+						field === 'overdraftLimit' ||
+						field === 'overdraftFee' ||
+						field === 'creditLimit' ||
+						field === 'minimumPayment' ||
+						field === 'loanBalance' ||
+						field === 'transferLimit' ||
+						field === 'bufferAmount'
+					)}
+						<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+							{currency === 'USD' ? '$' : currency}
+						</span>
+						{@const fieldValue = metadataState?.[field] ?? ''}
+						<Input
+							id={field}
+							type={getInputType(field)}
+							value={String(fieldValue)}
+							oninput={(e) => updateField(field, e.currentTarget.value)}
+							placeholder={getInputPlaceholder(field)}
+							step={getInputStep(field)}
+							min={getInputMin(field)}
+							max={getInputMax(field)}
+							class="pl-8"
+						/>
+					{:else if field === 'interestRate' || field === 'apr'}
+						{@const fieldValue = metadataState?.[field] ?? ''}
+						<Input
+							id={field}
+							type="number"
+							value={String(fieldValue)}
+							oninput={(e) => updateField(field, e.currentTarget.value)}
+							placeholder={getInputPlaceholder(field)}
+							step={getInputStep(field)}
+							min={getInputMin(field)}
+							max={getInputMax(field)}
+							class="pr-8"
+						/>
+						<span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+							%
+						</span>
+					{:else}
+						{@const fieldValue = metadataState?.[field] ?? ''}
+						<Input
+							id={field}
+							type={getInputType(field)}
+							value={String(fieldValue)}
+							oninput={(e) => updateField(field, e.currentTarget.value)}
+							placeholder={getInputPlaceholder(field)}
+							step={getInputStep(field)}
+							min={getInputMin(field)}
+							max={getInputMax(field)}
+						/>
+					{/if}
 				</div>
-			</div>
-		{/if}
-	</div>
+			{/if}
+		</div>
+	{/each}
 {/if}

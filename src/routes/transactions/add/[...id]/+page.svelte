@@ -19,6 +19,7 @@
 	import { Trash2, HelpCircle, ChevronDown } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
+	import { FormFieldGrid, FormErrorAlert, AdvancedOptionsSection, LabelWithTooltip } from '$lib/components/forms';
 	import type { DirectionalConstraint, CurrencyInfo } from '$lib/core/db';
 	import { PRIORITY_LEVELS, suggestPriority } from '$lib/utils/priority-utils';
 	import { DIRECTIONAL_CONSTRAINTS, suggestConstraint } from '$lib/utils/directional-constraint-utils';
@@ -420,12 +421,7 @@
 
 	<div class="container mx-auto px-4 py-4 md:py-6 max-w-2xl">
 
-	{#if error}
-		<Alert.Root variant="destructive" class="mb-6">
-			<Alert.Title>Error</Alert.Title>
-			<Alert.Description>{error}</Alert.Description>
-		</Alert.Root>
-	{/if}
+	<FormErrorAlert error={error || null} />
 
 	<!-- Transaction Form -->
 	<section class="mb-6">
@@ -479,7 +475,7 @@
 			</div>
 
 			<!-- Main Form Fields -->
-			<div class="grid grid-cols-[auto_1fr] gap-4">
+			<FormFieldGrid>
 				<!-- Account Selection -->
 				<Label.Root for="account" class="">
 					Account {status === 'planned' && transactionType !== 'transfer' ? '' : '*'}
@@ -703,14 +699,10 @@
 						{/if}
 					</div>
 				{/if}
-			</div>
+			</FormFieldGrid>
 
 			<!-- Advanced Options -->
-			<div class="border-t border-border pt-6 mt-6">
-				<div class="mb-4">
-					<h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wide">Advanced Options</h3>
-				</div>
-				<div class="grid grid-cols-[auto_1fr] gap-4">
+			<AdvancedOptionsSection>
 					<!-- Group Transaction -->
 					<Label.Root for="group" class="text-right md:flex-shrink-0">Group</Label.Root>
 					<div class="flex-1 space-y-2">
@@ -751,17 +743,12 @@
 					></textarea>
 
 					<!-- Priority -->
-					<div class="flex items-center gap-2">
-						<Label.Root for="priority">Priority</Label.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								<HelpCircle class="w-4 h-4 text-muted-foreground" />
-							</Tooltip.Trigger>
-							<Tooltip.Content>
-								<p class="max-w-xs">Priority helps the optimization system understand transaction importance. Higher numbers = more important.</p>
-							</Tooltip.Content>
-						</Tooltip.Root>
-					</div>
+					<LabelWithTooltip 
+						for="priority" 
+						tooltip="Priority helps the optimization system understand transaction importance. Higher numbers = more important."
+					>
+						Priority
+					</LabelWithTooltip>
 					<Select.Root 
 						type="single" 
 						value={priorityString}
@@ -792,17 +779,12 @@
 					</Select.Root>
 
 					<!-- Directional Constraint -->
-					<div class="flex items-center gap-2">
-						<Label.Root for="directionalConstraint">Directional Constraint</Label.Root>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								<HelpCircle class="w-4 h-4 text-muted-foreground" />
-							</Tooltip.Trigger>
-							<Tooltip.Content>
-								<p class="max-w-xs">Controls how the transaction date can be moved during optimization. Leave empty for full flexibility.</p>
-							</Tooltip.Content>
-						</Tooltip.Root>
-					</div>
+					<LabelWithTooltip 
+						for="directionalConstraint" 
+						tooltip="Controls how the transaction date can be moved during optimization. Leave empty for full flexibility."
+					>
+						Directional Constraint
+					</LabelWithTooltip>
 					<Select.Root 
 						type="single" 
 						value={directionalConstraint || 'none'}
@@ -822,8 +804,7 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
-				</div>
-			</div>
+			</AdvancedOptionsSection>
 		</form>
 	</section>
 </div>

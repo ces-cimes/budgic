@@ -2,34 +2,22 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import * as Button from '$lib/components/ui/button/index.ts';
-	import * as Tabs from '$lib/components/ui/tabs/index.ts';
 	import { accountService, transactionService, userService } from '$lib/core/services';
-	import AccountForm from '$lib/components/AccountForm.svelte';
 	import type { Account, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';
-	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { PageLayout } from '$lib/components/layouts';
+	import Header from '$lib/components/Header.svelte';
+	import { Pencil } from '@lucide/svelte';
 
 	const { data } = $props<{ data: any }>();
 
 	let account = $state<Account | null>(null);
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
-	let isEditing = $state(false);
-	let activeTab = $state('transactions');
 	let userCurrency = $state<string>('USD');
 
-
 	const accountId = $derived($page.params.id);
-
-	const accountIcons = {
-		checking: '🏦',
-		savings: '💰',
-		credit: '💳',
-		cash: '💵',
-		investment: '📈',
-		crypto: '₿'
-	};
 
 	onMount(async () => {
 		// Load user currency preference first
@@ -62,28 +50,19 @@
 	async function loadTransactions() {
 		try {
 			if (accountId) {
-				transactions = await transactionService.getTransactionsByAccount(accountId);
+				const transactionsData = await transactionService.getTransactionsByAccount(accountId);
+				// Filter out any null/undefined or deleted transactions as a safety measure
+				transactions = transactionsData.filter(t => t && !t.deletedAt);
 			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
 		}
 	}
 
-	async function handleUpdateAccount(accountData: Partial<Account>) {
-		if (!account) return;
-		
-		try {
-			await accountService.updateAccount(account.id, accountData);
-			await loadAccount(); // Reload account data
-			isEditing = false;
-		} catch (error) {
-			console.error('Failed to update account:', error);
-			throw error; // Let the form component handle the error
+	function handleEdit() {
+		if (account) {
+			goto(`/accounts/add/${account.id}`);
 		}
-	}
-
-	function handleCancelEdit() {
-		isEditing = false;
 	}
 
 	function formatBalance(balance: number, currency: string) {
@@ -91,12 +70,14 @@
 	}
 
 	function formatDate(dateString: string) {
-		return new Date(dateString).toLocaleDateString();
+		if (!dateString) return 'No date';
+		try {
+			return new Date(dateString).toLocaleDateString();
+		} catch {
+			return 'Invalid date';
+		}
 	}
 
-	function goBack() {
-		goto('/accounts');
-	}
 </script>
 
 <svelte:head>
@@ -104,129 +85,99 @@
 </svelte:head>
 
 <PageLayout>
-	
+	{#snippet topBar()}
+		<Header 
+			title={account ? account.name : 'Account'}
+			showBackButton={true}
+			backButtonLink="/accounts"
+			backButtonLabel="Back to Accounts"
+			buttonProps={account ? [{
+				text: 'Edit',
+				onclick: handleEdit,
+				variant: 'outline',
+				size: 'sm',
+				icon: Pencil,
+				className: 'hidden sm:flex'
+			}] : []}
+		/>
+	{/snippet}
 
-	<div class="container mx-auto px-4 py-6 max-w-6xl">
-	<!-- Header -->
-	<header class="mb-8">
-		<Button.Root 
-			variant="ghost"
-			onclick={goBack}
-			class="flex items-center space-x-2 text-muted-foreground hover:text-primary mb-4"
-		>
-			<span>←</span>
-			<span>Back to Accounts</span>
-		</Button.Root>
-		
-		{#if isLoading}
-			<div class="animate-pulse">
-				<div class="h-8 bg-muted rounded w-1/3 mb-2"></div>
-				<div class="h-4 bg-muted rounded w-1/2"></div>
-			</div>
-		{:else if account}
-			<div class="flex items-center justify-between">
-				<div>
-					<h1 class="text-3xl font-bold text-primary mb-2">{account.name}</h1>
-					<div class="flex items-center space-x-4 text-muted-foreground">
-						<span class="flex items-center space-x-2">
-							<span class="text-xl">{accountIcons[account.type]}</span>
-							<span class="capitalize">{account.type}</span>
-						</span>
-						<span>•</span>
-						<span>{account.currency}</span>
-					</div>
-				</div>
-				<Button.Root
-					variant="outline"
-					onclick={() => isEditing = !isEditing}
-				>
-					{isEditing ? 'Cancel Edit' : 'Edit Account'}
-				</Button.Root>
-			</div>
-		{/if}
-	</header>
-
+	<div class="container mx-auto px-4 py-4 md:py-6 max-w-6xl">
 	{#if account && !isLoading}
 		<!-- Account Balance Card -->
 		<section class="mb-8">
 			<div class="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
-				<h2 class="text-lg font-medium mb-2">Current Balance</h2>
-				<div class="text-4xl font-bold">
-					{formatBalance(account.currentBalance, account.currency)}
+				<div class="flex items-start justify-between">
+					<div class="flex-1">
+						<h2 class="text-lg font-medium mb-2">Current Balance</h2>
+						<div class="text-4xl font-bold">
+							{formatBalance(account.currentBalance, account.currency)}
+						</div>
+						<p class="text-primary-foreground/70 mt-2">
+							Initial balance: {formatBalance(account.initialBalance, account.currency)}
+						</p>
+					</div>
+					<!-- Edit button for mobile -->
+					<Button.Root
+						variant="outline"
+						size="sm"
+						onclick={handleEdit}
+						class="sm:hidden text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/10"
+					>
+						<Pencil size={16} />
+						<span class="ml-2">Edit</span>
+					</Button.Root>
 				</div>
-				<p class="text-primary-foreground/70 mt-2">
-					Initial balance: {formatBalance(account.initialBalance, account.currency)}
-				</p>
 			</div>
 		</section>
 
-		<!-- Tabs -->
-		<Tabs.Root value={activeTab} onValueChange={(value) => activeTab = value}>
-			<Tabs.List class="grid w-full grid-cols-2 mb-8">
-				<Tabs.Trigger value="transactions">Transactions</Tabs.Trigger>
-				<Tabs.Trigger value="edit">Edit Account</Tabs.Trigger>
-			</Tabs.List>
+		<!-- Transactions List -->
+		<section class="space-y-4">
+			<div class="flex items-center justify-between">
+				<h2 class="text-xl font-semibold text-primary">Recent Transactions</h2>
+				<Button.Root onclick={() => goto('/transactions/add')}>
+					Add Transaction
+				</Button.Root>
+			</div>
 
-			<Tabs.Content value="transactions" class="space-y-4">
-				<div class="flex items-center justify-between">
-					<h2 class="text-xl font-semibold text-primary">Recent Transactions</h2>
+			{#if transactions.length === 0}
+				<div class="text-center py-12 bg-card rounded-lg border border-border">
+					<p class="text-muted-foreground mb-4">No transactions found for this account</p>
 					<Button.Root onclick={() => goto('/transactions/add')}>
-						Add Transaction
+						Add Your First Transaction
 					</Button.Root>
 				</div>
-
-				{#if transactions.length === 0}
-					<div class="text-center py-12">
-						<p class="text-muted-foreground mb-4">No transactions found for this account</p>
-						<Button.Root onclick={() => goto('/transactions/add')}>
-							Add Your First Transaction
-						</Button.Root>
-					</div>
-				{:else}
-					<div class="bg-card rounded-lg border border-border">
-						{#each transactions.slice(0, 10) as transaction}
-							<div class="p-4 border-b border-border last:border-b-0 hover:bg-muted/50">
-								<div class="flex items-center justify-between">
-									<div>
-										<p class="font-medium">{transaction.description || 'No description'}</p>
-										<p class="text-sm text-muted-foreground">
-											{formatDate(transaction.clearedDate || transaction.plannedDate || transaction.createdAt)}
-										</p>
-									</div>
-									<div class="text-right">
-										<p class="font-semibold {(transaction.amount ?? 0) >= 0 ? 'text-success' : 'text-destructive'}">
-											{formatBalance(transaction.amount ?? 0, transaction.currency)}
-										</p>
-										<p class="text-sm text-muted-foreground capitalize">{transaction.type}</p>
-									</div>
+			{:else}
+				<div class="bg-card rounded-lg border border-border">
+					{#each transactions.slice(0, 10).filter(t => t) as transaction (transaction.id)}
+						<div class="p-4 border-b border-border last:border-b-0 hover:bg-muted/50">
+							<div class="flex items-center justify-between">
+								<div>
+									<p class="font-medium">{transaction?.description || 'No description'}</p>
+									<p class="text-sm text-muted-foreground">
+										{formatDate(transaction?.clearedDate || transaction?.plannedDate || transaction?.createdAt || '')}
+									</p>
+								</div>
+								<div class="text-right">
+									<p class="font-semibold {((transaction?.amount ?? 0) >= 0 ? 'text-success' : 'text-destructive')}">
+										{formatBalance(transaction?.amount ?? 0, transaction?.currency || 'USD')}
+									</p>
+									<p class="text-sm text-muted-foreground capitalize">{transaction?.type || 'unknown'}</p>
 								</div>
 							</div>
-						{/each}
-					</div>
-					
-					{#if transactions.length > 10}
-						<div class="text-center">
-							<Button.Root variant="outline" onclick={() => goto('/transactions')}>
-								View All Transactions
-							</Button.Root>
 						</div>
-					{/if}
-				{/if}
-			</Tabs.Content>
-
-			<Tabs.Content value="edit">
-				<div class="max-w-2xl">
-					<h2 class="text-xl font-semibold text-primary mb-6">Edit Account</h2>
-					<AccountForm 
-						account={account}
-						onSubmit={handleUpdateAccount}
-						onCancel={handleCancelEdit}
-						submitLabel="Update Account"
-						cancelLabel="Cancel"
-					/>
+					{/each}
 				</div>
-			</Tabs.Content>
-		</Tabs.Root>
+				
+				{#if transactions.length > 10}
+					<div class="text-center">
+						<Button.Root variant="outline" onclick={() => goto('/transactions')}>
+							View All Transactions
+						</Button.Root>
+					</div>
+				{/if}
+			{/if}
+		</section>
 	{/if}
 	</div>
 </PageLayout> 
