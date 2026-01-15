@@ -1,4 +1,5 @@
-import type { DirectionalConstraint } from '$lib/core/db';
+import type { DirectionalConstraint, FlexibilityTier } from '$lib/core/db';
+import { validateFlexibilityMovement, getMaxFlexibilityDays } from './flexibility-tier-utils';
 
 /**
  * Directional constraint utilities for transaction optimization
@@ -123,6 +124,67 @@ export function validateDateMovement(
 	}
 
 	return { isValid: true };
+}
+
+/**
+ * Validate if a date movement is allowed based on both directional constraint and flexibility tier
+ * This is the combined validation function that should be used for optimization
+ * @param constraint The directional constraint
+ * @param flexibilityTier The flexibility tier
+ * @param originalDate The original scheduled date
+ * @param newDate The proposed new date
+ * @returns Validation result with isValid flag, optional error message, and days moved
+ */
+export function validateDateMovementWithFlexibility(
+	constraint: DirectionalConstraint | undefined,
+	flexibilityTier: FlexibilityTier | undefined,
+	originalDate: Date,
+	newDate: Date
+): { isValid: boolean; error?: string; daysMoved: number } {
+	// First check directional constraint
+	const constraintValidation = validateDateMovement(constraint, originalDate, newDate);
+	if (!constraintValidation.isValid) {
+		const timeDiff = newDate.getTime() - originalDate.getTime();
+		const daysMoved = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+		return {
+			isValid: false,
+			error: constraintValidation.error,
+			daysMoved
+		};
+	}
+
+	// Then check flexibility tier
+	const flexibilityValidation = validateFlexibilityMovement(flexibilityTier, originalDate, newDate);
+	if (!flexibilityValidation.isValid) {
+		return flexibilityValidation;
+	}
+
+	// Both validations passed
+	return {
+		isValid: true,
+		daysMoved: flexibilityValidation.daysMoved
+	};
+}
+
+/**
+ * Get the effective maximum days a transaction can be moved considering both constraints
+ * Returns the minimum of directional constraint limit and flexibility tier limit
+ */
+export function getEffectiveMaxDays(
+	constraint: DirectionalConstraint | undefined,
+	flexibilityTier: FlexibilityTier | undefined
+): number {
+	// If constraint is fixed, no movement allowed
+	if (constraint === 'fixed') {
+		return 0;
+	}
+
+	// Get flexibility tier limit
+	const flexibilityMax = getMaxFlexibilityDays(flexibilityTier);
+	
+	// For forward-only or backward-only, the limit is still the flexibility tier
+	// (the direction is handled separately in validation)
+	return flexibilityMax;
 }
 
 /**

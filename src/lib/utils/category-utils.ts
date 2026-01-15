@@ -29,16 +29,6 @@ export async function getOrCreateUncategorizedCategory(): Promise<Category> {
 	const uncategorizedCategory: Category = {
 		id: generateUUID(),
 		name: UNCATEGORIZED_NAME,
-	
-	if (existing) {
-		return existing;
-	}
-	
-	// Create the uncategorized category if it doesn't exist
-	// Use 'lifestyle' tier with lowest priority since it's a catch-all
-	const uncategorizedCategory: Category = {
-		id: generateUUID(),
-		name: UNCategorized_NAME,
 		type: 'expense',
 		waterfallTier: 'lifestyle',
 		priority: 999, // Lowest priority

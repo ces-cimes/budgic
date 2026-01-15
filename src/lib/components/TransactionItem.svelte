@@ -6,6 +6,7 @@
 	import { db } from '$lib/core/db';
 	import { getPriorityName, getPriorityColor } from '$lib/utils/priority-utils';
 	import { getConstraintName, getConstraintInfo } from '$lib/utils/directional-constraint-utils';
+	import { getFlexibilityTierInfo, getFlexibilityTierIcon } from '$lib/utils/flexibility-tier-utils';
 	import { isUncategorizedCategory } from '$lib/utils/category-utils';
 
 	interface Props {
@@ -776,7 +777,7 @@
 								</div>
 							{/if}
 							
-							<!-- Priority and Constraint badges -->
+							<!-- Priority, Constraint, and Flexibility Tier badges -->
 							<div class="flex items-center space-x-1 mt-1 flex-wrap gap-1">
 								{#if transaction.priority}
 									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface {getPriorityColor(transaction.priority)}">
@@ -787,6 +788,12 @@
 									{@const constraintInfo = getConstraintInfo(transaction.directionalConstraint)}
 									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
 										{constraintInfo?.icon} {constraintInfo?.name}
+									</span>
+								{/if}
+								{#if transaction.flexibilityTier}
+									{@const tierInfo = getFlexibilityTierInfo(transaction.flexibilityTier)}
+									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
+										{tierInfo?.icon} {tierInfo?.name} ({tierInfo?.daysRange})
 									</span>
 								{/if}
 							</div>

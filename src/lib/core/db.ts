@@ -724,6 +724,15 @@ export const DirectionalConstraint = z.enum([
 	'fixed'        // Cannot be moved (e.g., fixed date commitments)
 ]);
 
+// Flexibility Tier enum for transaction optimization
+export const FlexibilityTier = z.enum([
+	'fixed',              // 0 days - Cannot be moved
+	'semi-fixed',         // ±1-2 days - Limited flexibility
+	'flexible-constrained', // ±3-7 days - Moderate flexibility
+	'flexible',           // ±14-30 days - High flexibility
+	'deferrable'          // 30+ days - Can postpone to next period
+]);
+
 const TransactionSchema = BaseSchema.extend({
 	type: TransactionType,
 	status: TransactionStatus,
@@ -773,7 +782,8 @@ const TransactionSchema = BaseSchema.extend({
 	
 	// Optimization fields
 	priority: z.number().min(1).max(10).optional(), // Priority score 1-10 (higher = more important)
-	directionalConstraint: DirectionalConstraint.optional() // Constraint on date movement
+	directionalConstraint: DirectionalConstraint.optional(), // Constraint on date movement
+	flexibilityTier: FlexibilityTier.optional() // Flexibility tier for date movement range
 });
 
 
@@ -892,6 +902,7 @@ export type UserAction = z.infer<typeof UserActionSchema>;
 export type Goal = z.infer<typeof GoalSchema>;
 export type Insight = z.infer<typeof InsightSchema>;
 export type CurrencyConfiguration = z.infer<typeof CurrencyConfigurationSchema>;
+export type FlexibilityTier = z.infer<typeof FlexibilityTier>;
 
 // Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
@@ -954,7 +965,7 @@ export class BudgicDB extends Dexie {
 		super('BudgicDB');
 		
 		// Database schema versions
-		this.version(8).stores({
+		this.version(9).stores({
 			// Core entities - simplified to 9 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',

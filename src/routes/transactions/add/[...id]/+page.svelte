@@ -21,9 +21,10 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { FormFieldGrid, FormErrorAlert, AdvancedOptionsSection, LabelWithTooltip } from '$lib/components/forms';
-	import type { DirectionalConstraint, CurrencyInfo } from '$lib/core/db';
+	import type { DirectionalConstraint, FlexibilityTier, CurrencyInfo } from '$lib/core/db';
 	import { PRIORITY_LEVELS, suggestPriority } from '$lib/utils/priority-utils';
 	import { DIRECTIONAL_CONSTRAINTS, suggestConstraint } from '$lib/utils/directional-constraint-utils';
+	import { FLEXIBILITY_TIERS, suggestFlexibilityTierWithConstraint } from '$lib/utils/flexibility-tier-utils';
 	import { getCurrencyInfo } from '$lib/utils/currency-utils';
 
 	let accounts = $state<Account[]>([]);
@@ -88,6 +89,7 @@
 	// Optimization fields
 	let priority = $state<number | undefined>(undefined);
 	let directionalConstraint = $state<DirectionalConstraint | undefined>(undefined);
+	let flexibilityTier = $state<FlexibilityTier | undefined>(undefined);
 	
 	// String version of priority for Select component (Select expects strings)
 	let priorityString = $state<string>('');
@@ -257,9 +259,11 @@
 					priority = transaction.priority;
 					priorityString = transaction.priority?.toString() || '';
 					directionalConstraint = transaction.directionalConstraint || undefined;
+					flexibilityTier = transaction.flexibilityTier || undefined;
 					// Reset suggestion flags when editing
 					hasSuggestedPriority = true;
 					hasSuggestedConstraint = true;
+					hasSuggestedFlexibilityTier = true;
 				} else {
 					error = 'Transaction not found';
 				}
@@ -294,10 +298,11 @@
 	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
 	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update' : 'Create'));
 
-	// Auto-suggest priority and constraint when category or type changes
+	// Auto-suggest priority, constraint, and flexibility tier when category or type changes
 	// Only suggest once when category/type is first set, not on every change
 	let hasSuggestedPriority = $state(false);
 	let hasSuggestedConstraint = $state(false);
+	let hasSuggestedFlexibilityTier = $state(false);
 	
 	$effect(() => {
 		// Only auto-suggest for new transactions (not when editing)
@@ -316,6 +321,33 @@
 				directionalConstraint = suggestConstraint(transactionType, categoryName, isRecurring);
 				hasSuggestedConstraint = true;
 			}
+			
+			// Auto-suggest flexibility tier if not set and haven't suggested yet
+			// This should run after constraint is set to ensure consistency
+			if (!hasSuggestedFlexibilityTier && flexibilityTier === undefined && (transactionType || categoryName)) {
+				flexibilityTier = suggestFlexibilityTierWithConstraint(
+					transactionType, 
+					categoryName, 
+					directionalConstraint
+				);
+				hasSuggestedFlexibilityTier = true;
+			}
+		}
+	});
+	
+	// Update flexibility tier when directional constraint changes to maintain consistency
+	$effect(() => {
+		if (directionalConstraint === 'fixed' && flexibilityTier !== 'fixed') {
+			flexibilityTier = 'fixed';
+		} else if (directionalConstraint && directionalConstraint !== 'fixed' && flexibilityTier === 'fixed') {
+			// If constraint is not fixed but tier is fixed, suggest a more flexible tier
+			const category = selectedCategory ? categories.find(c => c.id === selectedCategory) : undefined;
+			const categoryName = category?.name;
+			flexibilityTier = suggestFlexibilityTierWithConstraint(
+				transactionType, 
+				categoryName, 
+				directionalConstraint
+			);
 		}
 	});
 
@@ -365,7 +397,8 @@
 				groupName: isGroupTransaction ? groupName : undefined,
 				groupId: isGroupTransaction ? crypto.randomUUID() : undefined,
 				priority: priority,
-				directionalConstraint: directionalConstraint === 'none' ? undefined : directionalConstraint
+				directionalConstraint: directionalConstraint === 'none' ? undefined : directionalConstraint,
+				flexibilityTier: flexibilityTier
 			};
 
 			// Handle transfer details if it's a transfer
@@ -557,7 +590,7 @@
 				<!-- Category -->
 				<Label.Root for="category" class="">Category</Label.Root>
 				<Select.Root type="single" bind:value={selectedCategory}>
-					<Select.Trigger>
+					<Select.Trigger class="w-full">
 						{selectedCategory ? categories.find(c => c.id === selectedCategory)?.name : "Select a category (optional)"}
 					</Select.Trigger>
 					<Select.Content>
@@ -572,6 +605,7 @@
 
 				<!-- Uncategorized prompt for expenses -->
 				{#if transactionType === 'expense' && !selectedCategory}
+					<div></div>
 					<Alert.Root variant="default" class="border-warning/20 bg-warning/5">
 						<Alert.Title class="flex items-center gap-2">
 							<Tag class="w-4 h-4" />
@@ -799,7 +833,7 @@
 							}
 						}}
 					>
-						<Select.Trigger>
+						<Select.Trigger class="w-full">
 							{priority ? `${priority} - ${PRIORITY_LEVELS.find(p => p.value === priority)?.name || 'Unknown'}` : "Select priority"}
 						</Select.Trigger>
 						<Select.Content>
@@ -826,7 +860,7 @@
 							directionalConstraint = (value === 'none' || value === '') ? undefined : (value as DirectionalConstraint);
 						}}
 					>
-						<Select.Trigger>
+						<Select.Trigger class="w-full">
 							{directionalConstraint && directionalConstraint !== 'none' ? DIRECTIONAL_CONSTRAINTS.find(c => c.value === directionalConstraint)?.name : "Select constraint"}
 						</Select.Trigger>
 						<Select.Content>
@@ -834,6 +868,33 @@
 							{#each DIRECTIONAL_CONSTRAINTS.filter(c => c.value !== 'none') as constraint}
 								<Select.Item value={constraint.value}>
 									{constraint.icon} {constraint.name}
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+
+					<!-- Flexibility Tier -->
+					<LabelWithTooltip 
+						for="flexibilityTier" 
+						tooltip="Defines how many days the transaction date can be moved during optimization. Works together with directional constraints."
+					>
+						Flexibility Tier
+					</LabelWithTooltip>
+					<Select.Root 
+						type="single" 
+						value={flexibilityTier || ''}
+						onValueChange={(value) => {
+							flexibilityTier = (value === '' || !value) ? undefined : (value as FlexibilityTier);
+						}}
+					>
+						<Select.Trigger class="w-full">
+							{flexibilityTier ? FLEXIBILITY_TIERS.find(t => t.value === flexibilityTier)?.name : "Select flexibility tier"}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="">No tier</Select.Item>
+							{#each FLEXIBILITY_TIERS as tier}
+								<Select.Item value={tier.value}>
+									{tier.icon} {tier.name} ({tier.daysRange})
 								</Select.Item>
 							{/each}
 						</Select.Content>
