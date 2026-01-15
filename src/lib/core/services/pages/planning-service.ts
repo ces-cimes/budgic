@@ -1,5 +1,6 @@
 import { accountService, userService, transactionService, budgetService, crossRouteSyncService, insightsService } from '$lib/core/services';
 import type { Account } from '$lib/core/db';
+import { calculateEnhancedAllowance, calculateGlobalAllowance, getSimpleDailyAllowance, type EnhancedAllowance } from '$lib/utils/allowance-utils';
 
 // Simplified types for planning
 export interface PlanningData {
@@ -112,31 +113,12 @@ class PlanService {
   }
 
   /**
-   * Get daily allowance for an account
+   * Get daily allowance (global calculation across all accounts)
    */
-  async getDailyAllowance(accountId: string): Promise<DailyAllowance> {
+  async getDailyAllowance(accountId?: string): Promise<DailyAllowance> {
     try {
-      const preferences = await userService.getUserPreferences();
-      const account = await accountService.getAccount(accountId);
-      
-      if (!account) {
-        throw new Error('Account not found');
-      }
-      
-      // Calculate daily allowance based on current balance and remaining days in month
-      const now = new Date();
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const daysRemaining = Math.max(1, endOfMonth.getDate() - now.getDate());
-      
-      const dailyAllowanceAmount = account.currentBalance / daysRemaining;
-      const userCurrency = await this.getUserCurrency();
-      
-      return {
-        amount: Math.max(0, dailyAllowanceAmount),
-        currency: userCurrency,
-        daysRemaining,
-        projectedBalance: account.currentBalance
-      };
+      // Use global allowance calculation (accountId is optional for backward compatibility)
+      return await getSimpleDailyAllowance(accountId);
     } catch (error) {
       console.error('Error getting daily allowance:', error);
       const userCurrency = await this.getUserCurrency();
@@ -145,6 +127,52 @@ class PlanService {
         currency: userCurrency,
         daysRemaining: 30,
         projectedBalance: 0
+      };
+    }
+  }
+
+  /**
+   * Get enhanced allowance calculation with categories and recommendations (global)
+   */
+  async getEnhancedAllowance(accountId?: string): Promise<EnhancedAllowance> {
+    try {
+      // If accountId provided, return account-specific (for account detail pages)
+      if (accountId) {
+        const account = await accountService.getAccount(accountId);
+        if (account) {
+          return await calculateEnhancedAllowance(account);
+        }
+      }
+      
+      // Otherwise return global allowance across all accounts
+      return await calculateGlobalAllowance();
+    } catch (error) {
+      console.error('Error getting enhanced allowance:', error);
+      // Return empty allowance structure on error
+      const now = new Date();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const userCurrency = await this.getUserCurrency();
+      const emptyAllowance = {
+        dailySafe: 0,
+        monthly: 0,
+        remaining: 0,
+        currency: userCurrency,
+        daysRemaining: Math.max(1, endOfMonth.getDate() - now.getDate()),
+        methodWeights: { historical: 0, buffer: 0.5, velocity: 0.5 },
+        methodResults: { buffer: 0, velocity: 0 },
+        spentSoFar: 0,
+        projectedBalance: 0,
+        confidence: 0
+      };
+      
+      return {
+        essential: emptyAllowance,
+        discretionary: emptyAllowance,
+        buffer: emptyAllowance,
+        total: emptyAllowance,
+        periodStart: new Date(now.getFullYear(), now.getMonth(), 1),
+        periodEnd: endOfMonth,
+        recommendations: []
       };
     }
   }

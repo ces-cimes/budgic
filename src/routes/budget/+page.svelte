@@ -30,6 +30,7 @@
     type WeeklyProjection
   } from '$lib/components/budget';
   import { planService, userService } from '$lib/core/services';
+  import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 
   // Tab configuration
   const budgetTabs: TabConfig[] = [
@@ -44,6 +45,7 @@
   let userCurrency = $state<string>('USD');
   let selectedAccountId = $state<string>('');
   let dailyAllowance = $state<DailyAllowance | null>(null);
+  let enhancedAllowance = $state<EnhancedAllowance | null>(null);
   let weeklyProjections = $state<WeeklyProjection[]>([]);
   let planningData = $state<PlanningData | null>(null);
   let error = $state<string | null>(null);
@@ -81,7 +83,7 @@
 
       selectedAccountId = activeAccount.id;
       
-      // Load planning data
+      // Load planning data (including global allowance)
       await loadPlanningData();
       
       // Track user viewing plan page (simplified - no tracking for now)
@@ -111,13 +113,16 @@
   });
 
   async function loadPlanningData() {
-    if (!selectedAccountId) return;
-    
     try {
-      // Load comprehensive planning data
-      planningData = await planService.getPlanningData(selectedAccountId);
-      dailyAllowance = await planService.getDailyAllowance(selectedAccountId);
-      weeklyProjections = await planService.getWeeklyProjections(selectedAccountId);
+      // Load global allowance (across all accounts)
+      enhancedAllowance = await planService.getEnhancedAllowance();
+      dailyAllowance = await planService.getDailyAllowance();
+      
+      // Load account-specific planning data if account selected
+      if (selectedAccountId) {
+        planningData = await planService.getPlanningData(selectedAccountId);
+        weeklyProjections = await planService.getWeeklyProjections(selectedAccountId);
+      }
     } catch (error) {
       console.error('Error loading planning data:', error);
       error = error instanceof Error ? error.message : 'Failed to load planning data';
@@ -188,6 +193,7 @@
         <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={budgetTabs}>
           <OverviewTab
             dailyAllowance={dailyAllowance}
+            enhancedAllowance={enhancedAllowance}
             totalPlannedIncome={totalPlannedIncome()}
             totalPlannedExpenses={totalPlannedExpenses()}
             netProjectedChange={netProjectedChange()}

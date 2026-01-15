@@ -9,6 +9,9 @@
   import { PageLayout } from '$lib/components/layouts';
   import Fab from '$lib/components/Fab.svelte';
   import { Plus } from '@lucide/svelte';
+  import AllowanceSummary from '$lib/components/AllowanceSummary.svelte';
+  import { planService } from '$lib/core/services';
+  import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 
   const { data } = $props<{ data: any }>();
 
@@ -20,6 +23,8 @@
   let monthlyExpenses = $state(0);
   let userCurrency = $state<string>('USD');
   let insights = $state<any[]>([]);
+  let globalAllowance = $state<EnhancedAllowance | null>(null);
+  let isLoadingAllowance = $state(false);
 
   onMount(async () => {
     try {
@@ -51,10 +56,24 @@
       
       monthlyIncome = incomeTransactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
       monthlyExpenses = expenseTransactions.reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
+      
+      // Load global allowance
+      await loadGlobalAllowance();
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     }
   });
+
+  async function loadGlobalAllowance() {
+    isLoadingAllowance = true;
+    try {
+      globalAllowance = await planService.getEnhancedAllowance();
+    } catch (error) {
+      console.error('Error loading global allowance:', error);
+    } finally {
+      isLoadingAllowance = false;
+    }
+  }
 
   // Currency formatting hook
   const currencyFormat = useCurrencyFormatting();
@@ -151,6 +170,11 @@
         <div class="text-sm text-muted-foreground">This month</div>
       </div>
     </div>
+  </section>
+
+  <!-- Spending Allowance -->
+  <section class="mb-8">
+    <AllowanceSummary allowance={globalAllowance} isLoading={isLoadingAllowance} />
   </section>
 
   <!-- Quick Actions -->

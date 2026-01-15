@@ -10,6 +10,9 @@
 	import Header from '$lib/components/Header.svelte';
 	import { Pencil } from '@lucide/svelte';
 	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
+	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
+	import { planService } from '$lib/core/services';
+	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 
 	const { data } = $props<{ data: any }>();
 
@@ -17,6 +20,8 @@
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
 	let userCurrency = $state<string | null>(null);
+	let enhancedAllowance = $state<EnhancedAllowance | null>(null);
+	let isLoadingAllowance = $state(false);
 
 	const accountId = $derived($page.params.id);
 
@@ -27,6 +32,7 @@
 		
 		await loadAccount();
 		await loadTransactions();
+		await loadEnhancedAllowance();
 	});
 
 	async function loadAccount() {
@@ -57,6 +63,19 @@
 			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
+		}
+	}
+
+	async function loadEnhancedAllowance() {
+		if (!accountId || !account) return;
+		
+		isLoadingAllowance = true;
+		try {
+			enhancedAllowance = await planService.getEnhancedAllowance(accountId);
+		} catch (error) {
+			console.error('Error loading enhanced allowance:', error);
+		} finally {
+			isLoadingAllowance = false;
 		}
 	}
 
@@ -138,6 +157,22 @@
 				<div class="bg-card rounded-xl p-6 shadow-sm border border-border">
 					<h2 class="text-xl font-semibold text-primary mb-4">Buffer Status</h2>
 					<BufferVisualization {account} showDetails={true} />
+				</div>
+			</section>
+		{/if}
+
+		<!-- Enhanced Allowance -->
+		{#if account && (account.type === 'checking' || account.type === 'savings')}
+			<section class="mb-8">
+				<div class="bg-card rounded-xl p-6 shadow-sm border border-border">
+					<h2 class="text-xl font-semibold text-primary mb-4">Spending Allowance</h2>
+					{#if isLoadingAllowance}
+						<div class="text-center py-8 text-muted-foreground">Loading allowance calculation...</div>
+					{:else if enhancedAllowance}
+						<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} />
+					{:else}
+						<div class="text-center py-8 text-muted-foreground">Unable to calculate allowance</div>
+					{/if}
 				</div>
 			</section>
 		{/if}

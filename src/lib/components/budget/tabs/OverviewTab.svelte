@@ -15,9 +15,11 @@
   } from '@lucide/svelte';
   import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
   import type { OverviewTabProps, DailyAllowance } from '../types.js';
+  import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 
   const { 
-    dailyAllowance, 
+    dailyAllowance,
+    enhancedAllowance,
     totalPlannedIncome, 
     totalPlannedExpenses, 
     netProjectedChange, 
@@ -62,8 +64,14 @@
 </script>
 
 <div class="space-y-6 p-4">
-  <!-- Daily Allowance Card -->
-  {#if dailyAllowance}
+  <!-- Enhanced Allowance Card -->
+  {#if enhancedAllowance}
+    <div class="bg-card rounded-xl p-6 shadow-sm border border-border">
+      <h2 class="text-xl font-semibold text-primary mb-4">Spending Allowance</h2>
+      <AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} />
+    </div>
+  {:else if dailyAllowance}
+    <!-- Fallback to simple allowance if enhanced not available -->
     <Card class="border-border">
       <CardHeader class="pb-3">
         <div class="flex items-center justify-between">
@@ -73,63 +81,18 @@
             </div>
             <CardTitle class="text-primary text-lg">Daily Allowance</CardTitle>
           </div>
-          <Badge
-            variant={dailyAllowance.confidenceLevel === 'high'
-              ? 'default'
-              : dailyAllowance.confidenceLevel === 'medium'
-                ? 'secondary'
-                : 'destructive'}
-            class="text-xs"
-          >
-            {dailyAllowance.confidenceLevel}
-          </Badge>
         </div>
       </CardHeader>
       <CardContent class="space-y-4">
-        <!-- Main Allowance -->
         <div class="text-center">
           <div class="text-primary mb-1 text-3xl font-bold">
-            {formatTransactionAmountLocal(dailyAllowance.dailyAllowance)}
+            {formatTransactionAmountLocal(dailyAllowance.amount)}
           </div>
           <div class="text-muted-foreground text-sm">per day</div>
-        </div>
-
-        <!-- Breakdown Grid -->
-        <div class="grid grid-cols-2 gap-3 text-sm">
-          <div class="bg-muted/50 rounded-lg p-3">
-            <div class="text-muted-foreground">Available</div>
-            <div class="text-primary font-semibold">
-              {formatTransactionAmountLocal(dailyAllowance.availableAmount)}
-            </div>
-          </div>
-          <div class="bg-muted/50 rounded-lg p-3">
-            <div class="text-muted-foreground">This Week</div>
-            <div class="text-primary font-semibold">
-              {formatTransactionAmountLocal(dailyAllowance.weeklyAllowance)}
-            </div>
+          <div class="text-muted-foreground text-xs mt-1">
+            {dailyAllowance.daysRemaining} days remaining
           </div>
         </div>
-
-        <!-- Days until next income -->
-        <div class="flex items-center justify-between text-sm">
-          <span class="text-muted-foreground">Days until next income:</span>
-          <span class="text-primary font-medium">
-            {dailyAllowance.daysUntilNextIncome}
-          </span>
-        </div>
-
-        <!-- Buffer recommendation -->
-        {#if dailyAllowance.availableAmount < dailyAllowance.bufferRecommendation}
-          <div class="bg-warning/10 border-warning/20 rounded-lg border p-3">
-            <div class="flex items-center gap-2 text-warning">
-              <AlertTriangle size={14} />
-              <span class="text-sm font-medium">Low Buffer</span>
-            </div>
-            <p class="text-warning text-xs mt-1">
-              Consider maintaining a {formatTransactionAmountLocal(dailyAllowance.bufferRecommendation)} buffer
-            </p>
-          </div>
-        {/if}
       </CardContent>
     </Card>
   {/if}
@@ -202,27 +165,4 @@
     </CardContent>
   </Card>
 
-  <!-- Confidence Level Explanation -->
-  {#if dailyAllowance}
-    <Card class="border-border">
-      <CardHeader>
-        <CardTitle class="text-lg flex items-center gap-2">
-          {@const ConfidenceIcon = getConfidenceIcon(dailyAllowance.confidenceLevel)}
-          <ConfidenceIcon class={getConfidenceColor(dailyAllowance.confidenceLevel)} size={18} />
-          Planning Confidence
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div class="text-sm text-muted-foreground">
-          {#if dailyAllowance.confidenceLevel === 'high'}
-            Your planning data is highly reliable with most transactions confirmed.
-          {:else if dailyAllowance.confidenceLevel === 'medium'}
-            Your planning data has moderate reliability. Consider confirming more transactions.
-          {:else}
-            Your planning data has low reliability. Please review and confirm your planned transactions.
-          {/if}
-        </div>
-      </CardContent>
-    </Card>
-  {/if}
 </div>

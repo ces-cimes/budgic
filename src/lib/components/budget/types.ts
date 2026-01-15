@@ -20,6 +20,7 @@ export type { TabConfig } from '$lib/components/shared/types';
 // Planning-specific component props
 export interface OverviewTabProps {
   dailyAllowance: DailyAllowance | null;
+  enhancedAllowance?: import('$lib/utils/allowance-utils').EnhancedAllowance | null;
   totalPlannedIncome: number;
   totalPlannedExpenses: number;
   netProjectedChange: number;
