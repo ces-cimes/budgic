@@ -46,9 +46,9 @@
           symbol: c.symbol
         }));
 
-      // If no currencies found, use default USD
+      // If no currencies found, this is an error state
       if (currencyOptions.length === 0) {
-        currencyOptions = [{ value: 'USD', label: 'US Dollar (USD)', symbol: '$' }];
+        console.error('No currencies available in database');
       }
 
       // Load user preferences
@@ -57,16 +57,19 @@
         theme = preferences.theme || 'dark';
         language = preferences.language || 'en';
         // Validate currency exists in available currencies
-        const currencyExists = currencyOptions.some(c => c.value === preferences.currency);
-        currency = currencyExists ? (preferences.currency || 'USD') : (currencyOptions[0]?.value || 'USD');
+        if (preferences.currency) {
+          const currencyExists = currencyOptions.some(c => c.value === preferences.currency);
+          currency = currencyExists ? preferences.currency : (currencyOptions[0]?.value || currency);
+        } else if (currencyOptions.length > 0) {
+          currency = currencyOptions[0].value;
+        }
+      } else if (currencyOptions.length > 0) {
+        currency = currencyOptions[0].value;
       }
     } catch (err) {
       error = 'Failed to load display settings';
       console.error('Error loading preferences:', err);
-      // Fallback to default currency if loading fails
-      if (currencyOptions.length === 0) {
-        currencyOptions = [{ value: 'USD', label: 'US Dollar (USD)', symbol: '$' }];
-      }
+      // Don't set fallback - let the form handle the error
     } finally {
       isLoading = false;
     }

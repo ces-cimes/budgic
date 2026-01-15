@@ -20,7 +20,7 @@
 
   let accounts = $state<any[]>([]);
   let totalBalance = $state(0);
-  let userCurrency = $state<string>('USD');
+  let userCurrency = $state<string | null>(null);
 
   const accountIcons = {
     checking: Wallet,
@@ -38,7 +38,7 @@
     try {
       // Load user currency preference first
       const preferences = await userService.getUserPreferences();
-      userCurrency = preferences?.currency || 'USD';
+      userCurrency = preferences?.currency || null;
       
       const accountsData = await accountService.getAccounts();
       const totalBalanceValue = await accountService.getTotalBalance();
@@ -117,7 +117,7 @@
   <section class="mb-8">
     <div class="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
       <h2 class="text-lg font-medium mb-2">Total Balance</h2>
-      <div class="text-4xl font-bold">{currencyFormat.formatBalance(totalBalance, userCurrency)}</div>
+      <div class="text-4xl font-bold">{currencyFormat.formatBalance(totalBalance, userCurrency || 'USD')}</div>
     </div>
   </section>
 

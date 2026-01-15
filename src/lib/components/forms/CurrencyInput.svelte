@@ -52,15 +52,21 @@
 
 	// Get current currency info
 	let currentCurrencyInfo = $derived(() => {
-		return getCurrencyInfo(currency) || {
-			code: 'USD',
-			name: 'US Dollar',
-			symbol: '$',
-			placement: 'before' as const,
-			decimalPlaces: 2,
-			isSystem: true,
-			isActive: true
-		} as CurrencyInfo;
+		const info = getCurrencyInfo(currency);
+		if (!info) {
+			console.warn(`Currency info not found for code: ${currency}`);
+			// Return minimal fallback - but this should not happen in normal operation
+			return {
+				code: currency,
+				name: currency,
+				symbol: currency,
+				placement: 'before' as const,
+				decimalPlaces: 2,
+				isSystem: false,
+				isActive: true
+			} as CurrencyInfo;
+		}
+		return info;
 	});
 
 	// Get currency symbol for display

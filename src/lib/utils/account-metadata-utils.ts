@@ -4,6 +4,7 @@
  */
 
 import type { Account, AccountMetadata } from '$lib/core/db';
+import { currencyConfigService } from '$lib/core/services/core/currency-config-service';
 
 /**
  * Get metadata fields relevant to a specific account type
@@ -129,6 +130,9 @@ export async function calculateRecommendedBuffer(
 	// Calculate based on account type and historical data
 	switch (account.type) {
 		case 'checking': {
+			// Get currency-specific default buffer
+			const currencyDefaultBuffer = await currencyConfigService.getDefaultBuffer('checking', account.currency);
+			
 			// For checking accounts, calculate based on average monthly expenses
 			let monthlyExpenses = 0;
 			
@@ -154,17 +158,19 @@ export async function calculateRecommendedBuffer(
 				}
 			}
 			
-			// Default buffer: 1 month of expenses, minimum $500, or minimum balance requirement
+			// Default buffer: 1 month of expenses, minimum currency-specific default, or minimum balance requirement
 			const calculatedBuffer = monthlyExpenses > 0 
-				? Math.max(monthlyExpenses, 500)
-				: Math.max(500, account.metadata?.minimumBalance || 0);
+				? Math.max(monthlyExpenses, currencyDefaultBuffer)
+				: Math.max(currencyDefaultBuffer, account.metadata?.minimumBalance || 0);
 			
 			return Math.max(calculatedBuffer, account.metadata?.minimumBalance || 0);
 		}
 		
 		case 'savings': {
-			// Savings accounts: 10% of balance or $1000, whichever is higher
-			return Math.max(1000, account.currentBalance * 0.1);
+			// Get currency-specific default buffer
+			const currencyDefaultBuffer = await currencyConfigService.getDefaultBuffer('savings', account.currency);
+			// Savings accounts: 10% of balance or currency-specific default, whichever is higher
+			return Math.max(currencyDefaultBuffer, account.currentBalance * 0.1);
 		}
 		
 		case 'credit': {
@@ -180,6 +186,9 @@ export async function calculateRecommendedBuffer(
 /**
  * Get buffer amount (user-defined or calculated default)
  * For async calculation with transaction data, use calculateRecommendedBuffer
+ * 
+ * Note: This is a synchronous fallback. For accurate currency-specific defaults,
+ * use calculateRecommendedBuffer which is async and uses currency config service.
  */
 export function getBufferAmount(account: Account): number {
 	if (account.metadata?.bufferAmount !== undefined) {
@@ -187,13 +196,14 @@ export function getBufferAmount(account: Account): number {
 	}
 
 	// Default buffer calculation based on account type (synchronous fallback)
+	// This uses hardcoded values as a last resort - prefer calculateRecommendedBuffer for accuracy
 	switch (account.type) {
 		case 'checking':
-			// Default to minimum balance or $500, whichever is higher
-			return Math.max(500, account.metadata?.minimumBalance || 0);
+			// Default to minimum balance or 0 (will be calculated properly in async version)
+			return Math.max(0, account.metadata?.minimumBalance || 0);
 		case 'savings':
-			// Savings accounts typically have larger buffers
-			return Math.max(1000, account.currentBalance * 0.1);
+			// Savings accounts: 10% of balance or 0 (will be calculated properly in async version)
+			return Math.max(0, account.currentBalance * 0.1);
 		default:
 			return 0;
 	}

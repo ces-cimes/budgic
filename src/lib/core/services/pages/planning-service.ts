@@ -129,19 +129,20 @@ class PlanService {
       const daysRemaining = Math.max(1, endOfMonth.getDate() - now.getDate());
       
       const dailyAllowanceAmount = account.currentBalance / daysRemaining;
+      const userCurrency = await this.getUserCurrency();
       
       return {
         amount: Math.max(0, dailyAllowanceAmount),
-        currency: preferences?.currency || 'USD',
+        currency: userCurrency,
         daysRemaining,
         projectedBalance: account.currentBalance
       };
     } catch (error) {
       console.error('Error getting daily allowance:', error);
-      const preferences = await userService.getUserPreferences();
+      const userCurrency = await this.getUserCurrency();
       return {
         amount: 0,
-        currency: preferences?.currency || 'USD',
+        currency: userCurrency,
         daysRemaining: 30,
         projectedBalance: 0
       };
@@ -395,8 +396,8 @@ class PlanService {
    * Get user's preferred currency
    */
   async getUserCurrency(): Promise<string> {
-    const preferences = await userService.getUserPreferences();
-    return preferences?.currency || 'USD';
+    const { getUserMainCurrency } = await import('$lib/utils/currency-utils');
+    return await getUserMainCurrency();
   }
 
   /**

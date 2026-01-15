@@ -1,5 +1,6 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { UserPreferences, UserAction } from '$lib/core/db';
+import { CURRENCY_REGISTRY } from '$lib/core/db';
 
 interface UserProfile {
     id: string;
@@ -56,6 +57,8 @@ class UserService {
             await db.userPreferences.update(existing.id, updated);
             return updated;
         } else {
+            const detectedCurrency = this.detectCurrencyFromLocale();
+            
             const newPreferences: UserPreferences = {
                 id: generateUUID(),
                 username: 'User',
@@ -64,7 +67,7 @@ class UserService {
                 maxGlobalBorrowPercentage: 0.1,
                 theme: 'dark',
                 language: 'en',
-                currency: 'USD',
+                currency: updates.currency || detectedCurrency,
                 userMaturityLevel: 'beginner',
                 onboardingCompleted: false,
                 enableAdvancedFeatures: false,
@@ -319,9 +322,68 @@ class UserService {
     // ============================================================================
 
     /**
+     * Detect currency from browser locale
+     */
+    private detectCurrencyFromLocale(): string {
+        try {
+            // Try to get currency from browser locale
+            const locale = navigator.language || 'en-US';
+            const formatter = new Intl.NumberFormat(locale, {
+                style: 'currency',
+                currency: 'USD' // Fallback, but we'll extract the actual currency
+            });
+            
+            // Get currency code from locale (e.g., 'en-US' -> try 'USD', 'en-GB' -> try 'GBP')
+            const region = locale.split('-')[1];
+            if (region) {
+                // Map common regions to currencies
+                const regionToCurrency: Record<string, string> = {
+                'US': 'USD',
+                'GB': 'GBP',
+                'CA': 'CAD',
+                'AU': 'AUD',
+                'JP': 'JPY',
+                'CN': 'CNY',
+                'CH': 'CHF',
+                'RU': 'RUB',
+                'EU': 'EUR',
+                'DE': 'EUR',
+                'FR': 'EUR',
+                'IT': 'EUR',
+                'ES': 'EUR',
+                };
+                
+                const detectedCurrency = regionToCurrency[region];
+                if (detectedCurrency && CURRENCY_REGISTRY.has(detectedCurrency)) {
+                    return detectedCurrency;
+                }
+            }
+            
+            // Try to get currency from Intl API
+            const currencyCode = formatter.resolvedOptions().currency;
+            if (currencyCode && CURRENCY_REGISTRY.has(currencyCode)) {
+                return currencyCode;
+            }
+        } catch (error) {
+            console.warn('Failed to detect currency from locale:', error);
+        }
+        
+        // Last resort: check if USD is available, otherwise use first available currency
+        if (CURRENCY_REGISTRY.has('USD')) {
+            return 'USD';
+        }
+        
+        // Use first available system currency
+        const firstCurrency = Array.from(CURRENCY_REGISTRY.keys())[0];
+        return firstCurrency || 'USD'; // Absolute last resort
+    }
+
+    /**
      * Create default user preferences
      */
     private async createDefaultPreferences(): Promise<UserPreferences> {
+        const detectedCurrency = this.detectCurrencyFromLocale();
+        
         const preferences: UserPreferences = {
             id: generateUUID(),
             username: 'User',
@@ -330,7 +392,7 @@ class UserService {
             maxGlobalBorrowPercentage: 0.1,
             theme: 'dark',
             language: 'en',
-            currency: 'USD',
+            currency: detectedCurrency,
             userMaturityLevel: 'beginner',
             onboardingCompleted: false,
             enableAdvancedFeatures: false,

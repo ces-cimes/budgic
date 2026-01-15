@@ -231,6 +231,7 @@ export const CURRENCY_REGISTRY = new Map<string, CurrencyInfo>([
 	['AUD', { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
 	['CHF', { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
 	['CNY', { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
+	['RUB', { code: 'RUB', name: 'Russian Ruble', symbol: '₽', placement: 'after', decimalPlaces: 2, isSystem: true, isActive: true }],
 	['BTC', { code: 'BTC', name: 'Bitcoin', symbol: '₿', placement: 'before', decimalPlaces: 8, isSystem: true, isActive: true }],
 	['ETH', { code: 'ETH', name: 'Ethereum', symbol: 'Ξ', placement: 'before', decimalPlaces: 18, isSystem: true, isActive: true }],
 ]);
@@ -648,7 +649,7 @@ const AccountMetadataSchema = z.object({
 const AccountSchema = BaseSchema.extend({
 	name: z.string().min(1),
 	type: z.enum(['checking', 'savings', 'credit', 'cash', 'investment', 'crypto']),
-	currency: z.string().min(3).max(3).default('USD'),
+	currency: z.string().min(3).max(3), // No default - must be explicitly provided
 	initialBalance: z.number().default(0),
 	currentBalance: z.number().default(0),
 	isActive: z.boolean().default(true),
@@ -790,7 +791,7 @@ const UserPreferencesSchema = BaseSchema.extend({
 	// UI Preferences
 	theme: z.enum(['light', 'dark']).default('dark'),
 	language: z.enum(['en', 'ru']).default('en'),
-	currency: z.string().min(3).max(3).default('USD'),
+	currency: z.string().min(3).max(3), // No default - will be detected from locale or user selection
 	
 	// User Maturity and Onboarding
 	userMaturityLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).default('beginner'),
@@ -823,7 +824,7 @@ const GoalSchema = BaseSchema.extend({
 	description: z.string().optional(),
 	targetAmount: z.number().positive(),
 	currentAmount: z.number().min(0).default(0),
-	currency: z.string().length(3),
+	currency: z.string().min(3).max(3), // No default - must be explicitly provided
 	category: z.enum(['emergency_fund', 'vacation', 'house_down_payment', 'car_purchase', 'education', 'retirement', 'debt_payoff', 'investment', 'wedding', 'home_improvement', 'other']),
 	priority: z.enum(['low', 'medium', 'high', 'critical']),
 	status: z.enum(['active', 'paused', 'completed', 'cancelled']).default('active'),
@@ -857,6 +858,26 @@ const InsightSchema = BaseSchema.extend({
 	metadata: z.string().optional() // JSON string
 });
 
+// Currency Configuration Schema - Currency-specific defaults and thresholds
+const CurrencyConfigurationSchema = BaseSchema.extend({
+	currencyCode: z.string().min(3).max(3), // ISO 4217 code
+	// Buffer defaults
+	defaultCheckingBuffer: z.number().min(0).optional(),
+	defaultSavingsBuffer: z.number().min(0).optional(),
+	// Account type defaults
+	defaultMinimumBalance: z.number().min(0).optional(),
+	defaultOverdraftLimit: z.number().min(0).optional(),
+	defaultOverdraftFee: z.number().min(0).optional(),
+	// Validation limits
+	maxAmountLimit: z.number().min(0).optional(), // Override default 1M limit
+	// Budget defaults (if needed)
+	defaultBudgetAllocation: z.number().min(0).optional(),
+	// User customization flag
+	isCustom: z.boolean().default(false), // true if user customized, false if system default
+	// Metadata
+	notes: z.string().optional(),
+});
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -870,6 +891,7 @@ export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 export type UserAction = z.infer<typeof UserActionSchema>;
 export type Goal = z.infer<typeof GoalSchema>;
 export type Insight = z.infer<typeof InsightSchema>;
+export type CurrencyConfiguration = z.infer<typeof CurrencyConfigurationSchema>;
 
 // Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
@@ -917,7 +939,7 @@ export type DirectionalConstraint = z.infer<typeof DirectionalConstraint>;
 // ============================================================================
 
 export class BudgicDB extends Dexie {
-	// Core entities (8 tables total)
+	// Core entities (9 tables total)
 	accounts!: Table<Account>;
 	currencies!: Table<Currency>;
 	categories!: Table<Category>;
@@ -926,13 +948,14 @@ export class BudgicDB extends Dexie {
 	userPreferences!: Table<UserPreferences>;
 	userActions!: Table<UserAction>;
 	insights!: Table<Insight>;
+	currencyConfigurations!: Table<CurrencyConfiguration>;
 
 	constructor() {
 		super('BudgicDB');
 		
 		// Database schema versions
-		this.version(7).stores({
-			// Core entities - simplified to 8 tables
+		this.version(8).stores({
+			// Core entities - simplified to 9 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
 			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
@@ -940,7 +963,8 @@ export class BudgicDB extends Dexie {
 			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
-			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]'
+			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt'
 		});
 
 		// Add validation hooks
@@ -958,6 +982,8 @@ export class BudgicDB extends Dexie {
 			// Check if system currencies already exist
 			const existingCurrencies = await this.getSystemCurrencies();
 			if (existingCurrencies.length > 0) {
+				// Currencies exist, but check if currency configs need initialization
+				await this.initializeCurrencyConfigurations();
 				return; // Already initialized
 			}
 
@@ -979,8 +1005,21 @@ export class BudgicDB extends Dexie {
 					});
 				}
 			}
+
+			// Initialize currency configurations after currencies are created
+			await this.initializeCurrencyConfigurations();
 		} catch (error) {
 			console.error('Failed to initialize system currencies:', error);
+		}
+	}
+
+	private async initializeCurrencyConfigurations(): Promise<void> {
+		try {
+			// Import currency config service dynamically to avoid circular dependencies
+			const { currencyConfigService } = await import('./services/core/currency-config-service');
+			await currencyConfigService.initializeSystemDefaults();
+		} catch (error) {
+			console.error('Failed to initialize currency configurations:', error);
 		}
 	}
 
@@ -1034,6 +1073,33 @@ export class BudgicDB extends Dexie {
 			} catch (error) {
 				console.error('Currency update validation failed:', error);
 				console.error('Currency data:', obj);
+				console.error('Modifications:', modifications);
+				throw error;
+			}
+		});
+
+		// Currency Configuration validation
+		this.currencyConfigurations.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = CurrencyConfigurationSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Currency configuration validation failed:', error);
+				console.error('Currency configuration data:', obj);
+				throw error;
+			}
+		});
+
+		this.currencyConfigurations.hook('updating', (modifications: Partial<CurrencyConfiguration>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				CurrencyConfigurationSchema.parse(updated);
+			} catch (error) {
+				console.error('Currency configuration update validation failed:', error);
+				console.error('Currency configuration data:', obj);
 				console.error('Modifications:', modifications);
 				throw error;
 			}
@@ -1253,6 +1319,10 @@ export class BudgicDB extends Dexie {
 		});
 
 		this.currencies.hook('reading', (obj) => {
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.currencyConfigurations.hook('reading', (obj) => {
 			return obj.deletedAt ? undefined : obj;
 		});
 
@@ -1793,6 +1863,10 @@ export class BudgicDB extends Dexie {
 
 	async getAllUserActionsIncludingDeleted(): Promise<UserAction[]> {
 		return await this.userActions.toArray();
+	}
+
+	async getAllCurrencyConfigurationsIncludingDeleted(): Promise<CurrencyConfiguration[]> {
+		return await this.currencyConfigurations.toArray();
 	}
 
 	// ============================================================================

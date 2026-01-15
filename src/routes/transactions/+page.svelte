@@ -29,7 +29,7 @@
 	let transactions = $state<any[]>([]);
 	let accounts = $state<Record<string, any>>({});
 	let budgetCategories = $state<Record<string, any>>({});
-	let userCurrency = $state<string>('USD');
+	let userCurrency = $state<string | null>(null);
 	let toggleValues = $state<string[]>(['date', 'smart']); // Initialize with date filter enabled and smart grouping
 
 	// Sync toggle values with individual state variables
@@ -234,7 +234,7 @@
 		try {
 			// Load user currency preference first
 			const preferences = await userService.getUserPreferences();
-			userCurrency = preferences?.currency || 'USD';
+			userCurrency = preferences?.currency || null;
 			
 			// Load accounts and budget categories for name resolution
 			const [accountsData, budgetCategoriesData] = await Promise.all([

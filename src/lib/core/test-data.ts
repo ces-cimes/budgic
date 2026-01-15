@@ -139,6 +139,10 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
     console.debug('[SampleData] Creating sample transactions...');
     
     try {
+        // Get currency from accounts (all should use the same currency from user preferences)
+        const checkingCurrency = accounts.checking.currency;
+        const savingsCurrency = accounts.savings.currency;
+        
         const transactions = [
             // Income transactions
             {
@@ -146,7 +150,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'income' as const,
                 categoryId: categories['salary-category'],
                 amount: 3500,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Monthly salary',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -156,7 +160,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'income' as const,
                 categoryId: categories['freelance-category'],
                 amount: 800,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Freelance project payment',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -168,7 +172,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'expense' as const,
                 categoryId: categories['rent-category'],
                 amount: 1200,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Monthly rent',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
@@ -178,7 +182,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'expense' as const,
                 categoryId: categories['utilities-category'],
                 amount: 150,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Electricity bill',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
@@ -190,7 +194,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'expense' as const,
                 categoryId: categories['groceries-category'],
                 amount: 200,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Weekly groceries',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
@@ -200,7 +204,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'expense' as const,
                 categoryId: categories['dining-out-category'],
                 amount: 45,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Dinner at restaurant',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
@@ -212,7 +216,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'expense' as const,
                 categoryId: categories['transportation-category'],
                 amount: 80,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Gas for car',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
@@ -224,7 +228,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'expense' as const,
                 categoryId: categories['savings-category'],
                 amount: 500,
-                currency: 'USD',
+                currency: savingsCurrency,
                 description: 'Monthly savings transfer',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
@@ -236,7 +240,7 @@ async function createSampleTransactions(accounts: Record<string, Account>, categ
                 type: 'expense' as const,
                 categoryId: categories['savings-category'],
                 amount: 300,
-                currency: 'USD',
+                currency: checkingCurrency,
                 description: 'Credit card payment',
                 status: 'cleared' as const,
                 clearedDate: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString()
@@ -258,10 +262,14 @@ async function createSampleUserPreferences() {
     console.debug('[SampleData] Creating sample user preferences...');
     
     try {
+        // Get currency from preferences or use USD as last resort
+        const preferences = await userService.getUserPreferences();
+        const currency = preferences?.currency || 'USD';
+        
         await userService.updateUserPreferences({
             username: 'Sample User',
             theme: 'dark',
-            currency: 'USD',
+            currency: currency,
             language: 'en',
             userMaturityLevel: 'intermediate',
             onboardingCompleted: true,

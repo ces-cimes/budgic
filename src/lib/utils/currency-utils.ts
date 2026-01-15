@@ -82,7 +82,15 @@ export function formatAmount(amount: number | undefined | null, currencyCode: st
  */
 export function formatTransactionAmount(amount: number | undefined | null, currencyCode: string, showSign: boolean = true): string {
     if (amount === undefined || amount === null || isNaN(amount)) {
-        return '$0.00'; // No sign for zero
+        // Format zero with the provided currency, not hardcoded USD
+        const currencyInfo = getCurrencyInfo(currencyCode);
+        if (currencyInfo) {
+            const formattedZero = (0).toFixed(currencyInfo.decimalPlaces);
+            const symbol = currencyInfo.symbol;
+            const placement = currencyInfo.placement || 'before';
+            return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
+        }
+        return '0.00'; // Fallback if currency not found
     }
 
     const currencyInfo = getCurrencyInfo(currencyCode);
@@ -290,9 +298,25 @@ function formatCompactAmount(amount: number, decimalPlaces: number): string {
 }
 
 /**
- * Format amount for general display using user's main currency
+ * Get user's main currency from preferences
+ * Returns USD as last resort fallback only
  */
-export function formatMainCurrencyAmount(amount: number | undefined | null, mainCurrencyCode: string = 'USD'): string {
+export async function getUserMainCurrency(): Promise<string> {
+    try {
+        const { userService } = await import('$lib/core/services');
+        const preferences = await userService.getUserPreferences();
+        return preferences?.currency || 'USD'; // Last resort fallback
+    } catch (error) {
+        console.warn('Failed to get user main currency:', error);
+        return 'USD'; // Last resort fallback
+    }
+}
+
+/**
+ * Format amount for general display using user's main currency
+ * Note: This function now requires currency parameter - use getUserMainCurrency() to get it
+ */
+export function formatMainCurrencyAmount(amount: number | undefined | null, mainCurrencyCode: string): string {
     return formatAmount(amount, mainCurrencyCode);
 }
 

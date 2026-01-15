@@ -47,30 +47,27 @@
           label: `${c.code} - ${c.name}`
         }));
 
-      // If no currencies found, use default USD
+      // If no currencies found, this is an error state
       if (currencies.length === 0) {
-        currencies = [{ value: 'USD', label: 'USD - US Dollar' }];
+        console.error('No currencies available in database');
       }
 
       // Load existing preferences if available (but don't redirect)
       const preferences = await userService.getUserPreferences();
       if (preferences.username) formData.username = preferences.username;
-      if (preferences.currency) {
+      if (preferences.currency && currencies.length > 0) {
         // Validate currency exists in available currencies
         const currencyExists = currencies.some(c => c.value === preferences.currency);
-        formData.currency = currencyExists ? preferences.currency : currencies[0]?.value || 'USD';
-      } else {
-        formData.currency = currencies[0]?.value || 'USD';
+        formData.currency = currencyExists ? preferences.currency : currencies[0]?.value || null;
+      } else if (currencies.length > 0) {
+        formData.currency = currencies[0].value;
       }
       if (preferences.theme) formData.theme = preferences.theme;
       if (preferences.language) formData.language = preferences.language;
       if (preferences.userMaturityLevel) formData.userMaturityLevel = preferences.userMaturityLevel;
     } catch (err) {
       console.error('Error loading data:', err);
-      // Fallback to default currency if loading fails
-      if (currencies.length === 0) {
-        currencies = [{ value: 'USD', label: 'USD - US Dollar' }];
-      }
+      // Don't set fallback - let the form handle the error
     } finally {
       isLoading = false;
     }

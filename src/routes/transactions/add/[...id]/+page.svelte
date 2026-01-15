@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { transactionService, accountService, budgetService } from '$lib/core/services';
+	import { transactionService, accountService, budgetService, userService } from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import type { Account, Transaction, Category } from '$lib/core/db';
 	import * as Form from '$lib/components/ui/form/index.ts';
@@ -33,7 +33,7 @@
 	let selectedAccount = $state('');
 	let description = $state('');
 	let amount = $state(0);
-	let currency = $state('USD');
+	let currency = $state<string | null>(null);
 	let transactionType = $state<Transaction['type']>('expense');
 	let status = $state<Transaction['status']>('cleared');
 	
@@ -106,19 +106,16 @@
 	
 	// Get current currency info
 	let currentCurrencyInfo = $derived(() => {
-		return getCurrencyInfo(currency) || {
-			code: 'USD',
-			name: 'US Dollar',
-			symbol: '$',
-			placement: 'before' as const,
-			decimalPlaces: 2,
-			isSystem: true,
-			isActive: true
-		};
+		if (!currency) return null;
+		const info = getCurrencyInfo(currency);
+		if (!info) {
+			console.warn(`Currency info not found for code: ${currency}`);
+		}
+		return info;
 	});
 	
 	// Get currency symbol for display
-	let currencySymbol = $derived(() => currentCurrencyInfo().symbol);
+	let currencySymbol = $derived(() => currentCurrencyInfo()?.symbol || currency || '?');
 	
 	// Get account currency when account is selected
 	$effect(() => {
@@ -212,15 +209,26 @@
 					decimalPlaces: curr.decimalPlaces
 				}));
 			
-			// If no currencies found, use default USD
+			// If no currencies found, this is an error state
 			if (currencies.length === 0) {
-				currencies = [{
-					code: 'USD',
-					name: 'US Dollar',
-					symbol: '$',
-					placement: 'before' as const,
-					decimalPlaces: 2
-				}];
+				console.error('No currencies available in database');
+			}
+			
+			// Set default currency from user preferences if not already set
+			if (!currency && currencies.length > 0) {
+				try {
+					const preferences = await userService.getUserPreferences();
+					if (preferences?.currency && currencies.some(c => c.code === preferences.currency)) {
+						currency = preferences.currency;
+					} else {
+						currency = currencies[0].code;
+					}
+				} catch (err) {
+					console.error('Error loading user preferences:', err);
+					if (currencies.length > 0) {
+						currency = currencies[0].code;
+					}
+				}
 			}
 			
 			// Check if we have an ID parameter (edit mode)
@@ -232,7 +240,7 @@
 					selectedAccount = transaction.accountId || '';
 					description = transaction.description || '';
 					amount = transaction.amount || 0;
-					currency = transaction.currency || 'USD';
+					currency = transaction.currency || currency || null;
 					transactionType = transaction.type;
 					status = transaction.status;
 					selectedCategory = transaction.categoryId || '';
@@ -261,7 +269,11 @@
 				if (accounts.length > 0) {
 					// Set transfer fee account and currency defaults (needed for transfer fees)
 					transferFeeAccountId = accounts[0].id;
-					currency = accounts[0].currency || 'USD';
+					if (accounts[0].currency) {
+						currency = accounts[0].currency;
+					} else if (!currency && currencies.length > 0) {
+						currency = currencies[0].code;
+					}
 					// Note: selectedAccount is intentionally left empty - user must select it
 					// Validation will catch missing accounts for cleared/pending/transfer transactions
 				}
@@ -523,7 +535,9 @@
 						bind:value={amount}
 						placeholder="0.00"
 						step={(() => {
-							const decimals = currentCurrencyInfo().decimalPlaces;
+							const info = currentCurrencyInfo();
+							if (!info) return '0.01';
+							const decimals = info.decimalPlaces;
 							if (decimals === 0) return '1';
 							if (decimals === 1) return '0.1';
 							if (decimals === 2) return '0.01';
@@ -599,7 +613,9 @@
 										bind:value={transferFeeAmount}
 										placeholder="0.00"
 										step={(() => {
-											const decimals = currentCurrencyInfo().decimalPlaces;
+											const info = currentCurrencyInfo();
+											if (!info) return '0.01';
+											const decimals = info.decimalPlaces;
 											if (decimals === 0) return '1';
 											if (decimals === 1) return '0.1';
 											if (decimals === 2) return '0.01';

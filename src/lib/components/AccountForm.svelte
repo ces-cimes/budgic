@@ -32,7 +32,7 @@
   let accountName = $state(account.name || '');
   let accountType = $state<Account['type']>(account.type || 'checking');
   let initialBalance = $state(account.initialBalance?.toString() || '');
-  let currency = $state(account.currency || 'USD');
+  let currency = $state<string | null>(account.currency || null);
   let isActive = $state(account.isActive ?? true);
   let errors = $state<Record<string, string>>({});
   let isSubmitting = $state(false);
@@ -72,6 +72,16 @@
   );
 
   function validateForm() {
+    // Ensure currency is set before validation
+    if (!currency && currencies.length > 0) {
+      currency = currencies[0].code;
+    }
+    
+    if (!currency) {
+      errors.currency = 'Currency is required';
+      return false;
+    }
+
     const result = formSchema.safeParse({
       accountName,
       accountType,
@@ -106,8 +116,10 @@
       return false;
     }
 
+    // Currency-agnostic validation - will be validated by currency config service
+    // Using a reasonable default limit, actual limit should come from currency config
     if (Math.abs(balance) > 1000000) {
-      errors.initialBalance = 'Initial balance cannot exceed $1,000,000';
+      errors.initialBalance = 'Initial balance is too large';
       return false;
     }
     
@@ -126,11 +138,21 @@
       // Parse initial balance as number, default to 0 if empty
       const balance = initialBalance.trim() === '' ? 0 : parseFloat(initialBalance) || 0;
       
+      // Ensure currency is set
+      if (!currency && currencies.length > 0) {
+        currency = currencies[0].code;
+      }
+      
+      if (!currency) {
+        errors.currency = 'Currency is required';
+        return;
+      }
+
       // Prepare account data
       const accountData: Partial<Account> = {
         name: accountName.trim(),
         type: accountType,
-        currency: currency,
+        currency: currency, // currency is now guaranteed to be string
         initialBalance: balance,
         isActive: isActive,
         metadata: accountMetadata && Object.keys(accountMetadata).length > 0 ? accountMetadata : undefined
@@ -187,35 +209,37 @@
           label: `${curr.code} - ${curr.name}`
         }));
 
-      // If no currencies found, use default USD
+      // If no currencies found, this is an error state - currencies should always be available
       if (currencies.length === 0) {
-        currencies = [{
-          code: 'USD',
-          name: 'US Dollar',
-          symbol: '$',
-          placement: 'before' as const,
-          decimalPlaces: 2,
-          label: 'USD - US Dollar'
-        }];
+        console.error('No currencies available in database');
+        // Don't set a fallback - let the form show an error
+      }
+
+      // Set default currency from user preferences if not already set
+      if (!currency) {
+        try {
+          const { userService } = await import('$lib/core/services');
+          const preferences = await userService.getUserPreferences();
+          if (preferences?.currency && currencies.some(c => c.code === preferences.currency)) {
+            currency = preferences.currency;
+          } else if (currencies.length > 0) {
+            currency = currencies[0].code;
+          }
+        } catch (err) {
+          console.error('Error loading user preferences:', err);
+          if (currencies.length > 0) {
+            currency = currencies[0].code;
+          }
+        }
       }
 
       // Validate current currency selection
       if (currency && !currencies.some(c => c.code === currency)) {
-        currency = currencies[0]?.code || 'USD';
+        currency = currencies[0]?.code || null;
       }
     } catch (err) {
       console.error('Error loading currencies:', err);
-      // Fallback to default currency if loading fails
-      if (currencies.length === 0) {
-        currencies = [{
-          code: 'USD',
-          name: 'US Dollar',
-          symbol: '$',
-          placement: 'before' as const,
-          decimalPlaces: 2,
-          label: 'USD - US Dollar'
-        }];
-      }
+      // Don't set fallback - let the form handle the error
     } finally {
       isLoadingCurrencies = false;
     }
@@ -273,20 +297,27 @@
 
     <!-- Initial Balance -->
     <Label.Root for="initialBalance" class="">Initial Balance</Label.Root>
-    <CurrencyInput
-      id="initialBalance"
-      value={initialBalanceNumber}
-      currency={currency}
-      currencies={currencies}
-      onValueChange={(val) => {
-        initialBalanceNumber = val;
-        initialBalance = val.toString();
-      }}
-      onCurrencyChange={(code) => {
-        currency = code;
-      }}
-      error={errors.initialBalance}
-    />
+    {#if currency}
+      <CurrencyInput
+        id="initialBalance"
+        value={initialBalanceNumber}
+        currency={currency}
+        currencies={currencies}
+        onValueChange={(val) => {
+          initialBalanceNumber = val;
+          initialBalance = val.toString();
+        }}
+        onCurrencyChange={(code) => {
+          currency = code;
+        }}
+        error={errors.initialBalance}
+      />
+    {:else}
+      <div class="text-sm text-muted-foreground">Loading currencies...</div>
+    {/if}
+    {#if errors.currency}
+      <p class="text-sm text-destructive mt-1" role="alert">{errors.currency}</p>
+    {/if}
 
     <!-- Account Active -->
     <Label.Root for="isActive" class="">Active</Label.Root>
@@ -314,7 +345,7 @@
       <AccountMetadataForm
         accountType={accountType}
         metadata={accountMetadata}
-        currency={currency}
+        currency={currency || undefined}
         onMetadataChange={(metadata) => {
           accountMetadata = metadata;
         }}

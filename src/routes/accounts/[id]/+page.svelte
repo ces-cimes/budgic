@@ -16,14 +16,14 @@
 	let account = $state<Account | null>(null);
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
-	let userCurrency = $state<string>('USD');
+	let userCurrency = $state<string | null>(null);
 
 	const accountId = $derived($page.params.id);
 
 	onMount(async () => {
 		// Load user currency preference first
 		const preferences = await userService.getUserPreferences();
-		userCurrency = preferences?.currency || 'USD';
+		userCurrency = preferences?.currency || null;
 		
 		await loadAccount();
 		await loadTransactions();
@@ -171,7 +171,7 @@
 								</div>
 								<div class="text-right">
 									<p class="font-semibold {((transaction?.amount ?? 0) >= 0 ? 'text-success' : 'text-destructive')}">
-										{formatBalance(transaction?.amount ?? 0, transaction?.currency || 'USD')}
+										{formatBalance(transaction?.amount ?? 0, transaction?.currency || account?.currency || userCurrency || 'USD')}
 									</p>
 									<p class="text-sm text-muted-foreground capitalize">{transaction?.type || 'unknown'}</p>
 								</div>
