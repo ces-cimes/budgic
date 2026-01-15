@@ -608,6 +608,42 @@ const CurrencySchema = BaseSchema.extend({
 	isActive: z.boolean().default(true)
 });
 
+// Account Metadata Schema - Comprehensive metadata for optimization features
+const AccountMetadataSchema = z.object({
+	// Checking account metadata
+	minimumBalance: z.number().min(0).optional(), // Minimum balance requirement
+	overdraftLimit: z.number().min(0).optional(), // Overdraft limit
+	overdraftFee: z.number().min(0).optional(), // Overdraft fee amount
+	
+	// Savings account metadata
+	interestRate: z.number().min(0).max(100).optional(), // Annual interest rate (percentage)
+	transferLimit: z.number().min(0).optional(), // Monthly transfer limit
+	transferDelayDays: z.number().min(0).optional(), // Days for transfers to clear
+	
+	// Credit card metadata
+	creditLimit: z.number().min(0).optional(), // Credit limit
+	apr: z.number().min(0).max(100).optional(), // Annual percentage rate (percentage)
+	statementCloseDate: z.string().optional(), // Day of month statement closes (1-31)
+	paymentDueDate: z.string().optional(), // Day of month payment is due (1-31)
+	minimumPayment: z.number().min(0).optional(), // Minimum payment amount
+	gracePeriodDays: z.number().min(0).optional(), // Grace period in days
+	creditBureauReportingDate: z.string().optional(), // Day of month reported to credit bureau
+	
+	// Loan metadata
+	loanBalance: z.number().min(0).optional(), // Current loan balance
+	loanDueDate: z.string().optional(), // Day of month loan payment is due
+	
+	// Investment account metadata
+	accountType: z.enum(['IRA', '401k', 'brokerage', 'other']).optional(),
+	
+	// Account relationships
+	linkedAccounts: z.array(z.string()).optional(), // Array of linked account IDs
+	lastReconciledDate: z.string().datetime().optional(), // Last reconciliation date
+	
+	// Buffer management (will be calculated, but can be overridden)
+	bufferAmount: z.number().min(0).optional(), // User-defined buffer amount
+});
+
 // Account Schema
 const AccountSchema = BaseSchema.extend({
 	name: z.string().min(1),
@@ -615,7 +651,8 @@ const AccountSchema = BaseSchema.extend({
 	currency: z.string().min(3).max(3).default('USD'),
 	initialBalance: z.number().default(0),
 	currentBalance: z.number().default(0),
-	isActive: z.boolean().default(true)
+	isActive: z.boolean().default(true),
+	metadata: AccountMetadataSchema.optional()
 });
 
 // Unified Category Schema (replaces what/why tags, payees, and budget categories)
@@ -824,6 +861,7 @@ const InsightSchema = BaseSchema.extend({
 // TYPE DEFINITIONS
 // ============================================================================
 
+export type AccountMetadata = z.infer<typeof AccountMetadataSchema>;
 export type Account = z.infer<typeof AccountSchema>;
 export type Currency = z.infer<typeof CurrencySchema>;
 export type Category = z.infer<typeof CategorySchema>;

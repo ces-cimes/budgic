@@ -1,5 +1,5 @@
 import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
-import type { Account, Transaction } from '$lib/core/db';
+import type { Account, AccountMetadata, Transaction } from '$lib/core/db';
 
 /**
  * Account Service
@@ -67,6 +67,7 @@ class AccountService {
         type: Account['type'];
         currency: string;
         initialBalance?: number;
+        metadata?: AccountMetadata;
     }): Promise<Account> {
         const account: Account = {
             id: generateUUID(),
@@ -76,6 +77,7 @@ class AccountService {
             initialBalance: data.initialBalance || 0,
             currentBalance: data.initialBalance || 0,
             isActive: true,
+            metadata: data.metadata || undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             deletedAt: null
@@ -140,7 +142,7 @@ class AccountService {
      * });
      * ```
      */
-    async updateAccount(id: string, updates: Partial<Pick<Account, 'name' | 'type' | 'currency' | 'isActive'>>): Promise<Account> {
+    async updateAccount(id: string, updates: Partial<Pick<Account, 'name' | 'type' | 'currency' | 'isActive' | 'metadata'>>): Promise<Account> {
         const account = await db.accounts.get(id);
         if (!account) {
             throw new Error(`Account ${id} not found`);
@@ -154,6 +156,56 @@ class AccountService {
 
         await db.accounts.update(id, updatedAccount);
         return updatedAccount;
+    }
+
+    /**
+     * Update account metadata with validation
+     * 
+     * @param id - Account unique identifier
+     * @param metadata - Partial metadata to update (will be merged with existing)
+     * @returns Promise resolving to the updated account
+     * @throws {Error} If account not found or update fails
+     * 
+     * @example
+     * ```typescript
+     * await accountService.updateAccountMetadata('account-123', {
+     *   minimumBalance: 1000,
+     *   overdraftLimit: 500
+     * });
+     * ```
+     */
+    async updateAccountMetadata(id: string, metadata: Partial<AccountMetadata>): Promise<Account> {
+        const account = await db.accounts.get(id);
+        if (!account) {
+            throw new Error(`Account ${id} not found`);
+        }
+
+        const updatedMetadata = {
+            ...account.metadata,
+            ...metadata
+        };
+
+        return await this.updateAccount(id, { metadata: updatedMetadata });
+    }
+
+    /**
+     * Get account metadata
+     * 
+     * @param id - Account unique identifier
+     * @returns Promise resolving to account metadata or null if not found
+     * @throws {Error} If database query fails
+     * 
+     * @example
+     * ```typescript
+     * const metadata = await accountService.getAccountMetadata('account-123');
+     * if (metadata?.creditLimit) {
+     *   console.log(`Credit limit: $${metadata.creditLimit}`);
+     * }
+     * ```
+     */
+    async getAccountMetadata(id: string): Promise<AccountMetadata | null> {
+        const account = await this.getAccount(id);
+        return account?.metadata || null;
     }
 
     /**

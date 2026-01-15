@@ -6,8 +6,9 @@
   import { Input } from '$lib/components/ui/input/index.ts';
   import * as Switch from '$lib/components/ui/switch/index.ts';
   import { onMount } from 'svelte';
-  import { db, type Account } from '$lib/core/db';
+  import { db, type Account, type AccountMetadata } from '$lib/core/db';
   import { formSchema } from './AccountForm.schema';
+  import AccountMetadataForm from './AccountMetadataForm.svelte';
 
   interface Props {
     account?: Partial<Account>;
@@ -38,6 +39,7 @@
 
   let currencies = $state<Array<{ code: string; name: string; symbol: string; placement: 'before' | 'after'; decimalPlaces: number; label: string }>>([]);
   let isLoadingCurrencies = $state(false);
+  let accountMetadata = $state<Partial<AccountMetadata>>(account.metadata || {});
 
   // Use actual account types from the database schema
   const accountTypes = [
@@ -129,7 +131,8 @@
         type: accountType,
         currency: currency,
         initialBalance: balance,
-        isActive: isActive
+        isActive: isActive,
+        metadata: accountMetadata && Object.keys(accountMetadata).length > 0 ? accountMetadata : undefined
       };
 
       // If editing, preserve the current balance
@@ -324,6 +327,16 @@
       Inactive accounts won't appear in transaction forms but will be preserved for historical data
     </p>
   </div>
+
+  <!-- Account Metadata Form -->
+  <AccountMetadataForm
+    accountType={accountType}
+    metadata={accountMetadata}
+    currency={currency}
+    onMetadataChange={(metadata) => {
+      accountMetadata = metadata;
+    }}
+  />
 
   <div class="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-4 md:left-64 z-50">
     <div class="flex justify-end space-x-4 max-w-2xl mx-auto">
