@@ -1,0 +1,160 @@
+/**
+ * Base Importer Interface
+ * 
+ * Abstract base class for importers, providing common functionality
+ * for progress tracking, error handling, and rollback support.
+ */
+
+import type { ImportOptions, ImportProgress, ImportResult, ImportStatistics, ImportError } from './types';
+
+/**
+ * Base importer class with common functionality
+ */
+export abstract class BaseImporter {
+	protected statistics: ImportStatistics = {
+		accountsImported: 0,
+		accountsSkipped: 0,
+		categoriesImported: 0,
+		categoriesSkipped: 0,
+		transactionsImported: 0,
+		transactionsSkipped: 0,
+		currenciesImported: 0,
+		currenciesSkipped: 0
+	};
+
+	protected errors: ImportError[] = [];
+	protected warnings: string[] = [];
+	protected startTime: number = 0;
+	protected options: ImportOptions;
+
+	constructor(options: ImportOptions = {}) {
+		this.options = {
+			importAccounts: true,
+			importCategories: true,
+			importTransactions: true,
+			importCurrencies: true,
+			importBudgets: false,
+			conflictResolution: 'skip',
+			skipValidation: false,
+			...options
+		};
+	}
+
+	/**
+	 * Execute the import process
+	 * 
+	 * @returns Import result with statistics and errors
+	 */
+	abstract import(): Promise<ImportResult>;
+
+	/**
+	 * Report progress to callback if provided
+	 * 
+	 * @param step - Current step name
+	 * @param stepNumber - Current step number (1-based)
+	 * @param totalSteps - Total number of steps
+	 * @param currentItem - Current item being processed
+	 * @param itemsProcessed - Items processed so far
+	 * @param totalItems - Total items to process
+	 */
+	protected reportProgress(
+		step: string,
+		stepNumber: number,
+		totalSteps: number,
+		currentItem?: string,
+		itemsProcessed: number = 0,
+		totalItems: number = 0
+	): void {
+		if (this.options.onProgress) {
+			const progress: ImportProgress = {
+				step,
+				stepNumber,
+				totalSteps,
+				currentItem,
+				itemsProcessed,
+				totalItems,
+				percentage: totalItems > 0 ? Math.round((itemsProcessed / totalItems) * 100) : 0
+			};
+			this.options.onProgress(progress);
+		}
+	}
+
+	/**
+	 * Add an error to the error list
+	 * 
+	 * @param error - Error to add
+	 */
+	protected addError(error: ImportError): void {
+		this.errors.push(error);
+	}
+
+	/**
+	 * Add a warning to the warning list
+	 * 
+	 * @param warning - Warning message
+	 */
+	protected addWarning(warning: string): void {
+		this.warnings.push(warning);
+	}
+
+	/**
+	 * Create final import result
+	 * 
+	 * @param success - Whether import was successful
+	 * @returns Import result
+	 */
+	protected createResult(success: boolean): ImportResult {
+		const duration = Date.now() - this.startTime;
+		
+		return {
+			success,
+			statistics: { ...this.statistics },
+			errors: [...this.errors],
+			warnings: [...this.warnings],
+			duration,
+			completedAt: new Date().toISOString()
+		};
+	}
+
+	/**
+	 * Start timing the import
+	 */
+	protected startTiming(): void {
+		this.startTime = Date.now();
+	}
+
+	/**
+	 * Validate import options
+	 * 
+	 * @returns Whether options are valid
+	 */
+	protected validateOptions(): { isValid: boolean; errors: string[] } {
+		const errors: string[] = [];
+		
+		// At least one import type must be selected
+		if (
+			!this.options.importAccounts &&
+			!this.options.importCategories &&
+			!this.options.importTransactions &&
+			!this.options.importCurrencies
+		) {
+			errors.push('At least one import type must be selected');
+		}
+		
+		// Validate date range if provided
+		if (this.options.transactionDateStart && this.options.transactionDateEnd) {
+			const start = new Date(this.options.transactionDateStart);
+			const end = new Date(this.options.transactionDateEnd);
+			
+			if (start > end) {
+				errors.push('Transaction date start must be before end date');
+			}
+		}
+		
+		return {
+			isValid: errors.length === 0,
+			errors
+		};
+	}
+}
+
