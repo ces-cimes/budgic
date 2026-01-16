@@ -138,13 +138,17 @@
     {
       title: 'Personal Settings',
       items: [
-        { name: 'Profile Settings', description: 'Update your personal information', icon: '👤', href: '/settings/profile' }
+        { name: 'Profile Settings', description: 'Update your personal information', icon: '👤', href: '/settings/profile' },
+        { name: 'Security & Privacy', description: 'Manage security and privacy preferences', icon: '🔒', href: '/settings/security' }
       ]
     },
     {
       title: 'App Preferences',
       items: [
-        { name: 'Display Settings', description: 'Theme, language, and currency preferences', icon: '🎨', href: '/settings/display' }
+        { name: 'Display Settings', description: 'Theme, language, and currency preferences', icon: '🎨', href: '/settings/display' },
+        { name: 'Currency Settings', description: 'Configure currencies and exchange rates', icon: '💱', href: '/settings/currency' },
+        { name: 'Navigation Settings', description: 'Customize navigation order and visibility', icon: '🧭', href: '/settings/navigation' },
+        { name: 'Notification Settings', description: 'Configure notification preferences', icon: '🔔', href: '/settings/notifications' }
       ]
     }
   ];
