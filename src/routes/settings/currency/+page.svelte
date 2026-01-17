@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { userService, currencyConfigService } from '$lib/core/services';
+  import { userService, currencyConfigService, exchangeRateService } from '$lib/core/services';
   import { db } from '$lib/core/db';
   import { PageLayout } from '$lib/components/layouts';
   import * as Card from '$lib/components/ui/card/index.ts';
@@ -9,8 +9,8 @@
   import * as Label from '$lib/components/ui/label/index.ts';
   import * as Alert from '$lib/components/ui/alert/index.ts';
   import { formatAmount } from '$lib/utils/currency-utils';
-  import type { CurrencyConfiguration, Currency } from '$lib/core/db';
-  import { Settings, RefreshCw, Save } from '@lucide/svelte';
+  import type { CurrencyConfiguration, Currency, ExchangeRate } from '$lib/core/db';
+  import { Settings, RefreshCw, Save, Edit2, Trash2, Plus, Download } from '@lucide/svelte';
 
   // State
   let isLoading = $state(true);
@@ -27,6 +27,23 @@
   let currencies = $state<Currency[]>([]);
   let editingCurrency = $state<string | null>(null);
   let editedConfigs = $state<Map<string, Partial<CurrencyConfiguration>>>(new Map());
+  
+  // Exchange rates
+  let exchangeRates = $state<ExchangeRate[]>([]);
+  let editingRate = $state<string | null>(null);
+  let editedRates = $state<Map<string, { fromCurrency: string; toCurrency: string; rate: number }>>(new Map());
+  let showAddRateForm = $state(false);
+  let newRate = $state({ fromCurrency: 'USD', toCurrency: 'EUR', rate: 1 });
+  
+  // Currency management
+  let showAddCurrencyForm = $state(false);
+  let newCurrency = $state({
+    code: '',
+    name: '',
+    symbol: '',
+    placement: 'before' as 'before' | 'after',
+    decimalPlaces: 2
+  });
 
   // Load data on mount
   onMount(async () => {
@@ -55,6 +72,9 @@
 
       // Load all currency configurations
       await loadCurrencyConfigurations();
+      
+      // Load exchange rates
+      await loadExchangeRates();
     } catch (err) {
       error = 'Failed to load currency settings';
       console.error('Error loading currency settings:', err);
@@ -203,6 +223,304 @@
     edited[field as keyof typeof edited] = value as any;
     editedConfigs.set(currencyCode, edited);
   }
+
+  // Load exchange rates
+  async function loadExchangeRates() {
+    try {
+      const today = new Date();
+      const rates = await exchangeRateService.getRatesForDate(today);
+      exchangeRates = rates.sort((a, b) => {
+        if (a.fromCurrency !== b.fromCurrency) {
+          return a.fromCurrency.localeCompare(b.fromCurrency);
+        }
+        return a.toCurrency.localeCompare(b.toCurrency);
+      });
+    } catch (err) {
+      console.error('Error loading exchange rates:', err);
+    }
+  }
+
+  // Start editing a rate
+  function startEditingRate(rateId: string) {
+    const rate = exchangeRates.find(r => r.id === rateId);
+    if (rate) {
+      editedRates.set(rateId, {
+        fromCurrency: rate.fromCurrency,
+        toCurrency: rate.toCurrency,
+        rate: rate.rate
+      });
+      editingRate = rateId;
+    }
+  }
+
+  // Cancel editing rate
+  function cancelEditingRate() {
+    editedRates.clear();
+    editingRate = null;
+  }
+
+  // Save exchange rate
+  async function saveExchangeRate(rateId: string) {
+    if (isSaving) return;
+    
+    const edited = editedRates.get(rateId);
+    if (!edited) return;
+    
+    isSaving = true;
+    error = null;
+    success = null;
+    
+    try {
+      await exchangeRateService.setExchangeRate(
+        edited.fromCurrency,
+        edited.toCurrency,
+        edited.rate
+      );
+      await loadExchangeRates();
+      editedRates.delete(rateId);
+      editingRate = null;
+      success = 'Exchange rate updated successfully';
+    } catch (err) {
+      error = `Failed to save exchange rate: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      console.error('Error saving exchange rate:', err);
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // Add new exchange rate
+  async function addExchangeRate() {
+    if (isSaving) return;
+    
+    isSaving = true;
+    error = null;
+    success = null;
+    
+    try {
+      await exchangeRateService.setExchangeRate(
+        newRate.fromCurrency,
+        newRate.toCurrency,
+        newRate.rate
+      );
+      await loadExchangeRates();
+      showAddRateForm = false;
+      newRate = { fromCurrency: 'USD', toCurrency: 'EUR', rate: 1 };
+      success = 'Exchange rate added successfully';
+    } catch (err) {
+      error = `Failed to add exchange rate: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      console.error('Error adding exchange rate:', err);
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // Update exchange rates from API
+  async function updateRatesFromAPI() {
+    if (isSaving) return;
+    
+    isSaving = true;
+    error = null;
+    success = null;
+    
+    try {
+      await exchangeRateService.updateAllRates();
+      await loadExchangeRates();
+      success = 'Exchange rates updated from API';
+    } catch (err) {
+      error = `Failed to update rates: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      console.error('Error updating rates:', err);
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // Get edited rate value
+  function getRateValue(rateId: string, field: 'fromCurrency' | 'toCurrency' | 'rate'): string | number {
+    const edited = editedRates.get(rateId);
+    if (edited) {
+      return edited[field];
+    }
+    const rate = exchangeRates.find(r => r.id === rateId);
+    return rate ? rate[field] : (field === 'rate' ? 0 : '');
+  }
+
+  // Update edited rate value
+  function updateRateValue(rateId: string, field: 'fromCurrency' | 'toCurrency' | 'rate', value: string | number) {
+    const edited = editedRates.get(rateId) || { fromCurrency: '', toCurrency: '', rate: 1 };
+    if (field === 'fromCurrency') {
+      edited.fromCurrency = value as string;
+    } else if (field === 'toCurrency') {
+      edited.toCurrency = value as string;
+    } else {
+      edited.rate = value as number;
+    }
+    editedRates.set(rateId, edited);
+  }
+
+  // Add custom currency
+  async function addCurrency() {
+    if (isSaving) return;
+    
+    // Validate currency code
+    if (!/^[A-Z]{3}$/.test(newCurrency.code)) {
+      error = 'Currency code must be 3 uppercase letters (ISO 4217 format)';
+      return;
+    }
+    
+    // Check if currency already exists
+    const existing = await db.getCurrencyByCode(newCurrency.code);
+    if (existing) {
+      error = `Currency ${newCurrency.code} already exists`;
+      return;
+    }
+    
+    isSaving = true;
+    error = null;
+    success = null;
+    
+    try {
+      const { generateUUID } = await import('$lib/core/db');
+      await db.currencies.add({
+        id: generateUUID(),
+        code: newCurrency.code.toUpperCase(),
+        name: newCurrency.name,
+        symbol: newCurrency.symbol,
+        placement: newCurrency.placement,
+        decimalPlaces: newCurrency.decimalPlaces,
+        isSystem: false,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        deletedAt: null
+      });
+      
+      // Reload currencies
+      const activeCurrencies = await db.getActiveCurrencies();
+      currencies = activeCurrencies.filter(c => c.isActive).sort((a, b) => {
+        if (a.isSystem && !b.isSystem) return -1;
+        if (!a.isSystem && b.isSystem) return 1;
+        return a.code.localeCompare(b.code);
+      });
+      
+      currencyOptions = currencies.map(c => ({
+        value: c.code,
+        label: `${c.name} (${c.code})`,
+        symbol: c.symbol
+      }));
+      
+      showAddCurrencyForm = false;
+      newCurrency = { code: '', name: '', symbol: '', placement: 'before', decimalPlaces: 2 };
+      success = `Currency ${newCurrency.code} added successfully`;
+    } catch (err) {
+      error = `Failed to add currency: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      console.error('Error adding currency:', err);
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // Toggle currency active status
+  async function toggleCurrencyActive(currency: Currency) {
+    if (isSaving) return;
+    
+    // System currencies cannot be deactivated if they're the only active currency
+    if (!currency.isActive && currency.isSystem) {
+      const accounts = await db.getActiveAccounts();
+      const accountsUsingCurrency = accounts.filter(a => a.currency === currency.code);
+      if (accountsUsingCurrency.length > 0) {
+        error = `Cannot deactivate ${currency.code} - it's used by ${accountsUsingCurrency.length} account(s)`;
+        return;
+      }
+    }
+    
+    isSaving = true;
+    error = null;
+    success = null;
+    
+    try {
+      await db.currencies.update(currency.id, {
+        isActive: !currency.isActive,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Reload currencies
+      const activeCurrencies = await db.getActiveCurrencies();
+      currencies = activeCurrencies.filter(c => c.isActive).sort((a, b) => {
+        if (a.isSystem && !b.isSystem) return -1;
+        if (!a.isSystem && b.isSystem) return 1;
+        return a.code.localeCompare(b.code);
+      });
+      
+      currencyOptions = currencies.map(c => ({
+        value: c.code,
+        label: `${c.name} (${c.code})`,
+        symbol: c.symbol
+      }));
+      
+      success = `Currency ${currency.code} ${!currency.isActive ? 'activated' : 'deactivated'}`;
+    } catch (err) {
+      error = `Failed to update currency: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      console.error('Error updating currency:', err);
+    } finally {
+      isSaving = false;
+    }
+  }
+
+  // Delete custom currency (soft delete)
+  async function deleteCurrency(currency: Currency) {
+    if (isSaving) return;
+    
+    // System currencies cannot be deleted
+    if (currency.isSystem) {
+      error = 'System currencies cannot be deleted';
+      return;
+    }
+    
+    // Check if currency is used by accounts
+    const accounts = await db.getActiveAccounts();
+    const accountsUsingCurrency = accounts.filter(a => a.currency === currency.code);
+    if (accountsUsingCurrency.length > 0) {
+      error = `Cannot delete ${currency.code} - it's used by ${accountsUsingCurrency.length} account(s). Please change those accounts to another currency first.`;
+      return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${currency.name} (${currency.code})?`)) {
+      return;
+    }
+    
+    isSaving = true;
+    error = null;
+    success = null;
+    
+    try {
+      await db.currencies.update(currency.id, {
+        deletedAt: new Date().toISOString(),
+        isActive: false,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Reload currencies
+      const activeCurrencies = await db.getActiveCurrencies();
+      currencies = activeCurrencies.filter(c => c.isActive).sort((a, b) => {
+        if (a.isSystem && !b.isSystem) return -1;
+        if (!a.isSystem && b.isSystem) return 1;
+        return a.code.localeCompare(b.code);
+      });
+      
+      currencyOptions = currencies.map(c => ({
+        value: c.code,
+        label: `${c.name} (${c.code})`,
+        symbol: c.symbol
+      }));
+      
+      success = `Currency ${currency.code} deleted successfully`;
+    } catch (err) {
+      error = `Failed to delete currency: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      console.error('Error deleting currency:', err);
+    } finally {
+      isSaving = false;
+    }
+  }
 </script>
 
 <svelte:head>
@@ -258,6 +576,172 @@
             <Save class="h-4 w-4 mr-2" />
             Save Main Currency
           </Button.Root>
+        </Card.Content>
+      </Card.Root>
+
+      <!-- Currency Management -->
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>Manage Currencies</Card.Title>
+          <Card.Description>
+            Add custom currencies or manage existing ones. System currencies cannot be deleted.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content class="space-y-4">
+          <div class="flex justify-end">
+            <Button.Root
+              onclick={() => showAddCurrencyForm = true}
+              disabled={isSaving || showAddCurrencyForm}
+            >
+              <Plus class="h-4 w-4 mr-2" />
+              Add Currency
+            </Button.Root>
+          </div>
+
+          {#if showAddCurrencyForm}
+            <div class="border rounded-lg p-4 space-y-4">
+              <h3 class="font-semibold">Add Custom Currency</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="space-y-2">
+                  <Label.Root for="new-currency-code">Currency Code (ISO 4217)</Label.Root>
+                  <Input.Root
+                    id="new-currency-code"
+                    type="text"
+                    placeholder="USD"
+                    value={newCurrency.code}
+                    oninput={(e) => {
+                      const target = e.currentTarget as HTMLInputElement;
+                      newCurrency.code = target.value.toUpperCase();
+                    }}
+                  />
+                  <p class="text-xs text-muted-foreground">3 uppercase letters (e.g., USD, EUR, INR)</p>
+                </div>
+                <div class="space-y-2">
+                  <Label.Root for="new-currency-name">Currency Name</Label.Root>
+                  <Input.Root
+                    id="new-currency-name"
+                    type="text"
+                    placeholder="US Dollar"
+                    bind:value={newCurrency.name}
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label.Root for="new-currency-symbol">Symbol</Label.Root>
+                  <Input.Root
+                    id="new-currency-symbol"
+                    type="text"
+                    placeholder="$"
+                    bind:value={newCurrency.symbol}
+                  />
+                </div>
+                <div class="space-y-2">
+                  <Label.Root for="new-currency-placement">Symbol Placement</Label.Root>
+                  <select
+                    id="new-currency-placement"
+                    bind:value={newCurrency.placement}
+                    class="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="before">Before amount ($100)</option>
+                    <option value="after">After amount (100₽)</option>
+                  </select>
+                </div>
+                <div class="space-y-2">
+                  <Label.Root for="new-currency-decimals">Decimal Places</Label.Root>
+                  <Input.Root
+                    id="new-currency-decimals"
+                    type="number"
+                    min="0"
+                    max="18"
+                    value={newCurrency.decimalPlaces.toString()}
+                    oninput={(e) => {
+                      const target = e.currentTarget as HTMLInputElement;
+                      const parsed = parseInt(target.value);
+                      if (!isNaN(parsed)) {
+                        newCurrency.decimalPlaces = parsed;
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <Button.Root
+                  onclick={addCurrency}
+                  disabled={isSaving || !newCurrency.code || !newCurrency.name || !newCurrency.symbol}
+                >
+                  <Save class="h-4 w-4 mr-2" />
+                  Add Currency
+                </Button.Root>
+                <Button.Root
+                  variant="outline"
+                  onclick={() => {
+                    showAddCurrencyForm = false;
+                    newCurrency = { code: '', name: '', symbol: '', placement: 'before', decimalPlaces: 2 };
+                  }}
+                  disabled={isSaving}
+                >
+                  Cancel
+                </Button.Root>
+              </div>
+            </div>
+          {/if}
+
+          <div class="border rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="bg-muted">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-sm font-medium">Code</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium">Name</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium">Symbol</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium">Type</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium">Status</th>
+                    <th class="px-4 py-3 text-right text-sm font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each currencies as currency}
+                    <tr class="border-t">
+                      <td class="px-4 py-3 font-mono">{currency.code}</td>
+                      <td class="px-4 py-3">{currency.name}</td>
+                      <td class="px-4 py-3">{currency.symbol}</td>
+                      <td class="px-4 py-3">
+                        <span class="text-xs text-muted-foreground">
+                          {currency.isSystem ? 'System' : 'Custom'}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3">
+                        <span class="text-xs {currency.isActive ? 'text-green-600' : 'text-muted-foreground'}">
+                          {currency.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right">
+                        <div class="flex gap-2 justify-end">
+                          <Button.Root
+                            variant="outline"
+                            size="sm"
+                            onclick={() => toggleCurrencyActive(currency)}
+                            disabled={isSaving}
+                          >
+                            {currency.isActive ? 'Deactivate' : 'Activate'}
+                          </Button.Root>
+                          {#if !currency.isSystem}
+                            <Button.Root
+                              variant="outline"
+                              size="sm"
+                              onclick={() => deleteCurrency(currency)}
+                              disabled={isSaving}
+                            >
+                              <Trash2 class="h-4 w-4" />
+                            </Button.Root>
+                          {/if}
+                        </div>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </Card.Content>
       </Card.Root>
 

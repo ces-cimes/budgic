@@ -269,18 +269,51 @@ class AccountService {
     }
 
     /**
-     * Get total balance across all accounts
+     * Get total balance across all accounts (converted to main currency)
      */
     async getTotalBalance(): Promise<number> {
         const accounts = await this.getAccounts();
-        return accounts.reduce((total, account) => total + account.currentBalance, 0);
+        const { userService, exchangeRateService } = await import('$lib/core/services');
+        
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
+        // Convert all balances to main currency and sum
+        let total = 0;
+        for (const account of accounts) {
+            if (account.currency === mainCurrency) {
+                total += account.currentBalance;
+            } else {
+                const converted = await exchangeRateService.convertAmount(
+                    account.currentBalance,
+                    account.currency,
+                    mainCurrency
+                );
+                if (converted !== null) {
+                    total += converted;
+                } else {
+                    // If conversion fails, log warning but include original amount
+                    console.warn(`Failed to convert ${account.currency} to ${mainCurrency} for account ${account.name}`);
+                    total += account.currentBalance;
+                }
+            }
+        }
+        
+        return total;
     }
 
     /**
-     * Get balance by account type
+     * Get balance by account type (converted to main currency)
      */
     async getBalanceByType(): Promise<Record<Account['type'], number>> {
         const accounts = await this.getAccounts();
+        const { userService, exchangeRateService } = await import('$lib/core/services');
+        
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
         const balances: Record<Account['type'], number> = {
             checking: 0,
             savings: 0,
@@ -290,9 +323,25 @@ class AccountService {
             crypto: 0
         };
 
-        accounts.forEach(account => {
-            balances[account.type] += account.currentBalance;
-        });
+        // Convert each account balance to main currency before summing
+        for (const account of accounts) {
+            let balance = account.currentBalance;
+            
+            if (account.currency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    account.currentBalance,
+                    account.currency,
+                    mainCurrency
+                );
+                if (converted !== null) {
+                    balance = converted;
+                } else {
+                    console.warn(`Failed to convert ${account.currency} to ${mainCurrency} for account ${account.name}`);
+                }
+            }
+            
+            balances[account.type] += balance;
+        }
 
         return balances;
     }

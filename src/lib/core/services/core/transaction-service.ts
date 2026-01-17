@@ -327,7 +327,7 @@ class TransactionService {
     // ============================================================================
 
     /**
-     * Get transaction statistics
+     * Get transaction statistics (converted to main currency)
      */
     async getTransactionStatistics(): Promise<{
         totalTransactions: number;
@@ -337,6 +337,11 @@ class TransactionService {
         averageTransactionAmount: number;
     }> {
         const transactions = await db.transactions.toArray();
+        const { userService, exchangeRateService } = await import('$lib/core/services');
+        
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
         
         const stats = {
             totalTransactions: transactions.length,
@@ -348,22 +353,41 @@ class TransactionService {
 
         let totalAmount = 0;
 
-        transactions.forEach((transaction: Transaction) => {
+        // Convert each transaction amount to main currency
+        for (const transaction of transactions) {
             const amount = transaction.amount || 0;
-            totalAmount += Math.abs(amount);
+            const transactionCurrency = transaction.currency || mainCurrency;
+            
+            // Convert to main currency
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    Math.abs(amount),
+                    transactionCurrency,
+                    mainCurrency
+                );
+                if (converted !== null) {
+                    // Preserve sign
+                    convertedAmount = amount < 0 ? -converted : converted;
+                } else {
+                    console.warn(`Failed to convert transaction ${transaction.id} from ${transactionCurrency} to ${mainCurrency}`);
+                }
+            }
+            
+            totalAmount += Math.abs(convertedAmount);
 
             switch (transaction.type) {
                 case 'income':
-                    stats.totalIncome += amount;
+                    stats.totalIncome += convertedAmount;
                     break;
                 case 'expense':
-                    stats.totalExpenses += Math.abs(amount);
+                    stats.totalExpenses += Math.abs(convertedAmount);
                     break;
                 case 'transfer':
-                    stats.totalTransfers += Math.abs(amount);
+                    stats.totalTransfers += Math.abs(convertedAmount);
                     break;
             }
-        });
+        }
 
         stats.averageTransactionAmount = stats.totalTransactions > 0 ? totalAmount / stats.totalTransactions : 0;
 

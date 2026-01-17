@@ -1,5 +1,6 @@
 import { db } from '$lib/core/db';
 import type { Transaction, Account, Category } from '$lib/core/db';
+import { userService, exchangeRateService } from '../core';
 
 interface SpendingAnalysis {
     totalSpent: number;
@@ -66,11 +67,15 @@ class AnalyticsService {
     // ============================================================================
 
     /**
-     * Get comprehensive spending analysis
+     * Get comprehensive spending analysis (converted to main currency)
      */
     async getSpendingAnalysis(months: number = 12): Promise<SpendingAnalysis> {
         const transactions = await db.transactions.toArray();
         const categories = await db.getActiveCategories();
+        
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
         
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
@@ -82,21 +87,42 @@ class AnalyticsService {
             new Date(tx.clearedDate) >= cutoffDate
         );
 
-        const totalSpent = recentTransactions.reduce((sum: number, tx: Transaction) => sum + Math.abs(tx.amount || 0), 0);
-        const averageMonthlySpending = totalSpent / months;
-
-        // Calculate spending by category
+        // Convert all amounts to main currency
+        let totalSpent = 0;
         const categorySpending = new Map<string, { name: string; amount: number }>();
         
-        recentTransactions.forEach((tx: Transaction) => {
+        for (const tx of recentTransactions) {
+            const amount = Math.abs(tx.amount || 0);
+            const transactionCurrency = tx.currency || mainCurrency;
+            
+            // Convert to main currency
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    amount,
+                    transactionCurrency,
+                    mainCurrency,
+                    tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                );
+                if (converted !== null) {
+                    convertedAmount = converted;
+                } else {
+                    console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                }
+            }
+            
+            totalSpent += convertedAmount;
+            
             if (tx.categoryId) {
                 const category = categories.find(c => c.id === tx.categoryId);
                 const categoryName = category?.name || 'Uncategorized';
                 const current = categorySpending.get(tx.categoryId) || { name: categoryName, amount: 0 };
-                current.amount += Math.abs(tx.amount || 0);
+                current.amount += convertedAmount;
                 categorySpending.set(tx.categoryId, current);
             }
-        });
+        }
+
+        const averageMonthlySpending = totalSpent / months;
 
         const topCategories = Array.from(categorySpending.entries())
             .map(([categoryId, data]) => ({
@@ -109,7 +135,7 @@ class AnalyticsService {
             .slice(0, 10);
 
         // Calculate spending trend
-        const monthlySpending = this.calculateMonthlyBreakdown(recentTransactions, months);
+        const monthlySpending = await this.calculateMonthlyBreakdownWithConversion(recentTransactions, months, mainCurrency);
         const spendingTrend = this.calculateTrend(monthlySpending.map(m => m.amount));
 
         return {
@@ -122,7 +148,7 @@ class AnalyticsService {
     }
 
     /**
-     * Get spending analysis for a specific category
+     * Get spending analysis for a specific category (converted to main currency)
      */
     async getCategorySpendingAnalysis(categoryId: string, months: number = 12): Promise<{
         categoryName: string;
@@ -135,6 +161,10 @@ class AnalyticsService {
         const transactions = await db.transactions.toArray();
         const category = await db.categories.get(categoryId);
         
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
         
@@ -146,9 +176,32 @@ class AnalyticsService {
             new Date(tx.clearedDate) >= cutoffDate
         );
 
-        const totalSpent = categoryTransactions.reduce((sum: number, tx: Transaction) => sum + Math.abs(tx.amount || 0), 0);
+        // Convert all amounts to main currency
+        let totalSpent = 0;
+        for (const tx of categoryTransactions) {
+            const amount = Math.abs(tx.amount || 0);
+            const transactionCurrency = tx.currency || mainCurrency;
+            
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    amount,
+                    transactionCurrency,
+                    mainCurrency,
+                    tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                );
+                if (converted !== null) {
+                    convertedAmount = converted;
+                } else {
+                    console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                }
+            }
+            
+            totalSpent += convertedAmount;
+        }
+
         const averageMonthlySpending = totalSpent / months;
-        const monthlyBreakdown = this.calculateMonthlyBreakdown(categoryTransactions, months);
+        const monthlyBreakdown = await this.calculateMonthlyBreakdownWithConversion(categoryTransactions, months, mainCurrency);
         const trend = this.calculateTrend(monthlyBreakdown.map(m => m.amount));
 
         return {
@@ -166,11 +219,15 @@ class AnalyticsService {
     // ============================================================================
 
     /**
-     * Get comprehensive income analysis
+     * Get comprehensive income analysis (converted to main currency)
      */
     async getIncomeAnalysis(months: number = 12): Promise<IncomeAnalysis> {
         const transactions = await db.transactions.toArray();
         const accounts = await db.getActiveAccounts();
+        
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
         
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
@@ -182,19 +239,41 @@ class AnalyticsService {
             new Date(tx.clearedDate) >= cutoffDate
         );
 
-        const totalIncome = recentTransactions.reduce((sum: number, tx: Transaction) => sum + (tx.amount || 0), 0);
-        const averageMonthlyIncome = totalIncome / months;
-
-        // Calculate income by account
+        // Convert all amounts to main currency
+        let totalIncome = 0;
         const accountIncome = new Map<string, { name: string; amount: number }>();
         
-        recentTransactions.forEach((tx: Transaction) => {
+        for (const tx of recentTransactions) {
+            const amount = tx.amount || 0;
+            const transactionCurrency = tx.currency || mainCurrency;
+            
+            // Convert to main currency
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    Math.abs(amount),
+                    transactionCurrency,
+                    mainCurrency,
+                    tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                );
+                if (converted !== null) {
+                    // Preserve sign
+                    convertedAmount = amount < 0 ? -converted : converted;
+                } else {
+                    console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                }
+            }
+            
+            totalIncome += convertedAmount;
+            
             const account = accounts.find(a => a.id === tx.accountId);
             const accountName = account?.name || 'Unknown Account';
             const current = accountIncome.get(tx.accountId) || { name: accountName, amount: 0 };
-            current.amount += tx.amount || 0;
+            current.amount += convertedAmount;
             accountIncome.set(tx.accountId, current);
-        });
+        }
+
+        const averageMonthlyIncome = totalIncome / months;
 
         const incomeSources = Array.from(accountIncome.entries())
             .map(([accountId, data]) => ({
@@ -206,7 +285,7 @@ class AnalyticsService {
             .sort((a, b) => b.amount - a.amount);
 
         // Calculate income trend
-        const monthlyIncome = this.calculateMonthlyBreakdown(recentTransactions, months);
+        const monthlyIncome = await this.calculateMonthlyBreakdownWithConversion(recentTransactions, months, mainCurrency);
         const incomeTrend = this.calculateTrend(monthlyIncome.map(m => m.amount));
 
         return {
@@ -264,10 +343,15 @@ class AnalyticsService {
     // ============================================================================
 
     /**
-     * Get financial trends over time
+     * Get financial trends over time (converted to main currency)
      */
     async getFinancialTrends(months: number = 12): Promise<TrendData[]> {
         const transactions = await db.transactions.toArray();
+        
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
         
@@ -279,18 +363,39 @@ class AnalyticsService {
 
         const monthlyData = new Map<string, { income: number; expenses: number }>();
         
-        recentTransactions.forEach((tx: Transaction) => {
+        // Convert all amounts to main currency
+        for (const tx of recentTransactions) {
             const month = new Date(tx.clearedDate!).toISOString().substring(0, 7); // YYYY-MM
             const current = monthlyData.get(month) || { income: 0, expenses: 0 };
             
+            const amount = tx.amount || 0;
+            const transactionCurrency = tx.currency || mainCurrency;
+            
+            // Convert to main currency
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    Math.abs(amount),
+                    transactionCurrency,
+                    mainCurrency,
+                    tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                );
+                if (converted !== null) {
+                    // Preserve sign
+                    convertedAmount = amount < 0 ? -converted : converted;
+                } else {
+                    console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                }
+            }
+            
             if (tx.type === 'income') {
-                current.income += tx.amount || 0;
+                current.income += convertedAmount;
             } else if (tx.type === 'expense') {
-                current.expenses += Math.abs(tx.amount || 0);
+                current.expenses += Math.abs(convertedAmount);
             }
             
             monthlyData.set(month, current);
-        });
+        }
 
         return Array.from(monthlyData.entries())
             .map(([period, data]) => ({
@@ -324,6 +429,47 @@ class AnalyticsService {
     }
 
     /**
+     * Calculate monthly breakdown for transactions with currency conversion
+     */
+    private async calculateMonthlyBreakdownWithConversion(
+        transactions: Transaction[], 
+        months: number,
+        mainCurrency: string
+    ): Promise<{ month: string; amount: number }[]> {
+        const monthlyData = new Map<string, number>();
+        
+        for (const tx of transactions) {
+            const month = new Date(tx.clearedDate!).toISOString().substring(0, 7);
+            const current = monthlyData.get(month) || 0;
+            
+            const amount = Math.abs(tx.amount || 0);
+            const transactionCurrency = tx.currency || mainCurrency;
+            
+            // Convert to main currency
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    amount,
+                    transactionCurrency,
+                    mainCurrency,
+                    tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                );
+                if (converted !== null) {
+                    convertedAmount = converted;
+                } else {
+                    console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                }
+            }
+            
+            monthlyData.set(month, current + convertedAmount);
+        }
+
+        return Array.from(monthlyData.entries())
+            .map(([month, amount]) => ({ month, amount }))
+            .sort((a, b) => a.month.localeCompare(b.month));
+    }
+
+    /**
      * Calculate trend from array of values
      */
     private calculateTrend(values: number[]): 'increasing' | 'decreasing' | 'stable' {
@@ -343,9 +489,13 @@ class AnalyticsService {
     }
 
     /**
-     * Calculate spending control score (0-100)
+     * Calculate spending control score (0-100) - converted to main currency
      */
     private async calculateSpendingControlScore(transactions: Transaction[]): Promise<number> {
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
         // Simple implementation - can be enhanced with more sophisticated logic
         const recentTransactions = transactions.filter(tx => 
             tx.type === 'expense' && 
@@ -354,7 +504,29 @@ class AnalyticsService {
             new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
         );
 
-        const totalSpending = recentTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+        // Convert all amounts to main currency
+        let totalSpending = 0;
+        for (const tx of recentTransactions) {
+            const amount = Math.abs(tx.amount || 0);
+            const transactionCurrency = tx.currency || mainCurrency;
+            
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    amount,
+                    transactionCurrency,
+                    mainCurrency,
+                    tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                );
+                if (converted !== null) {
+                    convertedAmount = converted;
+                } else {
+                    console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                }
+            }
+            
+            totalSpending += convertedAmount;
+        }
         
         // Simple scoring based on spending amount (this should be more sophisticated)
         if (totalSpending < 1000) return 90;
@@ -364,22 +536,49 @@ class AnalyticsService {
     }
 
     /**
-     * Calculate savings rate score (0-100)
+     * Calculate savings rate score (0-100) - converted to main currency
      */
     private async calculateSavingsRateScore(transactions: Transaction[]): Promise<number> {
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
         const recentTransactions = transactions.filter(tx => 
             tx.status === 'cleared' && 
             tx.clearedDate && 
             new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
         );
 
-        const totalIncome = recentTransactions
-            .filter(tx => tx.type === 'income')
-            .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+        // Convert all amounts to main currency
+        let totalIncome = 0;
+        let totalExpenses = 0;
         
-        const totalExpenses = recentTransactions
-            .filter(tx => tx.type === 'expense')
-            .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+        for (const tx of recentTransactions) {
+            const amount = tx.amount || 0;
+            const transactionCurrency = tx.currency || mainCurrency;
+            
+            let convertedAmount = amount;
+            if (transactionCurrency !== mainCurrency) {
+                const converted = await exchangeRateService.convertAmount(
+                    Math.abs(amount),
+                    transactionCurrency,
+                    mainCurrency,
+                    tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                );
+                if (converted !== null) {
+                    // Preserve sign
+                    convertedAmount = amount < 0 ? -converted : converted;
+                } else {
+                    console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                }
+            }
+            
+            if (tx.type === 'income') {
+                totalIncome += convertedAmount;
+            } else if (tx.type === 'expense') {
+                totalExpenses += Math.abs(convertedAmount);
+            }
+        }
 
         if (totalIncome === 0) return 0;
         
@@ -393,16 +592,62 @@ class AnalyticsService {
     }
 
     /**
-     * Calculate debt-to-income ratio score (0-100)
+     * Calculate debt-to-income ratio score (0-100) - converted to main currency
      */
     private async calculateDebtToIncomeScore(accounts: Account[], transactions: Transaction[]): Promise<number> {
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
         // Simple implementation - assumes credit accounts are debt
         const creditAccounts = accounts.filter(acc => acc.type === 'credit');
-        const totalDebt = creditAccounts.reduce((sum, acc) => sum + Math.abs(acc.currentBalance), 0);
         
-        const recentIncome = transactions
-            .filter(tx => tx.type === 'income' && tx.status === 'cleared')
-            .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+        // Convert all debt to main currency
+        let totalDebt = 0;
+        for (const acc of creditAccounts) {
+            const debt = Math.abs(acc.currentBalance);
+            if (acc.currency === mainCurrency) {
+                totalDebt += debt;
+            } else {
+                const converted = await exchangeRateService.convertAmount(
+                    debt,
+                    acc.currency,
+                    mainCurrency
+                );
+                if (converted !== null) {
+                    totalDebt += converted;
+                } else {
+                    console.warn(`Failed to convert debt from ${acc.currency} to ${mainCurrency} for account ${acc.name}`);
+                    totalDebt += debt;
+                }
+            }
+        }
+        
+        // Convert all income to main currency
+        let recentIncome = 0;
+        for (const tx of transactions) {
+            if (tx.type === 'income' && tx.status === 'cleared') {
+                const amount = tx.amount || 0;
+                const transactionCurrency = tx.currency || mainCurrency;
+                
+                let convertedAmount = amount;
+                if (transactionCurrency !== mainCurrency) {
+                    const converted = await exchangeRateService.convertAmount(
+                        Math.abs(amount),
+                        transactionCurrency,
+                        mainCurrency,
+                        tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                    );
+                    if (converted !== null) {
+                        convertedAmount = amount < 0 ? -converted : converted;
+                    } else {
+                        console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                    }
+                }
+                
+                recentIncome += convertedAmount;
+            }
+        }
         
         if (recentIncome === 0) return 50; // Neutral if no income data
         
@@ -416,15 +661,63 @@ class AnalyticsService {
     }
 
     /**
-     * Calculate emergency fund score (0-100)
+     * Calculate emergency fund score (0-100) - converted to main currency
      */
     private async calculateEmergencyFundScore(accounts: Account[], transactions: Transaction[]): Promise<number> {
-        const savingsAccounts = accounts.filter(acc => acc.type === 'savings');
-        const totalSavings = savingsAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
+        // Get user's main currency
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
         
-        const monthlyExpenses = transactions
-            .filter(tx => tx.type === 'expense' && tx.status === 'cleared')
-            .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0) / 3; // Approximate monthly expenses
+        const savingsAccounts = accounts.filter(acc => acc.type === 'savings');
+        
+        // Convert all savings to main currency
+        let totalSavings = 0;
+        for (const acc of savingsAccounts) {
+            const savings = acc.currentBalance;
+            if (acc.currency === mainCurrency) {
+                totalSavings += savings;
+            } else {
+                const converted = await exchangeRateService.convertAmount(
+                    savings,
+                    acc.currency,
+                    mainCurrency
+                );
+                if (converted !== null) {
+                    totalSavings += converted;
+                } else {
+                    console.warn(`Failed to convert savings from ${acc.currency} to ${mainCurrency} for account ${acc.name}`);
+                    totalSavings += savings;
+                }
+            }
+        }
+        
+        // Convert all expenses to main currency
+        let totalExpenses = 0;
+        for (const tx of transactions) {
+            if (tx.type === 'expense' && tx.status === 'cleared') {
+                const amount = Math.abs(tx.amount || 0);
+                const transactionCurrency = tx.currency || mainCurrency;
+                
+                let convertedAmount = amount;
+                if (transactionCurrency !== mainCurrency) {
+                    const converted = await exchangeRateService.convertAmount(
+                        amount,
+                        transactionCurrency,
+                        mainCurrency,
+                        tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                    );
+                    if (converted !== null) {
+                        convertedAmount = converted;
+                    } else {
+                        console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                    }
+                }
+                
+                totalExpenses += convertedAmount;
+            }
+        }
+        
+        const monthlyExpenses = totalExpenses / 3; // Approximate monthly expenses
         
         if (monthlyExpenses === 0) return 50;
         

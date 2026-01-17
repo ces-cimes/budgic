@@ -875,17 +875,31 @@ const CurrencyConfigurationSchema = BaseSchema.extend({
 	defaultCheckingBuffer: z.number().min(0).optional(),
 	defaultSavingsBuffer: z.number().min(0).optional(),
 	// Account type defaults
-	defaultMinimumBalance: z.number().min(0).optional(),
+	// Note: defaultMinimumBalance can be negative for credit accounts (credit limit)
+	defaultMinimumBalance: z.number().optional(), // Removed min(0) constraint to allow negative values
 	defaultOverdraftLimit: z.number().min(0).optional(),
 	defaultOverdraftFee: z.number().min(0).optional(),
 	// Validation limits
-	maxAmountLimit: z.number().min(0).optional(), // Override default 1M limit
+	// Note: maxAmountLimit is optional and can be set to very large values or undefined to disable
+	maxAmountLimit: z.number().positive().optional(), // Positive if set, but optional to allow unlimited
 	// Budget defaults (if needed)
 	defaultBudgetAllocation: z.number().min(0).optional(),
 	// User customization flag
 	isCustom: z.boolean().default(false), // true if user customized, false if system default
 	// Metadata
 	notes: z.string().optional(),
+});
+
+// Exchange Rate Schema - Stores currency conversion rates
+const ExchangeRateSchema = BaseSchema.extend({
+	fromCurrency: z.string().min(3).max(3), // ISO 4217 code (source currency)
+	toCurrency: z.string().min(3).max(3), // ISO 4217 code (target currency)
+	rate: z.number().positive(), // 1 fromCurrency = rate toCurrency
+	date: z.string().datetime(), // Date for which this rate is valid (ISO date)
+	source: z.string().default('api'), // API source identifier (e.g., 'exchangerate-api', 'fixer')
+	// Metadata
+	lastFetched: z.string().datetime().optional(), // When this rate was last fetched from API
+	notes: z.string().optional(), // Optional notes about the rate
 });
 
 // ============================================================================
@@ -902,6 +916,7 @@ export type UserAction = z.infer<typeof UserActionSchema>;
 export type Goal = z.infer<typeof GoalSchema>;
 export type Insight = z.infer<typeof InsightSchema>;
 export type CurrencyConfiguration = z.infer<typeof CurrencyConfigurationSchema>;
+export type ExchangeRate = z.infer<typeof ExchangeRateSchema>;
 export type FlexibilityTier = z.infer<typeof FlexibilityTier>;
 
 // Transaction-specific utility functions after Transaction type is defined
@@ -950,7 +965,7 @@ export type DirectionalConstraint = z.infer<typeof DirectionalConstraint>;
 // ============================================================================
 
 export class BudgicDB extends Dexie {
-	// Core entities (9 tables total)
+	// Core entities (10 tables total)
 	accounts!: Table<Account>;
 	currencies!: Table<Currency>;
 	categories!: Table<Category>;
@@ -960,6 +975,7 @@ export class BudgicDB extends Dexie {
 	userActions!: Table<UserAction>;
 	insights!: Table<Insight>;
 	currencyConfigurations!: Table<CurrencyConfiguration>;
+	exchangeRates!: Table<ExchangeRate>;
 
 	constructor() {
 		super('BudgicDB');
@@ -978,6 +994,21 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt'
 		});
 
+		// Version 10: Add exchange rates table
+		this.version(10).stores({
+			// Core entities - 10 tables
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
+		});
+
 		// Add validation hooks
 		this.setupValidationHooks();
 		
@@ -990,37 +1021,84 @@ export class BudgicDB extends Dexie {
 
 	private async initializeSystemCurrencies(): Promise<void> {
 		try {
-			// Check if system currencies already exist
+			// Wait for database to be open
+			await this.open();
+			
+			// Get existing system currencies
 			const existingCurrencies = await this.getSystemCurrencies();
-			if (existingCurrencies.length > 0) {
-				// Currencies exist, but check if currency configs need initialization
-				await this.initializeCurrencyConfigurations();
-				return; // Already initialized
-			}
-
-			// Add system currencies from registry
+			const existingCodes = new Set(existingCurrencies.map(c => c.code));
+			
+			// Check which system currencies are missing
+			const missingCurrencies: Array<{ code: string; info: CurrencyInfo }> = [];
 			for (const [code, currencyInfo] of CURRENCY_REGISTRY) {
-				if (currencyInfo.isSystem) {
-					await this.currencies.add({
-						id: generateUUID(),
-						code: currencyInfo.code,
-						name: currencyInfo.name,
-						symbol: currencyInfo.symbol,
-						placement: currencyInfo.placement,
-						decimalPlaces: currencyInfo.decimalPlaces,
-						isSystem: currencyInfo.isSystem,
-						isActive: currencyInfo.isActive,
-						createdAt: new Date().toISOString(),
-						updatedAt: new Date().toISOString(),
-						deletedAt: null
-					});
+				if (currencyInfo.isSystem && !existingCodes.has(code)) {
+					missingCurrencies.push({ code, info: currencyInfo });
 				}
 			}
 
-			// Initialize currency configurations after currencies are created
+			// Add any missing system currencies
+			if (missingCurrencies.length > 0) {
+				console.log(`Adding ${missingCurrencies.length} missing system currencies:`, missingCurrencies.map(c => c.code));
+				for (const { code, info } of missingCurrencies) {
+					try {
+						// Check if currency exists but is soft-deleted
+						const deletedCurrency = await this.currencies
+							.where('code')
+							.equals(code)
+							.filter(c => c.deletedAt !== null)
+							.first();
+						
+						if (deletedCurrency) {
+							// Restore soft-deleted currency
+							await this.currencies.update(deletedCurrency.id, {
+								name: info.name,
+								symbol: info.symbol,
+								placement: info.placement,
+								decimalPlaces: info.decimalPlaces,
+								isSystem: info.isSystem,
+								isActive: info.isActive,
+								deletedAt: null,
+								updatedAt: new Date().toISOString()
+							});
+						} else {
+							// Add new currency
+							await this.currencies.add({
+								id: generateUUID(),
+								code: info.code,
+								name: info.name,
+								symbol: info.symbol,
+								placement: info.placement,
+								decimalPlaces: info.decimalPlaces,
+								isSystem: info.isSystem,
+								isActive: info.isActive,
+								createdAt: new Date().toISOString(),
+								updatedAt: new Date().toISOString(),
+								deletedAt: null
+							});
+						}
+					} catch (err) {
+						console.error(`Failed to add currency ${code}:`, err);
+					}
+				}
+			}
+
+			// Verify all system currencies are now present
+			const finalCurrencies = await this.getSystemCurrencies();
+			const finalCodes = new Set(finalCurrencies.map(c => c.code));
+			const systemCodes = Array.from(CURRENCY_REGISTRY.entries())
+				.filter(([_, info]) => info.isSystem)
+				.map(([code]) => code);
+			
+			const stillMissing = systemCodes.filter(code => !finalCodes.has(code));
+			if (stillMissing.length > 0) {
+				console.warn('Some system currencies are still missing after initialization:', stillMissing);
+			}
+
+			// Initialize currency configurations after currencies are created/verified
 			await this.initializeCurrencyConfigurations();
 		} catch (error) {
 			console.error('Failed to initialize system currencies:', error);
+			// Don't throw - allow app to continue even if currency initialization fails
 		}
 	}
 

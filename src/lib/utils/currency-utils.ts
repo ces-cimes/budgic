@@ -374,15 +374,50 @@ export function formatCurrencyWithLocale(
 
 /**
  * Convert amount between currencies (basic implementation)
+ * @deprecated Use exchangeRateService.convertAmount() instead for automatic rate lookup
  */
 export function convertCurrency(
-    amount: number, 
-    fromCurrency: string, 
-    toCurrency: string, 
-    exchangeRate: number
+	amount: number, 
+	fromCurrency: string, 
+	toCurrency: string, 
+	exchangeRate: number
 ): number {
-    if (fromCurrency === toCurrency) return amount;
-    return amount * exchangeRate;
+	if (fromCurrency === toCurrency) return amount;
+	return amount * exchangeRate;
+}
+
+/**
+ * Convert amount to user's main currency using exchange rate service
+ * This is the recommended function for converting amounts in calculations
+ */
+export async function convertToMainCurrency(
+	amount: number,
+	fromCurrency: string,
+	mainCurrency?: string
+): Promise<number> {
+	if (amount === 0) return 0;
+	
+	// Get main currency if not provided
+	if (!mainCurrency) {
+		mainCurrency = await getUserMainCurrency();
+	}
+	
+	// Same currency, no conversion needed
+	if (fromCurrency === mainCurrency) {
+		return amount;
+	}
+	
+	// Use exchange rate service for conversion
+	const { exchangeRateService } = await import('$lib/core/services');
+	const converted = await exchangeRateService.convertAmount(amount, fromCurrency, mainCurrency);
+	
+	// If conversion fails, return original amount (better than 0 or null)
+	if (converted === null) {
+		console.warn(`Failed to convert ${amount} ${fromCurrency} to ${mainCurrency}, using original amount`);
+		return amount;
+	}
+	
+	return converted;
 }
 
 /**

@@ -198,10 +198,11 @@ class CurrencyConfigService {
 
 	/**
 	 * Get maximum amount limit for a currency
+	 * Returns undefined if no limit is set (unlimited)
 	 */
-	async getMaxAmountLimit(currencyCode: string): Promise<number> {
+	async getMaxAmountLimit(currencyCode: string): Promise<number | undefined> {
 		const config = await this.getCurrencyConfig(currencyCode);
-		return config.maxAmountLimit ?? 1000000; // Default 1M if not specified
+		return config.maxAmountLimit; // Return undefined if not set (allows unlimited)
 	}
 }
 

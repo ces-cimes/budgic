@@ -38,11 +38,16 @@ class BudgetService {
     // ============================================================================
 
     /**
-     * Get budget summary for all categories
+     * Get budget summary for all categories (converted to main currency)
      */
     async getBudgetSummary(): Promise<BudgetSummary> {
         const categories = await db.getActiveCategories();
         const transactions = await db.transactions.toArray();
+        
+        // Get user's main currency
+        const { userService } = await import('$lib/core/services');
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
         
         const allocations: BudgetAllocation[] = [];
         let totalAllocated = 0;
@@ -51,7 +56,7 @@ class BudgetService {
         // Calculate budget allocations for each category
         for (const category of categories) {
             if (category.budgetAmount && category.budgetAmount > 0) {
-                const spentAmount = this.calculateCategorySpending(category.id, transactions);
+                const spentAmount = await this.calculateCategorySpending(category.id, transactions, mainCurrency);
                 const remainingAmount = category.budgetAmount - spentAmount;
                 const percentageUsed = category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
 
@@ -120,7 +125,10 @@ class BudgetService {
         }
 
         const transactions = await db.transactions.toArray();
-        const spentAmount = this.calculateCategorySpending(categoryId, transactions);
+        const { userService } = await import('$lib/core/services');
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        const spentAmount = await this.calculateCategorySpending(categoryId, transactions, mainCurrency);
         const remainingAmount = category.budgetAmount - spentAmount;
         const percentageUsed = category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
 
@@ -163,14 +171,39 @@ class BudgetService {
             tx.clearedDate && new Date(tx.clearedDate) >= threeMonthsAgo
         );
 
+        // Get user's main currency
+        const { userService, exchangeRateService } = await import('$lib/core/services');
+        const preferences = await userService.getUserPreferences();
+        const mainCurrency = preferences?.currency || 'USD';
+        
         for (const category of categories) {
             const categoryTransactions = recentTransactions.filter((tx: Transaction) => tx.categoryId === category.id);
-            const totalSpending = categoryTransactions.reduce((sum: number, tx: Transaction) => {
+            
+            // Convert all amounts to main currency
+            let totalSpending = 0;
+            for (const tx of categoryTransactions) {
                 if (tx.type === 'expense') {
-                    return sum + Math.abs(tx.amount || 0);
+                    const amount = Math.abs(tx.amount || 0);
+                    const transactionCurrency = tx.currency || mainCurrency;
+                    
+                    let convertedAmount = amount;
+                    if (transactionCurrency !== mainCurrency) {
+                        const converted = await exchangeRateService.convertAmount(
+                            amount,
+                            transactionCurrency,
+                            mainCurrency,
+                            tx.clearedDate ? new Date(tx.clearedDate) : undefined
+                        );
+                        if (converted !== null) {
+                            convertedAmount = converted;
+                        } else {
+                            console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
+                        }
+                    }
+                    
+                    totalSpending += convertedAmount;
                 }
-                return sum;
-            }, 0);
+            }
 
             const averageMonthlySpending = totalSpending / 3;
             const recommendedBudget = averageMonthlySpending * 1.1; // 10% buffer

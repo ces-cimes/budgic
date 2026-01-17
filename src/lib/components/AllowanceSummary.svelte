@@ -47,7 +47,7 @@
 					<Wallet class="w-5 h-5 text-primary" />
 					<CardTitle class="text-lg">Spending Allowance</CardTitle>
 				</div>
-				<Badge variant={usagePercentage() >= 100 ? 'destructive' : usagePercentage() >= 80 ? 'warning' : 'default'}>
+				<Badge variant={usagePercentage() >= 100 ? 'destructive' : usagePercentage() >= 80 ? 'secondary' : 'default'}>
 					{allowance.total.daysRemaining} days left
 				</Badge>
 			</div>

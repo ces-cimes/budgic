@@ -469,6 +469,156 @@ function calculateSpentSoFar(transactions: Transaction[], periodStart: Date, now
 }
 
 /**
+ * Calculate historical spending with currency conversion
+ */
+async function calculateHistoricalSpendingWithConversion(
+	transactions: Transaction[],
+	periodStart: Date,
+	mainCurrency: string
+): Promise<HistoricalSpendingData> {
+	const { exchangeRateService } = await import('$lib/core/services');
+	const sixMonthsAgo = new Date(periodStart);
+	sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+	// Filter expenses from last 6 months and convert to main currency
+	const historicalExpenses: number[] = [];
+	for (const t of transactions) {
+		if (t.type !== 'expense') continue;
+		if (!t.clearedDate) continue;
+		const date = new Date(t.clearedDate);
+		if (date < sixMonthsAgo || date >= periodStart) continue;
+
+		const amount = Math.abs(t.amount || 0);
+		const transactionCurrency = t.currency || mainCurrency;
+
+		// Convert to main currency
+		let convertedAmount = amount;
+		if (transactionCurrency !== mainCurrency) {
+			const converted = await exchangeRateService.convertAmount(
+				amount,
+				transactionCurrency,
+				mainCurrency,
+				date // Use transaction date for historical conversion
+			);
+			if (converted !== null) {
+				convertedAmount = converted;
+			} else {
+				console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${t.id}`);
+			}
+		}
+
+		historicalExpenses.push(convertedAmount);
+	}
+
+	if (historicalExpenses.length === 0) {
+		return {
+			average: 0,
+			stdDev: 0,
+			monthsOfData: 0,
+			hasEnoughData: false
+		};
+	}
+
+	// Group by month to calculate monthly averages
+	const monthlyTotals = new Map<string, number>();
+	for (const t of transactions) {
+		if (t.type !== 'expense' || !t.clearedDate) continue;
+		const date = new Date(t.clearedDate);
+		if (date < sixMonthsAgo || date >= periodStart) continue;
+
+		const amount = Math.abs(t.amount || 0);
+		const transactionCurrency = t.currency || mainCurrency;
+
+		// Convert to main currency
+		let convertedAmount = amount;
+		if (transactionCurrency !== mainCurrency) {
+			const converted = await exchangeRateService.convertAmount(
+				amount,
+				transactionCurrency,
+				mainCurrency,
+				date
+			);
+			if (converted !== null) {
+				convertedAmount = converted;
+			}
+		}
+
+		const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+		monthlyTotals.set(monthKey, (monthlyTotals.get(monthKey) || 0) + convertedAmount);
+	}
+
+	const monthlyValues = Array.from(monthlyTotals.values());
+	const monthsOfData = monthlyValues.length;
+
+	if (monthsOfData === 0) {
+		return {
+			average: 0,
+			stdDev: 0,
+			monthsOfData: 0,
+			hasEnoughData: false
+		};
+	}
+
+	// Calculate average
+	const average = monthlyValues.reduce((sum, val) => sum + val, 0) / monthsOfData;
+
+	// Calculate standard deviation
+	const variance =
+		monthlyValues.reduce((sum, val) => sum + Math.pow(val - average, 2), 0) / monthsOfData;
+	const stdDev = Math.sqrt(variance);
+
+	return {
+		average,
+		stdDev,
+		monthsOfData,
+		hasEnoughData: monthsOfData >= 3
+	};
+}
+
+/**
+ * Calculate spent so far in current period with currency conversion
+ */
+async function calculateSpentSoFarWithConversion(
+	transactions: Transaction[],
+	periodStart: Date,
+	now: Date,
+	mainCurrency: string
+): Promise<number> {
+	const { exchangeRateService } = await import('$lib/core/services');
+	let total = 0;
+
+	for (const t of transactions) {
+		if (t.type !== 'expense') continue;
+		if (!t.clearedDate) continue;
+		const date = new Date(t.clearedDate);
+		if (date < periodStart || date > now) continue;
+
+		const amount = Math.abs(t.amount || 0);
+		const transactionCurrency = t.currency || mainCurrency;
+
+		// Convert to main currency
+		let convertedAmount = amount;
+		if (transactionCurrency !== mainCurrency) {
+			const converted = await exchangeRateService.convertAmount(
+				amount,
+				transactionCurrency,
+				mainCurrency,
+				date
+			);
+			if (converted !== null) {
+				convertedAmount = converted;
+			} else {
+				console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${t.id}`);
+			}
+		}
+
+		total += convertedAmount;
+	}
+
+	return total;
+}
+
+/**
  * Calculate category-specific allowance
  */
 function calculateCategoryAllowance(
@@ -577,8 +727,10 @@ export async function calculateGlobalAllowance(
 		throw new Error('No active accounts found');
 	}
 
-	// Get user's main currency (use first account's currency as default)
-	const userCurrency = activeAccounts[0]?.currency || 'USD';
+	// Get user's main currency
+	const { userService, exchangeRateService } = await import('$lib/core/services');
+	const preferences = await userService.getUserPreferences();
+	const userCurrency = preferences?.currency || activeAccounts[0]?.currency || 'USD';
 
 	// Get all transactions across all accounts
 	const allTransactions = await transactionService.getAllTransactions();
@@ -593,19 +745,36 @@ export async function calculateGlobalAllowance(
 		t => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
 	);
 
-	// Calculate historical spending data across all accounts
-	const historicalData = calculateHistoricalSpending(clearedTransactions, start);
+	// Calculate historical spending data across all accounts (converted to main currency)
+	const historicalData = await calculateHistoricalSpendingWithConversion(clearedTransactions, start, userCurrency);
 
 	// Calculate method weights based on data availability
 	const methodWeights = calculateMethodWeights(historicalData.hasEnoughData, daysElapsed, daysRemaining);
 
-	// Calculate spent so far in current period
-	const spentSoFar = calculateSpentSoFar(clearedTransactions, start, now);
+	// Calculate spent so far in current period (converted to main currency)
+	const spentSoFar = await calculateSpentSoFarWithConversion(clearedTransactions, start, now, userCurrency);
 
-	// Calculate total balance and total buffer across all accounts
-	const totalBalance = activeAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
+	// Calculate total balance and total buffer across all accounts (converted to main currency)
+	let totalBalance = 0;
+	for (const account of activeAccounts) {
+		if (account.currency === userCurrency) {
+			totalBalance += account.currentBalance;
+		} else {
+			const converted = await exchangeRateService.convertAmount(
+				account.currentBalance,
+				account.currency,
+				userCurrency
+			);
+			if (converted !== null) {
+				totalBalance += converted;
+			} else {
+				console.warn(`Failed to convert ${account.currency} to ${userCurrency} for account ${account.name}`);
+				totalBalance += account.currentBalance;
+			}
+		}
+	}
 	
-	// Calculate total buffer (sum of all account buffers)
+	// Calculate total buffer (sum of all account buffers, converted to main currency)
 	let totalBufferAmount = 0;
 	for (const account of activeAccounts) {
 		const accountTransactions = clearedTransactions
@@ -616,7 +785,23 @@ export async function calculateGlobalAllowance(
 				type: t.type
 			}));
 		const buffer = await calculateRecommendedBuffer(account, accountTransactions);
-		totalBufferAmount += buffer;
+		
+		// Convert buffer to main currency
+		if (account.currency === userCurrency) {
+			totalBufferAmount += buffer;
+		} else {
+			const converted = await exchangeRateService.convertAmount(
+				buffer,
+				account.currency,
+				userCurrency
+			);
+			if (converted !== null) {
+				totalBufferAmount += converted;
+			} else {
+				console.warn(`Failed to convert buffer from ${account.currency} to ${userCurrency}`);
+				totalBufferAmount += buffer;
+			}
+		}
 	}
 
 	// Create a virtual account for calculations

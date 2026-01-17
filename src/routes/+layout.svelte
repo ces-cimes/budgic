@@ -3,7 +3,7 @@
   import { registerServiceWorker, handleOfflineStatus } from '$lib/pwa';
   import { onMount } from 'svelte';
   import { ModeWatcher } from 'mode-watcher';
-  import { insightsService, crossRouteSyncService, notificationsService } from '$lib/core/services';
+  import { insightsService, crossRouteSyncService, notificationsService, exchangeRateService } from '$lib/core/services';
   import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { AppLayout } from '$lib/components/layouts';
   import { Toaster } from '$lib/components/ui/sonner';
@@ -25,6 +25,9 @@
 
     // Initialize navigation store
     navigationStore.initialize();
+
+    // Start exchange rate service auto-updates
+    exchangeRateService.startAutoUpdates();
     
     // Cleanup on unmount
     return () => {
@@ -32,6 +35,7 @@
       crossRouteSyncService.stop();
       notificationsService.stopPolling();
       navigationStore.stopBadgeUpdates();
+      exchangeRateService.stopAutoUpdates();
     };
   });
 </script>
