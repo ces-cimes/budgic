@@ -5,8 +5,6 @@
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { db } from '$lib/core/db';
 	import { getPriorityName, getPriorityColor } from '$lib/utils/priority-utils';
-	import { getConstraintName, getConstraintInfo } from '$lib/utils/directional-constraint-utils';
-	import { getFlexibilityTierInfo, getFlexibilityTierIcon } from '$lib/utils/flexibility-tier-utils';
 	import { isUncategorizedCategory } from '$lib/utils/category-utils';
 
 	interface Props {
@@ -228,18 +226,6 @@
 		}
 	});
 
-	// Get primary tag for display
-	const primaryTag = $derived(() => {
-		if (isTransfer()) {
-			return 'Transfer';
-		}
-		if (isGroup) {
-			return groupCategory || 'Uncategorized';
-		}
-		if (transaction.categoryId) return transaction.categoryId;
-		return 'Uncategorized';
-	});
-
 	// Check if transaction is uncategorized
 	let category = $state<Category | null>(null);
 	let isUncategorized = $derived(() => {
@@ -251,15 +237,33 @@
 		return category ? isUncategorizedCategory(category) : false;
 	});
 
-	// Load category to check if it's uncategorized
+	// Load category for display (for both income and expense transactions)
 	$effect(() => {
-		if (!isGroup && transaction.categoryId && transaction.type === 'expense') {
+		if (!isGroup && transaction.categoryId && (transaction.type === 'expense' || transaction.type === 'income')) {
 			db.categories.get(transaction.categoryId).then(cat => {
 				category = cat || null;
 			}).catch(() => {
 				category = null;
 			});
 		}
+	});
+
+	// Get primary tag for display (category name, not UID)
+	const primaryTag = $derived(() => {
+		if (isTransfer()) {
+			return 'Transfer';
+		}
+		if (isGroup) {
+			return groupCategory || 'Uncategorized';
+		}
+		if (category) {
+			return category.name || 'Uncategorized';
+		}
+		if (transaction.categoryId) {
+			// Fallback to categoryId if category not loaded yet (will show UID temporarily)
+			return transaction.categoryId;
+		}
+		return 'Uncategorized';
 	});
 
 	// Get category icon for split groups
@@ -735,6 +739,15 @@
 								<div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-bg-secondary
 										{confidenceInfo()?.color}"></div>
 							{/if}
+							
+							<!-- Priority number indicator -->
+							{#if transaction.priority}
+								<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-bg-primary border-2 border-bg-secondary
+										flex items-center justify-center text-[10px] font-bold {getPriorityColor(transaction.priority)}"
+										title="Priority {transaction.priority} - {getPriorityName(transaction.priority)}">
+									{transaction.priority}
+								</div>
+							{/if}
 						</div>
 						
 						<!-- Content -->
@@ -752,11 +765,14 @@
 									{primaryTag().toString().replace('_', ' ')}
 								</h3>
 
-								<!-- Uncategorized indicator badge -->
+								<!-- Uncategorized indicator icon -->
 								{#if isUncategorized()}
-									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning/10 text-warning border border-warning/20" title="This transaction needs to be categorized">
-										<Tag class="w-3 h-3" />
-										Uncategorized
+									<span 
+										class="flex-shrink-0" 
+										title="This transaction needs to be categorized"
+										aria-label="Uncategorized transaction"
+									>
+										<Tag class="w-4 h-4 text-warning" />
 									</span>
 								{/if}
 							</div>
@@ -776,27 +792,6 @@
 									</span>
 								</div>
 							{/if}
-							
-							<!-- Priority, Constraint, and Flexibility Tier badges -->
-							<div class="flex items-center space-x-1 mt-1 flex-wrap gap-1">
-								{#if transaction.priority}
-									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface {getPriorityColor(transaction.priority)}">
-										Priority {transaction.priority} - {getPriorityName(transaction.priority)}
-									</span>
-								{/if}
-								{#if transaction.directionalConstraint && transaction.directionalConstraint !== 'none'}
-									{@const constraintInfo = getConstraintInfo(transaction.directionalConstraint)}
-									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
-										{constraintInfo?.icon} {constraintInfo?.name}
-									</span>
-								{/if}
-								{#if transaction.flexibilityTier}
-									{@const tierInfo = getFlexibilityTierInfo(transaction.flexibilityTier)}
-									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
-										{tierInfo?.icon} {tierInfo?.name} ({tierInfo?.daysRange})
-									</span>
-								{/if}
-							</div>
 						</div>
 					</div>
 					
