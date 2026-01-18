@@ -183,7 +183,7 @@
 
   
 
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
+  <div class="container mx-auto p-2 sm:p-4 max-w-4xl">
 
   {#if isLoading}
     <div class="flex items-center justify-center py-12">

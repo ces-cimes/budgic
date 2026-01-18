@@ -111,7 +111,7 @@
     />
   {/snippet}
 
-  <div class="container mx-auto px-4 py-6 max-w-6xl">
+  <div class="container mx-auto p-2 sm:p-4 max-w-6xl">
 
   <!-- Total Balance -->
   <section class="mb-8">

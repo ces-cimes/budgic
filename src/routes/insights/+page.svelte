@@ -140,12 +140,13 @@
   {/snippet}
 
   {#snippet children()}
-    <TabContentWrapper
-      tabs={insightsTabs}
-      activeTab={activeTab}
-      onTabChange={handleTabChange}
-      class="flex-1"
-    >
+    <div class="container mx-auto p-2 sm:p-4 max-w-4xl h-full">
+      <TabContentWrapper
+        tabs={insightsTabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        class="flex-1"
+      >
       {#snippet children()}
         <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={insightsTabs}>
           <OverviewTab
@@ -176,6 +177,7 @@
           />
         </TabContent>
       {/snippet}
-    </TabContentWrapper>
+      </TabContentWrapper>
+    </div>
   {/snippet}
 </PageLayout>
