@@ -1009,6 +1009,21 @@ export class BudgicDB extends Dexie {
 			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
 		});
 
+		// Version 11: Add importSource index to transactions for duplicate detection
+		this.version(11).stores({
+			// Core entities - 10 tables
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
+		});
+
 		// Add validation hooks
 		this.setupValidationHooks();
 		

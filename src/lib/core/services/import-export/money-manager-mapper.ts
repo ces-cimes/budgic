@@ -69,11 +69,13 @@ export function mapTransactionType(doType: string | number): Transaction['type']
 
 /**
  * Convert Money Manager date format (YYYY-MM-DD) to ISO datetime
+ * Optionally uses a timestamp to extract time component for better ordering
  * 
  * @param wdate - MM date string (e.g., "2024-10-15")
+ * @param utime - Optional MM timestamp (milliseconds) to extract time component
  * @returns ISO datetime string
  */
-export function mapDate(wdate: string): string {
+export function mapDate(wdate: string, utime?: string | number): string {
 	if (!wdate || wdate === 'null' || wdate.trim() === '') {
 		return new Date().toISOString();
 	}
@@ -82,7 +84,24 @@ export function mapDate(wdate: string): string {
 	const dateMatch = wdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
 	if (dateMatch) {
 		const [, year, month, day] = dateMatch;
-		return new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10)).toISOString();
+		const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+		
+		// If we have a timestamp, extract the time component from it
+		// This preserves the actual time of the transaction for better ordering
+		if (utime && utime !== 'null' && utime !== '0' && utime !== '') {
+			const timestamp = typeof utime === 'string' ? parseInt(utime, 10) : utime;
+			if (!isNaN(timestamp) && timestamp > 0) {
+				const timeDate = new Date(timestamp);
+				// Combine date from WDATE with time from UTIME
+				date.setHours(timeDate.getHours(), timeDate.getMinutes(), timeDate.getSeconds(), timeDate.getMilliseconds());
+			}
+		} else {
+			// Default to noon (12:00:00) to avoid timezone edge cases with midnight
+			// This ensures transactions on the same day are ordered consistently
+			date.setHours(12, 0, 0, 0);
+		}
+		
+		return date.toISOString();
 	}
 	
 	// Fallback: try to parse as-is
@@ -112,18 +131,25 @@ export function mapAmount(zmoney: string | number, doType: string | number): num
 	
 	// MM stores: income positive (0), expense positive (1)
 	// Budgic uses: income positive, expense negative
+	// IMPORTANT: Preserve negative amounts for refunds (negative expenses)
 	if (typeCode === 1) {
-		// Expense: negate
-		return -Math.abs(amount);
+		// Expense: if amount is already negative (refund), preserve it; otherwise negate
+		if (amount < 0) {
+			// Refund: preserve negative sign
+			return amount;
+		} else {
+			// Regular expense: negate
+			return -amount;
+		}
 	} else if (typeCode === 0) {
-		// Income: keep positive
-		return Math.abs(amount);
+		// Income: keep positive (but preserve if negative for corrections)
+		return amount >= 0 ? amount : amount;
 	} else if (typeCode === 3) {
 		// Transfer out: negative
-		return -Math.abs(amount);
+		return amount < 0 ? amount : -amount;
 	} else if (typeCode === 4) {
 		// Transfer in: positive
-		return Math.abs(amount);
+		return amount < 0 ? amount : amount;
 	} else {
 		// Adjustment (7, 8): use as-is (already signed)
 		return amount;

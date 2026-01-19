@@ -544,6 +544,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		const assetUid = row.assetUid;
 		const ctgUid = row.ctgUid;
 		const doType = parseInt(row.DO_TYPE || '0', 10);
+		const mmUid = row.uid || row.ID; // MM transaction UID
 
 		// Get account
 		const accountId = assetUid ? this.accountMappings.get(assetUid) : undefined;
@@ -569,18 +570,38 @@ export class MoneyManagerImporter extends BaseImporter {
 			this.addWarning(`Currency not found for transaction, using USD`);
 		}
 
+		const amount = mapAmount(row.ZMONEY || '0', doType);
+		const clearedDate = mapDate(row.WDATE || '', row.UTIME);
+		const description = row.ZCONTENT || '';
+
+		// Check for duplicate by MM UID only
+		// This ensures 1-to-1 import - we only skip if the exact same transaction was already imported
+		if (mmUid && mmUid !== 'null' && mmUid !== '') {
+			const existingByUid = await this.findTransactionByMMUid(mmUid);
+			if (existingByUid) {
+				this.statistics.transactionsSkipped++;
+				return; // Skip exact duplicate (same MM UID)
+			}
+		}
+
+		// Create import metadata with MM UID
+		const importMetadata = mmUid && mmUid !== 'null' && mmUid !== ''
+			? JSON.stringify({ mmUid, source: 'money-manager' })
+			: undefined;
+
 		const transaction: Transaction = {
 			id: generateUUID(),
 			type: mapTransactionType(doType),
 			status: 'cleared', // All imported transactions are historical
 			accountId: accountId,
-			amount: mapAmount(row.ZMONEY || '0', doType),
+			amount: amount,
 			currency: currency?.code || 'USD',
-			description: row.ZCONTENT || '',
+			description: description,
 			categoryId: categoryId,
-			clearedDate: mapDate(row.WDATE || ''),
+			clearedDate: clearedDate,
 			notes: row.ZCONTENT || '',
 			importSource: 'money-manager',
+			importMetadata: importMetadata,
 			createdAt: parseTimestamp(row.UTIME),
 			updatedAt: parseTimestamp(row.UTIME),
 			deletedAt: null
@@ -599,6 +620,7 @@ export class MoneyManagerImporter extends BaseImporter {
 
 		const outRow = pair.transferOut;
 		const inRow = pair.transferIn;
+		const mmUid = pair.txUidTrans; // Use transfer pair UID as identifier
 
 		// Get accounts
 		const fromAccountId = outRow.assetUid ? this.accountMappings.get(outRow.assetUid) : undefined;
@@ -618,6 +640,25 @@ export class MoneyManagerImporter extends BaseImporter {
 
 		// Transfer amount (from the "in" transaction, which is positive)
 		const transferAmount = Math.abs(parseFloat(inRow.ZMONEY || '0'));
+		// Use the earlier timestamp for better ordering
+		const transferUtime = outRow.UTIME || inRow.UTIME;
+		const clearedDate = mapDate(outRow.WDATE || inRow.WDATE || '', transferUtime);
+		const description = outRow.ZCONTENT || inRow.ZCONTENT || 'Transfer';
+
+		// Check for duplicate by MM transfer UID only
+		// This ensures 1-to-1 import - we only skip if the exact same transfer was already imported
+		if (mmUid && mmUid !== 'null' && mmUid !== '') {
+			const existingByUid = await this.findTransactionByMMUid(mmUid);
+			if (existingByUid) {
+				this.statistics.transactionsSkipped++;
+				return; // Skip exact duplicate (same MM UID)
+			}
+		}
+
+		// Create import metadata with MM transfer UID
+		const importMetadata = mmUid && mmUid !== 'null' && mmUid !== ''
+			? JSON.stringify({ mmUid, source: 'money-manager', type: 'transfer' })
+			: undefined;
 
 		const transaction: Transaction = {
 			id: generateUUID(),
@@ -625,7 +666,7 @@ export class MoneyManagerImporter extends BaseImporter {
 			status: 'cleared',
 			accountId: fromAccountId,
 			currency: currency?.code || 'USD',
-			description: outRow.ZCONTENT || inRow.ZCONTENT || 'Transfer',
+			description: description,
 			transferDetails: {
 				toAccountId: toAccountId,
 				transferAmount: transferAmount,
@@ -633,9 +674,10 @@ export class MoneyManagerImporter extends BaseImporter {
 				feeAccountId: undefined,
 				feeCategoryId: undefined
 			},
-			clearedDate: mapDate(outRow.WDATE || inRow.WDATE || ''),
+			clearedDate: clearedDate,
 			notes: outRow.ZCONTENT || inRow.ZCONTENT || '',
 			importSource: 'money-manager',
+			importMetadata: importMetadata,
 			createdAt: parseTimestamp(outRow.UTIME || inRow.UTIME),
 			updatedAt: parseTimestamp(outRow.UTIME || inRow.UTIME),
 			deletedAt: null
@@ -657,6 +699,158 @@ export class MoneyManagerImporter extends BaseImporter {
 				this.addWarning(`Failed to recalculate balance for account ${accountId}`);
 			}
 		}
+	}
+
+	/**
+	 * Find existing transaction by Money Manager UID
+	 */
+	private async findTransactionByMMUid(mmUid: string): Promise<Transaction | null> {
+		if (!mmUid || mmUid === 'null' || mmUid === '') {
+			return null;
+		}
+
+		try {
+			// Try to use indexed query first (requires version 11+)
+			const transactions = await db.transactions
+				.where('importSource')
+				.equals('money-manager')
+				.filter(tx => !tx.deletedAt)
+				.toArray();
+
+			// Check importMetadata for MM UID
+			for (const tx of transactions) {
+				if (tx.importMetadata) {
+					try {
+						const metadata = JSON.parse(tx.importMetadata);
+						if (metadata.mmUid === mmUid) {
+							return tx;
+						}
+					} catch (e) {
+						// Invalid JSON, skip
+					}
+				}
+			}
+		} catch (error) {
+			// Fallback: if index doesn't exist yet, search all transactions
+			// This is slower but works until database is upgraded
+			const allTransactions = await db.transactions
+				.filter(tx => !tx.deletedAt && tx.importSource === 'money-manager')
+				.toArray();
+
+			for (const tx of allTransactions) {
+				if (tx.importMetadata) {
+					try {
+						const metadata = JSON.parse(tx.importMetadata);
+						if (metadata.mmUid === mmUid) {
+							return tx;
+						}
+					} catch (e) {
+						// Invalid JSON, skip
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Find similar transaction (for detecting user-modified transactions)
+	 * Checks for transactions with same account, amount, date, and description
+	 */
+	private async findSimilarTransaction(criteria: {
+		accountId: string;
+		amount: number;
+		clearedDate: string;
+		description: string;
+	}): Promise<Transaction | null> {
+		const { accountId, amount, clearedDate, description } = criteria;
+
+		// Get all transactions for this account
+		const transactions = await db.transactions
+			.where('accountId')
+			.equals(accountId)
+			.filter(tx => !tx.deletedAt && tx.status === 'cleared')
+			.toArray();
+
+		// Normalize date for comparison (compare only date part, ignore time)
+		const targetDate = clearedDate.substring(0, 10); // YYYY-MM-DD
+		const targetAmount = Math.abs(amount);
+		const targetDesc = (description || '').trim().toLowerCase();
+
+		// Check for similar transactions
+		for (const tx of transactions) {
+			if (!tx.clearedDate) continue;
+
+			const txDate = tx.clearedDate.substring(0, 10);
+			const txAmount = tx.amount ? Math.abs(tx.amount) : 0;
+			const txDesc = (tx.description || '').trim().toLowerCase();
+
+			// Match if same date, same amount (within 0.01 tolerance), and similar description
+			if (
+				txDate === targetDate &&
+				Math.abs(txAmount - targetAmount) < 0.01 &&
+				(txDesc === targetDesc || 
+				 (targetDesc.length > 0 && txDesc.length > 0 && 
+				  (txDesc.includes(targetDesc) || targetDesc.includes(txDesc))))
+			) {
+				return tx;
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Find similar transfer transaction
+	 */
+	private async findSimilarTransferTransaction(criteria: {
+		fromAccountId: string;
+		toAccountId: string;
+		transferAmount: number;
+		clearedDate: string;
+		description: string;
+	}): Promise<Transaction | null> {
+		const { fromAccountId, toAccountId, transferAmount, clearedDate, description } = criteria;
+
+		// Get all transfer transactions from this account
+		const transactions = await db.transactions
+			.where('accountId')
+			.equals(fromAccountId)
+			.filter(tx => 
+				!tx.deletedAt && 
+				tx.status === 'cleared' && 
+				tx.type === 'transfer' &&
+				tx.transferDetails?.toAccountId === toAccountId
+			)
+			.toArray();
+
+		// Normalize date for comparison
+		const targetDate = clearedDate.substring(0, 10); // YYYY-MM-DD
+		const targetAmount = Math.abs(transferAmount);
+		const targetDesc = (description || '').trim().toLowerCase();
+
+		// Check for similar transfers
+		for (const tx of transactions) {
+			if (!tx.clearedDate || !tx.transferDetails) continue;
+
+			const txDate = tx.clearedDate.substring(0, 10);
+			const txAmount = Math.abs(tx.transferDetails.transferAmount);
+			const txDesc = (tx.description || '').trim().toLowerCase();
+
+			// Match if same date, same amount (within 0.01 tolerance), and similar description
+			if (
+				txDate === targetDate &&
+				Math.abs(txAmount - targetAmount) < 0.01 &&
+				(txDesc === targetDesc || 
+				 (targetDesc.length > 0 && txDesc.length > 0 && 
+				  (txDesc.includes(targetDesc) || targetDesc.includes(txDesc))))
+			) {
+				return tx;
+			}
+		}
+
+		return null;
 	}
 }
 
