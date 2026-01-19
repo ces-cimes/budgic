@@ -899,6 +899,21 @@ const ExchangeRateSchema = BaseSchema.extend({
 	notes: z.string().optional(), // Optional notes about the rate
 });
 
+// Badge Schema - Achievement tracking system
+const BadgeSchema = BaseSchema.extend({
+	badgeId: z.string(), // Unique identifier for the badge type (e.g., 'budget_streak_30')
+	type: z.enum(['budget_badge', 'goal_milestone', 'behavioral_badge', 'financial_milestone', 'app_usage_badge']),
+	title: z.string().min(1),
+	description: z.string().min(1),
+	badgeType: z.enum(['achievement', 'milestone', 'streak', 'milestone_reached']),
+	rarity: z.enum(['common', 'uncommon', 'rare', 'epic', 'legendary']),
+	category: z.enum(['survival', 'security', 'growth', 'lifestyle', 'system']),
+	unlockedAt: z.string().datetime().optional(), // When the badge was unlocked
+	progress: z.string().optional(), // JSON string: { current: number, target: number, percentage: number }
+	metadata: z.string().optional(), // JSON string: { streakDays?, amount?, timeframe?, category? }
+	notifiedAt: z.string().datetime().optional(), // When notification was shown
+});
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -914,6 +929,7 @@ export type Goal = z.infer<typeof GoalSchema>;
 export type Insight = z.infer<typeof InsightSchema>;
 export type CurrencyConfiguration = z.infer<typeof CurrencyConfigurationSchema>;
 export type ExchangeRate = z.infer<typeof ExchangeRateSchema>;
+export type Badge = z.infer<typeof BadgeSchema>;
 export type FlexibilityTier = z.infer<typeof FlexibilityTier>;
 
 // Transaction-specific utility functions after Transaction type is defined
@@ -962,7 +978,7 @@ export type DirectionalConstraint = z.infer<typeof DirectionalConstraint>;
 // ============================================================================
 
 export class BudgicDB extends Dexie {
-	// Core entities (10 tables total)
+	// Core entities (11 tables total)
 	accounts!: Table<Account>;
 	currencies!: Table<Currency>;
 	categories!: Table<Category>;
@@ -973,6 +989,7 @@ export class BudgicDB extends Dexie {
 	insights!: Table<Insight>;
 	currencyConfigurations!: Table<CurrencyConfiguration>;
 	exchangeRates!: Table<ExchangeRate>;
+	badges!: Table<Badge>;
 
 	constructor() {
 		super('BudgicDB');
@@ -1019,6 +1036,22 @@ export class BudgicDB extends Dexie {
 			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
+		});
+
+		// Version 12: Add badges table for achievement tracking
+		this.version(12).stores({
+			// Core entities - 11 tables
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]'
 		});
 
 		// Add validation hooks
@@ -1936,7 +1969,91 @@ export class BudgicDB extends Dexie {
 		});
 	}
 
+	// ============================================================================
+	// BADGE MANAGEMENT
+	// ============================================================================
 
+	async getBadges(): Promise<Badge[]> {
+		return await this.badges.filter(badge => !badge.deletedAt).toArray();
+	}
+
+	async getUnlockedBadges(): Promise<Badge[]> {
+		return await this.badges
+			.filter(badge => !badge.deletedAt && badge.unlockedAt !== undefined)
+			.toArray();
+	}
+
+	async getBadgeByBadgeId(badgeId: string): Promise<Badge | undefined> {
+		return await this.badges
+			.where('badgeId')
+			.equals(badgeId)
+			.filter(badge => !badge.deletedAt)
+			.first();
+	}
+
+	async getBadgesByType(type: Badge['type']): Promise<Badge[]> {
+		return await this.badges
+			.where('type')
+			.equals(type)
+			.filter(badge => !badge.deletedAt)
+			.toArray();
+	}
+
+	async unlockBadge(badge: Omit<Badge, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<Badge> {
+		const existing = await this.getBadgeByBadgeId(badge.badgeId);
+		
+		if (existing) {
+			// Update existing badge
+			await this.badges.update(existing.id, {
+				...badge,
+				unlockedAt: badge.unlockedAt || new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			});
+			return (await this.getBadgeByBadgeId(badge.badgeId))!;
+		} else {
+			// Create new badge
+			const newBadge: Badge = {
+				...badge,
+				id: generateUUID(),
+				unlockedAt: badge.unlockedAt || new Date().toISOString(),
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
+			};
+			await this.badges.add(newBadge);
+			return newBadge;
+		}
+	}
+
+	async updateBadgeProgress(badgeId: string, progress: { current: number; target: number; percentage: number }): Promise<void> {
+		const badge = await this.getBadgeByBadgeId(badgeId);
+		if (badge) {
+			await this.badges.update(badge.id, {
+				progress: JSON.stringify(progress),
+				updatedAt: new Date().toISOString()
+			});
+		}
+	}
+
+	async markBadgeNotified(badgeId: string): Promise<void> {
+		const badge = await this.getBadgeByBadgeId(badgeId);
+		if (badge) {
+			await this.badges.update(badge.id, {
+				notifiedAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			});
+		}
+	}
+
+	async getUnnotifiedBadges(): Promise<Badge[]> {
+		return await this.badges
+			.filter(badge => 
+				!badge.deletedAt && 
+				badge.unlockedAt !== undefined && 
+				(badge.notifiedAt === undefined || badge.notifiedAt === null)
+			)
+			.toArray();
+	}
 
 	// ============================================================================
 	// INCLUDE DELETED ITEMS QUERIES (for admin/recovery purposes)

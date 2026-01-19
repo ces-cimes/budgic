@@ -3,10 +3,11 @@
   import { registerServiceWorker, handleOfflineStatus } from '$lib/pwa';
   import { onMount } from 'svelte';
   import { ModeWatcher } from 'mode-watcher';
-  import { insightsService, crossRouteSyncService, notificationsService, exchangeRateService } from '$lib/core/services';
+  import { insightsService, crossRouteSyncService, notificationsService, exchangeRateService, badgeService } from '$lib/core/services';
   import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { AppLayout } from '$lib/components/layouts';
   import { Toaster } from '$lib/components/ui/sonner';
+  import AchievementNotificationManager from '$lib/components/insights/AchievementNotificationManager.svelte';
 
   let { children } = $props();
 
@@ -28,6 +29,9 @@
 
     // Start exchange rate service auto-updates
     exchangeRateService.startAutoUpdates();
+
+    // Initial badge check
+    badgeService.checkAllBadges(true).catch(console.error);
     
     // Cleanup on unmount
     return () => {
@@ -62,3 +66,5 @@
     style: 'margin-top: 1rem;'
   }}
 />
+
+<AchievementNotificationManager enabled={true} checkInterval={60000} />

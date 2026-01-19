@@ -12,4 +12,5 @@ export { analyticsService } from './analytics-service';
 export { insightsService } from './insights-service';
 export { predictionService } from './prediction-service';
 export { crossRouteSyncService } from './cross-route-sync-service';
+export { badgeService } from './badge-service';
 export { notificationsService } from '../notifications-service';

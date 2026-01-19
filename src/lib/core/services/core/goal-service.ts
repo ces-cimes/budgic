@@ -1,5 +1,6 @@
 import { db, generateUUID } from '$lib/core/db';
 import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
+import { badgeService } from '../analytics/badge-service';
 import type { Goal, Transaction } from '$lib/core/db';
 
 interface GoalProgress {
@@ -124,9 +125,11 @@ class GoalService {
         // Emit sync event for goal update
         await crossRouteSyncService.onGoalUpdated(updatedGoal, updates);
         
-        // If goal was completed, emit completion event
+        // If goal was completed, emit completion event and check for badges
         if (updates.status === 'completed' && !goal.completedAt) {
             await crossRouteSyncService.onGoalCompleted(updatedGoal);
+            // Check for goal-related badges
+            badgeService.checkAllBadges(true).catch(console.error);
         }
         
         return updatedGoal;
