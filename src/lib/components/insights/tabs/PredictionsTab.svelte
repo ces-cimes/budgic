@@ -17,8 +17,8 @@
   let predictions = $state<PredictionInsight[]>([]);
   let localLoading = $state(false);
 
-  // Load predictions on mount
-  onMount(async () => {
+  // Load predictions function
+  async function loadPredictions() {
     localLoading = true;
     try {
       predictions = await insightsService.getPredictionInsights();
@@ -27,6 +27,19 @@
       predictions = [];
     } finally {
       localLoading = false;
+    }
+  }
+
+  // Load predictions on mount
+  onMount(() => {
+    loadPredictions();
+  });
+
+  // Reload predictions when currency changes
+  $effect(() => {
+    // This effect runs when userCurrency changes
+    if (userCurrency) {
+      loadPredictions();
     }
   });
 

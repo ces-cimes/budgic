@@ -187,9 +187,9 @@ class InsightsService {
         timeRange: 'month',
         includePredictions: true,
         includeBehavioral: true
-    }): Promise<void> {
+    }, force: boolean = false): Promise<void> {
         const now = Date.now();
-        if (now - this.lastUpdate < this.updateFrequency) {
+        if (!force && now - this.lastUpdate < this.updateFrequency) {
             return; // Too soon to update
         }
 
@@ -651,6 +651,7 @@ class InsightsService {
         const insights: Insight[] = [];
 
         try {
+            console.log('[InsightsService] Generating prediction insights...');
             // 1. Predict budget outcomes (budget risk analysis)
             const budgetPredictions = await this.predictBudgetOutcomes(data);
             
@@ -721,6 +722,8 @@ class InsightsService {
             // 3. Spending forecasts - show all predictions for debugging, but prioritize high-risk/high-value
             const spendingForecasts = await predictionService.predictSpending(undefined, 1);
             
+            console.log(`[InsightsService] Generated ${spendingForecasts.length} spending forecasts`);
+            
             // Sort by risk and confidence, then take top 25 (increased to see more predictions)
             const sortedForecasts = spendingForecasts
                 // Removed filter to show all predictions for debugging
@@ -734,6 +737,7 @@ class InsightsService {
                 .slice(0, 25); // Increased limit to see more predictions
             
             for (const forecast of sortedForecasts) {
+                console.log(`[InsightsService] Creating insight for ${forecast.categoryName}: predictedAmount=${forecast.predictedAmount}, currency should be main currency`);
                 insights.push({
                     id: generateUUID(),
                     type: 'prediction',
@@ -741,6 +745,7 @@ class InsightsService {
                     title: `${forecast.categoryName || 'Spending'} Forecast`,
                     message: `Predicted spending for next month: ${Math.round(forecast.predictedAmount)}. Confidence: ${forecast.confidence}%. Factors: ${forecast.factors.join(', ')}.`,
                     categoryId: forecast.categoryId,
+                    amount: forecast.predictedAmount, // Also store in amount field for easier retrieval
                     confidence: forecast.confidence,
                     actionable: forecast.riskLevel === 'high',
                     actionText: forecast.riskLevel === 'high' ? 'Review Budget' : undefined,
@@ -758,6 +763,8 @@ class InsightsService {
                     deletedAt: null
                 });
             }
+            
+            console.log(`[InsightsService] Created ${insights.length} total prediction insights`);
 
             // 4. Seasonal pattern detection - only high-confidence, significant patterns
             const seasonalPatterns = await predictionService.detectSeasonalPatterns();
@@ -876,7 +883,15 @@ class InsightsService {
                         .first();
                 }
 
-                if (!existingInsight) {
+                if (existingInsight) {
+                    // Update existing insight with new data (especially important for predictions when currency changes)
+                    await db.insights.update(existingInsight.id, {
+                        ...insight,
+                        id: existingInsight.id, // Keep the same ID
+                        createdAt: existingInsight.createdAt, // Keep original creation date
+                        updatedAt: new Date().toISOString()
+                    });
+                } else {
                     await db.insights.add(insight);
                 }
             }
@@ -1120,6 +1135,34 @@ class InsightsService {
         await this.generateCrossRouteInsights();
     }
 
+    /**
+     * Invalidate prediction insights (soft delete them)
+     * Used when currency changes to force regeneration with new currency
+     */
+    async invalidatePredictionInsights(): Promise<void> {
+        // Get all prediction insights including already inactive ones to ensure complete cleanup
+        const allPredictionInsights = await db.insights
+            .where('type')
+            .equals('prediction')
+            .toArray();
+        
+        const activePredictions = allPredictionInsights.filter(i => i.isActive && !i.dismissedAt);
+        console.log(`[InsightsService] Found ${allPredictionInsights.length} total prediction insights, ${activePredictions.length} active`);
+        console.log(`[InsightsService] Invalidating ${activePredictions.length} active prediction insights due to currency change`);
+        
+        // Delete all prediction insights (both active and inactive) to ensure clean slate
+        for (const insight of allPredictionInsights) {
+            await db.insights.update(insight.id, {
+                dismissedAt: new Date().toISOString(),
+                isActive: false,
+                deletedAt: new Date().toISOString(), // Permanent deletion for currency change
+                updatedAt: new Date().toISOString()
+            });
+        }
+        
+        console.log(`[InsightsService] Successfully invalidated ${allPredictionInsights.length} prediction insights (marked as deleted)`);
+    }
+
     // ============================================================================
     // PREDICTION AND PATTERN RETRIEVAL
     // ============================================================================
@@ -1165,6 +1208,17 @@ class InsightsService {
             const predictedValue = metadata.predictedAmount || metadata.predictedValue || insight.amount;
             const currentValue = metadata.currentAmount || metadata.currentValue;
             const variance = predictedValue && currentValue ? predictedValue - currentValue : metadata.variance;
+            
+            // Debug logging to track value retrieval
+            if (insight.title && insight.title.includes('Forecast')) {
+                console.log(`[InsightsService] Retrieving prediction for ${insight.title}:`, {
+                    metadataPredictedAmount: metadata.predictedAmount,
+                    metadataPredictedValue: metadata.predictedValue,
+                    insightAmount: insight.amount,
+                    finalPredictedValue: predictedValue,
+                    rawMetadata: insight.metadata
+                });
+            }
             
             return {
                 id: insight.id,

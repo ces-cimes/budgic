@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { userService, currencyConfigService, exchangeRateService } from '$lib/core/services';
+	import { userService, currencyConfigService, exchangeRateService, insightsService } from '$lib/core/services';
 	import { db, generateUUID } from '$lib/core/db';
 	import { PageLayout } from '$lib/components/layouts';
 	import * as Card from '$lib/components/ui/card/index.ts';
@@ -446,6 +446,22 @@
 				}
 			} else {
 				toast.success(`Main currency changed to ${mainCurrency}. You may need to update exchange rates manually.`);
+			}
+
+			// Invalidate and regenerate prediction insights with new currency
+			try {
+				console.log(`[CurrencySettings] Invalidating old predictions and regenerating with new currency: ${mainCurrency}`);
+				await insightsService.invalidatePredictionInsights();
+				// Regenerate predictions with new currency - force update to bypass rate limiting
+				await insightsService.generateCrossRouteInsights({
+					timeRange: 'month',
+					includePredictions: true,
+					includeBehavioral: false // Only regenerate predictions, not behavioral insights
+				}, true); // Force regeneration
+				console.log(`[CurrencySettings] Successfully regenerated predictions with currency: ${mainCurrency}`);
+			} catch (insightErr) {
+				console.error('[CurrencySettings] Error regenerating prediction insights:', insightErr);
+				// Don't fail the currency change if insight regeneration fails
 			}
 
 			oldMainCurrency = mainCurrency;
