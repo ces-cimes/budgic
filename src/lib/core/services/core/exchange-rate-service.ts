@@ -14,6 +14,8 @@ interface ExchangeRateAPIResponse {
 
 class ExchangeRateService {
 	private readonly API_BASE_URL = 'https://api.exchangerate-api.com/v4/latest';
+	/** Use same-origin API proxy in browser to avoid CORS blocking the external API */
+	private readonly API_PROXY_PATH = '/api/exchange-rates';
 	private readonly CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 	private updateInterval: ReturnType<typeof setInterval> | null = null;
 	private isUpdating = false;
@@ -40,16 +42,28 @@ class ExchangeRateService {
 		// Use today's date if not specified
 		const targetDate = date || new Date();
 		const dateString = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD
+		const todayString = new Date().toISOString().split('T')[0];
 
-		// Try to get cached rate first
-		const cachedRate = await this.getCachedRate(from, to, dateString);
+		// Try to get cached rate for the transaction date first
+		let cachedRate = await this.getCachedRate(from, to, dateString);
 		if (cachedRate !== null) {
 			return cachedRate;
 		}
 
-		// If no cached rate and it's today, try to fetch
+		// If transaction date is not today and we don't have that date's rate,
+		// try using today's rate as a fallback (better than nothing for historical transactions)
+		if (dateString !== todayString) {
+			cachedRate = await this.getCachedRate(from, to, todayString);
+			if (cachedRate !== null) {
+				return cachedRate;
+			}
+		}
+
+		// If no cached rate and it's today, try to fetch (only for the pair we need)
 		if (this.isToday(targetDate)) {
-			await this.updateRatesForCurrency(from);
+			const only = new Set(await this.getAppCurrencies());
+			only.add(to);
+			await this.updateRatesForCurrency(from, { onlyCurrencies: only });
 			// Try again after update
 			const updatedRate = await this.getCachedRate(from, to, dateString);
 			if (updatedRate !== null) {
@@ -57,10 +71,18 @@ class ExchangeRateService {
 			}
 		}
 
-		// Try reverse rate (if we have to->from, we can calculate from->to)
-		const reverseRate = await this.getCachedRate(to, from, dateString);
+		// Try reverse rate for transaction date (if we have to->from, we can calculate from->to)
+		let reverseRate = await this.getCachedRate(to, from, dateString);
 		if (reverseRate !== null) {
 			return 1 / reverseRate;
+		}
+
+		// Try reverse rate for today as fallback
+		if (dateString !== todayString) {
+			reverseRate = await this.getCachedRate(to, from, todayString);
+			if (reverseRate !== null) {
+				return 1 / reverseRate;
+			}
 		}
 
 		// If still no rate, try to fetch base currency rates
@@ -68,25 +90,46 @@ class ExchangeRateService {
 		const baseCurrency = await this.getBaseCurrency();
 		if (from === baseCurrency) {
 			// We have base->to, which is what we need
-			const rate = await this.getCachedRate(baseCurrency, to, dateString);
+			let rate = await this.getCachedRate(baseCurrency, to, dateString);
+			if (rate === null && dateString !== todayString) {
+				rate = await this.getCachedRate(baseCurrency, to, todayString);
+			}
 			if (rate !== null) return rate;
 		} else if (to === baseCurrency) {
-			// We have from->base, need to invert
-			const rate = await this.getCachedRate(from, baseCurrency, dateString);
-			if (rate !== null) return 1 / rate;
+			// We need from->base. Try direct (from->base) first, then inverted (base->from)
+			let rate = await this.getCachedRate(from, baseCurrency, dateString);
+			if (rate === null && dateString !== todayString) {
+				rate = await this.getCachedRate(from, baseCurrency, todayString);
+			}
+			if (rate !== null) return rate; // 1 from = rate base
+			let baseToFrom = await this.getCachedRate(baseCurrency, from, dateString);
+			if (baseToFrom === null && dateString !== todayString) {
+				baseToFrom = await this.getCachedRate(baseCurrency, from, todayString);
+			}
+			if (baseToFrom !== null) return 1 / baseToFrom; // from->base = 1/(base->from), e.g. RUB->USD = 1/(USD->RUB)
 		} else {
 			// Neither is base, need to convert through base
 			// from->base->to = (from->base) * (base->to)
-			const fromToBase = await this.getCachedRate(from, baseCurrency, dateString);
-			const baseToTo = await this.getCachedRate(baseCurrency, to, dateString);
+			let fromToBase = await this.getCachedRate(from, baseCurrency, dateString);
+			let baseToTo = await this.getCachedRate(baseCurrency, to, dateString);
+			// Try today's rates as fallback if transaction date rates not found
+			if (fromToBase === null && dateString !== todayString) {
+				fromToBase = await this.getCachedRate(from, baseCurrency, todayString);
+			}
+			if (baseToTo === null && dateString !== todayString) {
+				baseToTo = await this.getCachedRate(baseCurrency, to, todayString);
+			}
 			if (fromToBase !== null && baseToTo !== null) {
 				return fromToBase * baseToTo;
 			}
 		}
 
-		// Last resort: fetch if it's today
+		// Last resort: fetch if it's today (only for the pair we need)
 		if (this.isToday(targetDate)) {
-			await this.updateRatesForCurrency(baseCurrency);
+			const only = new Set(await this.getAppCurrencies());
+			only.add(from);
+			only.add(to);
+			await this.updateRatesForCurrency(baseCurrency, { onlyCurrencies: only });
 			// Try the conversion through base again
 			const fromToBase = await this.getCachedRate(from, baseCurrency, dateString);
 			const baseToTo = await this.getCachedRate(baseCurrency, to, dateString);
@@ -151,27 +194,37 @@ class ExchangeRateService {
 	}
 
 	/**
-	 * Update exchange rates for a base currency from API
+	 * Update exchange rates for a base currency from API.
+	 * @param baseCurrency - Base currency (e.g. user's main currency). We store base->X for each X.
+	 * @param options.onlyCurrencies - If set, only store rates for these target currencies (currencies that exist in the app). Avoids storing 150+ unused pairs.
 	 */
-	async updateRatesForCurrency(baseCurrency: string = 'USD'): Promise<void> {
+	async updateRatesForCurrency(baseCurrency: string = 'USD', options?: { onlyCurrencies?: Set<string> }): Promise<void> {
 		if (this.isUpdating) {
 			return; // Already updating, skip
 		}
 
 		this.isUpdating = true;
 		try {
-			const url = `${this.API_BASE_URL}/${baseCurrency}`;
+			// In browser, use our API proxy to avoid CORS; in Node (e.g. SSR) use external API
+			const url =
+				typeof window !== 'undefined'
+					? `${this.API_PROXY_PATH}/${baseCurrency}`
+					: `${this.API_BASE_URL}/${baseCurrency}`;
 			const response = await fetch(url);
 
 			if (!response.ok) {
-				throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
+				const errText = await response.text();
+				throw new Error(`Failed to fetch exchange rates: ${response.status} ${response.statusText}${errText ? ` ${errText.slice(0, 200)}` : ''}`);
 			}
 
 			const data: ExchangeRateAPIResponse = await response.json();
 
-			// Store all rates relative to base currency
-			const today = new Date().toISOString().split('T')[0];
+			// Use API's date when available to match rate validity; fallback to local UTC date
+			const today = (data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date))
+				? data.date
+				: new Date().toISOString().split('T')[0];
 			const dateTime = new Date().toISOString();
+			const onlyCurrencies = options?.onlyCurrencies;
 
 			// Use a transaction to store all rates atomically
 			await db.transaction('rw', [db.exchangeRates], async () => {
@@ -180,23 +233,33 @@ class ExchangeRateService {
 					if (targetCurrency === baseCurrency) {
 						continue;
 					}
+					// Only store rates for currencies that exist in the app (accounts, etc.)
+					if (onlyCurrencies && !onlyCurrencies.has(targetCurrency)) {
+						continue;
+					}
 
-					// Check if rate already exists for today
-					const queryDate = new Date(today + 'T00:00:00.000Z').toISOString();
-					const existing = await db.exchangeRates
-						.where('[fromCurrency+toCurrency+date]')
-						.equals([baseCurrency, targetCurrency, queryDate])
-						.filter(rate => !rate.deletedAt)
-						.first();
+				// Check if rate already exists for today
+				const queryDate = new Date(today + 'T00:00:00.000Z').toISOString();
+				const existing = await db.exchangeRates
+					.where('[fromCurrency+toCurrency+date]')
+					.equals([baseCurrency, targetCurrency, queryDate])
+					.filter(rate => !rate.deletedAt)
+					.first();
 
-					if (existing) {
-						// Update existing rate
-						await db.exchangeRates.update(existing.id, {
-							rate,
-							lastFetched: dateTime,
-							updatedAt: dateTime
-						});
-					} else {
+				if (existing) {
+					// Skip updating if the rate is manually set by user
+					// Manual rates should not be overwritten by API updates
+					if (existing.source === 'manual') {
+						continue;
+					}
+					
+					// Update existing rate (only API-sourced rates)
+					await db.exchangeRates.update(existing.id, {
+						rate,
+						lastFetched: dateTime,
+						updatedAt: dateTime
+					});
+				} else {
 						// Create new rate
 						// Store date as ISO datetime for consistency with schema
 						const rateDate = new Date(today + 'T00:00:00.000Z').toISOString();
@@ -227,27 +290,42 @@ class ExchangeRateService {
 	}
 
 	/**
-	 * Update exchange rates for all currencies used in the app
+	 * Update exchange rates for currencies used in the app.
+	 * Fetches base=mainCurrency and only stores base->X for each X that appears in accounts or transactions.
+	 * This keeps the DB small and limits to rates needed for conversion to main currency.
 	 */
 	async updateAllRates(): Promise<void> {
-		// Get all unique currencies from accounts
-		const accounts = await db.getActiveAccounts();
-		const currencies = new Set<string>();
+		const [accounts, transactions] = await Promise.all([
+			db.getActiveAccounts(),
+			db.transactions.filter(t => !t.deletedAt).toArray()
+		]);
+		const preferences = await userService.getUserPreferences();
+		const mainCurrency = preferences?.currency || 'USD';
 
-		// Add all account currencies
+		// Collect currencies from accounts
+		const onlyCurrencies = new Set<string>();
 		accounts.forEach(account => {
-			currencies.add(account.currency);
+			if (account.currency && account.currency !== mainCurrency) {
+				onlyCurrencies.add(account.currency);
+			}
 		});
 
-		// Add user's main currency
-		const preferences = await userService.getUserPreferences();
-		if (preferences?.currency) {
-			currencies.add(preferences.currency);
-		}
+		// Also collect currencies from transactions (in case transactions use currencies not in accounts)
+		transactions.forEach(tx => {
+			if (tx.currency && tx.currency !== mainCurrency) {
+				onlyCurrencies.add(tx.currency);
+			} else if (tx.accountId) {
+				// If transaction doesn't have currency, get it from account
+				const account = accounts.find(a => a.id === tx.accountId);
+				if (account?.currency && account.currency !== mainCurrency) {
+					onlyCurrencies.add(account.currency);
+				}
+			}
+		});
 
-		// Update rates for USD (most APIs use USD as base)
-		// This will give us rates for all currencies relative to USD
-		await this.updateRatesForCurrency('USD');
+		// If no other currencies found, still fetch (will store all, but better than nothing)
+		// This handles the case where user hasn't created accounts yet but has transactions
+		await this.updateRatesForCurrency(mainCurrency, onlyCurrencies.size > 0 ? { onlyCurrencies } : undefined);
 	}
 
 	/**
@@ -256,6 +334,17 @@ class ExchangeRateService {
 	private async getBaseCurrency(): Promise<string> {
 		const preferences = await userService.getUserPreferences();
 		return preferences?.currency || 'USD';
+	}
+
+	/** Currencies that exist in the app (accounts + main), used to limit which rates we fetch and store. */
+	private async getAppCurrencies(): Promise<Set<string>> {
+		const accounts = await db.getActiveAccounts();
+		const main = await this.getBaseCurrency();
+		const set = new Set<string>([main]);
+		accounts.forEach((a) => {
+			if (a.currency) set.add(a.currency);
+		});
+		return set;
 	}
 
 	/**
@@ -345,6 +434,21 @@ class ExchangeRateService {
 		rate: number,
 		date?: Date
 	): Promise<ExchangeRate> {
+		return this.setExchangeRateInternal(fromCurrency, toCurrency, rate, date, 'manual', 'Manually set by user');
+	}
+
+	/**
+	 * Internal method to set exchange rate with custom source
+	 * Used by both manual entry and automatic conversions
+	 */
+	private async setExchangeRateInternal(
+		fromCurrency: string,
+		toCurrency: string,
+		rate: number,
+		date: Date | undefined,
+		source: 'manual' | 'exchangerate-api' | 'calculated',
+		notes?: string
+	): Promise<ExchangeRate> {
 		const targetDate = date || new Date();
 		const dateString = targetDate.toISOString().split('T')[0];
 		const rateDate = new Date(dateString + 'T00:00:00.000Z').toISOString();
@@ -358,11 +462,13 @@ class ExchangeRateService {
 			.first();
 
 		if (existing) {
-			// Update existing
+			// Preserve source if it's manual, otherwise use the provided source
+			const shouldPreserveManual = existing.source === 'manual';
 			const updated = {
 				...existing,
 				rate,
-				source: 'manual',
+				source: shouldPreserveManual ? 'manual' : source,
+				notes: shouldPreserveManual ? existing.notes : (notes || existing.notes),
 				updatedAt: dateTime
 			};
 			await db.exchangeRates.update(existing.id, updated);
@@ -375,8 +481,8 @@ class ExchangeRateService {
 				toCurrency: toCurrency.toUpperCase(),
 				rate,
 				date: rateDate,
-				source: 'manual',
-				notes: 'Manually set by user',
+				source,
+				notes: notes || `Auto-calculated from ${source}`,
 				createdAt: dateTime,
 				updatedAt: dateTime,
 				deletedAt: null
@@ -411,6 +517,151 @@ class ExchangeRateService {
 		}
 
 		return oldRates.length;
+	}
+
+	/**
+	 * Check if an exchange rate is outdated (older than specified days)
+	 */
+	isRateOutdated(rate: ExchangeRate, maxAgeDays: number = 1): boolean {
+		const rateDate = new Date(rate.date);
+		const today = new Date();
+		const diffTime = today.getTime() - rateDate.getTime();
+		const diffDays = diffTime / (1000 * 60 * 60 * 24);
+		return diffDays > maxAgeDays;
+	}
+
+	/**
+	 * Reset a manual exchange rate back to API value
+	 * Fetches the latest rate from API and marks it as API-sourced
+	 */
+	async resetRateToAPI(fromCurrency: string, toCurrency: string): Promise<ExchangeRate> {
+		// Fetch the rate from API for this specific currency pair
+		const onlyCurrencies = new Set<string>([toCurrency]);
+		await this.updateRatesForCurrency(fromCurrency, { onlyCurrencies });
+		
+		// After fetching, update the source field to 'exchangerate-api' to mark it as API-sourced
+		// This is necessary because updateRatesForCurrency doesn't change the source field when updating existing rates
+		const today = new Date();
+		const dateString = today.toISOString().split('T')[0];
+		const rateDate = new Date(dateString + 'T00:00:00.000Z').toISOString();
+		
+		const existing = await db.exchangeRates
+			.where('[fromCurrency+toCurrency+date]')
+			.equals([fromCurrency.toUpperCase(), toCurrency.toUpperCase(), rateDate])
+			.filter(r => !r.deletedAt)
+			.first();
+		
+		if (!existing) {
+			throw new Error(`Exchange rate ${fromCurrency} → ${toCurrency} not found after API update`);
+		}
+
+		// Update source to mark as API-sourced
+		const updated = {
+			...existing,
+			source: 'exchangerate-api' as const,
+			notes: 'Auto-fetched from ExchangeRate-API',
+			updatedAt: new Date().toISOString()
+		};
+		
+		await db.exchangeRates.update(existing.id, updated);
+		return updated;
+	}
+
+	/**
+	 * Convert exchange rates when main currency changes
+	 * Re-bases all rates from oldMain to newMain
+	 */
+	async convertExchangeRates(oldMain: string, newMain: string): Promise<void> {
+		if (oldMain === newMain) return;
+
+		const today = new Date();
+		const todayString = today.toISOString().split('T')[0];
+		const rateDate = new Date(todayString + 'T00:00:00.000Z').toISOString();
+
+		// Get all rates for today
+		const allRates = await this.getRatesForDate(today);
+		
+		// Get conversion rate from old main to new main
+		let oldToNewRate: number | null = null;
+		const directRate = allRates.find(r => 
+			r.fromCurrency === oldMain && r.toCurrency === newMain
+		);
+		if (directRate) {
+			oldToNewRate = directRate.rate;
+		} else {
+			// Try reverse
+			const reverseRate = allRates.find(r => 
+				r.fromCurrency === newMain && r.toCurrency === oldMain
+			);
+			if (reverseRate) {
+				oldToNewRate = 1 / reverseRate.rate;
+			} else {
+				// Try to get via exchange rate service
+				oldToNewRate = await this.getExchangeRate(oldMain, newMain, today);
+			}
+		}
+
+		// Collect all currencies that need rates from new main
+		const currenciesNeedingRates = new Set<string>();
+		allRates.forEach(rate => {
+			if (rate.fromCurrency === oldMain && rate.toCurrency !== newMain) {
+				currenciesNeedingRates.add(rate.toCurrency);
+			}
+			if (rate.toCurrency === oldMain && rate.fromCurrency !== newMain) {
+				currenciesNeedingRates.add(rate.fromCurrency);
+			}
+		});
+
+		// Convert rates: for each currency X that had oldMain->X, create newMain->X
+		for (const currency of currenciesNeedingRates) {
+			if (currency === newMain) continue;
+
+			// Get old rate (oldMain -> currency)
+			const oldRate = allRates.find(r => 
+				r.fromCurrency === oldMain && r.toCurrency === currency
+			);
+			
+			let newRateValue: number | null = null;
+
+			if (oldRate && oldToNewRate !== null) {
+				// Convert: newMain -> currency = (oldMain -> currency) / (oldMain -> newMain)
+				newRateValue = oldRate.rate / oldToNewRate;
+			} else {
+				// Try reverse: currency -> oldMain
+				const reverseOldRate = allRates.find(r => 
+					r.fromCurrency === currency && r.toCurrency === oldMain
+				);
+				if (reverseOldRate && oldToNewRate !== null) {
+					// currency -> newMain = (currency -> oldMain) * (oldMain -> newMain)
+					newRateValue = reverseOldRate.rate * oldToNewRate;
+				}
+			}
+
+			if (newRateValue !== null && isFinite(newRateValue) && newRateValue > 0) {
+				// Set the new rate (this will create or update), preserving source if manual
+				await this.setExchangeRateInternal(
+					newMain, 
+					currency, 
+					newRateValue, 
+					today, 
+					'calculated',
+					`Calculated from currency change: ${oldMain} → ${newMain}`
+				);
+			}
+		}
+
+		// Also handle the reverse: if we had currency -> oldMain, we need currency -> newMain
+		// This is already handled above, but we also need newMain -> oldMain for completeness
+		if (oldToNewRate !== null && isFinite(oldToNewRate) && oldToNewRate > 0) {
+			await this.setExchangeRateInternal(
+				newMain, 
+				oldMain, 
+				oldToNewRate, 
+				today,
+				'calculated',
+				`Calculated from currency change: ${oldMain} → ${newMain}`
+			);
+		}
 	}
 }
 

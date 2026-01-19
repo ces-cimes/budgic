@@ -450,6 +450,36 @@ export function parseCurrencyString(value: string, currencyCode: string): number
 }
 
 /**
+ * Sort currencies with main currency first, then system currencies, then custom currencies
+ * Useful for displaying currency lists in a consistent order
+ */
+export function sortCurrencies(currencies: Currency[], mainCurrency?: string): Currency[] {
+	return currencies.sort((a, b) => {
+		// Main currency always first
+		if (mainCurrency) {
+			if (a.code === mainCurrency) return -1;
+			if (b.code === mainCurrency) return 1;
+		}
+		// Then system currencies before custom
+		if (a.isSystem && !b.isSystem) return -1;
+		if (!a.isSystem && b.isSystem) return 1;
+		// Finally, sort by code
+		return a.code.localeCompare(b.code);
+	});
+}
+
+/**
+ * Sort inactive currencies: custom first, then system, then by code
+ */
+export function sortInactiveCurrencies(currencies: Currency[]): Currency[] {
+	return currencies.sort((a, b) => {
+		if (!a.isSystem && b.isSystem) return -1; // Custom before system
+		if (a.isSystem && !b.isSystem) return 1;
+		return a.code.localeCompare(b.code);
+	});
+}
+
+/**
  * Get currency display information
  */
 export function getCurrencyDisplayInfo(code: string): {

@@ -57,6 +57,7 @@
 		"@capacitor/core": "^7.4.3",
 		"@capawesome/capacitor-android-edge-to-edge-support": "^7.2.3",
 		"@inlang/paraglide-js": "^2.0.0",
+		"@neoconfetti/svelte": "^2.2.2",
 		"dexie": "^4.0.11",
 		"layerchart": "^1.0.10",
 		"melt": "^0.30.1",

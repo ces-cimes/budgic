@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { transactionService, userService, accountService, budgetService } from '$lib/core/services';
-	import { calculateTransactionImpact, db } from '$lib/core/db';  
+	import { db } from '$lib/core/db';  
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Toggle } from '$lib/components/ui/toggle/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
@@ -122,12 +122,13 @@
 			
 			groupedTransactions.push({
 				id: groupId,
-				type: 'group',
+				type: firstTransaction.type,
 				groupId: groupId,
+				isGroup: true,
 				groupName: firstTransaction.groupName || 'Grouped Transaction',
 				description: firstTransaction.description || 'Grouped Transaction',
 				amount: totalAmount,
-				currency: firstTransaction.currency,
+				currency: firstTransaction.currency || accounts[firstTransaction?.accountId]?.currency,
 				status: firstTransaction.status,
 				clearedDate: firstTransaction.clearedDate,
 				plannedDate: firstTransaction.plannedDate,
@@ -135,8 +136,7 @@
 				accountId: firstTransaction.accountId,
 				categoryId: firstTransaction.categoryId,
 				transactions: groupTransactions,
-				totalAmount: totalAmount,
-				isGroup: true
+				totalAmount: totalAmount
 			});
 		});
 		
@@ -177,44 +177,24 @@
 		});
 	});
 
-	// Derived summary stats
-	let summaryStats = $derived(() => {
-		// Flatten the grouped transactions for stats calculation
-		const allTransactions = filteredTransactions().flatMap(group => group.transactions);
-		
-		// Calculate income: sum of income transactions
-		// Exclude transfers as they are internal movements between accounts
-		const income = allTransactions
-			.filter(t => t.type === 'income')
-			.reduce((sum, t) => {
-				const amount = t.isGroup ? t.totalAmount : (t.amount || 0);
-				return sum + amount; // Income can be positive or negative
-			}, 0);
-		
-		// Calculate expenses: sum of expense transactions
-		// Exclude transfers as they are internal movements between accounts
-		const expenses = allTransactions
-			.filter(t => t.type === 'expense')
-			.reduce((sum, t) => {
-				const amount = t.isGroup ? t.totalAmount : (t.amount || 0);
-				return sum + Math.abs(amount); // Expenses are always positive in calculations
-			}, 0);
-		
-		// Calculate net using the proper transaction impact calculation
-		// For transfers, use the amount directly since they are internal movements
-		const net = allTransactions.reduce((sum, t) => {
-			const amount = t.isGroup ? t.totalAmount : (t.amount || 0);
-			
-			// For transfers, use the amount directly (they are internal movements)
-			if (t.type === 'transfer') {
-				return sum + amount;
+	// Summary stats and per-date-group totals, converted to main currency (async)
+	let summaryStats = $state<{ income: number; expenses: number; net: number }>({ income: 0, expenses: 0, net: 0 });
+	let dateGroupTotals = $state<Record<string, { income: number; expenses: number; net: number }>>({});
+
+	$effect(() => {
+		const groups = filteredTransactions();
+		const main = userCurrency || 'USD';
+		const accts = accounts;
+		(async () => {
+			const flat = groups.flatMap((g) => g.transactions);
+			const summary = await transactionService.getTransactionStatisticsForTransactions(flat, accts, main);
+			summaryStats = summary;
+			const map: Record<string, { income: number; expenses: number; net: number }> = {};
+			for (const g of groups) {
+				map[g.group.key] = await transactionService.getTransactionStatisticsForTransactions(g.transactions, accts, main);
 			}
-			
-			// For other transactions, use the proper impact calculation
-			return sum + calculateTransactionImpact({ ...t, amount });
-		}, 0);
-		
-		return { income, expenses, net };
+			dateGroupTotals = map;
+		})();
 	});
 
 	// Month navigation functions
@@ -277,11 +257,11 @@
 	}
 
 	function formatAmount(amount: number) {
-		return currencyFormat.formatBalance(amount, userCurrency);
+		return currencyFormat.formatBalance(amount, userCurrency || 'USD');
 	}
 
 	function formatAmountWithSign(amount: number, showPlus: boolean = false) {
-		return currencyFormat.formatWithSign(amount, userCurrency, showPlus);
+		return currencyFormat.formatWithSign(amount, userCurrency || 'USD', showPlus);
 	}
 
 	function formatDate(dateString: string) {
@@ -365,47 +345,11 @@
 	}
 
 	function getTransactionCurrency(transaction: any) {
-		return transaction?.currency || userCurrency;
+		return transaction?.currency || accounts[transaction?.accountId]?.currency || userCurrency;
 	}
 
 	function getTransactionAccountId(transaction: any) {
 		return transaction?.accountId || null;
-	}
-
-	// Calculate totals for a date group
-	function calculateDateGroupTotals(transactions: any[]) {
-		// Calculate income: sum of all income transactions (positive and negative)
-		const income = transactions
-			.filter(t => (t.representative || t).type === 'income')
-			.reduce((sum, t) => {
-				const amount = t.totalAmount || t.amount || 0;
-				return sum + amount; // Income can be positive or negative
-			}, 0);
-		
-		// Calculate expenses: sum of all expense transactions (positive and negative)
-		const expenses = transactions
-			.filter(t => (t.representative || t).type === 'expense')
-			.reduce((sum, t) => {
-				const amount = t.totalAmount || t.amount || 0;
-				return sum + amount; // Expenses can be positive or negative
-			}, 0);
-		
-		// Calculate net using the proper transaction impact calculation
-		// For transfers, use the amount directly since they are internal movements
-		const net = transactions.reduce((sum, t) => {
-			const transaction = t.representative || t;
-			const amount = t.totalAmount || t.amount || 0;
-			
-			// For transfers, use the amount directly (they are internal movements)
-			if (transaction.type === 'transfer') {
-				return sum + amount;
-			}
-			
-			// For other transactions, use the proper impact calculation
-			return sum + calculateTransactionImpact({ ...transaction, amount });
-		}, 0);
-		
-		return { income, expenses, net };
 	}
 
 	// Function to highlight search terms in text
@@ -570,23 +514,19 @@
 		<div class="bg-card rounded-xl p-4 shadow-sm border border-border">
 			<div class="grid grid-cols-3 gap-4 text-center">
 				<div>
-					<div class="text-base font-bold
-						{summaryStats().income === 0 ? 
-							'text-primary' : 
-							'text-[var(--color-sage-green)]'
-						}"
-					>
-							{formatAmountWithSign(summaryStats().income, true)}
+					
+					<div class="text-base font-bold {summaryStats.income === 0 ? 'text-primary' : 'text-[var(--color-sage-green)]'}">
+						{formatAmountWithSign(summaryStats.income, true)}
 					</div>
 					<div class="text-xs text-tertiary">Income</div>
 				</div>
 				<div>
-					<div class="text-base font-bold {summaryStats().expenses === 0 ? 'text-primary' : 'text-[var(--color-warm-coral)]'}">{formatAmountWithSign(summaryStats().expenses)}</div>
+					<div class="text-base font-bold {summaryStats.expenses === 0 ? 'text-primary' : 'text-[var(--color-warm-coral)]'}">{formatAmountWithSign(summaryStats.expenses)}</div>
 					<div class="text-xs text-tertiary">Expenses</div>
 				</div>
 				<div>
-					<div class="text-base font-bold {summaryStats().net === 0 ? 'text-primary' : (summaryStats().net >= 0 ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]')}">
-						{formatAmountWithSign(summaryStats().net, true)}
+					<div class="text-base font-bold {summaryStats.net === 0 ? 'text-primary' : (summaryStats.net >= 0 ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]')}">
+						{formatAmountWithSign(summaryStats.net, true)}
 					</div>
 					<div class="text-xs text-tertiary">Net</div>
 				</div>
@@ -603,7 +543,7 @@
 		{/if}
 
 		{#each filteredTransactions() as dateGroup}
-			{@const totals = calculateDateGroupTotals(dateGroup.transactions)}
+			{@const totals = dateGroupTotals[dateGroup.group.key] ?? { income: 0, expenses: 0, net: 0 }}
 			<!-- Date Group Section -->
 			<div class="space-y-1">
 				<!-- Date Group Header with Transaction Count -->

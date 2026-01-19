@@ -1,4 +1,4 @@
-import { db, validateTransactionGroup, validateNewGroupTransaction, generateUUID } from '$lib/core/db';
+import { db, validateTransactionGroup, validateNewGroupTransaction, generateUUID, calculateTransactionImpact } from '$lib/core/db';
 import type { Transaction } from '$lib/core/db';
 import { accountService } from './account-service';
 import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
@@ -327,7 +327,8 @@ class TransactionService {
     // ============================================================================
 
     /**
-     * Get transaction statistics (converted to main currency)
+     * Get transaction statistics (converted to main currency).
+     * Resolves currency from account when transaction.currency is missing.
      */
     async getTransactionStatistics(): Promise<{
         totalTransactions: number;
@@ -336,62 +337,83 @@ class TransactionService {
         totalTransfers: number;
         averageTransactionAmount: number;
     }> {
-        const transactions = await db.transactions.toArray();
+        const [transactions, accounts] = await Promise.all([db.transactions.toArray(), db.getActiveAccounts()]);
+        const accountMap = Object.fromEntries(accounts.map(a => [a.id, a]));
         const { userService, exchangeRateService } = await import('$lib/core/services');
-        
-        // Get user's main currency
         const preferences = await userService.getUserPreferences();
         const mainCurrency = preferences?.currency || 'USD';
-        
-        const stats = {
-            totalTransactions: transactions.length,
-            totalIncome: 0,
-            totalExpenses: 0,
-            totalTransfers: 0,
-            averageTransactionAmount: 0
-        };
-
+        const stats = { totalTransactions: transactions.length, totalIncome: 0, totalExpenses: 0, totalTransfers: 0, averageTransactionAmount: 0 };
         let totalAmount = 0;
 
-        // Convert each transaction amount to main currency
-        for (const transaction of transactions) {
-            const amount = transaction.amount || 0;
-            const transactionCurrency = transaction.currency || mainCurrency;
-            
-            // Convert to main currency
+        for (const t of transactions) {
+            const currency = t.currency || accountMap[t.accountId || '']?.currency || mainCurrency;
+            const amount = t.amount || 0;
+            const dateStr = t.clearedDate || t.plannedDate || t.createdAt;
             let convertedAmount = amount;
-            if (transactionCurrency !== mainCurrency) {
-                const converted = await exchangeRateService.convertAmount(
-                    Math.abs(amount),
-                    transactionCurrency,
-                    mainCurrency
-                );
-                if (converted !== null) {
-                    // Preserve sign
-                    convertedAmount = amount < 0 ? -converted : converted;
-                } else {
-                    console.warn(`Failed to convert transaction ${transaction.id} from ${transactionCurrency} to ${mainCurrency}`);
+            if (currency !== mainCurrency && dateStr) {
+                const converted = await exchangeRateService.convertAmount(amount, currency, mainCurrency, dateStr ? new Date(dateStr) : undefined);
+                if (converted != null) convertedAmount = converted;
+            }
+            totalAmount += Math.abs(convertedAmount);
+            if (t.type === 'income') stats.totalIncome += convertedAmount;
+            else if (t.type === 'expense') stats.totalExpenses += Math.abs(convertedAmount);
+            else if (t.type === 'transfer') stats.totalTransfers += Math.abs(convertedAmount);
+        }
+        stats.averageTransactionAmount = stats.totalTransactions > 0 ? totalAmount / stats.totalTransactions : 0;
+        return stats;
+    }
+
+    /**
+     * Get income/expenses/net for a list of transactions, converted to main currency.
+     * Used by the transactions page for filtered summary and per-date-group totals.
+     * @param accountMap - Map of accountId -> { currency } to resolve currency when t.currency is missing
+     */
+    async getTransactionStatisticsForTransactions(
+        transactions: Array<{ type?: string; amount?: number; totalAmount?: number; isGroup?: boolean; accountId?: string; currency?: string; clearedDate?: string; plannedDate?: string; createdAt?: string; transferDetails?: unknown }>,
+        accountMap: Record<string, { currency?: string }>,
+        mainCurrency: string
+    ): Promise<{ income: number; expenses: number; net: number }> {
+        const { exchangeRateService } = await import('$lib/core/services');
+        let income = 0, expenses = 0, net = 0;
+
+        // Check if we have any exchange rates at all (to avoid spam logging)
+        const hasAnyRates = await db.exchangeRates.filter(r => !r.deletedAt).count() > 0;
+        let warnedAboutMissingRates = false;
+
+        for (const t of transactions) {
+            const amount = t.isGroup ? (t.totalAmount ?? 0) : (t.amount ?? 0);
+            const currency = t.currency || accountMap[t.accountId || '']?.currency || mainCurrency;
+            const dateStr = t.clearedDate || t.plannedDate || t.createdAt;
+            let convertedAmount = amount;
+            if (currency !== mainCurrency && dateStr) {
+                const c = await exchangeRateService.convertAmount(amount, currency, mainCurrency, new Date(dateStr));
+                if (c != null) {
+                    convertedAmount = c;
+                } else if (!warnedAboutMissingRates) {
+                    // Only warn once per batch to avoid spam
+                    if (!hasAnyRates) {
+                        console.warn(`Exchange rates not found. Please go to Settings > Currency and click "Update from API" to fetch rates.`);
+                    } else {
+                        console.warn(`Exchange rate not found for ${currency}->${mainCurrency}. Using original amount.`);
+                    }
+                    warnedAboutMissingRates = true;
                 }
             }
-            
-            totalAmount += Math.abs(convertedAmount);
-
-            switch (transaction.type) {
-                case 'income':
-                    stats.totalIncome += convertedAmount;
-                    break;
-                case 'expense':
-                    stats.totalExpenses += Math.abs(convertedAmount);
-                    break;
-                case 'transfer':
-                    stats.totalTransfers += Math.abs(convertedAmount);
-                    break;
+            const txForImpact = { ...t, amount };
+            const impact = calculateTransactionImpact(txForImpact as Transaction, t.accountId);
+            let convertedImpact = impact;
+            if (currency !== mainCurrency && dateStr) {
+                const c = await exchangeRateService.convertAmount(impact, currency, mainCurrency, new Date(dateStr));
+                if (c != null) {
+                    convertedImpact = c;
+                }
+                // Don't warn again for impact conversion
             }
+            if (t.type === 'income') income += convertedAmount;
+            else if (t.type === 'expense') expenses += Math.abs(convertedAmount);
+            net += convertedImpact;
         }
-
-        stats.averageTransactionAmount = stats.totalTransactions > 0 ? totalAmount / stats.totalTransactions : 0;
-
-        return stats;
+        return { income, expenses, net };
     }
 
     /**

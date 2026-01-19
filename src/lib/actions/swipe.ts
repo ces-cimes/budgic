@@ -1,56 +1,85 @@
-export type SwipeDirection = 'left' | 'right';
+export type SwipeDirection = 'left' | 'right' | 'up' | 'down';
+export type SwipeAxis = 'horizontal' | 'vertical';
 
 export type SwipeOptions = {
 	threshold?: number;
+	axis?: SwipeAxis; // 'horizontal' for left/right, 'vertical' for up/down
+	canStart?: () => boolean; // Optional function to check if swipe can start
 	onSwipeStart?: () => void;
 	onSwipeMove?: (distance: number) => void;
 	onSwipeEnd?: (direction: SwipeDirection | null) => void;
 	onSwipeLeft?: () => void;
 	onSwipeRight?: () => void;
+	onSwipeUp?: () => void;
+	onSwipeDown?: () => void;
 };
 
 export function swipe(
 	node: HTMLElement,
-	options: SwipeOptions = {}
+	options: SwipeOptions | undefined = {}
 ): { destroy: () => void } {
 	// Check if we're in a browser environment
-	if (typeof window === 'undefined' || typeof document === 'undefined') {
+	if (typeof window === 'undefined' || typeof document === 'undefined' || !options) {
 		return { destroy: () => {} };
 	}
 
 	const threshold = options.threshold || 100;
+	const axis = options.axis || 'horizontal';
 	let startX = 0;
 	let startY = 0;
 	let currentX = 0;
+	let currentY = 0;
 	let isSwiping = false;
 	let swipeStarted = false;
 
 	const handleStart = (e: Event) => {
-		if (e instanceof TouchEvent && e.touches.length > 0) {
+		// Don't interfere with drag and drop - check if the target is draggable or inside a draggable element
+		const target = e.target as HTMLElement;
+		if (target?.closest('[draggable="true"]') || target?.closest('.drag-handle')) {
+			return;
+		}
+
+		// Check if swipe can start (e.g., check scroll position)
+		if (options.canStart && !options.canStart()) {
+			return;
+		}
+
+		// Check if TouchEvent is available and if event is a TouchEvent
+		if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0) {
 			startX = e.touches[0].clientX;
 			startY = e.touches[0].clientY;
 			currentX = startX;
+			currentY = startY;
 			isSwiping = false;
 			swipeStarted = false;
-		} else if (e instanceof MouseEvent) {
+		} else if (typeof MouseEvent !== 'undefined' && e instanceof MouseEvent) {
 			startX = e.clientX;
 			startY = e.clientY;
 			currentX = startX;
+			currentY = startY;
 			isSwiping = false;
 			swipeStarted = false;
 		}
 	};
 
 	const handleMove = (e: Event) => {
-		if (!startX) return;
+		if (!startX && !startY) return;
+
+		// Don't interfere with drag and drop
+		const target = e.target as HTMLElement;
+		if (target?.closest('[draggable="true"]')) {
+			reset();
+			return;
+		}
 
 		let clientX = 0;
 		let clientY = 0;
 
-		if (e instanceof TouchEvent && e.touches.length > 0) {
+		// Check if TouchEvent is available and if event is a TouchEvent
+		if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0) {
 			clientX = e.touches[0].clientX;
 			clientY = e.touches[0].clientY;
-		} else if (e instanceof MouseEvent) {
+		} else if (typeof MouseEvent !== 'undefined' && e instanceof MouseEvent) {
 			clientX = e.clientX;
 			clientY = e.clientY;
 		}
@@ -58,13 +87,23 @@ export function swipe(
 		const deltaX = clientX - startX;
 		const deltaY = clientY - startY;
 
-		// Detect if this is a horizontal swipe (not vertical scroll)
-		if (!isSwiping && Math.abs(deltaX) > 10) {
-			if (Math.abs(deltaX) > Math.abs(deltaY)) {
-				isSwiping = true;
-				if (!swipeStarted) {
-					swipeStarted = true;
-					options.onSwipeStart?.();
+		// Detect swipe based on axis
+		if (!isSwiping) {
+			if (axis === 'horizontal' && Math.abs(deltaX) > 10) {
+				if (Math.abs(deltaX) > Math.abs(deltaY)) {
+					isSwiping = true;
+					if (!swipeStarted) {
+						swipeStarted = true;
+						options.onSwipeStart?.();
+					}
+				}
+			} else if (axis === 'vertical' && Math.abs(deltaY) > 10) {
+				if (Math.abs(deltaY) > Math.abs(deltaX)) {
+					isSwiping = true;
+					if (!swipeStarted) {
+						swipeStarted = true;
+						options.onSwipeStart?.();
+					}
 				}
 			}
 		}
@@ -73,7 +112,9 @@ export function swipe(
 			e.preventDefault();
 			e.stopPropagation(); // Prevent drawer from closing
 			currentX = clientX;
-			options.onSwipeMove?.(deltaX);
+			currentY = clientY;
+			const distance = axis === 'horizontal' ? deltaX : deltaY;
+			options.onSwipeMove?.(distance);
 		}
 	};
 
@@ -88,16 +129,30 @@ export function swipe(
 			e.stopPropagation();
 		}
 
-		const distance = currentX - startX;
+		let distance: number;
 		let direction: SwipeDirection | null = null;
 
-		if (Math.abs(distance) > threshold) {
-			if (distance > 0) {
-				direction = 'right';
-				options.onSwipeRight?.();
-			} else {
-				direction = 'left';
-				options.onSwipeLeft?.();
+		if (axis === 'horizontal') {
+			distance = currentX - startX;
+			if (Math.abs(distance) > threshold) {
+				if (distance > 0) {
+					direction = 'right';
+					options.onSwipeRight?.();
+				} else {
+					direction = 'left';
+					options.onSwipeLeft?.();
+				}
+			}
+		} else {
+			distance = currentY - startY;
+			if (Math.abs(distance) > threshold) {
+				if (distance > 0) {
+					direction = 'down';
+					options.onSwipeDown?.();
+				} else {
+					direction = 'up';
+					options.onSwipeUp?.();
+				}
 			}
 		}
 
@@ -109,6 +164,7 @@ export function swipe(
 		startX = 0;
 		startY = 0;
 		currentX = 0;
+		currentY = 0;
 		isSwiping = false;
 		swipeStarted = false;
 	};
