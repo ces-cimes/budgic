@@ -13,6 +13,7 @@
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
 	import { searchTransaction } from '$lib/utils/semantic-search';
 	import { getGroupKey, getGroupLabel, type DateGroup, type GroupingMode } from '$lib/utils/date-grouping';
+	import { dateUtils } from '$lib/utils/date-utils';
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 
@@ -265,18 +266,8 @@
 	}
 
 	function formatDate(dateString: string) {
-		const date = new Date(dateString);
-		const today = new Date();
-		const yesterday = new Date(today);
-		yesterday.setDate(yesterday.getDate() - 1);
-
-		if (date.toDateString() === today.toDateString()) {
-			return 'Today';
-		} else if (date.toDateString() === yesterday.toDateString()) {
-			return 'Yesterday';
-		} else {
-			return date.toLocaleDateString();
-		}
+		// Use timezone-safe formatting that correctly handles UTC -> local conversion
+		return dateUtils.formatDateForDisplay(dateString);
 	}
 
 	function getCategoryIcon(category: string) {

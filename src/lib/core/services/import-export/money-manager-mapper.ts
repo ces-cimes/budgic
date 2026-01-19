@@ -68,96 +68,88 @@ export function mapTransactionType(doType: string | number): Transaction['type']
 }
 
 /**
- * Convert Money Manager date format (YYYY-MM-DD) to ISO datetime
- * Optionally uses a timestamp to extract time component for better ordering
+ * Convert Money Manager date to ISO datetime
  * 
- * @param wdate - MM date string (e.g., "2024-10-15")
- * @param utime - Optional MM timestamp (milliseconds) to extract time component
+ * Priority order:
+ * 1. ZDATE (timestamp in milliseconds) - authoritative transaction time
+ * 2. UTIME (timestamp in milliseconds) - fallback if ZDATE not available
+ * 3. WDATE (date string YYYY-MM-DD) - last resort, uses UTC to avoid timezone issues
+ * 
+ * @param zdate - MM ZDATE timestamp (milliseconds) - primary source for transaction time
+ * @param utime - MM UTIME timestamp (milliseconds) - fallback for transaction time
+ * @param wdate - MM WDATE date string (YYYY-MM-DD) - last resort fallback
  * @returns ISO datetime string
  */
-export function mapDate(wdate: string, utime?: string | number): string {
-	if (!wdate || wdate === 'null' || wdate.trim() === '') {
-		return new Date().toISOString();
-	}
-	
-	// MM uses "YYYY-MM-DD" format
-	const dateMatch = wdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-	if (dateMatch) {
-		const [, year, month, day] = dateMatch;
-		const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
-		
-		// If we have a timestamp, extract the time component from it
-		// This preserves the actual time of the transaction for better ordering
-		if (utime && utime !== 'null' && utime !== '0' && utime !== '') {
-			const timestamp = typeof utime === 'string' ? parseInt(utime, 10) : utime;
-			if (!isNaN(timestamp) && timestamp > 0) {
-				const timeDate = new Date(timestamp);
-				// Combine date from WDATE with time from UTIME
-				date.setHours(timeDate.getHours(), timeDate.getMinutes(), timeDate.getSeconds(), timeDate.getMilliseconds());
-			}
-		} else {
-			// Default to noon (12:00:00) to avoid timezone edge cases with midnight
-			// This ensures transactions on the same day are ordered consistently
-			date.setHours(12, 0, 0, 0);
+export function mapDate(zdate?: string | number, utime?: string | number, wdate?: string): string {
+	// Priority 1: Use ZDATE if available (authoritative transaction timestamp)
+	if (zdate && zdate !== 'null' && zdate !== '0' && zdate !== '') {
+		const timestamp = typeof zdate === 'string' ? parseInt(zdate, 10) : zdate;
+		if (!isNaN(timestamp) && timestamp > 0) {
+			return new Date(timestamp).toISOString();
 		}
-		
-		return date.toISOString();
 	}
-	
-	// Fallback: try to parse as-is
-	const parsed = new Date(wdate);
-	if (!isNaN(parsed.getTime())) {
-		return parsed.toISOString();
+
+	// Priority 2: Use UTIME as fallback (last update timestamp, but close to transaction time)
+	if (utime && utime !== 'null' && utime !== '0' && utime !== '') {
+		const timestamp = typeof utime === 'string' ? parseInt(utime, 10) : utime;
+		if (!isNaN(timestamp) && timestamp > 0) {
+			return new Date(timestamp).toISOString();
+		}
 	}
-	
+
+	// Priority 3: Parse WDATE as UTC date (avoids timezone shifts)
+	if (wdate && wdate !== 'null' && wdate.trim() !== '') {
+		// MM uses "YYYY-MM-DD" format - parse as UTC to avoid timezone issues
+		const dateMatch = wdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+		if (dateMatch) {
+			const [, year, month, day] = dateMatch;
+			// Use Date.UTC to create date in UTC, avoiding local timezone shifts
+			const date = new Date(Date.UTC(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10)));
+			// Set to noon UTC to avoid midnight edge cases and ensure consistent ordering
+			date.setUTCHours(12, 0, 0, 0);
+			return date.toISOString();
+		}
+
+		// Fallback: try to parse as UTC date string
+		const parsed = new Date(wdate + 'T00:00:00.000Z');
+		if (!isNaN(parsed.getTime())) {
+			parsed.setUTCHours(12, 0, 0, 0);
+			return parsed.toISOString();
+		}
+	}
+
 	// Last resort: current date
 	return new Date().toISOString();
 }
 
 /**
- * Convert Money Manager amount to Budgic amount (with sign handling)
+ * Convert Money Manager amount to Budgic amount
  * 
- * @param zmoney - MM amount string
- * @param doType - MM transaction type (for sign handling)
- * @returns Budgic amount (income positive, expense negative)
+ * IMPORTANT: MM CSV exports already contain amounts with correct signs in IN_ZMONEY.
+ * This function simply parses and returns the amount as-is, preserving the original sign.
+ * 
+ * @param zmoney - MM amount (string or number) - should be from IN_ZMONEY field
+ * @param doType - MM transaction type (kept for backward compatibility, not used)
+ * @returns Budgic amount (preserves original sign from CSV)
  */
-export function mapAmount(zmoney: string | number, doType: string | number): number {
+export function mapAmount(zmoney: string | number, doType?: string | number): number {
 	const amount = typeof zmoney === 'string' ? parseFloat(zmoney) : zmoney;
-	const typeCode = typeof doType === 'string' ? parseInt(doType, 10) : doType;
 	
 	if (isNaN(amount)) {
 		return 0;
 	}
 	
-	// MM stores: income positive (0), expense positive (1)
-	// Budgic uses: income positive, expense negative
-	// IMPORTANT: Preserve negative amounts for refunds (negative expenses)
-	if (typeCode === 1) {
-		// Expense: if amount is already negative (refund), preserve it; otherwise negate
-		if (amount < 0) {
-			// Refund: preserve negative sign
-			return amount;
-		} else {
-			// Regular expense: negate
-			return -amount;
-		}
-	} else if (typeCode === 0) {
-		// Income: keep positive (but preserve if negative for corrections)
-		return amount >= 0 ? amount : amount;
-	} else if (typeCode === 3) {
-		// Transfer out: negative
-		return amount < 0 ? amount : -amount;
-	} else if (typeCode === 4) {
-		// Transfer in: positive
-		return amount < 0 ? amount : amount;
-	} else {
-		// Adjustment (7, 8): use as-is (already signed)
-		return amount;
-	}
+	// MM CSV exports already have correct signs in IN_ZMONEY
+	// Just return the amount as-is - no conversion needed
+	return amount;
 }
 
 /**
  * Extract ISO currency code from Money Manager currency uid
+ * 
+ * For INOUTCOME transactions, the currencyUid format is BASE_TARGET where:
+ * - BASE is typically the account's base currency
+ * - TARGET is the actual transaction currency (what we need)
  * 
  * @param currencyUid - MM currency uid (e.g., "RUB_RUB", "RUB_USD")
  * @param currencyFile - CURRENCY CSV file for lookup
@@ -176,11 +168,18 @@ export function extractCurrencyCode(currencyUid: string, currencyFile?: CSVFile)
 		}
 	}
 	
-	// Fallback: extract from uid format (e.g., "RUB_RUB" -> "RUB")
-	// MM uses format: BASE_SUB or BASE_BASE
+	// Fallback: extract from uid format
+	// For INOUTCOME transactions: format is BASE_TARGET (e.g., "RUB_USD")
+	// We need the TARGET (second part) which is the actual transaction currency
 	const parts = currencyUid.split('_');
 	if (parts.length >= 2) {
-		return parts[0]; // Return base currency
+		// Return the second ISO code (transaction currency), not the first (base currency)
+		return parts[1]; // Return target/transaction currency
+	}
+	
+	// If only one part, use it (fallback for edge cases)
+	if (parts.length === 1 && parts[0]) {
+		return parts[0];
 	}
 	
 	return 'USD'; // Default fallback

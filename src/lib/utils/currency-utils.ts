@@ -113,6 +113,42 @@ export function formatTransactionAmount(amount: number | undefined | null, curre
 }
 
 /**
+ * Format amount with sign for transaction display (e.g., +$100.00, -€50.00)
+ * Note: Zero amounts will not show a sign
+ */
+export function formatTransferAmount(amount: number | undefined | null, currencyCode: string): string {
+    if (amount === undefined || amount === null || isNaN(amount)) {
+        // Format zero with the provided currency, not hardcoded USD
+        const currencyInfo = getCurrencyInfo(currencyCode);
+        if (currencyInfo) {
+            const formattedZero = (0).toFixed(currencyInfo.decimalPlaces);
+            const symbol = currencyInfo.symbol;
+            const placement = currencyInfo.placement || 'before';
+            return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
+        }
+        return '0.00'; // Fallback if currency not found
+    }
+
+    const currencyInfo = getCurrencyInfo(currencyCode);
+    if (!currencyInfo) {
+        const sign = amount !== 0 ? (amount > 0 ? '' : '-') : '';
+        return `${sign}${amount.toFixed(2)}`;
+    }
+
+    const absAmount = Math.abs(amount);
+    const formattedAmount = absAmount.toFixed(currencyInfo.decimalPlaces);
+    const symbol = currencyInfo.symbol;
+    const placement = currencyInfo.placement || 'before';
+    const sign = amount !== 0 ? (amount > 0 ? '' : '-') : '';
+
+    if (placement === 'before') {
+        return `${sign}${symbol}${formattedAmount}`;
+    } else {
+        return `${sign}${formattedAmount}${symbol}`;
+    }
+}
+
+/**
  * Enhanced formatting options for currency amounts
  */
 export interface FormatOptions {

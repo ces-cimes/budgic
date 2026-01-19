@@ -49,6 +49,7 @@ export class MoneyManagerImporter extends BaseImporter {
 	private currencyMappings: Map<string, string> = new Map(); // MM uid -> Budgic ID
 	private categoryNameMap: Map<string, string> = new Map(); // MM uid -> category name (for hierarchy)
 	private transferPairs: Map<string, TransferPair> = new Map(); // txUidTrans -> TransferPair
+	private existingMMTransactions: Map<string, Transaction> = new Map(); // MM uid -> Transaction (for fast duplicate detection)
 
 	/**
 	 * Execute the import process
@@ -100,6 +101,11 @@ export class MoneyManagerImporter extends BaseImporter {
 				currentStep++;
 				this.reportProgress('Processing transfers', currentStep, totalSteps);
 				await this.processTransferPairs();
+			}
+
+			// Step 4.5: Preload existing MM transactions for fast duplicate detection
+			if (this.options.importTransactions) {
+				await this.preloadExistingMMTransactions();
 			}
 
 			// Step 5: Import transactions
@@ -559,43 +565,77 @@ export class MoneyManagerImporter extends BaseImporter {
 			? this.categoryMappings.get(ctgUid) 
 			: undefined;
 
-		// Get currency
+		// Get currency - IMPORTANT: Preserve original currency from MM, never convert
 		const currencyUid = row.currencyUid || 'RUB_RUB';
 		const currencyId = this.currencyMappings.get(currencyUid);
-		const currency = currencyId 
+		let currency = currencyId 
 			? await db.currencies.get(currencyId)
 			: await db.getCurrencyByCode(extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')));
 
+		// If currency still not found, try to extract from currencyUid directly
 		if (!currency) {
-			this.addWarning(`Currency not found for transaction, using USD`);
+			const extractedCode = extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY'));
+			currency = await db.getCurrencyByCode(extractedCode);
+			if (!currency) {
+				this.addWarning(`Currency not found for transaction (uid: ${currencyUid}, extracted: ${extractedCode}), using USD`);
+			}
 		}
 
-		const amount = mapAmount(row.ZMONEY || '0', doType);
-		const clearedDate = mapDate(row.WDATE || '', row.UTIME);
+		// Get amount - IMPORTANT: Use IN_ZMONEY (actual currency amount) not ZMONEY
+		// Amounts in MM CSV already have correct sign, so preserve as-is
+		const rawAmount = parseFloat(row.IN_ZMONEY || row.ZMONEY || '0');
+		const amount = mapAmount(rawAmount, doType);
+		// Use ZDATE (transaction time) as primary source, UTIME as fallback, WDATE as last resort
+		const clearedDate = mapDate(row.ZDATE, row.UTIME, row.WDATE);
 		const description = row.ZCONTENT || '';
 
-		// Check for duplicate by MM UID only
+		// Check for duplicate by MM UID only (using preloaded map - O(1) lookup)
 		// This ensures 1-to-1 import - we only skip if the exact same transaction was already imported
 		if (mmUid && mmUid !== 'null' && mmUid !== '') {
-			const existingByUid = await this.findTransactionByMMUid(mmUid);
+			const existingByUid = this.findTransactionByMMUid(mmUid);
 			if (existingByUid) {
 				this.statistics.transactionsSkipped++;
 				return; // Skip exact duplicate (same MM UID)
 			}
 		}
 
-		// Create import metadata with MM UID
+		// Create import metadata with MM UID and original values for debugging
 		const importMetadata = mmUid && mmUid !== 'null' && mmUid !== ''
-			? JSON.stringify({ mmUid, source: 'money-manager' })
+			? JSON.stringify({ 
+				mmUid, 
+				source: 'money-manager',
+				originalAmount: rawAmount,
+				originalCurrencyUid: currencyUid,
+				doType: doType,
+				zmoney: row.ZMONEY,
+				inZmoney: row.IN_ZMONEY
+			})
 			: undefined;
 
+		// IMPORTANT: Store original currency and amount - never convert during import
+		// Use the currency from the transaction row, NOT from the account
+		const finalCurrency = currency?.code || extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')) || 'USD';
+		
+		// Debug logging for currency/amount issues
+		if (Math.abs(amount) > 1000 && (finalCurrency === 'RUB' || finalCurrency === 'USD')) {
+			console.log('[MM Import Debug]', {
+				mmUid,
+				rawAmount: rawAmount,
+				mappedAmount: amount,
+				currencyUid,
+				finalCurrency,
+				doType,
+				description: description.substring(0, 50)
+			});
+		}
+		
 		const transaction: Transaction = {
 			id: generateUUID(),
 			type: mapTransactionType(doType),
 			status: 'cleared', // All imported transactions are historical
 			accountId: accountId,
-			amount: amount,
-			currency: currency?.code || 'USD',
+			amount: amount, // Original amount with preserved sign - NEVER convert
+			currency: finalCurrency, // Original currency from MM - NEVER convert
 			description: description,
 			categoryId: categoryId,
 			clearedDate: clearedDate,
@@ -638,17 +678,21 @@ export class MoneyManagerImporter extends BaseImporter {
 			? await db.currencies.get(currencyId)
 			: await db.getCurrencyByCode(extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')));
 
-		// Transfer amount (from the "in" transaction, which is positive)
-		const transferAmount = Math.abs(parseFloat(inRow.ZMONEY || '0'));
-		// Use the earlier timestamp for better ordering
+		// Transfer amount - use IN_ZMONEY (actual currency amount) with correct sign
+		// Amounts in MM CSV already have correct sign, so preserve as-is
+		const transferAmount = Math.abs(parseFloat(inRow.IN_ZMONEY || inRow.ZMONEY || '0'));
+		// Use ZDATE (transaction time) as primary source, UTIME as fallback, WDATE as last resort
+		// Prefer outRow values, fallback to inRow
+		const transferZdate = outRow.ZDATE || inRow.ZDATE;
 		const transferUtime = outRow.UTIME || inRow.UTIME;
-		const clearedDate = mapDate(outRow.WDATE || inRow.WDATE || '', transferUtime);
+		const transferWdate = outRow.WDATE || inRow.WDATE;
+		const clearedDate = mapDate(transferZdate, transferUtime, transferWdate);
 		const description = outRow.ZCONTENT || inRow.ZCONTENT || 'Transfer';
 
-		// Check for duplicate by MM transfer UID only
+		// Check for duplicate by MM transfer UID only (using preloaded map - O(1) lookup)
 		// This ensures 1-to-1 import - we only skip if the exact same transfer was already imported
 		if (mmUid && mmUid !== 'null' && mmUid !== '') {
-			const existingByUid = await this.findTransactionByMMUid(mmUid);
+			const existingByUid = this.findTransactionByMMUid(mmUid);
 			if (existingByUid) {
 				this.statistics.transactionsSkipped++;
 				return; // Skip exact duplicate (same MM UID)
@@ -702,13 +746,10 @@ export class MoneyManagerImporter extends BaseImporter {
 	}
 
 	/**
-	 * Find existing transaction by Money Manager UID
+	 * Preload all existing MM transactions into a map for fast duplicate detection
+	 * This is called once before importing to avoid querying the database for each transaction
 	 */
-	private async findTransactionByMMUid(mmUid: string): Promise<Transaction | null> {
-		if (!mmUid || mmUid === 'null' || mmUid === '') {
-			return null;
-		}
-
+	private async preloadExistingMMTransactions(): Promise<void> {
 		try {
 			// Try to use indexed query first (requires version 11+)
 			const transactions = await db.transactions
@@ -717,13 +758,13 @@ export class MoneyManagerImporter extends BaseImporter {
 				.filter(tx => !tx.deletedAt)
 				.toArray();
 
-			// Check importMetadata for MM UID
+			// Build map of MM UID -> Transaction
 			for (const tx of transactions) {
 				if (tx.importMetadata) {
 					try {
 						const metadata = JSON.parse(tx.importMetadata);
-						if (metadata.mmUid === mmUid) {
-							return tx;
+						if (metadata.mmUid && metadata.mmUid !== 'null' && metadata.mmUid !== '') {
+							this.existingMMTransactions.set(metadata.mmUid, tx);
 						}
 					} catch (e) {
 						// Invalid JSON, skip
@@ -732,7 +773,6 @@ export class MoneyManagerImporter extends BaseImporter {
 			}
 		} catch (error) {
 			// Fallback: if index doesn't exist yet, search all transactions
-			// This is slower but works until database is upgraded
 			const allTransactions = await db.transactions
 				.filter(tx => !tx.deletedAt && tx.importSource === 'money-manager')
 				.toArray();
@@ -741,8 +781,8 @@ export class MoneyManagerImporter extends BaseImporter {
 				if (tx.importMetadata) {
 					try {
 						const metadata = JSON.parse(tx.importMetadata);
-						if (metadata.mmUid === mmUid) {
-							return tx;
+						if (metadata.mmUid && metadata.mmUid !== 'null' && metadata.mmUid !== '') {
+							this.existingMMTransactions.set(metadata.mmUid, tx);
 						}
 					} catch (e) {
 						// Invalid JSON, skip
@@ -750,8 +790,17 @@ export class MoneyManagerImporter extends BaseImporter {
 				}
 			}
 		}
+	}
 
-		return null;
+	/**
+	 * Find existing transaction by Money Manager UID (uses preloaded map for O(1) lookup)
+	 */
+	private findTransactionByMMUid(mmUid: string): Transaction | null {
+		if (!mmUid || mmUid === 'null' || mmUid === '') {
+			return null;
+		}
+
+		return this.existingMMTransactions.get(mmUid) || null;
 	}
 
 	/**

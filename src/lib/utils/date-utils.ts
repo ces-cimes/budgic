@@ -309,4 +309,159 @@ export const dateUtils = {
         }
         return { isValid: true };
     },
+
+    // TIMEZONE-SAFE UTILITIES
+    // These functions ensure dates stored in UTC are correctly displayed and compared in local timezone
+
+    /**
+     * Get the local date string (YYYY-MM-DD) from a UTC ISO string
+     * This is useful for comparing dates without timezone issues
+     * @param isoString - ISO date string (e.g., "2024-01-15T18:08:00.000Z")
+     * @returns Local date string (e.g., "2024-01-15")
+     */
+    getLocalDateString: (isoString: string): string => {
+        const date = new Date(isoString);
+        // Use local date components to get the correct local date
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+
+    /**
+     * Check if a UTC ISO date string represents today in the user's local timezone
+     * @param isoString - ISO date string
+     * @returns true if the date is today in local timezone
+     */
+    isToday: (isoString: string): boolean => {
+        const date = new Date(isoString);
+        const today = new Date();
+        
+        // Compare local date strings
+        const dateStr = dateUtils.getLocalDateString(isoString);
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        
+        return dateStr === todayStr;
+    },
+
+    /**
+     * Check if a UTC ISO date string represents yesterday in the user's local timezone
+     * @param isoString - ISO date string
+     * @returns true if the date is yesterday in local timezone
+     */
+    isYesterday: (isoString: string): boolean => {
+        const date = new Date(isoString);
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const dateStr = dateUtils.getLocalDateString(isoString);
+        const yesterdayStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+        
+        return dateStr === yesterdayStr;
+    },
+
+    /**
+     * Format a UTC ISO date string for display in local timezone
+     * Returns smart relative formatting (Today, Yesterday, weekday, or date)
+     * @param isoString - ISO date string
+     * @param options - Formatting options
+     * @returns Formatted date string
+     */
+    formatDateForDisplay: (
+        isoString: string,
+        options?: {
+            showTime?: boolean;
+            showYear?: boolean;
+        }
+    ): string => {
+        const date = new Date(isoString);
+        const { showTime = false, showYear = false } = options || {};
+
+        // Check if today
+        if (dateUtils.isToday(isoString)) {
+            if (showTime) {
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            return 'Today';
+        }
+
+        // Check if yesterday
+        if (dateUtils.isYesterday(isoString)) {
+            return 'Yesterday';
+        }
+
+        // Check if within 7 days - show weekday
+        const now = new Date();
+        const diffTime = Math.abs(date.getTime() - now.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 7) {
+            return date.toLocaleDateString([], { weekday: 'short' });
+        }
+
+        // Otherwise show date
+        const formatOptions: Intl.DateTimeFormatOptions = {
+            month: 'short',
+            day: 'numeric'
+        };
+        
+        if (showYear || date.getFullYear() !== now.getFullYear()) {
+            formatOptions.year = 'numeric';
+        }
+
+        return date.toLocaleDateString([], formatOptions);
+    },
+
+    /**
+     * Format a UTC ISO date string as a full date in local timezone
+     * @param isoString - ISO date string
+     * @param includeTime - Whether to include time
+     * @returns Formatted date string
+     */
+    formatFullDate: (isoString: string, includeTime: boolean = false): string => {
+        const date = new Date(isoString);
+        const options: Intl.DateTimeFormatOptions = {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        };
+        
+        if (includeTime) {
+            options.hour = '2-digit';
+            options.minute = '2-digit';
+        }
+        
+        return date.toLocaleDateString([], options);
+    },
+
+    /**
+     * Convert UTC ISO string to datetime-local input format (YYYY-MM-DDTHH:MM)
+     * This is needed because datetime-local inputs expect local time, not UTC
+     * @param isoString - UTC ISO date string
+     * @returns Local datetime string in format YYYY-MM-DDTHH:MM
+     */
+    toLocalDateTimeInput: (isoString: string): string => {
+        const date = new Date(isoString);
+        // Get local date/time components
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    },
+
+    /**
+     * Convert datetime-local input value (local time) to UTC ISO string
+     * datetime-local inputs return values in local timezone, so we need to convert to UTC
+     * @param localDateTimeString - Local datetime string in format YYYY-MM-DDTHH:MM
+     * @returns UTC ISO date string
+     */
+    fromLocalDateTimeInput: (localDateTimeString: string): string => {
+        if (!localDateTimeString) return '';
+        // Create date from local datetime string (browser interprets as local time)
+        const date = new Date(localDateTimeString);
+        // Convert to UTC ISO string
+        return date.toISOString();
+    },
 }; 

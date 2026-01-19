@@ -43,9 +43,10 @@ export abstract class BaseImporter {
 	/**
 	 * Execute the import process
 	 * 
+	 * @param data - Optional data parameter for importers that need input (e.g., CSV files)
 	 * @returns Import result with statistics and errors
 	 */
-	abstract import(): Promise<ImportResult>;
+	abstract import(data?: unknown): Promise<ImportResult>;
 
 	/**
 	 * Report progress to callback if provided

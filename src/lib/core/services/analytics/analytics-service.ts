@@ -391,7 +391,7 @@ class AnalyticsService {
             if (tx.type === 'income') {
                 current.income += convertedAmount;
             } else if (tx.type === 'expense') {
-                current.expenses += Math.abs(convertedAmount);
+                current.expenses += convertedAmount;
             }
             
             monthlyData.set(month, current);
@@ -576,7 +576,7 @@ class AnalyticsService {
             if (tx.type === 'income') {
                 totalIncome += convertedAmount;
             } else if (tx.type === 'expense') {
-                totalExpenses += Math.abs(convertedAmount);
+                totalExpenses += convertedAmount;
             }
         }
 

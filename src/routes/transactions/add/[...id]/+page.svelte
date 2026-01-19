@@ -26,6 +26,7 @@
 	import { DIRECTIONAL_CONSTRAINTS, suggestConstraint } from '$lib/utils/directional-constraint-utils';
 	import { FLEXIBILITY_TIERS, suggestFlexibilityTierWithConstraint } from '$lib/utils/flexibility-tier-utils';
 	import { getCurrencyInfo } from '$lib/utils/currency-utils';
+	import { dateUtils } from '$lib/utils/date-utils';
 
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
@@ -121,13 +122,21 @@
 	let currencySymbol = $derived(() => currentCurrencyInfo()?.symbol || currency || '?');
 	
 	// Get account currency when account is selected
+	// IMPORTANT: For imported transactions, always preserve the original transaction currency
 	$effect(() => {
 		if (selectedAccount && accounts.length > 0) {
 			const account = accounts.find(a => a.id === selectedAccount);
 			if (account && account.currency) {
-				// Only update currency if it's not set yet (new transaction) or if editing and currency matches account
-				if (!transaction || transaction.currency === account.currency) {
+				// Only update currency if:
+				// 1. It's a new transaction (no transaction loaded), OR
+				// 2. The transaction doesn't have an importSource (user-created), OR
+				// 3. The transaction currency already matches the account currency
+				// NEVER change currency for imported transactions - they may have different currencies
+				if (!transaction || !transaction.importSource || transaction.currency === account.currency) {
 					currency = account.currency;
+				} else {
+					// For imported transactions, keep the original transaction currency
+					currency = transaction.currency || account.currency;
 				}
 			}
 		}
@@ -250,8 +259,9 @@
 					notes = transaction.notes || '';
 					reference = transaction.reference || '';
 					toAccountId = transaction.toAccountId || '';
-					plannedDate = transaction.plannedDate ? new Date(transaction.plannedDate).toISOString().slice(0, 16) : '';
-					clearedDate = transaction.clearedDate ? new Date(transaction.clearedDate).toISOString().slice(0, 16) : '';
+					// Convert UTC dates to local datetime-local format for input
+					plannedDate = transaction.plannedDate ? dateUtils.toLocalDateTimeInput(transaction.plannedDate) : '';
+					clearedDate = transaction.clearedDate ? dateUtils.toLocalDateTimeInput(transaction.clearedDate) : '';
 					isRecurring = !!transaction.recurrenceRule;
 					recurrenceRule = transaction.recurrenceRule || '';
 					isGroupTransaction = !!transaction.groupName;
@@ -282,10 +292,10 @@
 					// Note: selectedAccount is intentionally left empty - user must select it
 					// Validation will catch missing accounts for cleared/pending/transfer transactions
 				}
-				// Set default dates
+				// Set default dates in local timezone for datetime-local input
 				const now = new Date();
-				clearedDate = now.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM format
-				plannedDate = now.toISOString().slice(0, 16);
+				clearedDate = dateUtils.toLocalDateTimeInput(now.toISOString());
+				plannedDate = dateUtils.toLocalDateTimeInput(now.toISOString());
 			}
 		} catch (err) {
 			error = 'Failed to load data';
@@ -391,8 +401,9 @@
 				notes: notes || undefined,
 				reference: reference || undefined,
 				toAccountId: transactionType === 'transfer' ? toAccountId : undefined,
-				plannedDate: status === 'planned' ? (plannedDate ? new Date(plannedDate).toISOString() : undefined) : undefined,
-				clearedDate: status === 'cleared' ? (clearedDate ? new Date(clearedDate).toISOString() : undefined) : undefined,
+				// Convert local datetime-local input values back to UTC ISO strings
+				plannedDate: status === 'planned' ? (plannedDate ? dateUtils.fromLocalDateTimeInput(plannedDate) : undefined) : undefined,
+				clearedDate: status === 'cleared' ? (clearedDate ? dateUtils.fromLocalDateTimeInput(clearedDate) : undefined) : undefined,
 				recurrenceRule: isRecurring ? recurrenceRule : undefined,
 				groupName: isGroupTransaction ? groupName : undefined,
 				groupId: isGroupTransaction ? crypto.randomUUID() : undefined,
@@ -431,8 +442,8 @@
 
 	function formatDateForInput(dateString: string): string {
 		if (!dateString) return '';
-		const date = new Date(dateString);
-		return date.toISOString().slice(0, 16);
+		// Convert UTC ISO string to local datetime-local format
+		return dateUtils.toLocalDateTimeInput(dateString);
 	}
 
 	async function handleDelete() {

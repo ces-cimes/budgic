@@ -356,7 +356,7 @@ class TransactionService {
             }
             totalAmount += Math.abs(convertedAmount);
             if (t.type === 'income') stats.totalIncome += convertedAmount;
-            else if (t.type === 'expense') stats.totalExpenses += Math.abs(convertedAmount);
+            else if (t.type === 'expense') stats.totalExpenses += convertedAmount;
             else if (t.type === 'transfer') stats.totalTransfers += Math.abs(convertedAmount);
         }
         stats.averageTransactionAmount = stats.totalTransactions > 0 ? totalAmount / stats.totalTransactions : 0;
@@ -410,9 +410,11 @@ class TransactionService {
                 // Don't warn again for impact conversion
             }
             if (t.type === 'income') income += convertedAmount;
-            else if (t.type === 'expense') expenses += Math.abs(convertedAmount);
-            net += convertedImpact;
+            else if (t.type === 'expense') expenses -= convertedAmount; // Store expenses as negative
+            // Note: We still calculate impact for potential future use, but net is now income + expenses
         }
+        // Net is simply the sum of income and expenses (where expenses is negative)
+        net = income + expenses;
         return { income, expenses, net };
     }
 

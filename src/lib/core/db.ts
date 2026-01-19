@@ -39,18 +39,17 @@ export const CurrencyUtils = {
 
 	/**
 	 * Validate amount with currency-specific rules
+	 * 
+	 * NOTE: No maximum amount limit - different currencies have vastly different scales
+	 * (e.g., IDR can be in billions, while USD is typically in thousands)
+	 * Only validates data integrity (NaN/Infinity) and decimal places.
 	 */
 	validateAmount(amount: number | undefined | null, currency: string): { isValid: boolean; error?: string } {
 		if (amount === undefined || amount === null) {
 			return { isValid: false, error: 'Amount is required' };
 		}
 
-		// Maximum amount validation (1M as specified in requirements)
-		if (Math.abs(amount) > 1000000) {
-			return { isValid: false, error: 'Amount cannot exceed 1,000,000' };
-		}
-
-		// Check for NaN or Infinity
+		// Check for NaN or Infinity (data integrity only)
 		if (!Number.isFinite(amount)) {
 			return { isValid: false, error: 'Amount must be a valid number' };
 		}
@@ -58,7 +57,7 @@ export const CurrencyUtils = {
 		// Currency-specific validation
 		const currencyInfo = CurrencyUtils.getCurrencyInfo(currency);
 		if (currencyInfo) {
-			// Check decimal places
+			// Check decimal places (formatting constraint, not amount limit)
 			const decimalPlaces = CurrencyUtils.getDecimalPlaces(amount);
 			if (decimalPlaces > currencyInfo.decimalPlaces) {
 				return { 
@@ -186,11 +185,9 @@ export const BalanceUtils = {
 		// For transfers, validate that the total is reasonable (not necessarily zero)
 		// but should be consistent with transfer logic
 		if (firstTransaction.type === 'transfer') {
-			// For transfers, we should validate that the total makes sense
-			// A transfer group should typically have a net zero or a clear transfer amount
-			if (Math.abs(totalAmount) > 1000000) {
-				errors.push('Transfer group total amount seems unreasonably large');
-			}
+			// For transfers, we validate consistency but not amount magnitude
+			// Different currencies have vastly different scales (IDR can be billions)
+			// No hard limit - only validate data integrity
 		} else {
 			// For non-transfer transactions, validate based on type and amount sign
 			// This aligns with the transaction impact calculation system

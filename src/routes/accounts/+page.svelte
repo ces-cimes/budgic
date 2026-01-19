@@ -138,8 +138,8 @@
             <div class="flex-1">
               <div class="flex items-center gap-2 mb-2">
                 <h3 class="font-semibold text-primary">{account.name}</h3>
-                {#if StatusIcon && bufferAmount > 0}
-                  <svelte:component this={StatusIcon} class="w-4 h-4 {getBufferStatusColor(bufferStatus)}" />
+                {#if StatusIcon && bufferAmount > 0 && bufferStatus}
+                  <StatusIcon class="w-4 h-4 {getBufferStatusColor(bufferStatus)}" />
                 {/if}
               </div>
               <div class="text-2xl font-bold {account.balance >= 0 ? 'text-success' : 'text-alert'}">

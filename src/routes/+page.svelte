@@ -55,7 +55,7 @@
       const expenseTransactions = transactionsData.filter((t: any) => t.type === 'expense');
       
       monthlyIncome = incomeTransactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-      monthlyExpenses = expenseTransactions.reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
+      monthlyExpenses = expenseTransactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
       
       // Load global allowance
       await loadGlobalAllowance();

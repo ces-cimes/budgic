@@ -2,10 +2,11 @@
 	import { RefreshCcw, Clock, CheckCircle, AlertCircle, XCircle, Split, ChevronDown, Tag } from '@lucide/svelte';
 	import type { Transaction, Category } from '$lib/core/db';
 	import { longpress } from '$lib/actions/longpress';
-	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatTransactionAmount, formatTransferAmount } from '$lib/utils/currency-utils';
 	import { db } from '$lib/core/db';
 	import { getPriorityName, getPriorityColor } from '$lib/utils/priority-utils';
 	import { isUncategorizedCategory } from '$lib/utils/category-utils';
+	import { dateUtils } from '$lib/utils/date-utils';
 
 	interface Props {
 		transaction: Transaction | any; // Allow grouped transaction objects
@@ -41,28 +42,12 @@
 		defaultExpanded = false
 	}: Props = $props();
 
-	// Simplified date formatting
+	// Date formatting using timezone-safe utilities
+	// Dates are stored in UTC but displayed in user's local timezone
 	const formatDate = (dateString: string) => {
 		try {
-			const date = new Date(dateString);
-			const now = new Date();
-			const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-			const transactionDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-			
-			if (transactionDate.getTime() === today.getTime()) {
-				return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-			}
-			
-			const diffTime = Math.abs(transactionDate.getTime() - today.getTime());
-			const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-			
-			if (diffDays === 1) {
-				return transactionDate < today ? 'Yesterday' : 'Tomorrow';
-			} else if (diffDays <= 7) {
-				return date.toLocaleDateString([], { weekday: 'short' });
-			} else {
-				return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-			}
+			// Use timezone-safe formatting that correctly handles UTC -> local conversion
+			return dateUtils.formatDateForDisplay(dateString, { showTime: true });
 		} catch {
 			return '';
 		}
@@ -317,20 +302,20 @@
 		let textClass = '';
 		let glowClass = '';
 		
-		// Color based on transaction type
+		// Color based on transaction type (not the sign)
 		if (transaction.type === 'income') {
-			textClass = 'text-sage-green';
+			textClass = 'text-[var(--color-sage-green)]';
 			glowClass = 'drop-shadow-[0_0_1px_var(--color-success)]';
 		} else if (transaction.type === 'expense') {
-			textClass = 'text-warm-coral';
+			textClass = 'text-[var(--color-warm-coral)]';
 			glowClass = 'drop-shadow-[0_0_1px_var(--color-alert)]';
 		} else {
 			// For transfer and adjustment, use impact-based color
 			if (isPositiveImpact) {
-				textClass = 'text-sage-green';
+				textClass = 'text-[var(--color-sage-green)]';
 				glowClass = 'drop-shadow-[0_0_1px_var(--color-success)]';
 			} else {
-				textClass = 'text-warm-coral';
+				textClass = 'text-[var(--color-warm-coral)]';
 				glowClass = 'drop-shadow-[0_0_1px_var(--color-alert)]';
 			}
 		}
@@ -341,12 +326,24 @@
 			glowClass = ''; // Remove glow for planned transactions
 		}
 		
+		// Format amount with correct sign based on transaction type
+		const rawAmount = displayAmount();
+		let amountForFormatting = rawAmount;
+		
+		// Apply sign logic:
+		// Income: keep sign as-is (100 → +100, -100 → -100)
+		// Expense: flip sign (100 → -100, -100 → +100)
+		if (transaction.type === 'expense') {
+			amountForFormatting = -rawAmount;
+		}
+		// For income, transfer, and adjustment, keep the sign as-is
+		
 		// Format amount with proper currency symbol and decimal places
-		const formattedAmount = formatTransactionAmount(displayAmount(), displayCurrency(), true);
+		const formattedAmount = formatTransactionAmount(amountForFormatting, displayCurrency(), true);
 		
 		return {
 			text: formattedAmount,
-			class: `${textClass} ${glowClass}`,
+			class: `${textClass} ${glowClass}`.trim(),
 			isIncome: transaction.type === 'income'
 		};
 	});
@@ -570,7 +567,7 @@
 					<div class="flex-shrink-0 text-right">
 						<!-- Transfer amount -->
 						<div class="font-bold text-lg text-blue-600 dark:text-blue-400 tracking-tight">
-							{formatTransactionAmount(displayAmount(), displayCurrency(), true)}
+							{formatTransferAmount(displayAmount(), displayCurrency())}
 						</div>
 						
 						<!-- Date -->
@@ -737,7 +734,7 @@
 							<!-- Confidence indicator ring for planned transactions -->
 							{#if confidenceInfo()}
 								<div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-bg-secondary
-										{confidenceInfo()?.color}"></div>
+									{confidenceInfo()?.color}"></div>
 							{/if}
 							
 							<!-- Priority number indicator -->
