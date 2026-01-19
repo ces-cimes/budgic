@@ -1,5 +1,6 @@
 import { db, generateUUID } from '$lib/core/db';
 import { analyticsService } from './analytics-service';
+import { predictionService } from './prediction-service';
 import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { accountService } from '../core/account-service';
@@ -465,7 +466,7 @@ class InsightsService {
             if (bufferStatus === 'critical') {
                 insights.push({
                     id: generateUUID(),
-                    type: 'budget_alert',
+                    type: 'budget_exceeded',
                     severity: 'alert',
                     title: `Critical: ${account.name} Below Buffer`,
                     message: `${account.name} is ${deficit.toFixed(2)} ${account.currency} below the recommended buffer of ${bufferAmount.toFixed(2)} ${account.currency}. Consider transferring funds to maintain your safety buffer.`,
@@ -492,7 +493,7 @@ class InsightsService {
             else if (bufferStatus === 'warning') {
                 insights.push({
                     id: generateUUID(),
-                    type: 'budget_alert',
+                    type: 'budget_exceeded',
                     severity: 'warning',
                     title: `Warning: ${account.name} Approaching Buffer`,
                     message: `${account.name} is approaching the buffer threshold. Current balance: ${account.currentBalance.toFixed(2)} ${account.currency}, Buffer: ${bufferAmount.toFixed(2)} ${account.currency}.`,
@@ -644,35 +645,182 @@ class InsightsService {
     // ============================================================================
 
     /**
-     * Generate prediction-based insights
+     * Generate prediction-based insights using real prediction algorithms
      */
     private async generatePredictionInsights(data: CrossRouteInsightData): Promise<Insight[]> {
         const insights: Insight[] = [];
 
-        // Predict budget outcomes
-        const budgetPredictions = this.predictBudgetOutcomes(data);
-        
-        for (const prediction of budgetPredictions) {
-            insights.push({
-                id: generateUUID(),
-                type: 'prediction',
-                severity: prediction.severity,
-                title: prediction.title,
-                message: prediction.message,
-                categoryId: prediction.categoryId,
-                percentage: prediction.percentage,
-                confidence: prediction.confidence,
-                actionable: prediction.actionable,
-                actionText: prediction.actionText,
-                metadata: JSON.stringify(prediction.metadata),
-                isActive: true,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                deletedAt: null
-            });
+        try {
+            // 1. Predict budget outcomes (budget risk analysis)
+            const budgetPredictions = await this.predictBudgetOutcomes(data);
+            
+            // Ensure budgetPredictions is an array
+            if (!Array.isArray(budgetPredictions)) {
+                console.error('predictBudgetOutcomes did not return an array:', budgetPredictions);
+                // Continue with empty array
+            } else {
+                for (const prediction of budgetPredictions) {
+                    insights.push({
+                        id: generateUUID(),
+                        type: 'prediction',
+                        severity: prediction.severity,
+                        title: prediction.title,
+                        message: prediction.message,
+                        categoryId: prediction.categoryId,
+                        percentage: prediction.percentage,
+                        confidence: prediction.confidence,
+                        actionable: prediction.actionable,
+                        actionText: prediction.actionText,
+                        metadata: JSON.stringify(prediction.metadata),
+                        isActive: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        deletedAt: null
+                    });
+                }
+            }
+
+            // 2. Goal completion forecasting
+            const goalForecasts = await predictionService.forecastGoalCompletion();
+            
+            for (const forecast of goalForecasts) {
+                if (!forecast.isOnTrack || forecast.riskFactors.length > 0) {
+                    const severity: Insight['severity'] = forecast.riskFactors.length > 2 ? 'alert' : 
+                                                          forecast.riskFactors.length > 0 ? 'warning' : 'info';
+                    
+                    const riskMessage = forecast.riskFactors.length > 0 
+                        ? ` Risk factors: ${forecast.riskFactors.join(', ')}.`
+                        : '';
+                    
+                    insights.push({
+                        id: generateUUID(),
+                        type: 'prediction',
+                        severity,
+                        title: `${forecast.goalName} Completion Forecast`,
+                        message: `Goal is ${forecast.isOnTrack ? 'on track' : 'behind schedule'}. Estimated completion: ${forecast.estimatedCompletionDate.toLocaleDateString()}. Required monthly contribution: ${Math.round(forecast.requiredMonthlyContribution)}.${riskMessage}`,
+                        goalId: forecast.goalId,
+                        confidence: forecast.confidence,
+                        actionable: !forecast.isOnTrack,
+                        actionText: !forecast.isOnTrack ? 'Increase Contributions' : undefined,
+                        metadata: JSON.stringify({
+                            estimatedCompletionDate: forecast.estimatedCompletionDate.toISOString(),
+                            currentProgress: forecast.currentProgress,
+                            requiredMonthlyContribution: forecast.requiredMonthlyContribution,
+                            isOnTrack: forecast.isOnTrack,
+                            riskFactors: forecast.riskFactors,
+                            algorithm: 'Goal Completion Forecasting'
+                        }),
+                        isActive: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        deletedAt: null
+                    });
+                }
+            }
+
+            // 3. Spending forecasts - show all predictions for debugging, but prioritize high-risk/high-value
+            const spendingForecasts = await predictionService.predictSpending(undefined, 1);
+            
+            // Sort by risk and confidence, then take top 25 (increased to see more predictions)
+            const sortedForecasts = spendingForecasts
+                // Removed filter to show all predictions for debugging
+                .sort((a, b) => {
+                    // Prioritize high risk
+                    if (a.riskLevel === 'high' && b.riskLevel !== 'high') return -1;
+                    if (b.riskLevel === 'high' && a.riskLevel !== 'high') return 1;
+                    // Then by confidence
+                    return b.confidence - a.confidence;
+                })
+                .slice(0, 25); // Increased limit to see more predictions
+            
+            for (const forecast of sortedForecasts) {
+                insights.push({
+                    id: generateUUID(),
+                    type: 'prediction',
+                    severity: forecast.riskLevel === 'high' ? 'warning' : 'info',
+                    title: `${forecast.categoryName || 'Spending'} Forecast`,
+                    message: `Predicted spending for next month: ${Math.round(forecast.predictedAmount)}. Confidence: ${forecast.confidence}%. Factors: ${forecast.factors.join(', ')}.`,
+                    categoryId: forecast.categoryId,
+                    confidence: forecast.confidence,
+                    actionable: forecast.riskLevel === 'high',
+                    actionText: forecast.riskLevel === 'high' ? 'Review Budget' : undefined,
+                    metadata: JSON.stringify({
+                        predictedAmount: forecast.predictedAmount,
+                        algorithm: forecast.algorithm,
+                        factors: forecast.factors,
+                        historicalData: forecast.historicalData,
+                        riskLevel: forecast.riskLevel,
+                        timeframe: forecast.timeframe
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+
+            // 4. Seasonal pattern detection - only high-confidence, significant patterns
+            const seasonalPatterns = await predictionService.detectSeasonalPatterns();
+            
+            // Filter and limit seasonal patterns
+            const significantPatterns = seasonalPatterns
+                .filter(p => p.confidence >= 0.8 && p.averageIncrease > 15) // High confidence, significant increase
+                .slice(0, 3); // Limit to top 3 seasonal patterns
+            
+            for (const pattern of significantPatterns) {
+                insights.push({
+                    id: generateUUID(),
+                    type: 'prediction',
+                    severity: 'info',
+                    title: `Seasonal Pattern: ${pattern.categoryId ? 'Category' : 'Overall'} Spending`,
+                    message: `${pattern.pattern}. Average increase: ${pattern.averageIncrease}%. Confidence: ${Math.round(pattern.confidence * 100)}%.`,
+                    categoryId: pattern.categoryId,
+                    confidence: Math.round(pattern.confidence * 100),
+                    actionable: false,
+                    metadata: JSON.stringify({
+                        type: pattern.type,
+                        pattern: pattern.pattern,
+                        averageIncrease: pattern.averageIncrease,
+                        months: pattern.months,
+                        historicalData: pattern.historicalData,
+                        algorithm: 'Seasonal Pattern Detection'
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+        } catch (error) {
+            console.error('Error generating prediction insights:', error);
+            // Continue with basic predictions if advanced ones fail
         }
 
-        return insights;
+        // Prioritize and limit insights to prevent notification overload
+        // Sort by: severity (alert > warning > info), then confidence, then actionable
+        const severityOrder: Record<string, number> = { alert: 0, warning: 1, info: 2, success: 3 };
+        const prioritizedInsights = insights.sort((a, b) => {
+            // First by severity
+            const severityDiff = (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99);
+            if (severityDiff !== 0) return severityDiff;
+            
+            // Then by actionable
+            if (a.actionable && !b.actionable) return -1;
+            if (!a.actionable && b.actionable) return 1;
+            
+            // Then by confidence
+            const confA = a.confidence || 0;
+            const confB = b.confidence || 0;
+            return confB - confA;
+        });
+
+        // Limit total insights to prevent overwhelming the user
+        // Keep all alerts and warnings, but limit info insights
+        const criticalInsights = prioritizedInsights.filter(i => i.severity === 'alert' || i.severity === 'warning');
+        const infoInsights = prioritizedInsights.filter(i => i.severity === 'info' || i.severity === 'success');
+        
+        // Return all critical + up to 5 info insights
+        return [...criticalInsights, ...infoInsights.slice(0, 5)];
     }
 
     // ============================================================================
@@ -824,9 +972,9 @@ class InsightsService {
     }
 
     /**
-     * Predict budget outcomes
+     * Predict budget outcomes using real prediction algorithms
      */
-    private predictBudgetOutcomes(data: CrossRouteInsightData): Array<{
+    private async predictBudgetOutcomes(data: CrossRouteInsightData): Promise<Array<{
         severity: Insight['severity'];
         title: string;
         message: string;
@@ -836,7 +984,7 @@ class InsightsService {
         actionable: boolean;
         actionText?: string;
         metadata: Record<string, any>;
-    }> {
+    }>> {
         const predictions: Array<{
             severity: Insight['severity'];
             title: string;
@@ -849,33 +997,95 @@ class InsightsService {
             metadata: Record<string, any>;
         }> = [];
 
-        // Simple prediction logic - in a real implementation, this would use ML models
-        for (const category of data.categories) {
-            if (category.budgetAmount && category.budgetAmount > 0) {
-                // Placeholder prediction logic
-                const predictedSpending = category.budgetAmount * 1.1; // 10% over budget
-                
-                if (predictedSpending > category.budgetAmount) {
-                    predictions.push({
-                        severity: 'warning',
-                        title: `${category.name} Budget Prediction`,
-                        message: `Based on current trends, you may exceed your ${category.name} budget this month.`,
-                        categoryId: category.id,
-                        percentage: 110,
-                        confidence: 70,
-                        actionable: true,
-                        actionText: 'Adjust Spending',
-                        metadata: {
-                            predictedAmount: predictedSpending,
-                            budgetAmount: category.budgetAmount,
-                            variance: predictedSpending - category.budgetAmount
+        // Use real prediction service for budget risk analysis
+        try {
+            const riskAnalyses = await predictionService.analyzeBudgetRisk();
+            
+            // Ensure riskAnalyses is an array
+            if (!Array.isArray(riskAnalyses)) {
+                console.error('analyzeBudgetRisk did not return an array:', riskAnalyses);
+                throw new Error('analyzeBudgetRisk returned non-array value');
+            }
+
+            // Filter and sort budget risks - prioritize high risk, high confidence
+            const significantRisks = riskAnalyses
+                .filter(analysis => 
+                    analysis.riskProbability > 50 || 
+                    (analysis.riskProbability > 30 && analysis.confidence > 85 && analysis.riskLevel === 'high')
+                )
+                .sort((a, b) => {
+                    // Sort by risk probability (highest first)
+                    if (b.riskProbability !== a.riskProbability) {
+                        return b.riskProbability - a.riskProbability;
+                    }
+                    // Then by confidence
+                    return b.confidence - a.confidence;
+                })
+                .slice(0, 15); // Limit to top 15 budget risks
+
+            for (const analysis of significantRisks) {
+                const percentage = Math.round(
+                    (analysis.predictedSpending / analysis.budgetAmount) * 100
+                );
+
+                let severity: Insight['severity'] = 'info';
+                if (analysis.riskProbability > 70) severity = 'alert';
+                else if (analysis.riskProbability > 40) severity = 'warning';
+
+                predictions.push({
+                    severity,
+                    title: `${analysis.categoryName} Budget Risk`,
+                    message: `Based on current spending patterns, you have a ${analysis.riskProbability}% chance of exceeding your ${analysis.categoryName} budget. Predicted spending: ${Math.round(analysis.predictedSpending)} vs budget: ${Math.round(analysis.budgetAmount)}.`,
+                    categoryId: analysis.categoryId,
+                    percentage,
+                    confidence: analysis.confidence,
+                    actionable: true,
+                    actionText: analysis.recommendedAction || 'Review Spending',
+                    metadata: {
+                        predictedAmount: analysis.predictedSpending,
+                        budgetAmount: analysis.budgetAmount,
+                        variance: analysis.predictedSpending - analysis.budgetAmount,
+                        riskProbability: analysis.riskProbability,
+                        riskLevel: analysis.riskLevel,
+                        factors: analysis.factors,
+                        algorithm: 'Budget Risk Analysis'
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Error in budget prediction:', error);
+            // Fallback to simple logic if prediction service fails
+            try {
+                for (const category of data.categories) {
+                    if (category.budgetAmount && category.budgetAmount > 0) {
+                        const predictedSpending = category.budgetAmount * 1.1;
+                        if (predictedSpending > category.budgetAmount) {
+                            predictions.push({
+                                severity: 'warning',
+                                title: `${category.name} Budget Prediction`,
+                                message: `Based on current trends, you may exceed your ${category.name} budget this month.`,
+                                categoryId: category.id,
+                                percentage: 110,
+                                confidence: 70,
+                                actionable: true,
+                                actionText: 'Adjust Spending',
+                                metadata: {
+                                    predictedAmount: predictedSpending,
+                                    budgetAmount: category.budgetAmount,
+                                    variance: predictedSpending - category.budgetAmount
+                                }
+                            });
                         }
-                    });
+                    }
                 }
+            } catch (fallbackError) {
+                console.error('Error in fallback budget prediction:', fallbackError);
+                // Return empty array if even fallback fails
             }
         }
 
-        return predictions;
+        // Always return an array, even if empty
+        return Array.isArray(predictions) ? predictions : [];
     }
 
     // ============================================================================
