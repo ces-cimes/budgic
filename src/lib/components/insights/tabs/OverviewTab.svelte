@@ -1,5 +1,6 @@
 <script lang="ts">
   import InsightList from '../shared/InsightList.svelte';
+  import RecommendationsList from '../RecommendationsList.svelte';
   import type { OverviewTabProps, UnifiedInsight } from '../types';
 
   interface Props {
@@ -161,6 +162,14 @@
         />
       </div>
     {/if}
+
+    <!-- Recommendations -->
+    <div>
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-foreground">Personalized Recommendations</h2>
+      </div>
+      <svelte:component this={RecommendationsList} maxItems={5} />
+    </div>
 
     <!-- Empty State -->
     {#if insights.length === 0}

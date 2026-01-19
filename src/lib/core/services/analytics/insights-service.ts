@@ -1353,6 +1353,329 @@ class InsightsService {
         const metadata = insight.metadata ? JSON.parse(insight.metadata) : {};
         return metadata.timeframe || metadata.period;
     }
+
+    // ============================================================================
+    // COMPREHENSIVE SPENDING PATTERN ANALYSIS
+    // ============================================================================
+
+    /**
+     * Analyze comprehensive spending patterns
+     */
+    async analyzeSpendingPatterns(days: number = 90): Promise<{
+        categoryPatterns: Array<{
+            categoryId: string;
+            categoryName: string;
+            averageAmount: number;
+            frequency: number;
+            trend: 'increasing' | 'decreasing' | 'stable';
+            percentageOfTotal: number;
+        }>;
+        timingPatterns: {
+            mostActiveDay: string;
+            mostActiveHour: number;
+            weekendVsWeekday: { weekend: number; weekday: number };
+        };
+        velocityPatterns: {
+            averageTransactionAmount: number;
+            transactionFrequency: number;
+            spendingVelocity: 'low' | 'medium' | 'high';
+        };
+        anomalyPatterns: Array<{
+            type: 'unusual_amount' | 'unusual_timing' | 'unusual_category';
+            description: string;
+            transactionId: string;
+            confidence: number;
+        }>;
+    }> {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+
+        const transactions = await db.transactions
+            .filter(tx => 
+                tx.type === 'expense' && 
+                tx.status === 'cleared' && 
+                tx.clearedDate &&
+                new Date(tx.clearedDate) >= cutoffDate &&
+                !tx.deletedAt
+            )
+            .toArray();
+
+        const categories = await db.getActiveCategories();
+        const categoryMap = new Map(categories.map(cat => [cat.id, cat]));
+
+        // Category patterns
+        const categoryPatterns = this.analyzeCategoryPatterns(transactions, categoryMap, days);
+
+        // Timing patterns
+        const timingPatterns = this.analyzeTimingPatterns(transactions);
+
+        // Velocity patterns
+        const velocityPatterns = this.analyzeVelocityPatterns(transactions, days);
+
+        // Anomaly detection
+        const anomalyPatterns = this.detectAnomalies(transactions, categoryMap);
+
+        return {
+            categoryPatterns,
+            timingPatterns,
+            velocityPatterns,
+            anomalyPatterns
+        };
+    }
+
+    /**
+     * Analyze category spending patterns
+     */
+    private analyzeCategoryPatterns(
+        transactions: Transaction[],
+        categoryMap: Map<string, Category>,
+        days: number
+    ): Array<{
+        categoryId: string;
+        categoryName: string;
+        averageAmount: number;
+        frequency: number;
+        trend: 'increasing' | 'decreasing' | 'stable';
+        percentageOfTotal: number;
+    }> {
+        const categoryData = new Map<string, {
+            amounts: number[];
+            dates: string[];
+            total: number;
+        }>();
+
+        transactions.forEach(tx => {
+            if (!tx.categoryId) return;
+            const data = categoryData.get(tx.categoryId) || { amounts: [], dates: [], total: 0 };
+            const amount = Math.abs(tx.amount || 0);
+            data.amounts.push(amount);
+            data.dates.push(tx.clearedDate || tx.createdAt);
+            data.total += amount;
+            categoryData.set(tx.categoryId, data);
+        });
+
+        const totalSpending = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+
+        const patterns: Array<{
+            categoryId: string;
+            categoryName: string;
+            averageAmount: number;
+            frequency: number;
+            trend: 'increasing' | 'decreasing' | 'stable';
+            percentageOfTotal: number;
+        }> = [];
+
+        categoryData.forEach((data, categoryId) => {
+            const category = categoryMap.get(categoryId);
+            if (!category) return;
+
+            const averageAmount = data.amounts.length > 0
+                ? data.amounts.reduce((sum, amt) => sum + amt, 0) / data.amounts.length
+                : 0;
+
+            // Calculate trend by comparing first half vs second half
+            const sortedDates = data.dates.sort();
+            const midpoint = Math.floor(sortedDates.length / 2);
+            const firstHalf = data.amounts.slice(0, midpoint);
+            const secondHalf = data.amounts.slice(midpoint);
+
+            const firstHalfAvg = firstHalf.length > 0
+                ? firstHalf.reduce((sum, amt) => sum + amt, 0) / firstHalf.length
+                : 0;
+            const secondHalfAvg = secondHalf.length > 0
+                ? secondHalf.reduce((sum, amt) => sum + amt, 0) / secondHalf.length
+                : 0;
+
+            let trend: 'increasing' | 'decreasing' | 'stable' = 'stable';
+            const changePercent = firstHalfAvg > 0
+                ? ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100
+                : 0;
+
+            if (changePercent > 10) {
+                trend = 'increasing';
+            } else if (changePercent < -10) {
+                trend = 'decreasing';
+            }
+
+            patterns.push({
+                categoryId,
+                categoryName: category.name,
+                averageAmount: Math.round(averageAmount * 100) / 100,
+                frequency: data.amounts.length,
+                trend,
+                percentageOfTotal: totalSpending > 0
+                    ? Math.round((data.total / totalSpending) * 10000) / 100
+                    : 0
+            });
+        });
+
+        return patterns.sort((a, b) => b.percentageOfTotal - a.percentageOfTotal);
+    }
+
+    /**
+     * Analyze timing patterns
+     */
+    private analyzeTimingPatterns(transactions: Transaction[]): {
+        mostActiveDay: string;
+        mostActiveHour: number;
+        weekendVsWeekday: { weekend: number; weekday: number };
+    } {
+        const dayCounts = new Map<string, number>();
+        const hourCounts = new Map<number, number>();
+        let weekendTotal = 0;
+        let weekdayTotal = 0;
+
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+        transactions.forEach(tx => {
+            const date = new Date(tx.clearedDate || tx.createdAt);
+            const dayName = dayNames[date.getDay()];
+            const hour = date.getHours();
+            const dayOfWeek = date.getDay();
+
+            dayCounts.set(dayName, (dayCounts.get(dayName) || 0) + 1);
+            hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
+
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                weekendTotal += Math.abs(tx.amount || 0);
+            } else {
+                weekdayTotal += Math.abs(tx.amount || 0);
+            }
+        });
+
+        const mostActiveDay = Array.from(dayCounts.entries())
+            .sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown';
+
+        const mostActiveHour = Array.from(hourCounts.entries())
+            .sort((a, b) => b[1] - a[1])[0]?.[0] || 12;
+
+        return {
+            mostActiveDay,
+            mostActiveHour,
+            weekendVsWeekday: {
+                weekend: Math.round(weekendTotal * 100) / 100,
+                weekday: Math.round(weekdayTotal * 100) / 100
+            }
+        };
+    }
+
+    /**
+     * Analyze spending velocity patterns
+     */
+    private analyzeVelocityPatterns(
+        transactions: Transaction[],
+        days: number
+    ): {
+        averageTransactionAmount: number;
+        transactionFrequency: number;
+        spendingVelocity: 'low' | 'medium' | 'high';
+    } {
+        if (transactions.length === 0) {
+            return {
+                averageTransactionAmount: 0,
+                transactionFrequency: 0,
+                spendingVelocity: 'low'
+            };
+        }
+
+        const totalAmount = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+        const averageTransactionAmount = totalAmount / transactions.length;
+        const transactionFrequency = transactions.length / days;
+
+        // Determine velocity based on frequency and average amount
+        let spendingVelocity: 'low' | 'medium' | 'high' = 'low';
+        if (transactionFrequency > 0.5 && averageTransactionAmount > 50) {
+            spendingVelocity = 'high';
+        } else if (transactionFrequency > 0.2 || averageTransactionAmount > 30) {
+            spendingVelocity = 'medium';
+        }
+
+        return {
+            averageTransactionAmount: Math.round(averageTransactionAmount * 100) / 100,
+            transactionFrequency: Math.round(transactionFrequency * 100) / 100,
+            spendingVelocity
+        };
+    }
+
+    /**
+     * Detect spending anomalies
+     */
+    private detectAnomalies(
+        transactions: Transaction[],
+        categoryMap: Map<string, Category>
+    ): Array<{
+        type: 'unusual_amount' | 'unusual_timing' | 'unusual_category';
+        description: string;
+        transactionId: string;
+        confidence: number;
+    }> {
+        if (transactions.length < 5) {
+            return [];
+        }
+
+        const anomalies: Array<{
+            type: 'unusual_amount' | 'unusual_timing' | 'unusual_category';
+            description: string;
+            transactionId: string;
+            confidence: number;
+        }> = [];
+
+        // Calculate statistics
+        const amounts = transactions.map(tx => Math.abs(tx.amount || 0));
+        const avgAmount = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
+        const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avgAmount, 2), 0) / amounts.length;
+        const stdDev = Math.sqrt(variance);
+
+        // Detect unusual amounts (more than 2 standard deviations)
+        transactions.forEach(tx => {
+            const amount = Math.abs(tx.amount || 0);
+            if (amount > avgAmount + 2 * stdDev) {
+                const category = tx.categoryId ? categoryMap.get(tx.categoryId) : null;
+                anomalies.push({
+                    type: 'unusual_amount',
+                    description: `Unusually large transaction: ${this.formatCurrency(amount)} in ${category?.name || 'Unknown'}`,
+                    transactionId: tx.id,
+                    confidence: Math.min(100, Math.round(((amount - avgAmount) / stdDev) * 20))
+                });
+            }
+        });
+
+        // Detect unusual timing (transactions at odd hours)
+        const hourCounts = new Map<number, number>();
+        transactions.forEach(tx => {
+            const date = new Date(tx.clearedDate || tx.createdAt);
+            const hour = date.getHours();
+            hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
+        });
+
+        const avgHourCount = Array.from(hourCounts.values()).reduce((sum, count) => sum + count, 0) / hourCounts.size;
+        transactions.forEach(tx => {
+            const date = new Date(tx.clearedDate || tx.createdAt);
+            const hour = date.getHours();
+            const hourCount = hourCounts.get(hour) || 0;
+
+            // Flag transactions at hours with very low activity (less than 10% of average)
+            if (hourCount < avgHourCount * 0.1 && (hour < 6 || hour > 22)) {
+                anomalies.push({
+                    type: 'unusual_timing',
+                    description: `Transaction at unusual time: ${hour}:00`,
+                    transactionId: tx.id,
+                    confidence: 60
+                });
+            }
+        });
+
+        return anomalies.slice(0, 10); // Limit to top 10 anomalies
+    }
+
+    private formatCurrency(amount: number): string {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(amount);
+    }
 }
 
 export const insightsService = new InsightsService();

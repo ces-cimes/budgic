@@ -3,6 +3,7 @@
   import { TimeRangeSelector } from '$lib/components/shared';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { TrendingUp, BarChart3 } from '@lucide/svelte';
+  import SpendingPatterns from '../SpendingPatterns.svelte';
 
   interface Props extends TrendsTabProps {
     children?: any;
@@ -72,6 +73,12 @@
         </div>
       </div>
     </Card.Root>
+  </div>
+  
+  <!-- Spending Patterns -->
+  <div>
+    <h3 class="text-lg font-semibold text-foreground mb-4">Spending Patterns</h3>
+    <SpendingPatterns userCurrency={userCurrency} />
   </div>
   
   {#if children}
