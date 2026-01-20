@@ -13,11 +13,11 @@ export function generateUUID(): string {
 	if (typeof crypto !== 'undefined' && crypto.randomUUID) {
 		return crypto.randomUUID();
 	}
-	
+
 	// Fallback implementation for older browsers
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-		const r = Math.random() * 16 | 0;
-		const v = c === 'x' ? r : (r & 0x3 | 0x8);
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+		const r = (Math.random() * 16) | 0;
+		const v = c === 'x' ? r : (r & 0x3) | 0x8;
 		return v.toString(16);
 	});
 }
@@ -39,12 +39,15 @@ export const CurrencyUtils = {
 
 	/**
 	 * Validate amount with currency-specific rules
-	 * 
+	 *
 	 * NOTE: No maximum amount limit - different currencies have vastly different scales
 	 * (e.g., IDR can be in billions, while USD is typically in thousands)
 	 * Only validates data integrity (NaN/Infinity) and decimal places.
 	 */
-	validateAmount(amount: number | undefined | null, currency: string): { isValid: boolean; error?: string } {
+	validateAmount(
+		amount: number | undefined | null,
+		currency: string
+	): { isValid: boolean; error?: string } {
 		if (amount === undefined || amount === null) {
 			return { isValid: false, error: 'Amount is required' };
 		}
@@ -60,9 +63,9 @@ export const CurrencyUtils = {
 			// Check decimal places (formatting constraint, not amount limit)
 			const decimalPlaces = CurrencyUtils.getDecimalPlaces(amount);
 			if (decimalPlaces > currencyInfo.decimalPlaces) {
-				return { 
-					isValid: false, 
-					error: `${currencyInfo.name} supports maximum ${currencyInfo.decimalPlaces} decimal places` 
+				return {
+					isValid: false,
+					error: `${currencyInfo.name} supports maximum ${currencyInfo.decimalPlaces} decimal places`
 				};
 			}
 		}
@@ -140,11 +143,13 @@ export const BalanceUtils = {
 	/**
 	 * Validate account balance consistency
 	 */
-	async validateAccountBalance(accountId: string): Promise<{ isValid: boolean; error?: string; calculatedBalance: number }> {
+	async validateAccountBalance(
+		accountId: string
+	): Promise<{ isValid: boolean; error?: string; calculatedBalance: number }> {
 		try {
 			const calculatedBalance = await db.recalculateAccountBalance(accountId);
 			const account = await db.accounts.get(accountId);
-			
+
 			if (!account) {
 				return { isValid: false, error: 'Account not found', calculatedBalance };
 			}
@@ -152,19 +157,19 @@ export const BalanceUtils = {
 			// Allow for small floating point differences (within 0.01)
 			const difference = Math.abs(account.currentBalance - calculatedBalance);
 			if (difference > 0.01) {
-				return { 
-					isValid: false, 
+				return {
+					isValid: false,
 					error: `Balance mismatch: stored ${account.currentBalance}, calculated ${calculatedBalance}`,
-					calculatedBalance 
+					calculatedBalance
 				};
 			}
 
 			return { isValid: true, calculatedBalance };
 		} catch (error) {
-			return { 
-				isValid: false, 
+			return {
+				isValid: false,
 				error: `Balance validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-				calculatedBalance: 0 
+				calculatedBalance: 0
 			};
 		}
 	},
@@ -172,16 +177,20 @@ export const BalanceUtils = {
 	/**
 	 * Validate transaction group sum consistency
 	 */
-	validateGroupSum(groupTransactions: Transaction[]): { isValid: boolean; errors: string[]; totalAmount: number } {
+	validateGroupSum(groupTransactions: Transaction[]): {
+		isValid: boolean;
+		errors: string[];
+		totalAmount: number;
+	} {
 		if (groupTransactions.length === 0) {
 			return { isValid: false, errors: ['At least one transaction is required'], totalAmount: 0 };
 		}
 
 		const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 		const errors: string[] = [];
-		
+
 		const firstTransaction = groupTransactions[0];
-		
+
 		// For transfers, validate that the total is reasonable (not necessarily zero)
 		// but should be consistent with transfer logic
 		if (firstTransaction.type === 'transfer') {
@@ -220,17 +229,138 @@ export interface CurrencyInfo {
 
 // Currency registry with system currencies
 export const CURRENCY_REGISTRY = new Map<string, CurrencyInfo>([
-	['USD', { code: 'USD', name: 'US Dollar', symbol: '$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['EUR', { code: 'EUR', name: 'Euro', symbol: '€', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['GBP', { code: 'GBP', name: 'British Pound', symbol: '£', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['JPY', { code: 'JPY', name: 'Japanese Yen', symbol: '¥', placement: 'before', decimalPlaces: 0, isSystem: true, isActive: true }],
-	['CAD', { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['AUD', { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['CHF', { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['CNY', { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', placement: 'before', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['RUB', { code: 'RUB', name: 'Russian Ruble', symbol: '₽', placement: 'after', decimalPlaces: 2, isSystem: true, isActive: true }],
-	['BTC', { code: 'BTC', name: 'Bitcoin', symbol: '₿', placement: 'before', decimalPlaces: 8, isSystem: true, isActive: true }],
-	['ETH', { code: 'ETH', name: 'Ethereum', symbol: 'Ξ', placement: 'before', decimalPlaces: 18, isSystem: true, isActive: true }],
+	[
+		'USD',
+		{
+			code: 'USD',
+			name: 'US Dollar',
+			symbol: '$',
+			placement: 'before',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'EUR',
+		{
+			code: 'EUR',
+			name: 'Euro',
+			symbol: '€',
+			placement: 'before',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'GBP',
+		{
+			code: 'GBP',
+			name: 'British Pound',
+			symbol: '£',
+			placement: 'before',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'JPY',
+		{
+			code: 'JPY',
+			name: 'Japanese Yen',
+			symbol: '¥',
+			placement: 'before',
+			decimalPlaces: 0,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'CAD',
+		{
+			code: 'CAD',
+			name: 'Canadian Dollar',
+			symbol: 'C$',
+			placement: 'before',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'AUD',
+		{
+			code: 'AUD',
+			name: 'Australian Dollar',
+			symbol: 'A$',
+			placement: 'before',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'CHF',
+		{
+			code: 'CHF',
+			name: 'Swiss Franc',
+			symbol: 'CHF',
+			placement: 'before',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'CNY',
+		{
+			code: 'CNY',
+			name: 'Chinese Yuan',
+			symbol: '¥',
+			placement: 'before',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'RUB',
+		{
+			code: 'RUB',
+			name: 'Russian Ruble',
+			symbol: '₽',
+			placement: 'after',
+			decimalPlaces: 2,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'BTC',
+		{
+			code: 'BTC',
+			name: 'Bitcoin',
+			symbol: '₿',
+			placement: 'before',
+			decimalPlaces: 8,
+			isSystem: true,
+			isActive: true
+		}
+	],
+	[
+		'ETH',
+		{
+			code: 'ETH',
+			name: 'Ethereum',
+			symbol: 'Ξ',
+			placement: 'before',
+			decimalPlaces: 18,
+			isSystem: true,
+			isActive: true
+		}
+	]
 ]);
 
 // ============================================================================
@@ -239,16 +369,16 @@ export const CURRENCY_REGISTRY = new Map<string, CurrencyInfo>([
 
 /**
  * Enhanced Transaction Type System:
- * 
+ *
  * The transaction type system now uses both type and amount to determine the actual impact:
- * 
+ *
  * - Income (positive amount): Normal income (adds to balance)
  * - Income (negative amount): Negative adjustment (reduces balance)
  * - Expense (positive amount): Normal expense (reduces balance) - treated as negative in calculations
  * - Expense (negative amount): Positive adjustment (adds to balance) - like cashback
  * - Transfer: Amount represents the net change between accounts
  * - Adjustment: Direct balance modification
- * 
+ *
  * This system allows for flexible handling of:
  * - Cashback and refunds (negative expenses)
  * - Chargebacks and corrections (negative income)
@@ -291,10 +421,10 @@ export function calculateTransferImpact(transaction: Transaction, accountId: str
 	const { toAccountId, transferAmount, feeAmount, feeAccountId } = transaction.transferDetails;
 	const sourceAccountId = transaction.accountId;
 	const feeAccount = feeAccountId || sourceAccountId; // Default fee to source account
-	
+
 	if (accountId === sourceAccountId) {
 		// Source account: money going out + fee (if fee is on this account)
-		const feeOnThisAccount = feeAccount === sourceAccountId ? (feeAmount || 0) : 0;
+		const feeOnThisAccount = feeAccount === sourceAccountId ? feeAmount || 0 : 0;
 		return -(transferAmount + feeOnThisAccount);
 	} else if (accountId === toAccountId) {
 		// Destination account: money coming in
@@ -303,7 +433,7 @@ export function calculateTransferImpact(transaction: Transaction, accountId: str
 		// Fee account: fee expense (if fee is on different account)
 		return -feeAmount;
 	}
-	
+
 	return 0; // No impact on other accounts
 }
 
@@ -330,44 +460,46 @@ export function validateTransactionGroup(groupTransactions: Transaction[]): {
 	totalAmount: number;
 } {
 	const errors: string[] = [];
-	
+
 	if (groupTransactions.length === 0) {
 		return { isValid: false, errors: ['At least one transaction is required'], totalAmount: 0 };
 	}
-	
+
 	// All transactions must have the same groupId
 	const groupId = groupTransactions[0].groupId;
 	if (!groupId) {
 		errors.push('All transactions must have a groupId');
 	}
-	
+
 	// All transactions must have the same type
 	const type = groupTransactions[0].type;
-	if (!groupTransactions.every(tx => tx.type === type)) {
+	if (!groupTransactions.every((tx) => tx.type === type)) {
 		errors.push('All transactions must have the same type');
 	}
-	
+
 	// All transactions must have the same status
 	const status = groupTransactions[0].status;
-	if (!groupTransactions.every(tx => tx.status === status)) {
+	if (!groupTransactions.every((tx) => tx.status === status)) {
 		errors.push('All transactions must have the same status');
 	}
-	
+
 	// All transactions must have the same currency
 	const currency = groupTransactions[0].currency;
-	if (!groupTransactions.every(tx => tx.currency === currency)) {
+	if (!groupTransactions.every((tx) => tx.currency === currency)) {
 		errors.push('All transactions must have the same currency');
 	}
-	
+
 	// All transactions must have the same accountId (for non-transfers)
 	// Allow all to be null, or all to have the same accountId
 	if (type !== 'transfer') {
 		const accountId = groupTransactions[0].accountId;
-		if (!groupTransactions.every(tx => tx.accountId === accountId)) {
-			errors.push('All transactions must have the same accountId (except for transfers). All can be null for planned transactions.');
+		if (!groupTransactions.every((tx) => tx.accountId === accountId)) {
+			errors.push(
+				'All transactions must have the same accountId (except for transfers). All can be null for planned transactions.'
+			);
 		}
 	}
-	
+
 	// For transfers, validate transfer-specific rules
 	if (type === 'transfer') {
 		// Transfer validation is handled by validateTransfer function
@@ -375,60 +507,60 @@ export function validateTransactionGroup(groupTransactions: Transaction[]): {
 	} else {
 		// For non-transfer groups, validate toAccountId consistency
 		const toAccountId = groupTransactions[0].toAccountId;
-		if (!groupTransactions.every(tx => tx.toAccountId === toAccountId)) {
+		if (!groupTransactions.every((tx) => tx.toAccountId === toAccountId)) {
 			errors.push('All non-transfer transactions must have the same toAccountId');
 		}
 	}
-	
+
 	// All transactions must have the same timing fields
 	const clearedDate = groupTransactions[0].clearedDate;
 	const plannedDate = groupTransactions[0].plannedDate;
-	if (!groupTransactions.every(tx => tx.clearedDate === clearedDate)) {
+	if (!groupTransactions.every((tx) => tx.clearedDate === clearedDate)) {
 		errors.push('All transactions must have the same clearedDate');
 	}
-	if (!groupTransactions.every(tx => tx.plannedDate === plannedDate)) {
+	if (!groupTransactions.every((tx) => tx.plannedDate === plannedDate)) {
 		errors.push('All transactions must have the same plannedDate');
 	}
-	
+
 	// All transactions must have the same recurrence fields
 	const recurrenceRule = groupTransactions[0].recurrenceRule;
 	const parentRecurrenceId = groupTransactions[0].parentRecurrenceId;
-	if (!groupTransactions.every(tx => tx.recurrenceRule === recurrenceRule)) {
+	if (!groupTransactions.every((tx) => tx.recurrenceRule === recurrenceRule)) {
 		errors.push('All transactions must have the same recurrenceRule');
 	}
-	if (!groupTransactions.every(tx => tx.parentRecurrenceId === parentRecurrenceId)) {
+	if (!groupTransactions.every((tx) => tx.parentRecurrenceId === parentRecurrenceId)) {
 		errors.push('All transactions must have the same parentRecurrenceId');
 	}
-	
+
 	// All transactions must have the same metadata fields
 	const reference = groupTransactions[0].reference;
 	const notes = groupTransactions[0].notes;
 	const importSource = groupTransactions[0].importSource;
-	if (!groupTransactions.every(tx => tx.reference === reference)) {
+	if (!groupTransactions.every((tx) => tx.reference === reference)) {
 		errors.push('All transactions must have the same reference');
 	}
-	if (!groupTransactions.every(tx => tx.notes === notes)) {
+	if (!groupTransactions.every((tx) => tx.notes === notes)) {
 		errors.push('All transactions must have the same notes');
 	}
-	if (!groupTransactions.every(tx => tx.importSource === importSource)) {
+	if (!groupTransactions.every((tx) => tx.importSource === importSource)) {
 		errors.push('All transactions must have the same importSource');
 	}
-	
+
 	// All transactions must have the same categorization
 	const categoryId = groupTransactions[0].categoryId;
-	if (!groupTransactions.every(tx => tx.categoryId === categoryId)) {
+	if (!groupTransactions.every((tx) => tx.categoryId === categoryId)) {
 		errors.push('All transactions must have the same categoryId');
 	}
-	
+
 	// Validate group name consistency
 	const groupName = groupTransactions[0].groupName;
-	if (groupName && !groupTransactions.every(tx => tx.groupName === groupName)) {
+	if (groupName && !groupTransactions.every((tx) => tx.groupName === groupName)) {
 		errors.push('All transactions must have the same groupName');
 	}
-	
+
 	// Calculate total amount
 	const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-	
+
 	return { isValid: errors.length === 0, errors, totalAmount };
 }
 
@@ -440,83 +572,87 @@ export function validateTransfer(transaction: Transaction): {
 	errors: string[];
 } {
 	const errors: string[] = [];
-	
+
 	if (transaction.type !== 'transfer') {
 		return { isValid: true, errors: [] };
 	}
-	
+
 	if (!transaction.transferDetails) {
 		errors.push('Transfer must have transferDetails');
 		return { isValid: false, errors };
 	}
-	
+
 	const { toAccountId, transferAmount, feeAmount } = transaction.transferDetails;
-	
+
 	// Basic validations
 	if (!transaction.accountId) {
 		errors.push('Transfer must specify source account');
 	}
-	
+
 	if (!toAccountId) {
 		errors.push('Transfer must specify destination account');
 	}
-	
+
 	if (transferAmount <= 0) {
 		errors.push('Transfer amount must be positive');
 	}
-	
+
 	if (feeAmount < 0) {
 		errors.push('Fee amount cannot be negative');
 	}
-	
+
 	if (transaction.accountId && transaction.accountId === toAccountId) {
 		errors.push('Cannot transfer to the same account');
 	}
-	
+
 	return { isValid: errors.length === 0, errors };
 }
 
 /**
  * Validate transaction group for creation (without requiring groupId)
  */
-export function validateNewGroupTransaction(groupTransactions: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>[]): {
+export function validateNewGroupTransaction(
+	groupTransactions: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>[]
+): {
 	isValid: boolean;
 	errors: string[];
 	totalAmount: number;
 } {
 	const errors: string[] = [];
-	
+
 	if (groupTransactions.length === 0) {
 		return { isValid: false, errors: ['At least one transaction is required'], totalAmount: 0 };
 	}
-	
+
 	// All transactions must have the same type
 	const type = groupTransactions[0].type;
-	if (!groupTransactions.every(tx => tx.type === type)) {
+	if (!groupTransactions.every((tx) => tx.type === type)) {
 		errors.push('All transactions must have the same type');
 	}
-	
+
 	// All transactions must have the same status
 	const status = groupTransactions[0].status;
-	if (!groupTransactions.every(tx => tx.status === status)) {
+	if (!groupTransactions.every((tx) => tx.status === status)) {
 		errors.push('All transactions must have the same status');
 	}
-	
+
 	// All transactions must have the same currency
 	const currency = groupTransactions[0].currency;
-	if (!groupTransactions.every(tx => tx.currency === currency)) {
+	if (!groupTransactions.every((tx) => tx.currency === currency)) {
 		errors.push('All transactions must have the same currency');
 	}
-	
+
 	// All transactions must have the same accountId (for non-transfers)
 	// Allow all to be null, or all to have the same accountId
 	if (type !== 'transfer') {
 		const accountId = groupTransactions[0].accountId;
-		if (!groupTransactions.every(tx => tx.accountId === accountId)) {
-			errors.push('All transactions must have the same accountId (except for transfers). All can be null for planned transactions.');
+		if (!groupTransactions.every((tx) => tx.accountId === accountId)) {
+			errors.push(
+				'All transactions must have the same accountId (except for transfers). All can be null for planned transactions.'
+			);
 		}
 	}
-	
+
 	// For transfers, validate transfer-specific rules
 	if (type === 'transfer') {
 		// Transfer validation is handled by validateTransfer function
@@ -524,60 +660,60 @@ export function validateNewGroupTransaction(groupTransactions: Omit<Transaction,
 	} else {
 		// For non-transfer groups, validate toAccountId consistency
 		const toAccountId = groupTransactions[0].toAccountId;
-		if (!groupTransactions.every(tx => tx.toAccountId === toAccountId)) {
+		if (!groupTransactions.every((tx) => tx.toAccountId === toAccountId)) {
 			errors.push('All non-transfer transactions must have the same toAccountId');
 		}
 	}
-	
+
 	// All transactions must have the same timing fields
 	const clearedDate = groupTransactions[0].clearedDate;
 	const plannedDate = groupTransactions[0].plannedDate;
-	if (!groupTransactions.every(tx => tx.clearedDate === clearedDate)) {
+	if (!groupTransactions.every((tx) => tx.clearedDate === clearedDate)) {
 		errors.push('All transactions must have the same clearedDate');
 	}
-	if (!groupTransactions.every(tx => tx.plannedDate === plannedDate)) {
+	if (!groupTransactions.every((tx) => tx.plannedDate === plannedDate)) {
 		errors.push('All transactions must have the same plannedDate');
 	}
-	
+
 	// All transactions must have the same recurrence fields
 	const recurrenceRule = groupTransactions[0].recurrenceRule;
 	const parentRecurrenceId = groupTransactions[0].parentRecurrenceId;
-	if (!groupTransactions.every(tx => tx.recurrenceRule === recurrenceRule)) {
+	if (!groupTransactions.every((tx) => tx.recurrenceRule === recurrenceRule)) {
 		errors.push('All transactions must have the same recurrenceRule');
 	}
-	if (!groupTransactions.every(tx => tx.parentRecurrenceId === parentRecurrenceId)) {
+	if (!groupTransactions.every((tx) => tx.parentRecurrenceId === parentRecurrenceId)) {
 		errors.push('All transactions must have the same parentRecurrenceId');
 	}
-	
+
 	// All transactions must have the same metadata fields
 	const reference = groupTransactions[0].reference;
 	const notes = groupTransactions[0].notes;
 	const importSource = groupTransactions[0].importSource;
-	if (!groupTransactions.every(tx => tx.reference === reference)) {
+	if (!groupTransactions.every((tx) => tx.reference === reference)) {
 		errors.push('All transactions must have the same reference');
 	}
-	if (!groupTransactions.every(tx => tx.notes === notes)) {
+	if (!groupTransactions.every((tx) => tx.notes === notes)) {
 		errors.push('All transactions must have the same notes');
 	}
-	if (!groupTransactions.every(tx => tx.importSource === importSource)) {
+	if (!groupTransactions.every((tx) => tx.importSource === importSource)) {
 		errors.push('All transactions must have the same importSource');
 	}
-	
+
 	// All transactions must have the same categorization
 	const categoryId = groupTransactions[0].categoryId;
-	if (!groupTransactions.every(tx => tx.categoryId === categoryId)) {
+	if (!groupTransactions.every((tx) => tx.categoryId === categoryId)) {
 		errors.push('All transactions must have the same categoryId');
 	}
-	
+
 	// Validate group name consistency (if provided)
 	const groupName = groupTransactions[0].groupName;
-	if (groupName && !groupTransactions.every(tx => tx.groupName === groupName)) {
+	if (groupName && !groupTransactions.every((tx) => tx.groupName === groupName)) {
 		errors.push('All transactions must have the same groupName');
 	}
-	
+
 	// Calculate total amount
 	const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
-	
+
 	return { isValid: errors.length === 0, errors, totalAmount };
 }
 
@@ -588,8 +724,14 @@ export function validateNewGroupTransaction(groupTransactions: Omit<Transaction,
 // Base schemas
 const BaseSchema = z.object({
 	id: z.string(),
-	createdAt: z.string().datetime().default(() => new Date().toISOString()),
-	updatedAt: z.string().datetime().default(() => new Date().toISOString()),
+	createdAt: z
+		.string()
+		.datetime()
+		.default(() => new Date().toISOString()),
+	updatedAt: z
+		.string()
+		.datetime()
+		.default(() => new Date().toISOString()),
 	deletedAt: z.string().datetime().nullable().default(null)
 });
 
@@ -612,12 +754,12 @@ const AccountMetadataSchema = z.object({
 	minimumBalance: z.number().min(0).optional(), // Minimum balance requirement
 	overdraftLimit: z.number().min(0).optional(), // Overdraft limit
 	overdraftFee: z.number().min(0).optional(), // Overdraft fee amount
-	
+
 	// Savings account metadata
 	interestRate: z.number().min(0).max(100).optional(), // Annual interest rate (percentage)
 	transferLimit: z.number().min(0).optional(), // Monthly transfer limit
 	transferDelayDays: z.number().min(0).optional(), // Days for transfers to clear
-	
+
 	// Credit card metadata
 	creditLimit: z.number().min(0).optional(), // Credit limit
 	apr: z.number().min(0).max(100).optional(), // Annual percentage rate (percentage)
@@ -626,20 +768,20 @@ const AccountMetadataSchema = z.object({
 	minimumPayment: z.number().min(0).optional(), // Minimum payment amount
 	gracePeriodDays: z.number().min(0).optional(), // Grace period in days
 	creditBureauReportingDate: z.string().optional(), // Day of month reported to credit bureau
-	
+
 	// Loan metadata
 	loanBalance: z.number().min(0).optional(), // Current loan balance
 	loanDueDate: z.string().optional(), // Day of month loan payment is due
-	
+
 	// Investment account metadata
 	accountType: z.enum(['IRA', '401k', 'brokerage', 'other']).optional(),
-	
+
 	// Account relationships
 	linkedAccounts: z.array(z.string()).optional(), // Array of linked account IDs
 	lastReconciledDate: z.string().datetime().optional(), // Last reconciliation date
-	
+
 	// Buffer management (will be calculated, but can be overridden)
-	bufferAmount: z.number().min(0).optional(), // User-defined buffer amount
+	bufferAmount: z.number().min(0).optional() // User-defined buffer amount
 });
 
 // Account Schema
@@ -655,11 +797,11 @@ const AccountSchema = BaseSchema.extend({
 
 // Unified Category Schema (replaces what/why tags, payees, and budget categories)
 const CategorySchema = BaseSchema.extend({
-	name: z.string().min(1),                    // "groceries", "rent", "Netflix"
+	name: z.string().min(1), // "groceries", "rent", "Netflix"
 	type: z.enum(['expense', 'income']),
 	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle']),
-	priority: z.number().min(1),                // Within tier
-	budgetAmount: z.number().min(0).optional(),  // Optional budget allocation
+	priority: z.number().min(1), // Within tier
+	budgetAmount: z.number().min(0).optional(), // Optional budget allocation
 	color: z.string().optional(),
 	description: z.string().optional(),
 	isActive: z.boolean().default(true)
@@ -676,138 +818,182 @@ const BankTransactionSchema = BaseSchema.extend({
 	rawData: z.string().optional() // Original CSV row or import data
 });
 
-export const TransactionType = z.enum([
-	'income',
-	'expense',
-	'transfer',
-	'adjustment'
-]);
+export const TransactionType = z.enum(['income', 'expense', 'transfer', 'adjustment']);
 
 // Unified Transaction Schema
 export const TransactionStatus = z.enum([
-	'planned',     // Future transaction
-	'pending',     // Imported from bank but not categorized
-	'cleared',     // Finalized and categorized
-	'cancelled'    // Planned transaction that didn't happen
+	'planned', // Future transaction
+	'pending', // Imported from bank but not categorized
+	'cleared', // Finalized and categorized
+	'cancelled' // Planned transaction that didn't happen
 ]);
 
 export const ConfidenceLevel = z.enum([
-	'confirmed',   // Definitely happening (recurring bills)
-	'expected',    // Likely happening (planned grocery trip)
-	'estimated'    // Rough projection
+	'confirmed', // Definitely happening (recurring bills)
+	'expected', // Likely happening (planned grocery trip)
+	'estimated' // Rough projection
 ]);
 
 // System dimension enums for performance
 export const WhatTag = z.enum([
-	'coffee', 'groceries', 'dining', 'gas', 'rent', 'utilities', 'entertainment',
-	'clothing', 'electronics', 'medical', 'transportation', 'shopping', 'income',
-	'freelance', 'investment', 'gift', 'salary', 'maintenance', 'insurance',
-	'fitness', 'hobbies', 'streaming', 'parking', 'tolls', 'banking_fees', 'other'
+	'coffee',
+	'groceries',
+	'dining',
+	'gas',
+	'rent',
+	'utilities',
+	'entertainment',
+	'clothing',
+	'electronics',
+	'medical',
+	'transportation',
+	'shopping',
+	'income',
+	'freelance',
+	'investment',
+	'gift',
+	'salary',
+	'maintenance',
+	'insurance',
+	'fitness',
+	'hobbies',
+	'streaming',
+	'parking',
+	'tolls',
+	'banking_fees',
+	'other'
 ]);
 
 export const WhyTag = z.enum([
-	'essential', 'discretionary', 'emergency', 'health', 'convenience', 'entertainment',
-	'work', 'personal', 'family', 'social', 'education', 'investment', 'savings',
-	'debt', 'income', 'other'
+	'essential',
+	'discretionary',
+	'emergency',
+	'health',
+	'convenience',
+	'entertainment',
+	'work',
+	'personal',
+	'family',
+	'social',
+	'education',
+	'investment',
+	'savings',
+	'debt',
+	'income',
+	'other'
 ]);
 
 // Removed WhereTag enum - location is now handled by Payee schema
 
 // Directional Constraint enum for transaction optimization
 export const DirectionalConstraint = z.enum([
-	'none',        // No constraint - can move forward or backward
+	'none', // No constraint - can move forward or backward
 	'forward-only', // Can only move forward (e.g., subscription renewals)
 	'backward-only', // Can only move backward (e.g., bill payments)
-	'fixed'        // Cannot be moved (e.g., fixed date commitments)
+	'fixed' // Cannot be moved (e.g., fixed date commitments)
 ]);
 
 // Flexibility Tier enum for transaction optimization
 export const FlexibilityTier = z.enum([
-	'fixed',              // 0 days - Cannot be moved
-	'semi-fixed',         // ±1-2 days - Limited flexibility
+	'fixed', // 0 days - Cannot be moved
+	'semi-fixed', // ±1-2 days - Limited flexibility
 	'flexible-constrained', // ±3-7 days - Moderate flexibility
-	'flexible',           // ±14-30 days - High flexibility
-	'deferrable'          // 30+ days - Can postpone to next period
+	'flexible', // ±14-30 days - High flexibility
+	'deferrable' // 30+ days - Can postpone to next period
+]);
+
+// Dependency Type enum for transaction dependency tracking
+export const DependencyType = z.enum([
+	'required', // Transaction must occur after dependency completes
+	'suggested', // Transaction should ideally occur after dependency
+	'blocking', // Transaction blocks the dependent transaction
+	'sequential', // Transactions must occur in strict sequence
+	'conditional' // Transaction depends on outcome/status of dependency
 ]);
 
 const TransactionSchema = BaseSchema.extend({
 	type: TransactionType,
 	status: TransactionStatus,
 	confidence: ConfidenceLevel.optional(), // Only for planned status
-	
+
 	// Core fields (always present)
 	accountId: z.string().optional(), // Optional for planned transactions, required for cleared/pending
 	amount: z.number().optional(), // Optional for transfers - they use transferDetails
 	currency: z.string().min(3).max(3), // Shared across all splits
 	description: z.string().optional(), // Can be customized per split transaction
-	
+
 	// Simplified categorization - single category reference
 	categoryId: z.string().optional(), // References unified Category
-	
+
 	// Planning fields (planned status) - shared across all splits
 	plannedDate: z.string().datetime().optional(),
 	plannedAmount: z.number().optional(), // If different from final amount
-	
+
 	// Cleared fields (cleared status) - shared across all splits
 	clearedDate: z.string().datetime().optional(),
 	importMetadata: z.string().optional(), // JSON string for import tracking
-	
+
 	// Split Management Fields
 	groupId: z.string().optional(), // Same for all parts of the split (renamed from splitId)
 	groupName: z.string().optional(), // Could be same or customized per part (renamed from splitName)
-	
+
 	// Transfer fields - shared across all splits for transfers
 	toAccountId: z.string().optional(),
-	
+
 	// Simplified Transfer Schema
-	transferDetails: z.object({
-		toAccountId: z.string(), // Destination account
-		transferAmount: z.number().positive(), // Positive amount being transferred
-		feeAmount: z.number().min(0).default(0), // Fee amount (can be 0)
-		feeAccountId: z.string().optional(), // Which account pays the fee (default: source)
-		feeCategoryId: z.string().optional(), // Category for the fee
-	}).optional(),
-	
+	transferDetails: z
+		.object({
+			toAccountId: z.string(), // Destination account
+			transferAmount: z.number().positive(), // Positive amount being transferred
+			feeAmount: z.number().min(0).default(0), // Fee amount (can be 0)
+			feeAccountId: z.string().optional(), // Which account pays the fee (default: source)
+			feeCategoryId: z.string().optional() // Category for the fee
+		})
+		.optional(),
+
 	// Recurrence - shared across all splits
 	recurrenceRule: z.string().optional(),
 	parentRecurrenceId: z.string().optional(), // Links to the recurring template
-	
+
 	// Metadata - shared across all splits
 	reference: z.string().optional(),
 	notes: z.string().optional(),
 	importSource: z.string().optional(),
-	
+
 	// Optimization fields
 	priority: z.number().min(1).max(10).optional(), // Priority score 1-10 (higher = more important)
 	directionalConstraint: DirectionalConstraint.optional(), // Constraint on date movement
-	flexibilityTier: FlexibilityTier.optional() // Flexibility tier for date movement range
+	flexibilityTier: FlexibilityTier.optional(), // Flexibility tier for date movement range
+
+	// Dependency Tracking
+	dependencies: z.array(z.string()).optional(), // Array of transaction IDs this transaction depends on
+	dependencyType: DependencyType.optional(), // Type of dependency relationship
+	dependencyMetadata: z.record(z.any()).optional() // Additional metadata about dependencies
 });
-
-
 
 // Simplified User Preferences Schema
 const UserPreferencesSchema = BaseSchema.extend({
 	// User Profile
 	username: z.string().min(1).default('User'),
-	
+
 	// Budget Preferences
 	defaultBudgetType: z.enum(['daily', 'weekly', 'monthly']).default('daily'),
 	allowGlobalBorrowing: z.boolean().default(true),
 	maxGlobalBorrowPercentage: z.number().min(0).max(1).default(0.1),
-	
+
 	// UI Preferences
 	theme: z.enum(['light', 'dark']).default('dark'),
 	language: z.enum(['en', 'ru']).default('en'),
 	currency: z.string().min(3).max(3), // No default - will be detected from locale or user selection
-	
+
 	// User Maturity and Onboarding
 	userMaturityLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).default('beginner'),
 	onboardingCompleted: z.boolean().default(false),
-	
+
 	// Feature Flags
 	enableAdvancedFeatures: z.boolean().default(false),
 	enablePredictiveAnalytics: z.boolean().default(true),
-	
+
 	// Privacy and Data Preferences
 	analyticsEnabled: z.boolean().default(true),
 	backupEnabled: z.boolean().default(true)
@@ -832,7 +1018,19 @@ const GoalSchema = BaseSchema.extend({
 	targetAmount: z.number().positive(),
 	currentAmount: z.number().min(0).default(0),
 	currency: z.string().min(3).max(3), // No default - must be explicitly provided
-	category: z.enum(['emergency_fund', 'vacation', 'house_down_payment', 'car_purchase', 'education', 'retirement', 'debt_payoff', 'investment', 'wedding', 'home_improvement', 'other']),
+	category: z.enum([
+		'emergency_fund',
+		'vacation',
+		'house_down_payment',
+		'car_purchase',
+		'education',
+		'retirement',
+		'debt_payoff',
+		'investment',
+		'wedding',
+		'home_improvement',
+		'other'
+	]),
 	priority: z.enum(['low', 'medium', 'high', 'critical']),
 	status: z.enum(['active', 'paused', 'completed', 'cancelled']).default('active'),
 	targetDate: z.string().datetime().optional(),
@@ -844,7 +1042,19 @@ const GoalSchema = BaseSchema.extend({
 
 // Simplified Insights Schema (consolidated analytics)
 const InsightSchema = BaseSchema.extend({
-	type: z.enum(['budget_approaching', 'budget_exceeded', 'budget_surplus', 'goal_milestone', 'spending_velocity', 'anomaly', 'trend', 'achievement', 'savings_opportunity', 'behavioral', 'prediction']),
+	type: z.enum([
+		'budget_approaching',
+		'budget_exceeded',
+		'budget_surplus',
+		'goal_milestone',
+		'spending_velocity',
+		'anomaly',
+		'trend',
+		'achievement',
+		'savings_opportunity',
+		'behavioral',
+		'prediction'
+	]),
 	severity: z.enum(['info', 'warning', 'alert', 'success']),
 	title: z.string().min(1),
 	message: z.string().min(1),
@@ -884,7 +1094,7 @@ const CurrencyConfigurationSchema = BaseSchema.extend({
 	// User customization flag
 	isCustom: z.boolean().default(false), // true if user customized, false if system default
 	// Metadata
-	notes: z.string().optional(),
+	notes: z.string().optional()
 });
 
 // Exchange Rate Schema - Stores currency conversion rates
@@ -896,13 +1106,19 @@ const ExchangeRateSchema = BaseSchema.extend({
 	source: z.string().default('api'), // API source identifier (e.g., 'exchangerate-api', 'fixer')
 	// Metadata
 	lastFetched: z.string().datetime().optional(), // When this rate was last fetched from API
-	notes: z.string().optional(), // Optional notes about the rate
+	notes: z.string().optional() // Optional notes about the rate
 });
 
 // Badge Schema - Achievement tracking system
 const BadgeSchema = BaseSchema.extend({
 	badgeId: z.string(), // Unique identifier for the badge type (e.g., 'budget_streak_30')
-	type: z.enum(['budget_badge', 'goal_milestone', 'behavioral_badge', 'financial_milestone', 'app_usage_badge']),
+	type: z.enum([
+		'budget_badge',
+		'goal_milestone',
+		'behavioral_badge',
+		'financial_milestone',
+		'app_usage_badge'
+	]),
 	title: z.string().min(1),
 	description: z.string().min(1),
 	badgeType: z.enum(['achievement', 'milestone', 'streak', 'milestone_reached']),
@@ -911,7 +1127,7 @@ const BadgeSchema = BaseSchema.extend({
 	unlockedAt: z.string().datetime().optional(), // When the badge was unlocked
 	progress: z.string().optional(), // JSON string: { current: number, target: number, percentage: number }
 	metadata: z.string().optional(), // JSON string: { streakDays?, amount?, timeframe?, category? }
-	notifiedAt: z.string().datetime().optional(), // When notification was shown
+	notifiedAt: z.string().datetime().optional() // When notification was shown
 });
 
 // ============================================================================
@@ -937,7 +1153,10 @@ export const TransactionUtils = {
 	/**
 	 * Validate transaction dates based on status
 	 */
-	validateTransactionDate(date: string, status: Transaction['status']): { isValid: boolean; error?: string } {
+	validateTransactionDate(
+		date: string,
+		status: Transaction['status']
+	): { isValid: boolean; error?: string } {
 		const transactionDate = new Date(date);
 		const now = new Date();
 
@@ -970,8 +1189,9 @@ export const TransactionUtils = {
 };
 
 // System dimension types
-export type TransactionType = z.infer<typeof TransactionType>;
-export type DirectionalConstraint = z.infer<typeof DirectionalConstraint>;
+type TransactionType = z.infer<typeof TransactionType>;
+type DirectionalConstraint = z.infer<typeof DirectionalConstraint>;
+type DependencyType = z.infer<typeof DependencyType>;
 
 // ============================================================================
 // DATABASE CLASS
@@ -993,18 +1213,23 @@ export class BudgicDB extends Dexie {
 
 	constructor() {
 		super('BudgicDB');
-		
+
 		// Database schema versions
 		this.version(9).stores({
 			// Core entities - simplified to 9 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
-			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
-			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
-			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
-			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt'
 		});
 
@@ -1013,14 +1238,20 @@ export class BudgicDB extends Dexie {
 			// Core entities - 10 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
-			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
-			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
-			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
-			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
-			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
 		});
 
 		// Version 11: Add importSource index to transactions for duplicate detection
@@ -1028,14 +1259,20 @@ export class BudgicDB extends Dexie {
 			// Core entities - 10 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
-			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
-			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
-			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
-			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
-			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]'
 		});
 
 		// Version 12: Add badges table for achievement tracking
@@ -1043,20 +1280,27 @@ export class BudgicDB extends Dexie {
 			// Core entities - 11 tables
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
-			categories: 'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
-			transactions: 'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
-			userActions: 'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
-			insights: 'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
-			exchangeRates: 'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]'
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]'
 		});
 
 		// Add validation hooks
 		this.setupValidationHooks();
-		
+
 		// Add soft delete hooks
 		this.setupSoftDeleteHooks();
 
@@ -1068,11 +1312,11 @@ export class BudgicDB extends Dexie {
 		try {
 			// Wait for database to be open
 			await this.open();
-			
+
 			// Get existing system currencies
 			const existingCurrencies = await this.getSystemCurrencies();
-			const existingCodes = new Set(existingCurrencies.map(c => c.code));
-			
+			const existingCodes = new Set(existingCurrencies.map((c) => c.code));
+
 			// Check which system currencies are missing
 			const missingCurrencies: Array<{ code: string; info: CurrencyInfo }> = [];
 			for (const [code, currencyInfo] of CURRENCY_REGISTRY) {
@@ -1083,16 +1327,19 @@ export class BudgicDB extends Dexie {
 
 			// Add any missing system currencies
 			if (missingCurrencies.length > 0) {
-				console.log(`Adding ${missingCurrencies.length} missing system currencies:`, missingCurrencies.map(c => c.code));
+				console.log(
+					`Adding ${missingCurrencies.length} missing system currencies:`,
+					missingCurrencies.map((c) => c.code)
+				);
 				for (const { code, info } of missingCurrencies) {
 					try {
 						// Check if currency exists but is soft-deleted
 						const deletedCurrency = await this.currencies
 							.where('code')
 							.equals(code)
-							.filter(c => c.deletedAt !== null)
+							.filter((c) => c.deletedAt !== null)
 							.first();
-						
+
 						if (deletedCurrency) {
 							// Restore soft-deleted currency
 							await this.currencies.update(deletedCurrency.id, {
@@ -1129,14 +1376,17 @@ export class BudgicDB extends Dexie {
 
 			// Verify all system currencies are now present
 			const finalCurrencies = await this.getSystemCurrencies();
-			const finalCodes = new Set(finalCurrencies.map(c => c.code));
+			const finalCodes = new Set(finalCurrencies.map((c) => c.code));
 			const systemCodes = Array.from(CURRENCY_REGISTRY.entries())
 				.filter(([_, info]) => info.isSystem)
 				.map(([code]) => code);
-			
-			const stillMissing = systemCodes.filter(code => !finalCodes.has(code));
+
+			const stillMissing = systemCodes.filter((code) => !finalCodes.has(code));
 			if (stillMissing.length > 0) {
-				console.warn('Some system currencies are still missing after initialization:', stillMissing);
+				console.warn(
+					'Some system currencies are still missing after initialization:',
+					stillMissing
+				);
 			}
 
 			// Initialize currency configurations after currencies are created/verified
@@ -1224,20 +1474,23 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.currencyConfigurations.hook('updating', (modifications: Partial<CurrencyConfiguration>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.currencyConfigurations.hook(
+			'updating',
+			(modifications: Partial<CurrencyConfiguration>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					CurrencyConfigurationSchema.parse(updated);
+				} catch (error) {
+					console.error('Currency configuration update validation failed:', error);
+					console.error('Currency configuration data:', obj);
+					console.error('Modifications:', modifications);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				CurrencyConfigurationSchema.parse(updated);
-			} catch (error) {
-				console.error('Currency configuration update validation failed:', error);
-				console.error('Currency configuration data:', obj);
-				console.error('Modifications:', modifications);
-				throw error;
 			}
-		});
+		);
 
 		// Category validation
 		this.categories.hook('creating', (primKey, obj, trans) => {
@@ -1293,7 +1546,10 @@ export class BudgicDB extends Dexie {
 
 				// Date validation for cleared transactions
 				if (obj.status === 'cleared' && obj.clearedDate) {
-					const dateValidation = TransactionUtils.validateTransactionDate(obj.clearedDate, obj.status);
+					const dateValidation = TransactionUtils.validateTransactionDate(
+						obj.clearedDate,
+						obj.status
+					);
 					if (!dateValidation.isValid) {
 						throw new Error(`Date validation failed: ${dateValidation.error}`);
 					}
@@ -1301,7 +1557,10 @@ export class BudgicDB extends Dexie {
 
 				// Date validation for planned transactions
 				if (obj.status === 'planned' && obj.plannedDate) {
-					const dateValidation = TransactionUtils.validateTransactionDate(obj.plannedDate, obj.status);
+					const dateValidation = TransactionUtils.validateTransactionDate(
+						obj.plannedDate,
+						obj.status
+					);
 					if (!dateValidation.isValid) {
 						throw new Error(`Date validation failed: ${dateValidation.error}`);
 					}
@@ -1316,41 +1575,46 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.transactions.hook('updating', (modifications: Partial<Transaction>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
-				}
-				const updated = { ...obj, ...modifications };
-				
-				// Status-based accountId validation on update
-				// Check if status is being changed to cleared or pending
-				const newStatus = modifications.status !== undefined ? modifications.status : obj.status;
-				
-				// Transfers always require accountId
-				if (obj.type === 'transfer' || updated.type === 'transfer') {
-					const accountId = modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
-					if (!accountId) {
-						throw new Error('Account is required for transfer transactions');
+		this.transactions.hook(
+			'updating',
+			(modifications: Partial<Transaction>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
 					}
-				} else {
-					// For non-transfer transactions, require accountId when status is cleared or pending
-					if ((newStatus === 'cleared' || newStatus === 'pending')) {
-						const accountId = modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
+					const updated = { ...obj, ...modifications };
+
+					// Status-based accountId validation on update
+					// Check if status is being changed to cleared or pending
+					const newStatus = modifications.status !== undefined ? modifications.status : obj.status;
+
+					// Transfers always require accountId
+					if (obj.type === 'transfer' || updated.type === 'transfer') {
+						const accountId =
+							modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
 						if (!accountId) {
-							throw new Error('Account is required when changing status to cleared or pending');
+							throw new Error('Account is required for transfer transactions');
+						}
+					} else {
+						// For non-transfer transactions, require accountId when status is cleared or pending
+						if (newStatus === 'cleared' || newStatus === 'pending') {
+							const accountId =
+								modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
+							if (!accountId) {
+								throw new Error('Account is required when changing status to cleared or pending');
+							}
 						}
 					}
+
+					TransactionSchema.parse(updated);
+				} catch (error) {
+					console.error('Transaction update validation failed:', error);
+					console.error('Transaction data:', obj);
+					console.error('Modifications:', modifications);
+					throw error;
 				}
-				
-				TransactionSchema.parse(updated);
-			} catch (error) {
-				console.error('Transaction update validation failed:', error);
-				console.error('Transaction data:', obj);
-				console.error('Modifications:', modifications);
-				throw error;
 			}
-		});
+		);
 
 		// Goal validation
 		this.goals.hook('creating', (primKey, obj, trans) => {
@@ -1391,20 +1655,23 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.userPreferences.hook('updating', (modifications: Partial<UserPreferences>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.userPreferences.hook(
+			'updating',
+			(modifications: Partial<UserPreferences>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					UserPreferencesSchema.parse(updated);
+				} catch (error) {
+					console.error('User preferences update validation failed:', error);
+					console.error('User preferences data:', obj);
+					console.error('Modifications:', modifications);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				UserPreferencesSchema.parse(updated);
-			} catch (error) {
-				console.error('User preferences update validation failed:', error);
-				console.error('User preferences data:', obj);
-				console.error('Modifications:', modifications);
-				throw error;
 			}
-		});
+		);
 
 		// User Action validation
 		this.userActions.hook('creating', (primKey, obj, trans) => {
@@ -1486,8 +1753,9 @@ export class BudgicDB extends Dexie {
 	 */
 	async getGroupTransactions(groupId: string): Promise<Transaction[]> {
 		return await this.transactions
-			.where('groupId').equals(groupId)
-			.filter(transaction => !transaction.deletedAt)
+			.where('groupId')
+			.equals(groupId)
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
 
@@ -1498,19 +1766,23 @@ export class BudgicDB extends Dexie {
 	async getGroupMasterTransaction(groupId: string): Promise<Transaction | null> {
 		const groupTransactions = await this.getGroupTransactions(groupId);
 		if (groupTransactions.length === 0) return null;
-		
+
 		// First, try to find a transaction with a description
-		const withDescription = groupTransactions.find(tx => tx.description && tx.description.trim() !== '');
+		const withDescription = groupTransactions.find(
+			(tx) => tx.description && tx.description.trim() !== ''
+		);
 		if (withDescription) {
 			// Among transactions with descriptions, pick the one with largest absolute amount
-			const withDescriptions = groupTransactions.filter(tx => tx.description && tx.description.trim() !== '');
-			return withDescriptions.reduce((master, current) => 
+			const withDescriptions = groupTransactions.filter(
+				(tx) => tx.description && tx.description.trim() !== ''
+			);
+			return withDescriptions.reduce((master, current) =>
 				Math.abs(current.amount || 0) > Math.abs(master.amount || 0) ? current : master
 			);
 		}
-		
+
 		// If no descriptions, return the transaction with the largest absolute amount
-		return groupTransactions.reduce((master, current) => 
+		return groupTransactions.reduce((master, current) =>
 			Math.abs(current.amount || 0) > Math.abs(master.amount || 0) ? current : master
 		);
 	}
@@ -1524,19 +1796,19 @@ export class BudgicDB extends Dexie {
 	): Promise<string> {
 		const groupId = generateUUID();
 		const finalGroupName = groupName || 'Transaction Group';
-		
+
 		// Validate the group transactions for creation
 		const validation = validateNewGroupTransaction(groupTransactions);
 		if (!validation.isValid) {
 			throw new Error(`Invalid transaction group: ${validation.errors.join(', ')}`);
 		}
-		
+
 		// Enhanced group sum validation
 		const groupSumValidation = BalanceUtils.validateGroupSum(groupTransactions as Transaction[]);
 		if (!groupSumValidation.isValid) {
 			throw new Error(`Group sum validation failed: ${groupSumValidation.errors.join(', ')}`);
 		}
-		
+
 		// Create all transactions in the group
 		await this.transaction('rw', [this.transactions], async () => {
 			for (const transactionData of groupTransactions) {
@@ -1549,11 +1821,11 @@ export class BudgicDB extends Dexie {
 					updatedAt: new Date().toISOString(),
 					deletedAt: null
 				};
-				
+
 				await this.transactions.add(transaction);
 			}
 		});
-		
+
 		return groupId;
 	}
 
@@ -1563,11 +1835,24 @@ export class BudgicDB extends Dexie {
 	async updateTransactionGroup(
 		groupId: string,
 		updates: {
-			sharedFields?: Partial<Pick<Transaction, 
-				'type' | 'status' | 'currency' | 'categoryId' |
-				'plannedDate' | 'clearedDate' | 'recurrenceRule' | 'parentRecurrenceId' |
-				'reference' | 'notes' | 'importSource' | 'toAccountId' | 'groupName'
-			>>;
+			sharedFields?: Partial<
+				Pick<
+					Transaction,
+					| 'type'
+					| 'status'
+					| 'currency'
+					| 'categoryId'
+					| 'plannedDate'
+					| 'clearedDate'
+					| 'recurrenceRule'
+					| 'parentRecurrenceId'
+					| 'reference'
+					| 'notes'
+					| 'importSource'
+					| 'toAccountId'
+					| 'groupName'
+				>
+			>;
 			individualUpdates?: Array<{
 				id: string;
 				amount?: number;
@@ -1580,7 +1865,7 @@ export class BudgicDB extends Dexie {
 		if (groupTransactions.length === 0) {
 			throw new Error(`Transaction group ${groupId} not found`);
 		}
-		
+
 		await this.transaction('rw', [this.transactions], async () => {
 			// Update shared fields for all transactions in the group
 			if (updates.sharedFields) {
@@ -1591,18 +1876,18 @@ export class BudgicDB extends Dexie {
 					});
 				}
 			}
-			
+
 			// Update individual fields for specific transactions
 			if (updates.individualUpdates) {
 				for (const update of updates.individualUpdates) {
 					const updateData: Partial<Transaction> = {
 						updatedAt: new Date().toISOString()
 					};
-					
+
 					if (update.amount !== undefined) updateData.amount = update.amount;
 					if (update.description !== undefined) updateData.description = update.description;
 					if (update.accountId !== undefined) updateData.accountId = update.accountId;
-					
+
 					await this.transactions.update(update.id, updateData);
 				}
 			}
@@ -1614,7 +1899,7 @@ export class BudgicDB extends Dexie {
 	 */
 	async deleteTransactionGroup(groupId: string): Promise<void> {
 		const groupTransactions = await this.getGroupTransactions(groupId);
-		
+
 		await this.transaction('rw', [this.transactions], async () => {
 			for (const transaction of groupTransactions) {
 				await this.softDeleteTransaction(transaction.id);
@@ -1645,12 +1930,12 @@ export class BudgicDB extends Dexie {
 		if (groupTransactions.length === 0) {
 			throw new Error(`Transaction group ${groupId} not found`);
 		}
-		
+
 		const transaction = await this.transactions.get(transactionId);
 		if (!transaction) {
 			throw new Error(`Transaction ${transactionId} not found`);
 		}
-		
+
 		// Validate that the transaction can be added to this group
 		// Check against all existing group transactions, not just the first one
 		const allTransactions = [...groupTransactions, transaction];
@@ -1658,10 +1943,10 @@ export class BudgicDB extends Dexie {
 		if (!validation.isValid) {
 			throw new Error(`Transaction cannot be added to group: ${validation.errors.join(', ')}`);
 		}
-		
+
 		// Ensure consistent group name across all transactions
 		const finalGroupName = groupName || groupTransactions[0].groupName || 'Transaction Group';
-		
+
 		await this.transactions.update(transactionId, {
 			groupId,
 			groupName: finalGroupName,
@@ -1682,10 +1967,10 @@ export class BudgicDB extends Dexie {
 		if (groupTransactions.length === 0) {
 			throw new Error(`Transaction group ${groupId} not found`);
 		}
-		
+
 		const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 		const masterTransaction = groupTransactions[0];
-		
+
 		return {
 			totalAmount,
 			transactionCount: groupTransactions.length,
@@ -1704,7 +1989,7 @@ export class BudgicDB extends Dexie {
 				toAccountId: masterTransaction.toAccountId,
 				groupName: masterTransaction.groupName
 			},
-			amounts: groupTransactions.map(tx => ({
+			amounts: groupTransactions.map((tx) => ({
 				id: tx.id,
 				amount: tx.amount || 0,
 				description: tx.description
@@ -1714,13 +1999,14 @@ export class BudgicDB extends Dexie {
 
 	// Account queries
 	async getActiveAccounts(): Promise<Account[]> {
-		return await this.accounts.filter(account => !account.deletedAt).toArray();
+		return await this.accounts.filter((account) => !account.deletedAt).toArray();
 	}
 
 	async getAccountsByType(type: Account['type']): Promise<Account[]> {
 		return await this.accounts
-			.where('type').equals(type)
-			.filter(account => !account.deletedAt)
+			.where('type')
+			.equals(type)
+			.filter((account) => !account.deletedAt)
 			.toArray();
 	}
 
@@ -1731,72 +2017,78 @@ export class BudgicDB extends Dexie {
 
 	// Currency queries
 	async getActiveCurrencies(): Promise<Currency[]> {
-		return await this.currencies.filter(currency => !currency.deletedAt).toArray();
+		return await this.currencies.filter((currency) => !currency.deletedAt).toArray();
 	}
 
 	async getCurrencyByCode(code: string): Promise<Currency | null> {
 		const currency = await this.currencies
-			.filter(currency => currency.code === code && !currency.deletedAt)
+			.filter((currency) => currency.code === code && !currency.deletedAt)
 			.first();
 		return currency || null;
 	}
 
 	async getSystemCurrencies(): Promise<Currency[]> {
 		return await this.currencies
-			.filter(currency => currency.isSystem && !currency.deletedAt)
+			.filter((currency) => currency.isSystem && !currency.deletedAt)
 			.toArray();
 	}
 
 	// Category queries
 	async getActiveCategories(): Promise<Category[]> {
-		return await this.categories.filter(category => !category.deletedAt).toArray();
+		return await this.categories.filter((category) => !category.deletedAt).toArray();
 	}
 
 	async getCategoriesByType(type: Category['type']): Promise<Category[]> {
 		return await this.categories
-			.where('type').equals(type)
-			.filter(category => !category.deletedAt)
+			.where('type')
+			.equals(type)
+			.filter((category) => !category.deletedAt)
 			.toArray();
 	}
 
 	async getCategoriesByWaterfallTier(tier: Category['waterfallTier']): Promise<Category[]> {
 		return await this.categories
-			.where('waterfallTier').equals(tier)
-			.filter(category => !category.deletedAt)
+			.where('waterfallTier')
+			.equals(tier)
+			.filter((category) => !category.deletedAt)
 			.toArray();
 	}
 
 	// Transaction queries
 	async getActiveTransactions(): Promise<Transaction[]> {
-		return await this.transactions.filter(transaction => !transaction.deletedAt).toArray();
+		return await this.transactions.filter((transaction) => !transaction.deletedAt).toArray();
 	}
 
 	async getTransactionsByStatus(status: Transaction['status']): Promise<Transaction[]> {
 		return await this.transactions
-			.where('status').equals(status)
-			.filter(transaction => !transaction.deletedAt)
+			.where('status')
+			.equals(status)
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
 
 	async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
 		return await this.transactions
-			.where('accountId').equals(accountId)
-			.filter(transaction => !transaction.deletedAt)
+			.where('accountId')
+			.equals(accountId)
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
 
 	async getTransactionsRelatedToAccount(accountId: string): Promise<Transaction[]> {
 		// Get transactions where account is either source (accountId) or destination (toAccountId)
 		const sourceTransactions = await this.transactions
-			.where('accountId').equals(accountId)
-			.filter(transaction => !transaction.deletedAt)
+			.where('accountId')
+			.equals(accountId)
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
-		
+
 		const destinationTransactions = await this.transactions
-			.where('toAccountId').equals(accountId)
-			.filter(transaction => !transaction.deletedAt)
+			.where('toAccountId')
+			.equals(accountId)
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
-		
+
 		// Combine and sort by date (most recent first)
 		const allTransactions = [...sourceTransactions, ...destinationTransactions];
 		return allTransactions.sort((a, b) => {
@@ -1809,8 +2101,9 @@ export class BudgicDB extends Dexie {
 	// New category-based transaction queries
 	async getTransactionsByCategory(categoryId: string): Promise<Transaction[]> {
 		return await this.transactions
-			.where('categoryId').equals(categoryId)
-			.filter(transaction => !transaction.deletedAt)
+			.where('categoryId')
+			.equals(categoryId)
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
 
@@ -1818,77 +2111,79 @@ export class BudgicDB extends Dexie {
 		return await this.transactions
 			.where('clearedDate')
 			.between(startDate, endDate, true, true)
-			.filter(transaction => !transaction.deletedAt)
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
 
 	async getPlannedTransactions(): Promise<Transaction[]> {
 		return await this.transactions
-			.where('status').equals('planned')
-			.filter(transaction => !transaction.deletedAt)
+			.where('status')
+			.equals('planned')
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
 
 	async getPendingTransactions(): Promise<Transaction[]> {
 		return await this.transactions
-			.where('status').equals('pending')
-			.filter(transaction => !transaction.deletedAt)
+			.where('status')
+			.equals('pending')
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
 
 	async getClearedTransactions(): Promise<Transaction[]> {
 		return await this.transactions
-			.where('status').equals('cleared')
-			.filter(transaction => !transaction.deletedAt)
+			.where('status')
+			.equals('cleared')
+			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
 	}
-
-
 
 	// Goal queries
 	async getActiveGoals(): Promise<Goal[]> {
-		return await this.goals.filter(goal => goal.status === 'active').toArray();
+		return await this.goals.filter((goal) => goal.status === 'active').toArray();
 	}
 
 	async getGoalsByStatus(status: Goal['status']): Promise<Goal[]> {
-		return await this.goals
-			.where('status').equals(status)
-			.toArray();
+		return await this.goals.where('status').equals(status).toArray();
 	}
 
 	async getGoalsByCategory(category: Goal['category']): Promise<Goal[]> {
-		return await this.goals
-			.where('category').equals(category)
-			.toArray();
+		return await this.goals.where('category').equals(category).toArray();
 	}
 
 	// Insight queries
 	async getActiveInsights(): Promise<Insight[]> {
-		return await this.insights.filter(insight => insight.isActive && !insight.dismissedAt).toArray();
+		return await this.insights
+			.filter((insight) => insight.isActive && !insight.dismissedAt)
+			.toArray();
 	}
 
 	async getInsightsByType(type: Insight['type']): Promise<Insight[]> {
 		return await this.insights
-			.where('type').equals(type)
-			.filter(insight => insight.isActive && !insight.dismissedAt)
+			.where('type')
+			.equals(type)
+			.filter((insight) => insight.isActive && !insight.dismissedAt)
 			.toArray();
 	}
 
 	async getInsightsBySeverity(severity: Insight['severity']): Promise<Insight[]> {
 		return await this.insights
-			.where('severity').equals(severity)
-			.filter(insight => insight.isActive && !insight.dismissedAt)
+			.where('severity')
+			.equals(severity)
+			.filter((insight) => insight.isActive && !insight.dismissedAt)
 			.toArray();
 	}
 
 	async getUnreadInsights(): Promise<Insight[]> {
 		return await this.insights
-			.filter(insight => 
-				insight.isActive && 
-				!insight.dismissedAt && 
-				!insight.readAt &&
-				// Exclude prediction insights from notifications - they're available on insights page
-				insight.type !== 'prediction'
+			.filter(
+				(insight) =>
+					insight.isActive &&
+					!insight.dismissedAt &&
+					!insight.readAt &&
+					// Exclude prediction insights from notifications - they're available on insights page
+					insight.type !== 'prediction'
 			)
 			.toArray();
 	}
@@ -1901,13 +2196,15 @@ export class BudgicDB extends Dexie {
 	async getUnreadBySeverity(severity?: Insight['severity']): Promise<Insight[]> {
 		if (severity) {
 			return await this.insights
-				.where('severity').equals(severity)
-				.filter(insight => 
-					insight.isActive && 
-					!insight.dismissedAt && 
-					!insight.readAt &&
-					// Exclude prediction insights from notifications
-					insight.type !== 'prediction'
+				.where('severity')
+				.equals(severity)
+				.filter(
+					(insight) =>
+						insight.isActive &&
+						!insight.dismissedAt &&
+						!insight.readAt &&
+						// Exclude prediction insights from notifications
+						insight.type !== 'prediction'
 				)
 				.toArray();
 		}
@@ -1923,7 +2220,7 @@ export class BudgicDB extends Dexie {
 
 	async markAllInsightsAsRead(): Promise<void> {
 		const unread = await this.getUnreadInsights();
-		const updates = unread.map(insight => 
+		const updates = unread.map((insight) =>
 			this.insights.update(insight.id, {
 				readAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString()
@@ -1937,36 +2234,35 @@ export class BudgicDB extends Dexie {
 	// ============================================================================
 
 	async softDeleteAccount(id: string): Promise<void> {
-		await this.accounts.update(id, { 
+		await this.accounts.update(id, {
 			deletedAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		});
 	}
 
-
 	async softDeleteTransaction(id: string): Promise<void> {
-		await this.transactions.update(id, { 
+		await this.transactions.update(id, {
 			deletedAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		});
 	}
 
 	async softDeleteCategory(id: string): Promise<void> {
-		await this.categories.update(id, { 
+		await this.categories.update(id, {
 			deletedAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		});
 	}
 
 	async softDeleteGoal(id: string): Promise<void> {
-		await this.goals.update(id, { 
+		await this.goals.update(id, {
 			status: 'cancelled',
 			updatedAt: new Date().toISOString()
 		});
 	}
 
 	async softDeleteInsight(id: string): Promise<void> {
-		await this.insights.update(id, { 
+		await this.insights.update(id, {
 			dismissedAt: new Date().toISOString(),
 			isActive: false,
 			updatedAt: new Date().toISOString()
@@ -1978,12 +2274,12 @@ export class BudgicDB extends Dexie {
 	// ============================================================================
 
 	async getBadges(): Promise<Badge[]> {
-		return await this.badges.filter(badge => !badge.deletedAt).toArray();
+		return await this.badges.filter((badge) => !badge.deletedAt).toArray();
 	}
 
 	async getUnlockedBadges(): Promise<Badge[]> {
 		return await this.badges
-			.filter(badge => !badge.deletedAt && badge.unlockedAt !== undefined)
+			.filter((badge) => !badge.deletedAt && badge.unlockedAt !== undefined)
 			.toArray();
 	}
 
@@ -1991,7 +2287,7 @@ export class BudgicDB extends Dexie {
 		return await this.badges
 			.where('badgeId')
 			.equals(badgeId)
-			.filter(badge => !badge.deletedAt)
+			.filter((badge) => !badge.deletedAt)
 			.first();
 	}
 
@@ -1999,13 +2295,15 @@ export class BudgicDB extends Dexie {
 		return await this.badges
 			.where('type')
 			.equals(type)
-			.filter(badge => !badge.deletedAt)
+			.filter((badge) => !badge.deletedAt)
 			.toArray();
 	}
 
-	async unlockBadge(badge: Omit<Badge, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<Badge> {
+	async unlockBadge(
+		badge: Omit<Badge, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>
+	): Promise<Badge> {
 		const existing = await this.getBadgeByBadgeId(badge.badgeId);
-		
+
 		if (existing) {
 			// Update existing badge
 			await this.badges.update(existing.id, {
@@ -2029,7 +2327,10 @@ export class BudgicDB extends Dexie {
 		}
 	}
 
-	async updateBadgeProgress(badgeId: string, progress: { current: number; target: number; percentage: number }): Promise<void> {
+	async updateBadgeProgress(
+		badgeId: string,
+		progress: { current: number; target: number; percentage: number }
+	): Promise<void> {
 		const badge = await this.getBadgeByBadgeId(badgeId);
 		if (badge) {
 			await this.badges.update(badge.id, {
@@ -2051,10 +2352,11 @@ export class BudgicDB extends Dexie {
 
 	async getUnnotifiedBadges(): Promise<Badge[]> {
 		return await this.badges
-			.filter(badge => 
-				!badge.deletedAt && 
-				badge.unlockedAt !== undefined && 
-				(badge.notifiedAt === undefined || badge.notifiedAt === null)
+			.filter(
+				(badge) =>
+					!badge.deletedAt &&
+					badge.unlockedAt !== undefined &&
+					(badge.notifiedAt === undefined || badge.notifiedAt === null)
 			)
 			.toArray();
 	}
@@ -2114,37 +2416,40 @@ export class BudgicDB extends Dexie {
 
 		// Get all cleared transactions where this account is the source (accountId)
 		const sourceTransactions = await this.getTransactionsByAccount(accountId);
-		const clearedSourceTransactions = sourceTransactions.filter(t => t.status === 'cleared' && !t.deletedAt);
-		
+		const clearedSourceTransactions = sourceTransactions.filter(
+			(t) => t.status === 'cleared' && !t.deletedAt
+		);
+
 		// Get all cleared transfer transactions that affect this account
 		// Since IndexedDB doesn't support querying nested fields, we need to get all transfers and filter
 		const allTransfers = await this.transactions
-			.where('type').equals('transfer')
-			.filter(t => !t.deletedAt && t.status === 'cleared')
+			.where('type')
+			.equals('transfer')
+			.filter((t) => !t.deletedAt && t.status === 'cleared')
 			.toArray();
-		
+
 		// Filter transfers where this account is:
 		// 1. The destination (transferDetails.toAccountId)
 		// 2. The fee account (transferDetails.feeAccountId, if different from source)
-		const affectingTransfers = allTransfers.filter(t => {
+		const affectingTransfers = allTransfers.filter((t) => {
 			if (!t.transferDetails || !t.accountId) return false;
 			const { toAccountId, feeAccountId } = t.transferDetails;
 			const sourceAccountId = t.accountId;
 			const feeAccount = feeAccountId || sourceAccountId; // Default fee to source account
-			
+
 			// Include if this account is the destination
 			if (toAccountId === accountId) {
 				return true;
 			}
-			
+
 			// Include if this account is the fee account (when different from source)
 			if (feeAccount === accountId && feeAccount !== sourceAccountId) {
 				return true;
 			}
-			
+
 			return false;
 		});
-		
+
 		// Combine all transactions that affect this account
 		// Deduplicate by transaction ID to avoid processing the same transaction twice
 		const transactionMap = new Map<string, Transaction>();
@@ -2159,13 +2464,13 @@ export class BudgicDB extends Dexie {
 			}
 		}
 		const allAffectingTransactions = Array.from(transactionMap.values());
-		
+
 		// Apply impact of all transactions
 		for (const transaction of allAffectingTransactions) {
 			const impact = calculateTransactionImpact(transaction, accountId);
 			balance += impact;
 		}
-		
+
 		await this.updateAccountBalance(accountId, balance);
 		return balance;
 	}
@@ -2176,20 +2481,20 @@ export class BudgicDB extends Dexie {
 let dbInstance: BudgicDB | null = null;
 
 export function getDB(): BudgicDB {
-  if (typeof window === 'undefined') {
-    throw new Error('Database is only available in browser environment');
-  }
-  
-  if (!dbInstance) {
-    dbInstance = new BudgicDB();
-  }
-  
-  return dbInstance;
+	if (typeof window === 'undefined') {
+		throw new Error('Database is only available in browser environment');
+	}
+
+	if (!dbInstance) {
+		dbInstance = new BudgicDB();
+	}
+
+	return dbInstance;
 }
 
 // For backward compatibility - lazy getter
 export const db = new Proxy({} as BudgicDB, {
-  get(target, prop) {
-    return getDB()[prop as keyof BudgicDB];
-  }
+	get(target, prop) {
+		return getDB()[prop as keyof BudgicDB];
+	}
 });
