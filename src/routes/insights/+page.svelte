@@ -80,8 +80,13 @@
 
   async function loadInsightsData() {
     try {
-      // Generate cross-route insights
-      await insightsService.generateCrossRouteInsights();
+      // Generate cross-route insights with predictions (since user is on insights page)
+      await insightsService.generateCrossRouteInsights({
+        timeRange: 'month',
+        includePredictions: true, // Include predictions when on insights page
+        includeBehavioral: true,
+        onInsightsPage: true // Flag to prevent summary notification
+      });
       
       // Load insights from database
       insights = await insightsService.getInsights();
@@ -102,7 +107,13 @@
   async function handleRefresh() {
     isLoading = true;
     try {
-      await insightsService.forceUpdate();
+      // Force update with predictions included
+      await insightsService.generateCrossRouteInsights({
+        timeRange: 'month',
+        includePredictions: true, // Include predictions on manual refresh
+        includeBehavioral: true,
+        onInsightsPage: true // Flag to prevent summary notification
+      }, true); // force = true
       await loadInsightsData();
     } finally {
       isLoading = false;

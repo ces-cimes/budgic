@@ -23,11 +23,14 @@ interface InsightGenerationContext {
     timeRange: 'week' | 'month' | 'quarter' | 'year';
     includePredictions: boolean;
     includeBehavioral: boolean;
+    onInsightsPage?: boolean; // Flag to indicate if called from insights page
 }
 
 class InsightsService {
     private lastUpdate = 0;
+    private lastPredictionUpdate = 0;
     private updateFrequency = 5 * 60 * 1000; // 5 minutes
+    private predictionUpdateFrequency = 24 * 60 * 60 * 1000; // 24 hours - predictions update less frequently
     private isUpdating = false;
 
     public get ready() {
@@ -233,14 +236,61 @@ class InsightsService {
             }
 
             // Prediction insights (if enabled)
-            if (context.includePredictions) {
+            // Only generate if forced, on insights page, or if enough time has passed since last prediction update
+            const shouldGeneratePredictions = context.includePredictions && (
+                force || 
+                now - this.lastPredictionUpdate >= this.predictionUpdateFrequency
+            );
+            
+            let predictionsGenerated = false;
+            let predictionCount = 0;
+            if (shouldGeneratePredictions) {
                 const predictionInsights = await this.generatePredictionInsights(crossRouteData);
                 newInsights.push(...predictionInsights);
+                predictionCount = predictionInsights.length;
+                predictionsGenerated = predictionCount > 0;
+                
+                // Mark all existing prediction insights as read (they'll be replaced with new ones)
+                // This prevents them from showing as notifications
+                const existingPredictions = await db.insights
+                    .where('type')
+                    .equals('prediction')
+                    .filter(i => i.isActive && !i.readAt)
+                    .toArray();
+                
+                if (existingPredictions.length > 0) {
+                    await Promise.all(
+                        existingPredictions.map(insight => 
+                            db.markInsightAsRead(insight.id)
+                        )
+                    );
+                }
+                
+                this.lastPredictionUpdate = now;
+                
+                // If predictions were generated and we're NOT on the insights page,
+                // create a single summary notification (not a prediction type, so it shows in notifications)
+                if (predictionsGenerated && !context.onInsightsPage) {
+                    newInsights.push({
+                        id: generateUUID(),
+                        type: 'behavioral', // Use 'behavioral' type so it shows in notifications (not 'prediction')
+                        severity: 'info',
+                        title: 'Predictions Updated',
+                        message: `${predictionCount} new financial prediction${predictionCount !== 1 ? 's' : ''} available. Check the Insights page to view them.`,
+                        actionable: true,
+                        actionText: 'View Predictions',
+                        actionUrl: '/insights?tab=predictions',
+                        isActive: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        deletedAt: null
+                    });
+                }
             }
 
             // Balance projection insights (only if predictions are enabled - this is expensive)
             // Skip if not including predictions to avoid performance issues
-            if (context.includePredictions) {
+            if (shouldGeneratePredictions) {
                 const projectionInsights = await this.generateBalanceProjectionInsights(crossRouteData.accounts);
                 newInsights.push(...projectionInsights);
             }
@@ -1155,12 +1205,20 @@ class InsightsService {
      * Start automatic insight updates
      */
     startAutoUpdates(): void {
-        // Update immediately
-        this.generateCrossRouteInsights();
+        // Update immediately (without predictions to avoid performance issues)
+        this.generateCrossRouteInsights({
+            timeRange: 'month',
+            includePredictions: false, // Exclude predictions from auto-updates
+            includeBehavioral: true
+        });
         
-        // Then update every 5 minutes
+        // Then update every 5 minutes (without predictions)
         setInterval(() => {
-            this.generateCrossRouteInsights();
+            this.generateCrossRouteInsights({
+                timeRange: 'month',
+                includePredictions: false, // Exclude predictions from auto-updates
+                includeBehavioral: true
+            });
         }, this.updateFrequency);
     }
 

@@ -1886,7 +1886,9 @@ export class BudgicDB extends Dexie {
 			.filter(insight => 
 				insight.isActive && 
 				!insight.dismissedAt && 
-				!insight.readAt
+				!insight.readAt &&
+				// Exclude prediction insights from notifications - they're available on insights page
+				insight.type !== 'prediction'
 			)
 			.toArray();
 	}
@@ -1903,7 +1905,9 @@ export class BudgicDB extends Dexie {
 				.filter(insight => 
 					insight.isActive && 
 					!insight.dismissedAt && 
-					!insight.readAt
+					!insight.readAt &&
+					// Exclude prediction insights from notifications
+					insight.type !== 'prediction'
 				)
 				.toArray();
 		}
