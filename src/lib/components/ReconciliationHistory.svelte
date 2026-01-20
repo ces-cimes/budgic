@@ -6,7 +6,7 @@
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
-	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
+	import * as Select from '$lib/components/ui/select/index.ts';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import {
@@ -232,6 +232,18 @@
 		if (days < 365) return `${Math.floor(days / 30)} months ago`;
 		return `${Math.floor(days / 365)} years ago`;
 	}
+
+	function formatCurrency(amount: number, currency: string): string {
+		return CurrencyUtils.formatAmount(amount, currency);
+	}
+
+	function formatDate(dateString: string): string {
+		return new Date(dateString).toLocaleDateString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		});
+	}
 </script>
 
 <div class="space-y-6 {className}">
@@ -260,35 +272,35 @@
 				</div>
 
 				<!-- Account Filter -->
-				<Select bind:value={selectedAccountFilter}>
-					<SelectTrigger>
+				<Select.Root type="single" bind:value={selectedAccountFilter}>
+					<Select.Trigger>
 						<span
 							>{selectedAccountFilter === 'all'
 								? 'All Accounts'
 								: accounts.find((a) => a.id === selectedAccountFilter)?.name ||
 									'All Accounts'}</span
 						>
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">All Accounts</SelectItem>
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">All Accounts</Select.Item>
 						{#each accounts as account (account.id)}
-							<SelectItem value={account.id}>{account.name}</SelectItem>
+							<Select.Item value={account.id}>{account.name}</Select.Item>
 						{/each}
-					</SelectContent>
-				</Select>
+					</Select.Content>
+				</Select.Root>
 
 				<!-- Health Filter -->
-				<Select bind:value={selectedHealthFilter}>
-					<SelectTrigger>
+				<Select.Root type="single" bind:value={selectedHealthFilter}>
+					<Select.Trigger>
 						<span>{selectedHealthFilter === 'all' ? 'All Status' : selectedHealthFilter}</span>
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="all">All Status</SelectItem>
-						<SelectItem value="good">Good</SelectItem>
-						<SelectItem value="warning">Warning</SelectItem>
-						<SelectItem value="critical">Critical</SelectItem>
-					</SelectContent>
-				</Select>
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="all">All Status</Select.Item>
+						<Select.Item value="good">Good</Select.Item>
+						<Select.Item value="warning">Warning</Select.Item>
+						<Select.Item value="critical">Critical</Select.Item>
+					</Select.Content>
+				</Select.Root>
 
 				<!-- Discrepancy Filter -->
 				<div class="flex items-center space-x-2">

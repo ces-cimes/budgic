@@ -886,12 +886,15 @@ export const WhyTag = z.enum([
 // Removed WhereTag enum - location is now handled by Payee schema
 
 // Directional Constraint enum for transaction optimization
-export const DirectionalConstraint = z.enum([
+const DirectionalConstraintEnum = z.enum([
 	'none', // No constraint - can move forward or backward
 	'forward-only', // Can only move forward (e.g., subscription renewals)
 	'backward-only', // Can only move backward (e.g., bill payments)
 	'fixed' // Cannot be moved (e.g., fixed date commitments)
 ]);
+
+export const DirectionalConstraint = DirectionalConstraintEnum;
+export type DirectionalConstraint = z.infer<typeof DirectionalConstraintEnum>;
 
 // Flexibility Tier enum for transaction optimization
 export const FlexibilityTier = z.enum([
@@ -962,7 +965,7 @@ const TransactionSchema = BaseSchema.extend({
 
 	// Optimization fields
 	priority: z.number().min(1).max(10).optional(), // Priority score 1-10 (higher = more important)
-	directionalConstraint: DirectionalConstraint.optional(), // Constraint on date movement
+	directionalConstraint: DirectionalConstraintEnum.optional(), // Constraint on date movement
 	flexibilityTier: FlexibilityTier.optional(), // Flexibility tier for date movement range
 
 	// Dependency Tracking
@@ -1225,7 +1228,6 @@ export const TransactionUtils = {
 
 // System dimension types
 type TransactionType = z.infer<typeof TransactionType>;
-type DirectionalConstraint = z.infer<typeof DirectionalConstraint>;
 type DependencyType = z.infer<typeof DependencyType>;
 
 // ============================================================================
