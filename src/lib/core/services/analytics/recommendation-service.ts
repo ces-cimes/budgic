@@ -422,7 +422,7 @@ class RecommendationService {
 	private async gatherContext(days: number): Promise<RecommendationContext> {
 		const [userProfile, spendingPatterns, behaviorPatterns, usageMetrics, budgetData, goals] = await Promise.all([
 			this.getUserProfile(),
-			insightsService.analyzeSpendingPatterns(days),
+			insightsService.analyzeSpendingPatternsAsync(days),
 			behavioralAnalysisService.detectAllPatterns(days),
 			appUsageAnalyticsService.getUsageMetrics(days),
 			this.getBudgetStatus(),

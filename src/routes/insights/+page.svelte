@@ -4,9 +4,7 @@
   import { page } from '$app/stores';
   import { PageLayout } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
-  import { Button } from '$lib/components/ui/button/index.ts';
   import { 
-    Bell, 
     BarChart3, 
     TrendingUp, 
     Award,
@@ -30,7 +28,7 @@
   } from '$lib/components/insights/tabs';
   
   // Services
-  import { userService, insightsService } from '$lib/core/services';
+  import { insightsService } from '$lib/core/services';
 
   // Tab configuration
   const insightsTabs: TabConfig[] = [
@@ -43,7 +41,6 @@
   // State
   let activeTab = $state('overview');
   let isLoading = $state(true);
-  let userCurrency = $state<string>('USD');
   let insights = $state<any[]>([]);
   let error = $state<string | null>(null);
 
@@ -52,10 +49,6 @@
 
   onMount(async () => {
     try {
-      // Load user currency preference
-      const preferences = await userService.getUserPreferences();
-      userCurrency = preferences?.currency || 'USD';
-      
       // Load insights data
       await loadInsightsData();
       
@@ -151,7 +144,7 @@
   {/snippet}
 
   {#snippet children()}
-    <div class="container mx-auto p-2 sm:p-4 max-w-4xl h-full">
+    <div class="container mx-auto w-full h-full">
       <TabContentWrapper
         tabs={insightsTabs}
         activeTab={activeTab}
@@ -162,28 +155,24 @@
         <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={insightsTabs}>
           <OverviewTab
             insights={insights}
-            userCurrency={userCurrency}
             isLoading={isLoading}
           />
         </TabContent>
         
         <TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
           <PatternsTab
-            userCurrency={userCurrency}
             isLoading={isLoading}
           />
         </TabContent>
         
         <TabContent tabId="predictions" isActive={activeTab === 'predictions'} tabs={insightsTabs}>
           <PredictionsTab
-            userCurrency={userCurrency}
             isLoading={isLoading}
           />
         </TabContent>
         
         <TabContent tabId="badges" isActive={activeTab === 'badges'} tabs={insightsTabs}>
           <BadgesTab
-            userCurrency={userCurrency}
             isLoading={isLoading}
           />
         </TabContent>
