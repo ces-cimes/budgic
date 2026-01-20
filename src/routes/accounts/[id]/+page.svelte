@@ -12,6 +12,7 @@
 	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
+	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import { planService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 
@@ -30,7 +31,7 @@
 		// Load user currency preference first
 		const preferences = await userService.getUserPreferences();
 		userCurrency = preferences?.currency || null;
-		
+
 		await loadAccount();
 		await loadTransactions();
 		await loadEnhancedAllowance();
@@ -60,7 +61,7 @@
 			if (accountId) {
 				const transactionsData = await transactionService.getTransactionsByAccount(accountId);
 				// Filter out any null/undefined or deleted transactions as a safety measure
-				transactions = transactionsData.filter(t => t && !t.deletedAt);
+				transactions = transactionsData.filter((t) => t && !t.deletedAt);
 			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
@@ -69,7 +70,7 @@
 
 	async function loadEnhancedAllowance() {
 		if (!accountId || !account) return;
-		
+
 		isLoadingAllowance = true;
 		try {
 			enhancedAllowance = await planService.getEnhancedAllowance(accountId);
@@ -98,7 +99,6 @@
 			return 'Invalid date';
 		}
 	}
-
 </script>
 
 <svelte:head>
@@ -107,134 +107,176 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<Header 
+		<Header
 			title={account ? account.name : 'Account'}
 			showBackButton={true}
 			backButtonLink="/accounts"
 			backButtonLabel="Back to Accounts"
-			buttonProps={account ? [{
-				text: 'Edit',
-				onclick: handleEdit,
-				variant: 'outline',
-				size: 'sm',
-				icon: Pencil,
-				className: 'hidden sm:flex'
-			}] : []}
+			buttonProps={account
+				? [
+						{
+							text: 'Edit',
+							onclick: handleEdit,
+							variant: 'outline',
+							size: 'sm',
+							icon: Pencil,
+							className: 'hidden sm:flex'
+						}
+					]
+				: []}
 		/>
 	{/snippet}
 
-	<div class="container mx-auto px-4 py-4 md:py-6 max-w-6xl">
-	{#if account && !isLoading}
-		<!-- Account Balance Card -->
-		<section class="mb-8">
-			<div class="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
-				<div class="flex items-start justify-between">
-					<div class="flex-1">
-						<h2 class="text-lg font-medium mb-2">Current Balance</h2>
-						<div class="text-4xl font-bold">
-							{formatBalance(account.currentBalance, account.currency)}
-						</div>
-						<p class="text-primary-foreground/70 mt-2">
-							Initial balance: {formatBalance(account.initialBalance, account.currency)}
-						</p>
-					</div>
-					<!-- Edit button for mobile -->
-					<Button.Root
-						variant="outline"
-						size="sm"
-						onclick={handleEdit}
-						class="sm:hidden text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/10"
-					>
-						<Pencil size={16} />
-						<span class="ml-2">Edit</span>
-					</Button.Root>
-				</div>
-			</div>
-		</section>
-
-		<!-- Buffer Status -->
-		{#if account && (account.type === 'checking' || account.type === 'savings')}
+	<div class="container mx-auto max-w-6xl px-4 py-4 md:py-6">
+		{#if account && !isLoading}
+			<!-- Account Balance Card -->
 			<section class="mb-8">
-				<div class="bg-card rounded-xl p-6 shadow-sm border border-border">
-					<h2 class="text-xl font-semibold text-primary mb-4">Buffer Status</h2>
-					<BufferVisualization {account} showDetails={true} />
-				</div>
-			</section>
-		{/if}
-
-		<!-- Enhanced Allowance -->
-		{#if account && (account.type === 'checking' || account.type === 'savings')}
-			<section class="mb-8">
-				<div class="bg-card rounded-xl p-6 shadow-sm border border-border">
-					<h2 class="text-xl font-semibold text-primary mb-4">Spending Allowance</h2>
-					{#if isLoadingAllowance}
-						<div class="text-center py-8 text-muted-foreground">Loading allowance calculation...</div>
-					{:else if enhancedAllowance}
-						<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} />
-					{:else}
-						<div class="text-center py-8 text-muted-foreground">Unable to calculate allowance</div>
-					{/if}
-				</div>
-			</section>
-		{/if}
-
-		<!-- Balance Projection -->
-		{#if account && (account.type === 'checking' || account.type === 'savings')}
-			<section class="mb-8">
-				<div class="bg-card rounded-xl p-6 shadow-sm border border-border">
-					<h2 class="text-xl font-semibold text-primary mb-4">Balance Projection</h2>
-					<BalanceProjectionChart accountId={account.id} daysAhead={90} showDetails={true} />
-				</div>
-			</section>
-		{/if}
-
-		<!-- Transactions List -->
-		<section class="space-y-4">
-			<div class="flex items-center justify-between">
-				<h2 class="text-xl font-semibold text-primary">Recent Transactions</h2>
-				<Button.Root onclick={() => goto('/transactions/add')}>
-					Add Transaction
-				</Button.Root>
-			</div>
-
-			{#if transactions.length === 0}
-				<div class="text-center py-12 bg-card rounded-lg border border-border">
-					<p class="text-muted-foreground mb-4">No transactions found for this account</p>
-					<Button.Root onclick={() => goto('/transactions/add')}>
-						Add Your First Transaction
-					</Button.Root>
-				</div>
-			{:else}
-				<div class="bg-card rounded-lg border border-border">
-					{#each transactions.slice(0, 10).filter(t => t) as transaction (transaction.id)}
-						<div class="p-4 border-b border-border last:border-b-0 hover:bg-muted/50">
-							<div class="flex items-center justify-between">
-								<div>
-									<p class="font-medium">{transaction?.description || 'No description'}</p>
-									<p class="text-sm text-muted-foreground">
-										{formatDate(transaction?.clearedDate || transaction?.plannedDate || transaction?.createdAt || '')}
-									</p>
-								</div>
-								<div class="text-right">
-									<p class="font-semibold {((transaction?.amount ?? 0) >= 0 ? 'text-success' : 'text-destructive')}">
-										{formatBalance(transaction?.amount ?? 0, transaction?.currency || account?.currency || userCurrency || 'USD')}
-									</p>
-									<p class="text-sm text-muted-foreground capitalize">{transaction?.type || 'unknown'}</p>
-								</div>
+				<div
+					class="from-primary to-primary/80 text-primary-foreground rounded-2xl bg-gradient-to-r p-6"
+				>
+					<div class="flex items-start justify-between">
+						<div class="flex-1">
+							<h2 class="mb-2 text-lg font-medium">Current Balance</h2>
+							<div class="text-4xl font-bold">
+								{formatBalance(account.currentBalance, account.currency)}
 							</div>
+							<p class="text-primary-foreground/70 mt-2">
+								Initial balance: {formatBalance(account.initialBalance, account.currency)}
+							</p>
 						</div>
-					{/each}
-				</div>
-				
-				{#if transactions.length > 10}
-					<div class="text-center">
-						<Button.Root variant="outline" onclick={() => goto('/transactions')}>
-							View All Transactions
+						<!-- Edit button for mobile -->
+						<Button.Root
+							variant="outline"
+							size="sm"
+							onclick={handleEdit}
+							class="text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/10 sm:hidden"
+						>
+							<Pencil size={16} />
+							<span class="ml-2">Edit</span>
 						</Button.Root>
 					</div>
-				{/if}
+				</div>
+			</section>
+
+			<!-- Buffer Status -->
+			{#if account && (account.type === 'checking' || account.type === 'savings')}
+				<section class="mb-8">
+					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+						<h2 class="text-primary mb-4 text-xl font-semibold">Buffer Status</h2>
+						<BufferVisualization {account} showDetails={true} />
+					</div>
+				</section>
 			{/if}
-		</section>
-	{/if}
+
+			<!-- Enhanced Allowance -->
+			{#if account && (account.type === 'checking' || account.type === 'savings')}
+				<section class="mb-8">
+					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+						<h2 class="text-primary mb-4 text-xl font-semibold">Spending Allowance</h2>
+						{#if isLoadingAllowance}
+							<div class="text-muted-foreground py-8 text-center">
+								Loading allowance calculation...
+							</div>
+						{:else if enhancedAllowance}
+							<AllowanceVisualization
+								allowance={enhancedAllowance}
+								showDetails={true}
+								showRecommendations={true}
+							/>
+						{:else}
+							<div class="text-muted-foreground py-8 text-center">
+								Unable to calculate allowance
+							</div>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
+			<!-- Balance Projection -->
+			{#if account && (account.type === 'checking' || account.type === 'savings')}
+				<section class="mb-8">
+					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+						<h2 class="text-primary mb-4 text-xl font-semibold">Balance Projection</h2>
+						<BalanceProjectionChart accountId={account.id} daysAhead={90} showDetails={true} />
+					</div>
+				</section>
+			{/if}
+
+			<!-- Fee Avoidance -->
+			<section class="mb-8">
+				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+					<h2 class="text-primary mb-4 text-xl font-semibold">Fee Avoidance</h2>
+					<FeeAvoidancePanel
+						accountId={account.id}
+						initialMaxRisks={5}
+						onRecommendationApplied={async () => {
+							await loadAccount();
+							await loadTransactions();
+							await loadEnhancedAllowance();
+						}}
+					/>
+				</div>
+			</section>
+
+			<!-- Transactions List -->
+			<section class="space-y-4">
+				<div class="flex items-center justify-between">
+					<h2 class="text-primary text-xl font-semibold">Recent Transactions</h2>
+					<Button.Root onclick={() => goto('/transactions/add')}>Add Transaction</Button.Root>
+				</div>
+
+				{#if transactions.length === 0}
+					<div class="bg-card border-border rounded-lg border py-12 text-center">
+						<p class="text-muted-foreground mb-4">No transactions found for this account</p>
+						<Button.Root onclick={() => goto('/transactions/add')}>
+							Add Your First Transaction
+						</Button.Root>
+					</div>
+				{:else}
+					<div class="bg-card border-border rounded-lg border">
+						{#each transactions.slice(0, 10).filter((t) => t) as transaction (transaction.id)}
+							<div class="border-border hover:bg-muted/50 border-b p-4 last:border-b-0">
+								<div class="flex items-center justify-between">
+									<div>
+										<p class="font-medium">{transaction?.description || 'No description'}</p>
+										<p class="text-muted-foreground text-sm">
+											{formatDate(
+												transaction?.clearedDate ||
+													transaction?.plannedDate ||
+													transaction?.createdAt ||
+													''
+											)}
+										</p>
+									</div>
+									<div class="text-right">
+										<p
+											class="font-semibold {(transaction?.amount ?? 0) >= 0
+												? 'text-success'
+												: 'text-destructive'}"
+										>
+											{formatBalance(
+												transaction?.amount ?? 0,
+												transaction?.currency || account?.currency || userCurrency || 'USD'
+											)}
+										</p>
+										<p class="text-muted-foreground text-sm capitalize">
+											{transaction?.type || 'unknown'}
+										</p>
+									</div>
+								</div>
+							</div>
+						{/each}
+					</div>
+
+					{#if transactions.length > 10}
+						<div class="text-center">
+							<Button.Root variant="outline" onclick={() => goto('/transactions')}>
+								View All Transactions
+							</Button.Root>
+						</div>
+					{/if}
+				{/if}
+			</section>
+		{/if}
 	</div>
-</PageLayout> 
+</PageLayout>
