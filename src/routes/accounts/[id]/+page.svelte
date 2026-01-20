@@ -11,6 +11,7 @@
 	import { Pencil } from '@lucide/svelte';
 	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
+	import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 	import { planService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 
@@ -173,6 +174,16 @@
 					{:else}
 						<div class="text-center py-8 text-muted-foreground">Unable to calculate allowance</div>
 					{/if}
+				</div>
+			</section>
+		{/if}
+
+		<!-- Balance Projection -->
+		{#if account && (account.type === 'checking' || account.type === 'savings')}
+			<section class="mb-8">
+				<div class="bg-card rounded-xl p-6 shadow-sm border border-border">
+					<h2 class="text-xl font-semibold text-primary mb-4">Balance Projection</h2>
+					<BalanceProjectionChart accountId={account.id} daysAhead={90} showDetails={true} />
 				</div>
 			</section>
 		{/if}

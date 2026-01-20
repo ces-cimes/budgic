@@ -5,6 +5,7 @@ import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
+import { balanceProjectionService } from './balance-projection-service';
 import { getBufferStatus, getBufferAmount, getBufferDeficit } from '$lib/utils/account-metadata-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 
@@ -235,6 +236,13 @@ class InsightsService {
             if (context.includePredictions) {
                 const predictionInsights = await this.generatePredictionInsights(crossRouteData);
                 newInsights.push(...predictionInsights);
+            }
+
+            // Balance projection insights (only if predictions are enabled - this is expensive)
+            // Skip if not including predictions to avoid performance issues
+            if (context.includePredictions) {
+                const projectionInsights = await this.generateBalanceProjectionInsights(crossRouteData.accounts);
+                newInsights.push(...projectionInsights);
             }
 
             // Save new insights to database
@@ -868,6 +876,42 @@ class InsightsService {
                         .first();
                 }
                 
+                // For prediction insights, check by accountId in metadata to prevent duplicates
+                if (!existingInsight && insight.type === 'prediction' && insight.metadata) {
+                    try {
+                        const metadata = typeof insight.metadata === 'string' 
+                            ? JSON.parse(insight.metadata) 
+                            : insight.metadata;
+                        if (metadata.accountId) {
+                            const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                            const allPredictions = await db.insights
+                                .where('type')
+                                .equals('prediction')
+                                .filter(i => 
+                                    i.isActive && 
+                                    !i.dismissedAt && 
+                                    i.createdAt > oneDayAgo
+                                )
+                                .toArray();
+                            
+                            existingInsight = allPredictions.find(i => {
+                                if (!i.metadata) return false;
+                                try {
+                                    const iMetadata = typeof i.metadata === 'string' 
+                                        ? JSON.parse(i.metadata) 
+                                        : i.metadata;
+                                    return iMetadata.accountId === metadata.accountId && 
+                                           i.title === insight.title;
+                                } catch {
+                                    return false;
+                                }
+                            }) || null;
+                        }
+                    } catch {
+                        // If metadata parsing fails, fall through to default check
+                    }
+                }
+                
                 // For insights without specific identifiers, check by type and title within last 24 hours
                 if (!existingInsight) {
                     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -1359,9 +1403,9 @@ class InsightsService {
     // ============================================================================
 
     /**
-     * Analyze comprehensive spending patterns
+     * Analyze comprehensive spending patterns (async version)
      */
-    async analyzeSpendingPatterns(days: number = 90): Promise<{
+    async analyzeSpendingPatternsAsync(days: number = 90): Promise<{
         categoryPatterns: Array<{
             categoryId: string;
             categoryName: string;
@@ -1394,7 +1438,7 @@ class InsightsService {
             .filter(tx => 
                 tx.type === 'expense' && 
                 tx.status === 'cleared' && 
-                tx.clearedDate &&
+                typeof tx.clearedDate === 'string' &&
                 new Date(tx.clearedDate) >= cutoffDate &&
                 !tx.deletedAt
             )
@@ -1675,6 +1719,106 @@ class InsightsService {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         }).format(amount);
+    }
+
+    // ============================================================================
+    // BALANCE PROJECTION INSIGHTS GENERATION
+    // ============================================================================
+
+    /**
+     * Generate insights from balance projections
+     * This is expensive, so we limit it to checking/savings accounts only
+     * and use cached projections when possible
+     * Only creates insights for accounts with meaningful buffers (> 0)
+     */
+    private async generateBalanceProjectionInsights(accounts: Account[]): Promise<Insight[]> {
+        const insights: Insight[] = [];
+
+        try {
+            // Only check checking and savings accounts (most relevant for balance projections)
+            // AND only accounts that have a buffer set (bufferAmount > 0)
+            const relevantAccounts = accounts.filter(a => {
+                if (!a.isActive || (a.type !== 'checking' && a.type !== 'savings')) {
+                    return false;
+                }
+                // Only include accounts with a meaningful buffer
+                const buffer = getBufferAmount(a);
+                return buffer > 0;
+            });
+
+            if (relevantAccounts.length === 0) {
+                return insights;
+            }
+
+            // Get low balance alerts from projections (uses cache)
+            // This now returns only one alert per account (the earliest)
+            const alerts = await balanceProjectionService.generateLowBalanceAlerts({
+                accountIds: relevantAccounts.map(a => a.id),
+                daysAhead: 90
+            });
+
+            if (alerts.length === 0) {
+                return insights;
+            }
+
+            // Create insights for each alert (already deduplicated - one per account)
+            for (const alert of alerts) {
+                const account = accounts.find(a => a.id === alert.accountId);
+                if (!account) continue;
+
+                const formatAccountCurrency = (amount: number) => {
+                    return new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: account.currency,
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }).format(amount);
+                };
+
+                insights.push(await this.createInsight({
+                    type: 'prediction',
+                    severity: alert.severity === 'critical' ? 'alert' : 'warning',
+                    title: alert.severity === 'critical' 
+                        ? `Low Balance Alert: ${account.name}`
+                        : `Balance Warning: ${account.name}`,
+                    message: alert.message,
+                    actionable: true,
+                    actionText: 'View Projections',
+                    actionUrl: `/accounts/${account.id}`,
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    metadata: {
+                        accountId: alert.accountId,
+                        accountName: account.name,
+                        projectedBalance: alert.projectedBalance,
+                        bufferAmount: alert.bufferAmount,
+                        alertDate: alert.date.toISOString()
+                    }
+                }));
+            }
+
+            // Only create summary insight if we have multiple critical alerts
+            const criticalAlerts = alerts.filter(a => a.severity === 'critical');
+            if (criticalAlerts.length > 1) {
+                insights.push(await this.createInsight({
+                    type: 'prediction',
+                    severity: 'alert',
+                    title: 'Multiple Accounts at Risk',
+                    message: `${criticalAlerts.length} accounts are projected to go below their buffer in the next 90 days. Review your balance projections.`,
+                    actionable: true,
+                    actionText: 'View All Projections',
+                    actionUrl: '/accounts',
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    metadata: {
+                        affectedAccounts: criticalAlerts.length,
+                        totalAlerts: alerts.length
+                    }
+                }));
+            }
+        } catch (error) {
+            console.error('Error generating balance projection insights:', error);
+        }
+
+        return insights;
     }
 }
 

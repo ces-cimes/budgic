@@ -3,6 +3,7 @@ import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { analyticsService } from './analytics-service';
 import { transactionService } from '../core/transaction-service';
+import { balanceProjectionService } from './balance-projection-service';
 import { db } from '../../db';
 import type { Goal, Transaction, Category, Insight } from '../../db';
 
@@ -137,6 +138,17 @@ class CrossRouteSyncService {
      * Handle transaction creation
      */
     async onTransactionCreated(transaction: Transaction): Promise<void> {
+        // Clear balance projection cache for affected accounts
+        const affectedAccountIds: string[] = [];
+        if (transaction.accountId) {
+            affectedAccountIds.push(transaction.accountId);
+        }
+        if (transaction.type === 'transfer' && transaction.transferDetails?.toAccountId) {
+            affectedAccountIds.push(transaction.transferDetails.toAccountId);
+        }
+        if (affectedAccountIds.length > 0) {
+            balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
+        }
         await this.emitSyncEvent({
             type: 'transaction_created',
             entityId: transaction.id,
@@ -150,6 +162,23 @@ class CrossRouteSyncService {
      * Handle transaction update
      */
     async onTransactionUpdated(transaction: Transaction, changes: Partial<Transaction>): Promise<void> {
+        // Clear balance projection cache for affected accounts
+        const affectedAccountIds = new Set<string>();
+        if (transaction.accountId) {
+            affectedAccountIds.add(transaction.accountId);
+        }
+        if (changes.accountId) {
+            affectedAccountIds.add(changes.accountId);
+        }
+        if (transaction.type === 'transfer' && transaction.transferDetails?.toAccountId) {
+            affectedAccountIds.add(transaction.transferDetails.toAccountId);
+        }
+        if (changes.transferDetails && 'toAccountId' in changes.transferDetails) {
+            affectedAccountIds.add(changes.transferDetails.toAccountId as string);
+        }
+        if (affectedAccountIds.size > 0) {
+            balanceProjectionService.clearCacheForAccounts(Array.from(affectedAccountIds));
+        }
         await this.emitSyncEvent({
             type: 'transaction_updated',
             entityId: transaction.id,
@@ -163,6 +192,20 @@ class CrossRouteSyncService {
      * Handle transaction deletion
      */
     async onTransactionDeleted(transactionId: string): Promise<void> {
+        // Get transaction to find affected accounts before it's deleted
+        const transaction = await db.transactions.get(transactionId);
+        if (transaction) {
+            const affectedAccountIds: string[] = [];
+            if (transaction.accountId) {
+                affectedAccountIds.push(transaction.accountId);
+            }
+            if (transaction.type === 'transfer' && transaction.transferDetails?.toAccountId) {
+                affectedAccountIds.push(transaction.transferDetails.toAccountId);
+            }
+            if (affectedAccountIds.length > 0) {
+                balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
+            }
+        }
         await this.emitSyncEvent({
             type: 'transaction_deleted',
             entityId: transactionId,
@@ -252,10 +295,11 @@ class CrossRouteSyncService {
                 break;
         }
 
-        // Regenerate cross-route insights
+        // Regenerate cross-route insights (skip expensive balance projections on every sync)
+        // Balance projections will be generated on insights page load or manual refresh
         await insightsService.generateCrossRouteInsights({
             timeRange: 'month',
-            includePredictions: true,
+            includePredictions: false, // Skip expensive predictions on sync events
             includeBehavioral: true
         });
     }

@@ -2,6 +2,7 @@ import { db, validateTransactionGroup, validateNewGroupTransaction, generateUUID
 import type { Transaction } from '$lib/core/db';
 import { accountService } from './account-service';
 import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
+import { balanceProjectionService } from '../analytics/balance-projection-service';
 
 class TransactionService {
     public get ready() {
@@ -31,8 +32,23 @@ class TransactionService {
         await db.transactions.add(transaction);
         
         // Update account balance only if accountId is present
+        const affectedAccountIds: string[] = [];
         if (transaction.accountId) {
             await accountService.recalculateAccountBalance(transaction.accountId);
+            affectedAccountIds.push(transaction.accountId);
+        }
+        
+        // Handle transfers - both accounts are affected
+        if (transaction.type === 'transfer' && transaction.transferDetails) {
+            const toAccountId = transaction.transferDetails.toAccountId;
+            if (toAccountId && !affectedAccountIds.includes(toAccountId)) {
+                affectedAccountIds.push(toAccountId);
+            }
+        }
+        
+        // Clear balance projection cache for affected accounts
+        if (affectedAccountIds.length > 0) {
+            balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
         }
         
         // Emit sync event for transaction creation
@@ -74,8 +90,20 @@ class TransactionService {
             accountIds.add(updatedTransaction.accountId);
         }
         
+        // Check if transfer details changed (affects multiple accounts)
+        if (updatedTransaction.type === 'transfer' && updatedTransaction.transferDetails) {
+            accountIds.add(updatedTransaction.transferDetails.toAccountId);
+        } else if (transaction.type === 'transfer' && transaction.transferDetails) {
+            accountIds.add(transaction.transferDetails.toAccountId);
+        }
+        
         for (const accountId of accountIds) {
             await accountService.recalculateAccountBalance(accountId);
+        }
+        
+        // Clear balance projection cache for affected accounts
+        if (accountIds.size > 0) {
+            balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
         }
         
         // Emit sync event for transaction update
@@ -96,8 +124,23 @@ class TransactionService {
         await db.softDeleteTransaction(id);
         
         // Update account balance only if accountId is present
+        const affectedAccountIds: string[] = [];
         if (transaction.accountId) {
             await accountService.recalculateAccountBalance(transaction.accountId);
+            affectedAccountIds.push(transaction.accountId);
+        }
+        
+        // Handle transfers - both accounts are affected
+        if (transaction.type === 'transfer' && transaction.transferDetails) {
+            const toAccountId = transaction.transferDetails.toAccountId;
+            if (toAccountId && !affectedAccountIds.includes(toAccountId)) {
+                affectedAccountIds.push(toAccountId);
+            }
+        }
+        
+        // Clear balance projection cache for affected accounts
+        if (affectedAccountIds.length > 0) {
+            balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
         }
         
         // Emit sync event for transaction deletion
@@ -169,8 +212,21 @@ class TransactionService {
         const accountIds = new Set(groupTransactions
             .map(tx => tx.accountId)
             .filter((id): id is string => id !== undefined && id !== null));
+        
+        // Also check for transfer destinations
+        for (const tx of groupTransactions) {
+            if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+                accountIds.add(tx.transferDetails.toAccountId);
+            }
+        }
+        
         for (const accountId of accountIds) {
             await accountService.recalculateAccountBalance(accountId);
+        }
+        
+        // Clear balance projection cache for affected accounts
+        if (accountIds.size > 0) {
+            balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
         }
         
         return groupId;
@@ -199,6 +255,17 @@ class TransactionService {
         // Update account balances for affected accounts
         const accountIds = new Set<string>();
         
+        // Get existing transactions to check for transfers
+        const existingTransactions = await db.getGroupTransactions(groupId);
+        for (const tx of existingTransactions) {
+            if (tx.accountId) {
+                accountIds.add(tx.accountId);
+            }
+            if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+                accountIds.add(tx.transferDetails.toAccountId);
+            }
+        }
+        
         if (updates.individualUpdates) {
             for (const update of updates.individualUpdates) {
                 if (update.accountId) {
@@ -207,8 +274,13 @@ class TransactionService {
             }
         }
         
-            for (const accountId of accountIds) {
+        for (const accountId of accountIds) {
             await accountService.recalculateAccountBalance(accountId);
+        }
+        
+        // Clear balance projection cache for affected accounts
+        if (accountIds.size > 0) {
+            balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
         }
     }
 
@@ -219,12 +291,24 @@ class TransactionService {
         const transactions = await db.getGroupTransactions(groupId);
         const accountIds = new Set(transactions.map(tx => tx.accountId));
         
+        // Also include transfer destinations
+        for (const tx of transactions) {
+            if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+                accountIds.add(tx.transferDetails.toAccountId);
+            }
+        }
+        
         await db.deleteTransactionGroup(groupId);
         
         // Update account balances for affected accounts (filter out null accountIds)
         const validAccountIds = Array.from(accountIds).filter((id): id is string => id !== undefined && id !== null);
         for (const accountId of validAccountIds) {
             await accountService.recalculateAccountBalance(accountId);
+        }
+        
+        // Clear balance projection cache for affected accounts
+        if (validAccountIds.length > 0) {
+            balanceProjectionService.clearCacheForAccounts(validAccountIds);
         }
     }
 
@@ -242,8 +326,21 @@ class TransactionService {
         await db.addTransactionToGroup(transactionId, groupId);
         
         const transaction = await db.transactions.get(transactionId);
-        if (transaction && transaction.accountId) {
-            await accountService.recalculateAccountBalance(transaction.accountId);
+        const affectedAccountIds: string[] = [];
+        if (transaction) {
+            if (transaction.accountId) {
+                await accountService.recalculateAccountBalance(transaction.accountId);
+                affectedAccountIds.push(transaction.accountId);
+            }
+            // Handle transfers
+            if (transaction.type === 'transfer' && transaction.transferDetails?.toAccountId) {
+                affectedAccountIds.push(transaction.transferDetails.toAccountId);
+            }
+        }
+        
+        // Clear balance projection cache for affected accounts
+        if (affectedAccountIds.length > 0) {
+            balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
         }
     }
 
@@ -254,8 +351,19 @@ class TransactionService {
         const transaction = await db.transactions.get(transactionId);
         if (transaction) {
             await db.removeTransactionFromGroup(transactionId);
+            const affectedAccountIds: string[] = [];
             if (transaction.accountId) {
                 await accountService.recalculateAccountBalance(transaction.accountId);
+                affectedAccountIds.push(transaction.accountId);
+            }
+            // Handle transfers
+            if (transaction.type === 'transfer' && transaction.transferDetails?.toAccountId) {
+                affectedAccountIds.push(transaction.transferDetails.toAccountId);
+            }
+            
+            // Clear balance projection cache for affected accounts
+            if (affectedAccountIds.length > 0) {
+                balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
             }
         }
     }
