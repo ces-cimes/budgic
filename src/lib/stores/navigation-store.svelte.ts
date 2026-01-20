@@ -1,22 +1,22 @@
-import { analyticsService } from '$lib/core/services';
+import { analyticsService, reconciliationService, accountService } from '$lib/core/services';
 
 export interface NavItemConfig {
-    id: string;
-    label: string;
-    path: string;
-    icon?: string;
-    badge?: {
-        type: 'count' | 'indicator' | 'text';
-        value?: number | string;
-        color?: string;
-        countKey?: string;
-    };
-    children?: NavItemConfig[];
-    requiresAuth?: boolean;
-    hidden?: boolean;
-    visible?: boolean;
-    showInMobile?: boolean;
-    showInDesktop?: boolean;
+	id: string;
+	label: string;
+	path: string;
+	icon?: string;
+	badge?: {
+		type: 'count' | 'indicator' | 'text';
+		value?: number | string;
+		color?: string;
+		countKey?: string;
+	};
+	children?: NavItemConfig[];
+	requiresAuth?: boolean;
+	hidden?: boolean;
+	visible?: boolean;
+	showInMobile?: boolean;
+	showInDesktop?: boolean;
 }
 
 /**
@@ -30,7 +30,7 @@ class NavigationStore {
 	private _badges = $state<Map<string, number | boolean | string>>(new Map());
 	private _loading = $state(true);
 	private _initialized = $state(false);
-	
+
 	private updateInterval: ReturnType<typeof setInterval> | null = null;
 	private initializationPromise: Promise<void> | null = null;
 
@@ -79,7 +79,7 @@ class NavigationStore {
 
 		// Create and store the initialization promise
 		this.initializationPromise = this._initialize();
-		
+
 		try {
 			await this.initializationPromise;
 		} finally {
@@ -166,6 +166,21 @@ class NavigationStore {
 					showInDesktop: true
 				},
 				{
+					id: 'reconciliation',
+					label: 'Reconciliation',
+					path: '/reconciliation',
+					icon: 'trending-up',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true,
+					badge: {
+						type: 'count' as const,
+						value: 0,
+						color: 'warning',
+						countKey: 'reconciliation'
+					}
+				},
+				{
 					id: 'categories',
 					label: 'Categories',
 					path: '/categories',
@@ -215,14 +230,14 @@ class NavigationStore {
 				try {
 					const orderArray = JSON.parse(customOrder);
 					// Reorder items based on saved order
-					const orderedItems = orderArray.map((id: string) => 
-						defaultItems.find(item => item.id === id)
-					).filter(Boolean);
-					
+					const orderedItems = orderArray
+						.map((id: string) => defaultItems.find((item) => item.id === id))
+						.filter(Boolean);
+
 					// Add any new items that weren't in the saved order
 					const existingIds = new Set(orderArray);
-					const newItems = defaultItems.filter(item => !existingIds.has(item.id));
-					
+					const newItems = defaultItems.filter((item) => !existingIds.has(item.id));
+
 					this._items = [...orderedItems, ...newItems];
 				} catch (error) {
 					console.error('Error parsing custom order:', error);
@@ -237,7 +252,7 @@ class NavigationStore {
 			if (visibilitySettings) {
 				try {
 					const settings = JSON.parse(visibilitySettings);
-					this._items = this._items.map(item => ({
+					this._items = this._items.map((item) => ({
 						...item,
 						...settings[item.id]
 					}));
@@ -249,8 +264,8 @@ class NavigationStore {
 			// Unified navigation: both mobile and desktop use the same order
 			// Mobile shows first 4 items in main bar, rest in overflow
 			// Desktop shows all visible items in sidebar
-			this._mobileItems = this._items.filter(item => item.showInMobile);
-			this._desktopItems = this._items.filter(item => item.showInDesktop);
+			this._mobileItems = this._items.filter((item) => item.showInMobile);
+			this._desktopItems = this._items.filter((item) => item.showInDesktop);
 		} catch (error) {
 			console.error('Error loading navigation items:', error);
 		}
@@ -264,10 +279,41 @@ class NavigationStore {
 			// For now, set a simple badge count
 			// This can be enhanced later with actual insights
 			this.setBadge('insights', 0);
-			
+
+			// Update reconciliation badge - count accounts needing reconciliation
+			try {
+				const accounts = await accountService.getAccounts();
+				let needsReconciliation = 0;
+
+				const summaryPromises = accounts.map(async (account) => {
+					try {
+						const summary = await reconciliationService.getReconciliationSummary(account.id);
+						// Count accounts that haven't been reconciled in >30 days or never
+						if (
+							summary.daysSinceLastReconciliation > 30 ||
+							summary.daysSinceLastReconciliation === -1
+						) {
+							needsReconciliation++;
+						}
+						// Also count accounts with unresolved discrepancies
+						if (summary.unresolvedDiscrepancies > 0) {
+							needsReconciliation++;
+						}
+					} catch (err) {
+						// Silently ignore errors for individual accounts
+						console.debug(`Failed to get reconciliation summary for account ${account.name}:`, err);
+					}
+				});
+
+				await Promise.all(summaryPromises);
+				this.setBadge('reconciliation', needsReconciliation);
+			} catch (error) {
+				// If reconciliation service fails, set badge to 0
+				this.setBadge('reconciliation', 0);
+			}
+
 			// You can add more badge updates here
 			// Example: unread notifications, pending transactions, etc.
-			
 		} catch (error) {
 			console.error('Error updating badges:', error);
 		}
@@ -296,7 +342,7 @@ class NavigationStore {
 	}> {
 		const visible = this._mobileItems.slice(0, limit);
 		const overflow = this._mobileItems.slice(limit);
-		
+
 		return { visible, overflow };
 	}
 
@@ -306,7 +352,7 @@ class NavigationStore {
 	async updateItemOrder(itemId: string, newOrder: number): Promise<void> {
 		try {
 			// Find the item to move
-			const itemIndex = this._items.findIndex(item => item.id === itemId);
+			const itemIndex = this._items.findIndex((item) => item.id === itemId);
 			if (itemIndex === -1) return;
 
 			// Create new array with reordered items
@@ -318,13 +364,12 @@ class NavigationStore {
 			this._items = newItems;
 
 			// Update mobile and desktop items to match the unified order
-			this._mobileItems = this._items.filter(item => item.showInMobile);
-			this._desktopItems = this._items.filter(item => item.showInDesktop);
+			this._mobileItems = this._items.filter((item) => item.showInMobile);
+			this._desktopItems = this._items.filter((item) => item.showInDesktop);
 
 			// Store the custom order in localStorage for persistence
-			const customOrder = newItems.map(item => item.id);
+			const customOrder = newItems.map((item) => item.id);
 			localStorage.setItem('budgic-navigation-order', JSON.stringify(customOrder));
-
 		} catch (error) {
 			console.error('Error updating item order:', error);
 			throw error;
@@ -340,26 +385,28 @@ class NavigationStore {
 	): Promise<void> {
 		try {
 			// Find and update the item
-			const itemIndex = this._items.findIndex(item => item.id === itemId);
+			const itemIndex = this._items.findIndex((item) => item.id === itemId);
 			if (itemIndex === -1) return;
 
 			const updatedItem = { ...this._items[itemIndex], ...visibility };
 			this._items[itemIndex] = updatedItem;
 
 			// Update mobile and desktop items based on visibility
-			this._mobileItems = this._items.filter(item => item.showInMobile);
-			this._desktopItems = this._items.filter(item => item.showInDesktop);
+			this._mobileItems = this._items.filter((item) => item.showInMobile);
+			this._desktopItems = this._items.filter((item) => item.showInDesktop);
 
 			// Store visibility settings in localStorage
-			const visibilitySettings = this._items.reduce((acc, item) => {
-				acc[item.id] = {
-					showInMobile: item.showInMobile,
-					showInDesktop: item.showInDesktop
-				};
-				return acc;
-			}, {} as Record<string, any>);
+			const visibilitySettings = this._items.reduce(
+				(acc, item) => {
+					acc[item.id] = {
+						showInMobile: item.showInMobile,
+						showInDesktop: item.showInDesktop
+					};
+					return acc;
+				},
+				{} as Record<string, any>
+			);
 			localStorage.setItem('budgic-navigation-visibility', JSON.stringify(visibilitySettings));
-
 		} catch (error) {
 			console.error('Error updating item visibility:', error);
 			throw error;
@@ -377,7 +424,6 @@ class NavigationStore {
 
 			// Reload items with default configuration
 			await this.loadItems();
-
 		} catch (error) {
 			console.error('Error resetting to defaults:', error);
 			throw error;
@@ -419,4 +465,3 @@ class NavigationStore {
 
 // Export singleton instance
 export const navigationStore = new NavigationStore();
-

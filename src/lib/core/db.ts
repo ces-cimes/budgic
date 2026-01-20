@@ -1130,6 +1130,39 @@ const BadgeSchema = BaseSchema.extend({
 	notifiedAt: z.string().datetime().optional() // When notification was shown
 });
 
+// Reconciliation Record Schema - Balance reconciliation tracking
+const ReconciliationRecordSchema = BaseSchema.extend({
+	accountId: z.string(),
+	reconciledDate: z.string().datetime(),
+	statementBalance: z.number().finite(),
+	calculatedBalance: z.number().finite(),
+	discrepancy: z.number().finite(),
+	reconciliationType: z.enum(['manual', 'automatic']),
+	transactionCount: z.number().int().min(0),
+	reconciledTransactionIds: z.array(z.string()),
+	unreconciledTransactionIds: z.array(z.string()),
+	notes: z.string().optional(),
+	resolvedAt: z.string().datetime().optional()
+});
+
+// Reconciliation Discrepancy Schema - Issue tracking during reconciliation
+const ReconciliationDiscrepancySchema = BaseSchema.extend({
+	accountId: z.string(),
+	discrepancyType: z.enum([
+		'missing_transaction',
+		'duplicate_transaction',
+		'amount_mismatch',
+		'timing_difference',
+		'unknown'
+	]),
+	amount: z.number().finite(),
+	description: z.string().min(1),
+	suspectedTransactionId: z.string().optional(),
+	suggestedAction: z.enum(['create_transaction', 'modify_transaction', 'ignore', 'investigate']),
+	severity: z.enum(['low', 'medium', 'high']),
+	resolvedAt: z.string().datetime().optional()
+});
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -1146,6 +1179,8 @@ export type Insight = z.infer<typeof InsightSchema>;
 export type CurrencyConfiguration = z.infer<typeof CurrencyConfigurationSchema>;
 export type ExchangeRate = z.infer<typeof ExchangeRateSchema>;
 export type Badge = z.infer<typeof BadgeSchema>;
+export type ReconciliationRecord = z.infer<typeof ReconciliationRecordSchema>;
+export type ReconciliationDiscrepancy = z.infer<typeof ReconciliationDiscrepancySchema>;
 export type FlexibilityTier = z.infer<typeof FlexibilityTier>;
 
 // Transaction-specific utility functions after Transaction type is defined
@@ -1198,7 +1233,6 @@ type DependencyType = z.infer<typeof DependencyType>;
 // ============================================================================
 
 export class BudgicDB extends Dexie {
-	// Core entities (11 tables total)
 	accounts!: Table<Account>;
 	currencies!: Table<Currency>;
 	categories!: Table<Category>;
@@ -1210,6 +1244,8 @@ export class BudgicDB extends Dexie {
 	currencyConfigurations!: Table<CurrencyConfiguration>;
 	exchangeRates!: Table<ExchangeRate>;
 	badges!: Table<Badge>;
+	reconciliationRecords!: Table<ReconciliationRecord>;
+	reconciliationDiscrepancies!: Table<ReconciliationDiscrepancy>;
 
 	constructor() {
 		super('BudgicDB');
@@ -1296,6 +1332,33 @@ export class BudgicDB extends Dexie {
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
 			badges:
 				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]'
+		});
+
+		// Version 13: Add reconciliation tables for balance reconciliation tracking
+		this.version(13).stores({
+			// Core entities - 13 tables
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]'
 		});
 
 		// Add validation hooks

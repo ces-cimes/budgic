@@ -14,6 +14,7 @@
 export { accountService } from './account-service';
 export { transactionService } from './transaction-service';
 export { dependencyTrackingService } from './dependency-tracking-service';
+export { reconciliationService } from './reconciliation-service';
 export { budgetService } from './budget-service';
 export { goalService } from './goal-service';
 export { userService } from './user-service';

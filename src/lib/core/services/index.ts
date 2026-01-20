@@ -1,6 +1,6 @@
 /**
  * Budgic Services
- * 
+ *
  * Centralized service exports organized by category for better maintainability.
  * All services follow consistent patterns and are designed to be stateless and testable.
  */
@@ -19,12 +19,14 @@ export * from './import-export';
 
 // Re-export types from db for convenience
 export type {
-    Account,
-    Currency,
-    Category,
-    Transaction,
-    UserPreferences,
-    UserAction,
-    Goal,
-    Insight
+	Account,
+	Currency,
+	Category,
+	Transaction,
+	UserPreferences,
+	UserAction,
+	Goal,
+	Insight,
+	ReconciliationRecord,
+	ReconciliationDiscrepancy
 } from '../db';
