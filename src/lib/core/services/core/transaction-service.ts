@@ -42,6 +42,7 @@ class TransactionService {
         if (transaction.type === 'transfer' && transaction.transferDetails) {
             const toAccountId = transaction.transferDetails.toAccountId;
             if (toAccountId && !affectedAccountIds.includes(toAccountId)) {
+                await accountService.recalculateAccountBalance(toAccountId);
                 affectedAccountIds.push(toAccountId);
             }
         }
@@ -134,6 +135,7 @@ class TransactionService {
         if (transaction.type === 'transfer' && transaction.transferDetails) {
             const toAccountId = transaction.transferDetails.toAccountId;
             if (toAccountId && !affectedAccountIds.includes(toAccountId)) {
+                await accountService.recalculateAccountBalance(toAccountId);
                 affectedAccountIds.push(toAccountId);
             }
         }
@@ -334,7 +336,11 @@ class TransactionService {
             }
             // Handle transfers
             if (transaction.type === 'transfer' && transaction.transferDetails?.toAccountId) {
-                affectedAccountIds.push(transaction.transferDetails.toAccountId);
+                const toAccountId = transaction.transferDetails.toAccountId;
+                if (!affectedAccountIds.includes(toAccountId)) {
+                    await accountService.recalculateAccountBalance(toAccountId);
+                    affectedAccountIds.push(toAccountId);
+                }
             }
         }
         
@@ -358,7 +364,11 @@ class TransactionService {
             }
             // Handle transfers
             if (transaction.type === 'transfer' && transaction.transferDetails?.toAccountId) {
-                affectedAccountIds.push(transaction.transferDetails.toAccountId);
+                const toAccountId = transaction.transferDetails.toAccountId;
+                if (!affectedAccountIds.includes(toAccountId)) {
+                    await accountService.recalculateAccountBalance(toAccountId);
+                    affectedAccountIds.push(toAccountId);
+                }
             }
             
             // Clear balance projection cache for affected accounts

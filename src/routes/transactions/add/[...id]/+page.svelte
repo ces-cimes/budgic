@@ -413,13 +413,14 @@
 			};
 
 			// Handle transfer details if it's a transfer
-			if (transactionType === 'transfer' && hasTransferFee) {
+			// transferDetails is required for all transfers, not just those with fees
+			if (transactionType === 'transfer') {
 				transactionData.transferDetails = {
 					toAccountId: toAccountId!,
 					transferAmount: Math.abs(amount),
-					feeAmount: transferFeeAmount,
-					feeAccountId: transferFeeAccountId || selectedAccount,
-					feeCategoryId: transferFeeCategoryId || undefined
+					feeAmount: hasTransferFee ? transferFeeAmount : 0,
+					feeAccountId: hasTransferFee ? (transferFeeAccountId || selectedAccount) : undefined,
+					feeCategoryId: hasTransferFee ? transferFeeCategoryId : undefined
 				};
 			}
 

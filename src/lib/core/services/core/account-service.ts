@@ -244,8 +244,10 @@ class AccountService {
     /**
      * Recalculate account balance from all associated transactions
      * 
-     * This method recalculates the account balance by summing all transactions
-     * associated with the account. Useful for ensuring data consistency.
+     * This method recalculates the account balance by starting from the account's
+     * initial balance and applying the impact of all cleared transactions.
+     * Expenses reduce the balance, income increases it, and transfers are handled
+     * according to their transfer details. Useful for ensuring data consistency.
      * 
      * @param accountId - Account unique identifier
      * @returns Promise resolving to the recalculated balance

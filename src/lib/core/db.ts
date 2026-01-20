@@ -2103,10 +2103,68 @@ export class BudgicDB extends Dexie {
 	}
 
 	async recalculateAccountBalance(accountId: string): Promise<number> {
-		const transactions = await this.getTransactionsByAccount(accountId);
-		const balance = transactions
-			.filter(t => t.status === 'cleared')
-			.reduce((sum, transaction) => sum + (transaction.amount || 0), 0);
+		// Get the account to access initialBalance
+		const account = await this.accounts.get(accountId);
+		if (!account) {
+			throw new Error(`Account ${accountId} not found`);
+		}
+
+		// Start with the initial balance
+		let balance = account.initialBalance || 0;
+
+		// Get all cleared transactions where this account is the source (accountId)
+		const sourceTransactions = await this.getTransactionsByAccount(accountId);
+		const clearedSourceTransactions = sourceTransactions.filter(t => t.status === 'cleared' && !t.deletedAt);
+		
+		// Get all cleared transfer transactions that affect this account
+		// Since IndexedDB doesn't support querying nested fields, we need to get all transfers and filter
+		const allTransfers = await this.transactions
+			.where('type').equals('transfer')
+			.filter(t => !t.deletedAt && t.status === 'cleared')
+			.toArray();
+		
+		// Filter transfers where this account is:
+		// 1. The destination (transferDetails.toAccountId)
+		// 2. The fee account (transferDetails.feeAccountId, if different from source)
+		const affectingTransfers = allTransfers.filter(t => {
+			if (!t.transferDetails || !t.accountId) return false;
+			const { toAccountId, feeAccountId } = t.transferDetails;
+			const sourceAccountId = t.accountId;
+			const feeAccount = feeAccountId || sourceAccountId; // Default fee to source account
+			
+			// Include if this account is the destination
+			if (toAccountId === accountId) {
+				return true;
+			}
+			
+			// Include if this account is the fee account (when different from source)
+			if (feeAccount === accountId && feeAccount !== sourceAccountId) {
+				return true;
+			}
+			
+			return false;
+		});
+		
+		// Combine all transactions that affect this account
+		// Deduplicate by transaction ID to avoid processing the same transaction twice
+		const transactionMap = new Map<string, Transaction>();
+		for (const tx of clearedSourceTransactions) {
+			transactionMap.set(tx.id, tx);
+		}
+		for (const tx of affectingTransfers) {
+			// Only add if not already present (avoid duplicates)
+			// This can happen if a transfer has the same account as both source and destination (shouldn't happen, but be safe)
+			if (!transactionMap.has(tx.id)) {
+				transactionMap.set(tx.id, tx);
+			}
+		}
+		const allAffectingTransactions = Array.from(transactionMap.values());
+		
+		// Apply impact of all transactions
+		for (const transaction of allAffectingTransactions) {
+			const impact = calculateTransactionImpact(transaction, accountId);
+			balance += impact;
+		}
 		
 		await this.updateAccountBalance(accountId, balance);
 		return balance;
