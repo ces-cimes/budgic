@@ -127,7 +127,7 @@
 		/>
 	{/snippet}
 
-	<div class="container mx-auto max-w-6xl px-4 py-4 md:py-6">
+	<div class="container mx-auto max-w-6xl p-2 sm:p-4">
 		{#if account && !isLoading}
 			<!-- Account Balance Card -->
 			<section class="mb-8">
