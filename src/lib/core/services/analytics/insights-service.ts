@@ -1015,7 +1015,20 @@ class InsightsService {
         confidence: number;
         metadata: Record<string, any>;
     } {
-        if (transactions.length === 0) {
+        // Ensure transactions is an array and filter out null/undefined values
+        if (!Array.isArray(transactions) || transactions.length === 0) {
+            return {
+                hasUnusualSpending: false,
+                message: '',
+                confidence: 0,
+                metadata: {}
+            };
+        }
+
+        // Filter out null/undefined transactions
+        const validTransactions = transactions.filter(tx => tx != null);
+
+        if (validTransactions.length === 0) {
             return {
                 hasUnusualSpending: false,
                 message: '',
@@ -1028,12 +1041,12 @@ class InsightsService {
         const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
         const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
         
-        const recentTransactions = transactions.filter(tx => 
+        const recentTransactions = validTransactions.filter(tx => 
             tx.status === 'cleared' && 
             new Date(tx.clearedDate || tx.createdAt).getTime() > sevenDaysAgo
         );
 
-        const historicalTransactions = transactions.filter(tx => 
+        const historicalTransactions = validTransactions.filter(tx => 
             tx.status === 'cleared' && 
             new Date(tx.clearedDate || tx.createdAt).getTime() > thirtyDaysAgo &&
             new Date(tx.clearedDate || tx.createdAt).getTime() <= sevenDaysAgo

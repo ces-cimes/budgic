@@ -80,12 +80,15 @@ class AnalyticsService {
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
         
-        const recentTransactions = transactions.filter(tx => 
-            tx.type === 'expense' && 
-            tx.status === 'cleared' && 
-            tx.clearedDate && 
-            new Date(tx.clearedDate) >= cutoffDate
-        );
+        // First filter out null/undefined transactions, then apply other filters
+        const recentTransactions = transactions
+            .filter(tx => tx != null) // Remove null/undefined transactions
+            .filter(tx => 
+                tx.type === 'expense' && 
+                tx.status === 'cleared' && 
+                tx.clearedDate && 
+                new Date(tx.clearedDate) >= cutoffDate
+            );
 
         // Convert all amounts to main currency
         let totalSpent = 0;
@@ -168,13 +171,16 @@ class AnalyticsService {
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
         
-        const categoryTransactions = transactions.filter((tx: Transaction) => 
-            tx.categoryId === categoryId && 
-            tx.type === 'expense' && 
-            tx.status === 'cleared' && 
-            tx.clearedDate && 
-            new Date(tx.clearedDate) >= cutoffDate
-        );
+        // First filter out null/undefined transactions, then apply other filters
+        const categoryTransactions = transactions
+            .filter((tx: Transaction) => tx != null) // Remove null/undefined transactions
+            .filter((tx: Transaction) => 
+                tx.categoryId === categoryId && 
+                tx.type === 'expense' && 
+                tx.status === 'cleared' && 
+                tx.clearedDate && 
+                new Date(tx.clearedDate) >= cutoffDate
+            );
 
         // Convert all amounts to main currency
         let totalSpent = 0;
@@ -232,12 +238,15 @@ class AnalyticsService {
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
         
-        const recentTransactions = transactions.filter((tx: Transaction) => 
-            tx.type === 'income' && 
-            tx.status === 'cleared' && 
-            tx.clearedDate && 
-            new Date(tx.clearedDate) >= cutoffDate
-        );
+        // First filter out null/undefined transactions, then apply other filters
+        const recentTransactions = transactions
+            .filter((tx: Transaction) => tx != null) // Remove null/undefined transactions
+            .filter((tx: Transaction) => 
+                tx.type === 'income' && 
+                tx.status === 'cleared' && 
+                tx.clearedDate && 
+                new Date(tx.clearedDate) >= cutoffDate
+            );
 
         // Convert all amounts to main currency
         let totalIncome = 0;
@@ -266,11 +275,15 @@ class AnalyticsService {
             
             totalIncome += convertedAmount;
             
-            const account = accounts.find(a => a.id === tx.accountId);
-            const accountName = account?.name || 'Unknown Account';
-            const current = accountIncome.get(tx.accountId) || { name: accountName, amount: 0 };
-            current.amount += convertedAmount;
-            accountIncome.set(tx.accountId, current);
+            // Only process if accountId exists
+            const accountId = tx.accountId;
+            if (accountId) {
+                const account = accounts.find(a => a.id === accountId);
+                const accountName = account?.name || 'Unknown Account';
+                const current = accountIncome.get(accountId) || { name: accountName, amount: 0 };
+                current.amount += convertedAmount;
+                accountIncome.set(accountId, current);
+            }
         }
 
         const averageMonthlyIncome = totalIncome / months;
@@ -355,11 +368,14 @@ class AnalyticsService {
         const cutoffDate = new Date();
         cutoffDate.setMonth(cutoffDate.getMonth() - months);
         
-        const recentTransactions = transactions.filter((tx: Transaction) => 
-            tx.status === 'cleared' && 
-            tx.clearedDate && 
-            new Date(tx.clearedDate) >= cutoffDate
-        );
+        // First filter out null/undefined transactions, then apply other filters
+        const recentTransactions = transactions
+            .filter((tx: Transaction) => tx != null) // Remove null/undefined transactions
+            .filter((tx: Transaction) => 
+                tx.status === 'cleared' && 
+                tx.clearedDate && 
+                new Date(tx.clearedDate) >= cutoffDate
+            );
 
         const monthlyData = new Map<string, { income: number; expenses: number }>();
         
@@ -417,11 +433,14 @@ class AnalyticsService {
     private calculateMonthlyBreakdown(transactions: Transaction[], months: number): { month: string; amount: number }[] {
         const monthlyData = new Map<string, number>();
         
-        transactions.forEach(tx => {
-            const month = new Date(tx.clearedDate!).toISOString().substring(0, 7);
-            const current = monthlyData.get(month) || 0;
-            monthlyData.set(month, current + Math.abs(tx.amount || 0));
-        });
+        // Filter out null/undefined transactions before processing
+        transactions
+            .filter(tx => tx != null && tx.clearedDate) // Remove null/undefined transactions and those without clearedDate
+            .forEach(tx => {
+                const month = new Date(tx.clearedDate!).toISOString().substring(0, 7);
+                const current = monthlyData.get(month) || 0;
+                monthlyData.set(month, current + Math.abs(tx.amount || 0));
+            });
 
         return Array.from(monthlyData.entries())
             .map(([month, amount]) => ({ month, amount }))
@@ -438,7 +457,8 @@ class AnalyticsService {
     ): Promise<{ month: string; amount: number }[]> {
         const monthlyData = new Map<string, number>();
         
-        for (const tx of transactions) {
+        // Filter out null/undefined transactions before processing
+        for (const tx of transactions.filter(tx => tx != null && tx.clearedDate)) {
             const month = new Date(tx.clearedDate!).toISOString().substring(0, 7);
             const current = monthlyData.get(month) || 0;
             
@@ -497,12 +517,15 @@ class AnalyticsService {
         const mainCurrency = preferences?.currency || 'USD';
         
         // Simple implementation - can be enhanced with more sophisticated logic
-        const recentTransactions = transactions.filter(tx => 
-            tx.type === 'expense' && 
-            tx.status === 'cleared' && 
-            tx.clearedDate && 
-            new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-        );
+        // First filter out null/undefined transactions, then apply other filters
+        const recentTransactions = transactions
+            .filter(tx => tx != null) // Remove null/undefined transactions
+            .filter(tx => 
+                tx.type === 'expense' && 
+                tx.status === 'cleared' && 
+                tx.clearedDate && 
+                new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+            );
 
         // Convert all amounts to main currency
         let totalSpending = 0;
@@ -543,11 +566,14 @@ class AnalyticsService {
         const preferences = await userService.getUserPreferences();
         const mainCurrency = preferences?.currency || 'USD';
         
-        const recentTransactions = transactions.filter(tx => 
-            tx.status === 'cleared' && 
-            tx.clearedDate && 
-            new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-        );
+        // First filter out null/undefined transactions, then apply other filters
+        const recentTransactions = transactions
+            .filter(tx => tx != null) // Remove null/undefined transactions
+            .filter(tx => 
+                tx.status === 'cleared' && 
+                tx.clearedDate && 
+                new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+            );
 
         // Convert all amounts to main currency
         let totalIncome = 0;
@@ -625,7 +651,8 @@ class AnalyticsService {
         
         // Convert all income to main currency
         let recentIncome = 0;
-        for (const tx of transactions) {
+        // Filter out null/undefined transactions before processing
+        for (const tx of transactions.filter(tx => tx != null)) {
             if (tx.type === 'income' && tx.status === 'cleared') {
                 const amount = tx.amount || 0;
                 const transactionCurrency = tx.currency || mainCurrency;
@@ -693,7 +720,8 @@ class AnalyticsService {
         
         // Convert all expenses to main currency
         let totalExpenses = 0;
-        for (const tx of transactions) {
+        // Filter out null/undefined transactions before processing
+        for (const tx of transactions.filter(tx => tx != null)) {
             if (tx.type === 'expense' && tx.status === 'cleared') {
                 const amount = Math.abs(tx.amount || 0);
                 const transactionCurrency = tx.currency || mainCurrency;

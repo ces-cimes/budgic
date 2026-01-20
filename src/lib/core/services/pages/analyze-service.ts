@@ -101,10 +101,13 @@ export class AnalyzeService {
     }
     
     // Filter transactions by date using our simplified schema
-    const filteredTransactions = transactions.filter(t => {
-      const transactionDate = new Date(t.clearedDate || t.plannedDate || t.createdAt);
-      return transactionDate >= startDate;
-    });
+    // First filter out null/undefined transactions, then filter by date
+    const filteredTransactions = transactions
+      .filter(t => t != null) // Remove null/undefined transactions
+      .filter(t => {
+        const transactionDate = new Date(t.clearedDate || t.plannedDate || t.createdAt);
+        return transactionDate >= startDate;
+      });
     
     // Calculate spending using our simplified schema (type field)
     const totalSpending = filteredTransactions
@@ -158,8 +161,11 @@ export class AnalyzeService {
     }
     
     // Process transactions to group by category and period
-    transactions.forEach(tx => {
-      if (tx.type === 'expense' && tx.categoryId) {
+    // First filter out null/undefined transactions
+    transactions
+      .filter(tx => tx != null) // Remove null/undefined transactions
+      .forEach(tx => {
+        if (tx.type === 'expense' && tx.categoryId) {
         const transactionDate = new Date(tx.clearedDate || tx.plannedDate || tx.createdAt);
         const amount = Math.abs(tx.amount || 0);
         

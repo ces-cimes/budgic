@@ -24,7 +24,7 @@
     isLoading = true;
     error = null;
     try {
-      spendingPatterns = await insightsService.analyzeSpendingPatterns(days);
+      spendingPatterns = await insightsService.analyzeSpendingPatternsAsync(days);
     } catch (err) {
       console.error('Error loading spending patterns:', err);
       error = err instanceof Error ? err.message : 'Failed to load spending patterns';

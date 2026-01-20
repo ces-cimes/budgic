@@ -20,7 +20,7 @@
   const timeRangeOptions = ['week', 'month', 'quarter', 'year'];
 </script>
 
-<div class="p-4 space-y-6">
+<div class="p-2 sm:p-4 space-y-6">
   <!-- Time Range Selector -->
   <TimeRangeSelector
     value={timeRange}
