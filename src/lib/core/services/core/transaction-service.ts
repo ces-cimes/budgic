@@ -448,17 +448,45 @@ class TransactionService {
      * Get transactions by date range
      */
     async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
-        return await db.transactions
-            .where('clearedDate')
-            .between(startDate, endDate)
-            .toArray();
+        console.log('[TransactionService] getTransactionsByDateRange called:', { startDate, endDate });
+        try {
+            const transactions = await db.transactions
+                .where('clearedDate')
+                .between(startDate, endDate)
+                .toArray();
+            console.log('[TransactionService] Retrieved', transactions.length, 'transactions');
+            console.log('[TransactionService] Transaction check:', transactions.map(tx => ({
+                id: tx?.id,
+                isUndefined: tx === undefined,
+                isNull: tx === null,
+                hasDeletedAt: tx ? 'deletedAt' in tx : 'N/A'
+            })).slice(0, 5));
+            return transactions;
+        } catch (error) {
+            console.error('[TransactionService] Error in getTransactionsByDateRange:', error);
+            throw error;
+        }
     }
 
     /**
      * Get transactions by status
      */
     async getTransactionsByStatus(status: Transaction['status']): Promise<Transaction[]> {
-        return await db.transactions.where('status').equals(status).toArray();
+        console.log('[TransactionService] getTransactionsByStatus called:', { status });
+        try {
+            const transactions = await db.transactions.where('status').equals(status).toArray();
+            console.log('[TransactionService] Retrieved', transactions.length, 'transactions by status');
+            console.log('[TransactionService] Transaction check:', transactions.map(tx => ({
+                id: tx?.id,
+                isUndefined: tx === undefined,
+                isNull: tx === null,
+                hasDeletedAt: tx ? 'deletedAt' in tx : 'N/A'
+            })).slice(0, 5));
+            return transactions;
+        } catch (error) {
+            console.error('[TransactionService] Error in getTransactionsByStatus:', error);
+            throw error;
+        }
     }
 
     // ============================================================================

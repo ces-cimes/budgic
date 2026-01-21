@@ -21,4 +21,5 @@ export { appUsageAnalyticsService } from './app-usage-analytics-service';
 export { recommendationService } from './recommendation-service';
 export { balanceProjectionService } from './balance-projection-service';
 export { feeAvoidanceService } from './fee-avoidance-service';
+export { optimizationService } from './optimization-service';
 export { notificationsService } from '../notifications-service';

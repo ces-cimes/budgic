@@ -100,7 +100,21 @@ class AccountService {
      * ```
      */
     async getAccounts(): Promise<Account[]> {
-        return await db.getActiveAccounts();
+        console.log('[AccountService] getAccounts called');
+        try {
+            const accounts = await db.getActiveAccounts();
+            console.log('[AccountService] Retrieved', accounts.length, 'accounts');
+            console.log('[AccountService] Account check:', accounts.map(acc => ({
+                id: acc?.id,
+                isUndefined: acc === undefined,
+                isNull: acc === null,
+                hasDeletedAt: acc ? 'deletedAt' in acc : 'N/A'
+            })).slice(0, 5));
+            return accounts;
+        } catch (error) {
+            console.error('[AccountService] Error in getAccounts:', error);
+            throw error;
+        }
     }
 
     /**

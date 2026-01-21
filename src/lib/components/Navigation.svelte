@@ -15,6 +15,7 @@
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 
 	// Icon mapping
 	const iconMap: Record<string, any> = {
@@ -26,7 +27,8 @@
 		'calendar': CalendarIcon,
 		'bell': BellIcon,
 		'settings': SettingsIcon,
-		'credit-card': CreditCardIcon
+		'credit-card': CreditCardIcon,
+		'sparkles': SparklesIcon
 	};
 
 	function isActive(path: string) {

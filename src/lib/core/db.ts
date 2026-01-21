@@ -1822,27 +1822,52 @@ export class BudgicDB extends Dexie {
 
 	private setupSoftDeleteHooks() {
 		// Soft delete handling - exclude deleted items by default
+		// Note: obj can be undefined, so we need to check for it first
 		this.accounts.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] accounts: obj is undefined', new Error().stack);
+				return undefined;
+			}
 			return obj.deletedAt ? undefined : obj;
 		});
 
 		this.currencies.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] currencies: obj is undefined', new Error().stack);
+				return undefined;
+			}
 			return obj.deletedAt ? undefined : obj;
 		});
 
 		this.currencyConfigurations.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] currencyConfigurations: obj is undefined', new Error().stack);
+				return undefined;
+			}
 			return obj.deletedAt ? undefined : obj;
 		});
 
 		this.categories.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] categories: obj is undefined', new Error().stack);
+				return undefined;
+			}
 			return obj.deletedAt ? undefined : obj;
 		});
 
 		this.transactions.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] transactions: obj is undefined', new Error().stack);
+				return undefined;
+			}
 			return obj.deletedAt ? undefined : obj;
 		});
 
 		this.userActions.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] userActions: obj is undefined', new Error().stack);
+				return undefined;
+			}
 			return obj.deletedAt ? undefined : obj;
 		});
 	}
@@ -2106,7 +2131,23 @@ export class BudgicDB extends Dexie {
 
 	// Account queries
 	async getActiveAccounts(): Promise<Account[]> {
-		return await this.accounts.filter((account) => !account.deletedAt).toArray();
+		console.log('[DB] getActiveAccounts called');
+		try {
+			const accounts = await this.accounts.toArray();
+			console.log('[DB] Raw accounts from DB:', accounts.length);
+			const filtered = accounts.filter((account) => {
+				if (!account) {
+					console.warn('[DB] Found undefined account in getActiveAccounts');
+					return false;
+				}
+				return !account.deletedAt;
+			});
+			console.log('[DB] Filtered active accounts:', filtered.length);
+			return filtered;
+		} catch (error) {
+			console.error('[DB] Error in getActiveAccounts:', error);
+			throw error;
+		}
 	}
 
 	async getAccountsByType(type: Account['type']): Promise<Account[]> {

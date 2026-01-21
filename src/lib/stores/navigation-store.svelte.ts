@@ -157,6 +157,15 @@ class NavigationStore {
 					showInDesktop: true
 				},
 				{
+					id: 'optimization',
+					label: 'Optimization',
+					path: '/optimization',
+					icon: 'sparkles',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true
+				},
+				{
 					id: 'accounts',
 					label: 'Accounts',
 					path: '/accounts',

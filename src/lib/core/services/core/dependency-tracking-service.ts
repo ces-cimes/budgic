@@ -335,14 +335,22 @@ class DependencyTrackingService {
 		const path: string[] = [];
 
 		const dfs = async (currentId: string): Promise<void> => {
+			// Check if transaction exists before processing
+			const current = await db.transactions.get(currentId);
+			if (!current) {
+				console.warn('[DependencyTracking] Transaction not found in cycle detection:', currentId);
+				return; // Skip if transaction doesn't exist
+			}
+
 			visited.add(currentId);
 			recursionStack.add(currentId);
 			path.push(currentId);
 
-			const current = await db.transactions.get(currentId);
-			const dependencies = current?.dependencies || [];
+			const dependencies = current.dependencies || [];
 
 			for (const depId of dependencies) {
+				if (!depId) continue; // Skip invalid dependency IDs
+				
 				if (!visited.has(depId)) {
 					await dfs(depId);
 				} else if (recursionStack.has(depId)) {
