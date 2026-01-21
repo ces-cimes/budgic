@@ -809,7 +809,10 @@ const AccountMetadataSchema = z.object({
 	lastReconciledDate: z.string().datetime().optional(), // Last reconciliation date
 
 	// Buffer management (will be calculated, but can be overridden)
-	bufferAmount: z.number().min(0).optional() // User-defined buffer amount
+	bufferAmount: z.number().min(0).optional(), // User-defined buffer amount
+	
+	// Emergency fund designation
+	isEmergencyFund: z.boolean().optional() // Designate this account as part of emergency fund
 });
 
 // Account Schema
@@ -1041,7 +1044,15 @@ const UserPreferencesSchema = BaseSchema.extend({
 
 	// Privacy and Data Preferences
 	analyticsEnabled: z.boolean().default(true),
-	backupEnabled: z.boolean().default(true)
+	backupEnabled: z.boolean().default(true),
+	
+	// Emergency Fund Preferences
+	emergencyFundTargetMonths: z.number().min(3).max(12).default(6), // Target months of expenses (3-12)
+	emergencyFundIncomeStability: z.enum(['stable', 'irregular']).default('stable'), // Income stability
+	emergencyFundJobType: z.enum(['regular', 'contractor', 'seasonal']).default('regular'), // Job type
+	emergencyFundDependents: z.number().min(0).default(0), // Number of dependents
+	emergencyFundHealthNeeds: z.enum(['none', 'low', 'medium', 'high']).default('none'), // Health needs level
+	emergencyFundInsuranceGaps: z.number().min(0).default(0) // Insurance gap amount (deductibles, etc.)
 });
 
 // User Actions Schema

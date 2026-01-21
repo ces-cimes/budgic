@@ -2,6 +2,7 @@
   import InsightList from '../shared/InsightList.svelte';
   import RecommendationsList from '../RecommendationsList.svelte';
   import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
+  import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
   import { Loader2, Lightbulb, RefreshCw, Plus, AlertCircle, AlertTriangle, Info, CheckCircle2 } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button/index.ts';
   import * as Card from '$lib/components/ui/card/index.ts';
@@ -205,6 +206,14 @@
         <CreditUtilizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
       </div>
     {/if}
+
+    <!-- Emergency Fund Status -->
+    <div>
+      <div class="flex items-center justify-between mb-3 sm:mb-4">
+        <h2 class="text-base sm:text-lg font-semibold text-foreground">Emergency Fund Status</h2>
+      </div>
+      <EmergencyFundVisualization showDetails={true} showRecommendations={true} />
+    </div>
 
     <!-- Recommendations -->
     <div>

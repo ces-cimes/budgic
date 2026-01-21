@@ -25,4 +25,5 @@ export { balanceProjectionService } from './balance-projection-service';
 export { feeAvoidanceService } from './fee-avoidance-service';
 export { optimizationService } from './optimization-service';
 export { creditUtilizationService } from './credit-utilization-service';
+export { emergencyFundService } from './emergency-fund-service';
 export { notificationsService } from '../notifications-service';

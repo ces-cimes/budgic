@@ -4,6 +4,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import { OptimizationResultVisualization } from '$lib/components/optimization';
 	import { optimizationService, accountService } from '$lib/core/services';
+	import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
 	import type { OptimizationResult, OptimizedPlan, OptimizationHistoryEntry } from '$lib/core/services/analytics/optimization-service';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
@@ -134,6 +135,19 @@
 					</Card.Content>
 				</Card.Root>
 			{/if}
+
+			<!-- Emergency Fund Status -->
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Emergency Fund Status</Card.Title>
+					<Card.Description>
+						Monitor your emergency fund to ensure adequate financial protection
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					<EmergencyFundVisualization showDetails={true} showRecommendations={true} />
+				</Card.Content>
+			</Card.Root>
 
 			<!-- Account Selection -->
 			<Card.Root>

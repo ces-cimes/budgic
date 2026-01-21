@@ -14,6 +14,7 @@
   import type { Account } from '$lib/core/db';
   import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
   import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
+  import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
   
   const { data } = $props<{ data: any }>();
 
@@ -140,6 +141,16 @@
       <div class="bg-card border-border rounded-xl border p-6 shadow-sm">
         <h2 class="text-primary mb-4 text-xl font-semibold">Interest Analysis Overview</h2>
         <InterestOptimizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
+      </div>
+    </section>
+  {/if}
+
+  <!-- Emergency Fund Overview -->
+  {#if accounts.some((acc: Account) => acc.metadata?.isEmergencyFund || acc.type === 'savings')}
+    <section class="mb-8">
+      <div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+        <h2 class="text-primary mb-4 text-xl font-semibold">Emergency Fund Status</h2>
+        <EmergencyFundVisualization showDetails={true} showRecommendations={true} />
       </div>
     </section>
   {/if}

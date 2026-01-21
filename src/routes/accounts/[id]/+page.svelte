@@ -14,6 +14,7 @@ import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualizat
 import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
 import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
+import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
 import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import { planService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
@@ -186,6 +187,16 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
 						<h2 class="text-primary mb-4 text-xl font-semibold">Interest Analysis</h2>
 						<InterestOptimizationVisualization {account} showDetails={true} showRecommendations={true} />
+					</div>
+				</section>
+			{/if}
+
+			<!-- Emergency Fund Status -->
+			{#if account && account.metadata?.isEmergencyFund}
+				<section class="mb-8">
+					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+						<h2 class="text-primary mb-4 text-xl font-semibold">Emergency Fund Status</h2>
+						<EmergencyFundVisualization showDetails={true} showRecommendations={true} />
 					</div>
 				</section>
 			{/if}

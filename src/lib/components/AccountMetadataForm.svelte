@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
+	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import { LabelWithTooltip } from '$lib/components/forms';
 	import type { Account, AccountMetadata } from '$lib/core/db';
 	import {
@@ -40,7 +41,7 @@
 		}
 	});
 
-	function updateField(field: keyof AccountMetadata, value: string | number | undefined) {
+	function updateField(field: keyof AccountMetadata, value: string | number | boolean | undefined) {
 		if (value === '' || value === null) {
 			const newMetadata = { ...metadataState };
 			delete newMetadata[field];
@@ -175,6 +176,8 @@
 				return 'Day of month when payment is due (1-31)';
 			case 'bufferAmount':
 				return 'Safety buffer amount to maintain in account';
+			case 'isEmergencyFund':
+				return 'Designate this account as part of your emergency fund for tracking and recommendations';
 			default:
 				return 'Optional field for account optimization';
 		}
@@ -193,7 +196,17 @@
 		
 		<!-- Input -->
 		<div>
-			{#if field === 'accountType' && accountType === 'investment'}
+			{#if field === 'isEmergencyFund'}
+				<div class="flex items-center space-x-2">
+					<Switch.Root
+						checked={metadataState?.[field] === true}
+						onCheckedChange={(checked) => updateField(field, checked)}
+					/>
+					<Label.Root for={field} class="font-normal text-sm">
+						Use this account for emergency fund tracking
+					</Label.Root>
+				</div>
+			{:else if field === 'accountType' && accountType === 'investment'}
 				{@const fieldValue = metadataState?.[field] ?? ''}
 				<select
 					id={field}

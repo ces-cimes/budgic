@@ -14,7 +14,7 @@ export function getRelevantMetadataFields(accountType: Account['type']): Array<k
 		case 'checking':
 			return ['minimumBalance', 'overdraftLimit', 'overdraftFee', 'bufferAmount'] as Array<keyof AccountMetadata>;
 		case 'savings':
-			return ['interestRate', 'transferLimit', 'transferDelayDays', 'bufferAmount'] as Array<keyof AccountMetadata>;
+			return ['interestRate', 'transferLimit', 'transferDelayDays', 'bufferAmount', 'isEmergencyFund'] as Array<keyof AccountMetadata>;
 		case 'credit':
 			return [
 				'creditLimit',
@@ -441,7 +441,8 @@ export function formatMetadataFieldLabel(field: keyof AccountMetadata): string {
 		accountType: 'Account Type',
 		linkedAccounts: 'Linked Accounts',
 		lastReconciledDate: 'Last Reconciled Date',
-		bufferAmount: 'Buffer Amount'
+		bufferAmount: 'Buffer Amount',
+		isEmergencyFund: 'Emergency Fund Account'
 	};
 
 	return labels[field] || field;

@@ -7,7 +7,9 @@ import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { creditUtilizationService } from './credit-utilization-service';
+import { emergencyFundService } from './emergency-fund-service';
 import { getBufferStatus, getBufferAmount, getBufferDeficit } from '$lib/utils/account-metadata-utils';
+import { formatTransactionAmount } from '$lib/utils/currency-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 
 interface CrossRouteInsightData {
@@ -233,6 +235,10 @@ class InsightsService {
             // Credit utilization insights
             const creditUtilizationInsights = await this.generateCreditUtilizationInsights(crossRouteData.accounts);
             newInsights.push(...creditUtilizationInsights);
+
+            // Emergency fund insights
+            const emergencyFundInsights = await this.generateEmergencyFundInsights();
+            newInsights.push(...emergencyFundInsights);
 
             // Behavioral insights (if enabled)
             if (context.includeBehavioral) {
@@ -736,6 +742,143 @@ class InsightsService {
             }
         } catch (error) {
             console.error('[InsightsService] Error generating credit utilization insights:', error);
+        }
+
+        return insights;
+    }
+
+    // ============================================================================
+    // EMERGENCY FUND INSIGHTS GENERATION
+    // ============================================================================
+
+    /**
+     * Generate insights from emergency fund analysis
+     */
+    private async generateEmergencyFundInsights(): Promise<Insight[]> {
+        const insights: Insight[] = [];
+
+        try {
+            const analysis = await emergencyFundService.analyzeEmergencyFund();
+            if (!analysis) {
+                return insights; // No emergency fund designated
+            }
+
+            // Critical or depleted status
+            if (analysis.status === 'critical' || analysis.status === 'depleted') {
+                const severity = analysis.status === 'depleted' ? 'alert' : 'alert';
+                const userCurrency = 'USD'; // TODO: Get from user preferences
+                
+                insights.push({
+                    id: generateUUID(),
+                    type: 'emergency_fund',
+                    severity,
+                    title: `Emergency Fund ${analysis.status === 'depleted' ? 'Depleted' : 'Critically Low'}`,
+                    message: `Your emergency fund is ${analysis.status === 'depleted' ? 'depleted' : 'critically low'} with only ${analysis.monthsCovered.toFixed(1)} months of expenses covered. Target: ${analysis.factors.targetMonths} months (${formatTransactionAmount(analysis.targetAmount, userCurrency)}). ${analysis.recommendedMonthlyContribution > 0 ? `Contribute ${formatTransactionAmount(analysis.recommendedMonthlyContribution, userCurrency)} monthly to reach target in ${analysis.monthsToTarget} months.` : ''}`,
+                    percentage: analysis.percentageAchieved,
+                    threshold: 100,
+                    amount: analysis.recommendedMonthlyContribution,
+                    confidence: 100,
+                    actionable: true,
+                    actionText: 'View Emergency Fund',
+                    actionUrl: '/insights?tab=optimization',
+                    metadata: JSON.stringify({
+                        currentBalance: analysis.currentBalance,
+                        targetAmount: analysis.targetAmount,
+                        monthsCovered: analysis.monthsCovered,
+                        status: analysis.status,
+                        recommendedContribution: analysis.recommendedMonthlyContribution,
+                        monthsToTarget: analysis.monthsToTarget
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+            // Low status
+            else if (analysis.status === 'low') {
+                const userCurrency = 'USD'; // TODO: Get from user preferences
+                
+                insights.push({
+                    id: generateUUID(),
+                    type: 'emergency_fund',
+                    severity: 'warning',
+                    title: 'Emergency Fund Below Target',
+                    message: `Your emergency fund has ${analysis.monthsCovered.toFixed(1)} months covered, but should aim for ${analysis.factors.targetMonths} months. You're ${analysis.percentageAchieved.toFixed(0)}% of the way to your target. ${analysis.recommendedMonthlyContribution > 0 ? `Contribute ${formatTransactionAmount(analysis.recommendedMonthlyContribution, userCurrency)} monthly to reach target.` : ''}`,
+                    percentage: analysis.percentageAchieved,
+                    threshold: 100,
+                    amount: analysis.recommendedMonthlyContribution,
+                    confidence: 90,
+                    actionable: true,
+                    actionText: 'View Recommendations',
+                    actionUrl: '/insights?tab=optimization',
+                    metadata: JSON.stringify({
+                        currentBalance: analysis.currentBalance,
+                        targetAmount: analysis.targetAmount,
+                        monthsCovered: analysis.monthsCovered,
+                        status: analysis.status,
+                        recommendedContribution: analysis.recommendedMonthlyContribution
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+            // Partial usage warning
+            else if (analysis.partialUsage && analysis.partialUsage.percentageUsed > 0) {
+                const userCurrency = 'USD'; // TODO: Get from user preferences
+                
+                insights.push({
+                    id: generateUUID(),
+                    type: 'emergency_fund',
+                    severity: 'warning',
+                    title: 'Emergency Fund Partially Used',
+                    message: `Your emergency fund has been used (${analysis.partialUsage.percentageUsed.toFixed(0)}% depleted - ${formatTransactionAmount(analysis.partialUsage.amountUsed, userCurrency)}). Prioritize rebuilding to restore your financial safety net. Estimated recovery: ${analysis.partialUsage.recoveryTimeline} months.`,
+                    percentage: 100 - analysis.partialUsage.percentageUsed,
+                    threshold: 100,
+                    amount: analysis.partialUsage.amountUsed,
+                    confidence: 95,
+                    actionable: true,
+                    actionText: 'View Recovery Plan',
+                    actionUrl: '/insights?tab=optimization',
+                    metadata: JSON.stringify({
+                        amountUsed: analysis.partialUsage.amountUsed,
+                        percentageUsed: analysis.partialUsage.percentageUsed,
+                        recoveryTimeline: analysis.partialUsage.recoveryTimeline
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+            // Positive insight for optimal status (occasionally)
+            else if (analysis.status === 'optimal' && Math.random() < 0.1) {
+                insights.push({
+                    id: generateUUID(),
+                    type: 'emergency_fund',
+                    severity: 'success',
+                    title: 'Emergency Fund Fully Funded',
+                    message: `Excellent! Your emergency fund is fully funded with ${analysis.monthsCovered.toFixed(1)} months of expenses covered. You're well protected against unexpected financial emergencies.`,
+                    percentage: analysis.percentageAchieved,
+                    threshold: 100,
+                    confidence: 100,
+                    actionable: false,
+                    metadata: JSON.stringify({
+                        currentBalance: analysis.currentBalance,
+                        targetAmount: analysis.targetAmount,
+                        monthsCovered: analysis.monthsCovered,
+                        status: analysis.status
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+        } catch (error) {
+            console.error('[InsightsService] Error generating emergency fund insights:', error);
         }
 
         return insights;
