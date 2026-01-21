@@ -13,6 +13,7 @@ import BufferVisualization from '$lib/components/accounts/BufferVisualization.sv
 import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
+import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
 import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import { planService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
@@ -175,6 +176,16 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
 						<h2 class="text-primary mb-4 text-xl font-semibold">Credit Utilization</h2>
 						<CreditUtilizationVisualization {account} showDetails={true} showRecommendations={true} />
+					</div>
+				</section>
+			{/if}
+
+			<!-- Interest Optimization -->
+			{#if account && (account.metadata?.interestRate || account.metadata?.apr)}
+				<section class="mb-8">
+					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+						<h2 class="text-primary mb-4 text-xl font-semibold">Interest Analysis</h2>
+						<InterestOptimizationVisualization {account} showDetails={true} showRecommendations={true} />
 					</div>
 				</section>
 			{/if}

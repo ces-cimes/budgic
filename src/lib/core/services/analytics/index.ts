@@ -13,6 +13,7 @@
  */
 
 export { analyticsService } from './analytics-service';
+export { interestOptimizationService } from './interest-optimization-service';
 export { insightsService } from './insights-service';
 export { predictionService } from './prediction-service';
 export { crossRouteSyncService } from './cross-route-sync-service';

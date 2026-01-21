@@ -13,6 +13,7 @@
   import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp } from '@lucide/svelte';
   import type { Account } from '$lib/core/db';
   import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
+  import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
   
   const { data } = $props<{ data: any }>();
 
@@ -129,6 +130,16 @@
       <div class="bg-card border-border rounded-xl border p-6 shadow-sm">
         <h2 class="text-primary mb-4 text-xl font-semibold">Credit Utilization Overview</h2>
         <CreditUtilizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
+      </div>
+    </section>
+  {/if}
+
+  <!-- Interest Optimization Overview -->
+  {#if accounts.some((acc: Account) => acc.metadata?.interestRate || acc.metadata?.apr)}
+    <section class="mb-8">
+      <div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+        <h2 class="text-primary mb-4 text-xl font-semibold">Interest Analysis Overview</h2>
+        <InterestOptimizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
       </div>
     </section>
   {/if}
