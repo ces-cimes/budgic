@@ -22,7 +22,7 @@ import { transactionService } from '../core/transaction-service';
 import { dependencyTrackingService } from '../core/dependency-tracking-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { feeAvoidanceService } from './fee-avoidance-service';
-import { getBufferAmount, getBufferStatus } from '$lib/utils/account-metadata-utils';
+import { getBufferAmount, getBufferStatus, getBufferThresholds } from '$lib/utils/account-metadata-utils';
 import { getMaxFlexibilityDays, validateFlexibilityMovement } from '$lib/utils/flexibility-tier-utils';
 import { 
 	addDays, 
@@ -406,35 +406,27 @@ class OptimizationService {
 			console.log('[Optimization] Found', transactions.length, 'planned transactions for validation');
 
 			// Validate dependency graph
-			for (const tx of transactions) {
-				if (tx.dependencies && tx.dependencies.length > 0) {
-					const validation = await dependencyTrackingService.validateDependencies(tx.id);
-					if (!validation.isValid) {
-						errors.push(...validation.errors);
-					}
-					if (validation.warnings.length > 0) {
-						warnings.push(...validation.warnings);
-					}
-				}
-			}
-
-			// Check for circular dependencies
-			// Note: detectCircularDependencies takes a single transactionId, not an array
-			// We need to check each transaction individually
+			// Note: validateDependencyGraph already checks for circular dependencies internally
 			const checkedTransactions = new Set<string>();
 			for (const tx of transactions) {
 				if (!tx || !tx.id) continue;
 				if (checkedTransactions.has(tx.id)) continue; // Avoid checking same transaction twice
 				checkedTransactions.add(tx.id);
 				
-				try {
-					const cycles = await dependencyTrackingService.detectCircularDependencies(tx.id);
-					if (cycles && cycles.length > 0) {
-						errors.push(`Circular dependencies detected for transaction ${tx.id}`);
+				// Only validate transactions that have dependencies
+				if (tx.dependencies && tx.dependencies.length > 0) {
+					try {
+						const validation = await dependencyTrackingService.validateDependencyGraph(tx.id);
+						if (!validation.isValid) {
+							errors.push(...validation.errors);
+						}
+						if (validation.warnings && validation.warnings.length > 0) {
+							warnings.push(...validation.warnings);
+						}
+					} catch (error) {
+						console.error('[Optimization] Error validating dependencies for transaction', tx.id, error);
+						warnings.push(`Could not validate dependencies for transaction ${tx.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 					}
-				} catch (error) {
-					console.error('[Optimization] Error checking circular dependencies for transaction', tx.id, error);
-					warnings.push(`Could not validate dependencies for transaction ${tx.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 				}
 			}
 		} catch (error) {
@@ -742,9 +734,18 @@ class OptimizationService {
 
 		// Check hard constraints (critical thresholds)
 		for (const projection of projections) {
+			// Get account to determine proper buffer thresholds
+			const account = await accountService.getAccount(projection.accountId);
+			if (!account) continue;
+
+			// Use account-specific buffer thresholds if available, otherwise use constraints or defaults
 			const accountConstraints = constraints.accountConstraints?.get(projection.accountId);
-			const criticalThreshold = accountConstraints?.criticalThreshold || 
-				constraints.criticalThreshold || 0;
+			const bufferThresholds = getBufferThresholds(account);
+			
+			// Priority: accountConstraints > constraints > account buffer thresholds > 0
+			const criticalThreshold = accountConstraints?.criticalThreshold ?? 
+				constraints.criticalThreshold ?? 
+				bufferThresholds.critical;
 
 			for (const daily of projection.projections) {
 				if (daily.balance < criticalThreshold) {
@@ -758,6 +759,23 @@ class OptimizationService {
 
 	/**
 	 * Evaluate plan score
+	 * 
+	 * The score is a composite metric that evaluates the financial health of a transaction plan:
+	 * - Lower (more negative) scores indicate more problems (buffer violations, fees, etc.)
+	 * - Higher (less negative or positive) scores indicate better financial position
+	 * 
+	 * Score components:
+	 * 1. Buffer violations: Penalties for balances below critical/warning/comfort thresholds
+	 *    - Critical: -10,000 per day per violation (balance below 50% of buffer)
+	 *    - Warning: -100 * deficit per day (balance below buffer level)
+	 *    - Comfort: -10 * deficit per day (balance below 125% of buffer)
+	 * 2. Transaction delays: Penalty for moving high-priority transactions
+	 *    - Penalty = priority * days moved * delayPenalty weight
+	 * 3. Fee avoidance: Reward for avoiding fees
+	 *    - Reward = fees avoided * feeAvoidance weight
+	 * 
+	 * The absolute score value is less important than the improvement (optimized - baseline).
+	 * A positive improvement means the optimized plan is better than the baseline.
 	 */
 	private async evaluatePlan(
 		plan: Map<string, Transaction>,
@@ -791,13 +809,32 @@ class OptimizationService {
 		// Evaluate buffer violations
 		const constraints = options.constraints || {};
 		for (const projection of projections) {
+			// Get account to determine proper buffer thresholds
+			const account = await accountService.getAccount(projection.accountId);
+			if (!account) continue;
+
+			// Use account-specific buffer thresholds if available, otherwise use constraints or defaults
 			const accountConstraints = constraints.accountConstraints?.get(projection.accountId);
-			const criticalThreshold = accountConstraints?.criticalThreshold || 
-				constraints.criticalThreshold || 0;
-			const warningThreshold = accountConstraints?.warningThreshold || 
-				constraints.warningThreshold || 0;
-			const comfortThreshold = accountConstraints?.comfortThreshold || 
-				constraints.comfortThreshold || 0;
+			const bufferThresholds = getBufferThresholds(account);
+			
+			// Priority: accountConstraints > constraints > account buffer thresholds
+			// If all are 0 or undefined, skip buffer violation checks for this account
+			// (this prevents massive penalties when accounts have no buffer requirements)
+			const criticalThreshold = accountConstraints?.criticalThreshold ?? 
+				constraints.criticalThreshold ?? 
+				bufferThresholds.critical;
+			const warningThreshold = accountConstraints?.warningThreshold ?? 
+				constraints.warningThreshold ?? 
+				bufferThresholds.warning;
+			const comfortThreshold = accountConstraints?.comfortThreshold ?? 
+				constraints.comfortThreshold ?? 
+				bufferThresholds.comfort;
+
+			// Only check buffer violations if we have meaningful thresholds
+			// If all thresholds are 0, the account has no buffer requirements
+			if (criticalThreshold === 0 && warningThreshold === 0 && comfortThreshold === 0) {
+				continue; // Skip buffer violation checks for accounts with no buffer requirements
+			}
 
 			for (const daily of projection.projections) {
 				if (daily.balance < criticalThreshold) {

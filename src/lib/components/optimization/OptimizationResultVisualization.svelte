@@ -65,6 +65,23 @@
 		loadTransactions();
 	});
 
+	// Format score for display (normalize large numbers)
+	function formatScore(score: number): string {
+		const absScore = Math.abs(score);
+		
+		// For very large numbers, use scientific notation or scale down
+		if (absScore >= 1_000_000) {
+			// Show in millions
+			return `${(score / 1_000_000).toFixed(2)}M`;
+		} else if (absScore >= 1_000) {
+			// Show in thousands
+			return `${(score / 1_000).toFixed(2)}K`;
+		} else {
+			// Show as-is for smaller numbers
+			return score.toFixed(2);
+		}
+	}
+
 	// Calculate improvement percentage
 	const improvementPercentage = $derived(() => {
 		if (result.baselineScore === 0) return 0;
@@ -168,26 +185,48 @@
 					</div>
 				</Card.Header>
 				<Card.Content class="space-y-4">
+					<!-- Score Explanation -->
+					<div class="p-3 rounded-lg bg-muted/50 border border-border">
+						<div class="flex items-start gap-2">
+							<AlertCircle class="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+							<div class="text-xs text-muted-foreground space-y-1">
+								<p class="font-medium text-foreground">About the Score:</p>
+								<p>
+									The optimization score evaluates your financial plan's health. Lower (more negative) scores indicate more issues like buffer violations or fees. 
+									The <strong>improvement</strong> value shows how much better the optimized plan is compared to your current plan. 
+									A positive improvement means the optimization found a better arrangement.
+								</p>
+							</div>
+						</div>
+					</div>
+
 					<!-- Score Comparison -->
 					<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<div class="space-y-2">
 							<div class="text-sm text-muted-foreground">Baseline Score</div>
-							<div class="text-2xl font-semibold">{result.baselineScore.toFixed(2)}</div>
+							<div class="text-2xl font-semibold">{formatScore(result.baselineScore)}</div>
+							<div class="text-xs text-muted-foreground">Current plan</div>
+							<div class="text-xs text-muted-foreground/70">Raw: {result.baselineScore.toFixed(0)}</div>
 						</div>
 						<div class="space-y-2">
 							<div class="text-sm text-muted-foreground">Optimized Score</div>
 							<div class="text-2xl font-semibold text-primary">
-								{result.optimizedScore.toFixed(2)}
+								{formatScore(result.optimizedScore)}
 							</div>
+							<div class="text-xs text-muted-foreground">Suggested plan</div>
+							<div class="text-xs text-muted-foreground/70">Raw: {result.optimizedScore.toFixed(0)}</div>
 						</div>
 						<div class="space-y-2">
 							<div class="text-sm text-muted-foreground">Improvement</div>
 							<div class="text-2xl font-semibold text-green-600 dark:text-green-400">
-								+{result.improvement.toFixed(2)}
+								{result.improvement >= 0 ? '+' : ''}{formatScore(result.improvement)}
 							</div>
 							<div class="text-xs text-muted-foreground">
 								({improvementPercentage().toFixed(1)}% better)
 							</div>
+							{#if Math.abs(result.improvement) >= 1_000}
+								<div class="text-xs text-muted-foreground/70">Raw: {result.improvement >= 0 ? '+' : ''}{result.improvement.toFixed(0)}</div>
+							{/if}
 						</div>
 					</div>
 
