@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RefreshCcw, Clock, CheckCircle, AlertCircle, XCircle, Split, ChevronDown, Tag } from '@lucide/svelte';
+	import { RefreshCcw, Split, ChevronDown, Tag } from '@lucide/svelte';
 	import type { Transaction, Category } from '$lib/core/db';
 	import { longpress } from '$lib/actions/longpress';
 	import { formatTransactionAmount, formatTransferAmount } from '$lib/utils/currency-utils';
@@ -7,6 +7,7 @@
 	import { getPriorityName, getPriorityColor } from '$lib/utils/priority-utils';
 	import { isUncategorizedCategory } from '$lib/utils/category-utils';
 	import { dateUtils } from '$lib/utils/date-utils';
+	import { getWaterfallTierStyle, getWaterfallTierBorder, getWaterfallTierLabel } from '$lib/utils/waterfall-tier-utils';
 
 	interface Props {
 		transaction: Transaction | any; // Allow grouped transaction objects
@@ -42,25 +43,25 @@
 		defaultExpanded = false
 	}: Props = $props();
 
-	// Date formatting using timezone-safe utilities
-	// Dates are stored in UTC but displayed in user's local timezone
-	const formatDate = (dateString: string) => {
+	// Extract time (HH:MM) from date string - timezone-safe
+	const getTime = (dateString: string | undefined): string => {
+		if (!dateString) return '';
 		try {
-			// Use timezone-safe formatting that correctly handles UTC -> local conversion
-			return dateUtils.formatDateForDisplay(dateString, { showTime: true });
+			const date = new Date(dateString);
+			const hours = date.getHours().toString().padStart(2, '0');
+			const minutes = date.getMinutes().toString().padStart(2, '0');
+			return `${hours}:${minutes}`;
 		} catch {
 			return '';
 		}
 	};
 
-	// Get primary display date
-	const displayDate = $derived(() => {
-		if (!showDate) return '';
-		
+	// Get time for display (HH:MM format only)
+	const displayTime = $derived(() => {
 		if (transaction.status === 'planned') {
-			return transaction.plannedDate ? formatDate(transaction.plannedDate) : '';
+			return getTime(transaction.plannedDate);
 		} else {
-			return transaction.clearedDate ? formatDate(transaction.clearedDate) : '';
+			return getTime(transaction.clearedDate);
 		}
 	});
 
@@ -70,50 +71,75 @@
 		return new Date(transaction.plannedDate) < new Date();
 	});
 
-	// Get status icon and container styling with Tailwind colors
+	// Get status border styling - asymmetric border system
 	const statusInfo = $derived(() => {
 		switch (transaction.status) {
 			case 'planned':
 				if (isOverdue()) {
 					return {
-						icon: AlertCircle,
-						containerClass: 'border-2 border-dashed border-alert bg-alert/10 shadow-alert/20 animate-pulse',
-						iconClass: 'text-alert',
+						// Main border: dashed, left side wider and colored
+						mainBorderClass: 'border-2 border-dashed border-alert',
+						leftBorderClass: 'border-l-6 border-l-alert',
+						bgClass: 'bg-alert/10',
+						shadowClass: 'shadow-alert/20',
+						animateClass: 'animate-pulse',
+						borderStyle: 'border-dashed',
+						borderColor: 'border-alert',
 						urgency: 'high'
 					};
 				}
 				return {
-					icon: Clock,
-					containerClass: 'border-2 border-dashed border-info bg-info/5 shadow-info/10',
-					iconClass: 'text-info',
+					mainBorderClass: 'border-2 border-dashed border-info',
+					leftBorderClass: 'border-l-6 border-l-info',
+					bgClass: 'bg-info/5',
+					shadowClass: 'shadow-info/10',
+					animateClass: '',
+					borderStyle: 'border-dashed',
+					borderColor: 'border-info',
 					urgency: 'medium'
 				};
 			case 'pending':
 				return {
-					icon: AlertCircle,
-					containerClass: 'border-2 border-warning bg-warning/5 shadow-warning/10',
-					iconClass: 'text-warning',
+					mainBorderClass: 'border-2 border-solid border-warning',
+					leftBorderClass: 'border-l-8 border-l-warning',
+					bgClass: 'bg-warning/5',
+					shadowClass: 'shadow-warning/10',
+					animateClass: '',
+					borderStyle: 'border-solid',
+					borderColor: 'border-warning',
 					urgency: 'medium'
 				};
 			case 'cleared':
 				return {
-					icon: CheckCircle,
-					containerClass: 'border-2 border-sage-green bg-sage-green/5 shadow-sage-green/10',
-					iconClass: 'text-success',
+					mainBorderClass: 'border-2 border-solid border-sage-green',
+					leftBorderClass: 'border-l-8 border-l-sage-green',
+					bgClass: 'bg-sage-green/5',
+					shadowClass: 'shadow-sage-green/10',
+					animateClass: '',
+					borderStyle: 'border-solid',
+					borderColor: 'border-sage-green',
 					urgency: 'low'
 				};
 			case 'cancelled':
 				return {
-					icon: XCircle,
-					containerClass: 'border-2 border-text-disabled bg-text-disabled/5 shadow-text-disabled/10',
-					iconClass: 'text-text-disabled',
+					mainBorderClass: 'border-2 border-dotted border-text-disabled',
+					leftBorderClass: 'border-l-6 border-l-text-disabled',
+					bgClass: 'bg-text-disabled/5',
+					shadowClass: 'shadow-text-disabled/10',
+					animateClass: '',
+					borderStyle: 'border-dotted',
+					borderColor: 'border-text-disabled',
 					urgency: 'low'
 				};
 			default:
 				return {
-					icon: CheckCircle,
-					containerClass: 'border-2 border-text-disabled bg-text-disabled/5 shadow-text-disabled/10',
-					iconClass: 'text-text-disabled',
+					mainBorderClass: 'border-2 border-solid border-text-disabled',
+					leftBorderClass: 'border-l-8 border-l-text-disabled',
+					bgClass: 'bg-text-disabled/5',
+					shadowClass: 'shadow-text-disabled/10',
+					animateClass: '',
+					borderStyle: 'border-solid',
+					borderColor: 'border-text-disabled',
 					urgency: 'low'
 				};
 		}
@@ -171,6 +197,27 @@
 	// State for grouped transaction expansion
 	let isExpanded = $state(defaultExpanded);
 	
+	// State for loaded categories in grouped transactions
+	let groupTransactionCategories = $state<Map<string, Category | null>>(new Map());
+	
+	// Load categories for grouped transactions
+	$effect(() => {
+		if (isGroup && isExpanded && groupTransactions.length > 0) {
+			groupTransactions.forEach(async (tx) => {
+				if (tx.categoryId && !groupTransactionCategories.has(tx.id)) {
+					try {
+						const cat = await db.categories.get(tx.categoryId);
+						groupTransactionCategories.set(tx.id, cat || null);
+					} catch {
+						groupTransactionCategories.set(tx.id, null);
+					}
+				} else if (!tx.categoryId) {
+					groupTransactionCategories.set(tx.id, null);
+				}
+			});
+		}
+	});
+	
 	// Toggle expansion for grouped transactions
 	function toggleExpansion() {
 		if (isGroup) {
@@ -213,6 +260,8 @@
 
 	// Check if transaction is uncategorized
 	let category = $state<Category | null>(null);
+	let account = $state<any>(null);
+	
 	let isUncategorized = $derived(() => {
 		if (isTransfer() || transaction.type !== 'expense') return false;
 		if (isGroup) {
@@ -222,14 +271,26 @@
 		return category ? isUncategorizedCategory(category) : false;
 	});
 
-	// Load category for display (for both income and expense transactions)
+	// Load category and account for display
 	$effect(() => {
-		if (!isGroup && transaction.categoryId && (transaction.type === 'expense' || transaction.type === 'income')) {
-			db.categories.get(transaction.categoryId).then(cat => {
-				category = cat || null;
-			}).catch(() => {
-				category = null;
-			});
+		if (!isGroup) {
+			// Load category
+			if (transaction.categoryId && (transaction.type === 'expense' || transaction.type === 'income')) {
+				db.categories.get(transaction.categoryId).then(cat => {
+					category = cat || null;
+				}).catch(() => {
+					category = null;
+				});
+			}
+			
+			// Load account
+			if (transaction.accountId) {
+				db.accounts.get(transaction.accountId).then(acc => {
+					account = acc || null;
+				}).catch(() => {
+					account = null;
+				});
+			}
 		}
 	});
 
@@ -251,30 +312,31 @@
 		return 'Uncategorized';
 	});
 
-	// Get category icon for split groups
-	const getCategoryIcon = (category: string) => {
-		const icons: Record<string, string> = {
-			'Food & Dining': '🍕',
-			'Income': '💰',
-			'Transportation': '⛽',
-			'Shopping': '🛍️',
-			'Entertainment': '🎬',
-			'Healthcare': '🏥'
-		};
-		return icons[category] || '📊';
+	// Get waterfall tier border styling for category
+	const getCategoryBorder = (category: Category | null | undefined) => {
+		if (!category) {
+			return getWaterfallTierBorder(null);
+		}
+		return getWaterfallTierBorder(category.waterfallTier);
 	};
 
-	// Get subtle category accent color
-	const getCategoryAccent = (category: string) => {
-		const accents: Record<string, string> = {
-			'Food & Dining': 'border-l-orange-400',
-			'Income': 'border-l-green-400',
-			'Transportation': 'border-l-blue-400',
-			'Shopping': 'border-l-purple-400',
-			'Entertainment': 'border-l-pink-400',
-			'Healthcare': 'border-l-cyan-400'
-		};
-		return accents[category] || 'border-l-gray-400';
+	// Get waterfall tier border styling for grouped transactions
+	// For grouped transactions, we try to get the category from the groupCategory string
+	let groupCategoryObj = $state<Category | null>(null);
+	
+	$effect(() => {
+		if (isGroup && groupCategory) {
+			// Try to find category by name
+			db.categories.where('name').equals(groupCategory).first().then(cat => {
+				groupCategoryObj = cat || null;
+			}).catch(() => {
+				groupCategoryObj = null;
+			});
+		}
+	});
+	
+	const getGroupCategoryBorder = () => {
+		return getCategoryBorder(groupCategoryObj);
 	};
 
 	// Calculate the actual balance impact of the transaction
@@ -294,7 +356,7 @@
 		}
 	};
 
-	// Format amount with proper styling using Tailwind colors
+	// Format amount with proper styling and dynamic font sizing
 	const amountInfo = $derived(() => {
 		const balanceImpact = calculateTransactionImpact(transaction);
 		const isPositiveImpact = balanceImpact > 0;
@@ -304,16 +366,16 @@
 		
 		// Color based on transaction type (not the sign)
 		if (transaction.type === 'income') {
-			textClass = 'text-[var(--color-sage-green)]';
-			glowClass = 'drop-shadow-[0_0_1px_var(--color-success)]';
+			textClass = 'text-[var(--color-golden-amber)]';
+			glowClass = 'drop-shadow-[0_0_1px_var(--color-golden-amber)]';
 		} else if (transaction.type === 'expense') {
 			textClass = 'text-[var(--color-warm-coral)]';
 			glowClass = 'drop-shadow-[0_0_1px_var(--color-alert)]';
 		} else {
 			// For transfer and adjustment, use impact-based color
 			if (isPositiveImpact) {
-				textClass = 'text-[var(--color-sage-green)]';
-				glowClass = 'drop-shadow-[0_0_1px_var(--color-success)]';
+				textClass = 'text-[var(--color-golden-amber)]';
+				glowClass = 'drop-shadow-[0_0_1px_var(--color-golden-amber)]';
 			} else {
 				textClass = 'text-[var(--color-warm-coral)]';
 				glowClass = 'drop-shadow-[0_0_1px_var(--color-alert)]';
@@ -341,9 +403,19 @@
 		// Format amount with proper currency symbol and decimal places
 		const formattedAmount = formatTransactionAmount(amountForFormatting, displayCurrency(), true);
 		
+		// Dynamic font sizing based on amount length
+		let fontSizeClass = 'text-lg'; // Default for medium amounts (9-12 chars)
+		const amountLength = formattedAmount.length;
+		if (amountLength <= 8) {
+			fontSizeClass = 'text-xl'; // Larger for small amounts
+		} else if (amountLength >= 13) {
+			fontSizeClass = 'text-base'; // Smaller for large amounts
+		}
+		
 		return {
 			text: formattedAmount,
 			class: `${textClass} ${glowClass}`.trim(),
+			fontSize: fontSizeClass,
 			isIncome: transaction.type === 'income'
 		};
 	});
@@ -484,6 +556,42 @@
 		return `${status} transaction: ${tag}, ${amount}`;
 	});
 
+	// Get waterfall tier text color for category display (using CSS variables like amount colors)
+	const categoryTextColor = $derived(() => {
+		let tier: 'survival' | 'security' | 'growth' | 'lifestyle' | null | undefined = null;
+		
+		if (isGroup && groupCategoryObj) {
+			tier = groupCategoryObj.waterfallTier;
+		} else if (!isGroup && category) {
+			tier = category.waterfallTier;
+		}
+		
+		// Use CSS variables like amount colors
+		switch (tier) {
+			case 'survival':
+				return 'text-[var(--color-warm-coral)]';
+			case 'security':
+				return 'text-[var(--color-info)]';
+			case 'growth':
+				return 'text-[var(--color-sage-green)]';
+			case 'lifestyle':
+				return 'text-[var(--color-golden-amber)]';
+			default:
+				return 'text-text-tertiary';
+		}
+	});
+	
+	// Get account name for display
+	const accountName = $derived(() => {
+		if (isTransfer() && transferDetails()) {
+			return transferAccountNames;
+		}
+		if (isGroup) {
+			return 'Grouped';
+		}
+		return account?.name || 'Unknown Account';
+	});
+
 	// Dynamic card styling based on transaction type and status
 	const cardStyling = $derived(() => {
 		let baseClass = 'bg-bg-secondary backdrop-blur-sm';
@@ -496,26 +604,20 @@
 		// Add context-specific styling
 		baseClass += ` ${contextStyling()}`;
 		
-		// Add category accent for non-grouped transactions
-		if (!isGroup) {
-			baseClass += ` ${getCategoryAccent(primaryTag())}`;
-		}
-		
 		return baseClass;
 	});
 </script>
 
 <div class="relative group">
 	{#if isTransfer()}
-		<!-- Transfer Group Display -->
+		<!-- Transfer Display -->
 		<div 
 			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
-				   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
+				   {cardStyling()} {statusInfo().mainBorderClass} {statusInfo().leftBorderClass} {statusInfo().bgClass} {statusInfo().shadowClass} {statusInfo().animateClass} {selectionClass()}
 				   hover:shadow-xl hover:shadow-bg-primary/30
 				   hover:scale-[1.008] hover:-translate-y-[0.5]
 				   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
-				   group-hover:border-golden-amber/50
-				   border-l-2 border-l-blue-400"
+				   group-hover:border-golden-amber/50"
 		>
 			<!-- Subtle gradient overlay for depth -->
 			<div class="absolute inset-0 bg-gradient-to-br from-warm-ivory/[0.02] to-transparent pointer-events-none"></div>
@@ -536,44 +638,37 @@
 				bind:this={buttonElement}
 				aria-label={`${ariaLabel()}, click to view details`}
 			>
-				<div class="flex items-center justify-between">
-					<!-- Left side: Transfer Info -->
-					<div class="flex items-center space-x-4 min-w-0 flex-1">
-						<!-- Transfer icon -->
-						<div class="flex-shrink-0 relative">
-							<div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center
-										transition-all duration-200 group-hover:scale-110 group-hover:shadow-md">
-								<span class="text-lg">↔️</span>
+				<div class="flex items-center gap-3">
+					<!-- Left Border Area: Time Display (Fixed Width) -->
+					<div class="flex-shrink-0 flex items-center justify-center w-[10px] min-h-[3rem]">
+						{#if displayTime()}
+							<div class="text-xs font-medium text-text-secondary transform -rotate-90 whitespace-nowrap">
+								{displayTime()}
 							</div>
+						{/if}
+					</div>
+					
+					<!-- Middle Column: Transfer Details (Flexible, Truncates) -->
+					<div class="flex-1 min-w-0">
+						<div class="font-semibold text-text-primary text-base truncate">
+							Transfer
 						</div>
-						
-						<!-- Transfer details -->
-						<div class="min-w-0 flex-1">
-							<div class="font-semibold text-text-primary text-base">
-								Transfer
-							</div>
-							<div class="text-sm text-text-secondary">
-								{transferAccountNames}
-							</div>
-							{#if transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
-								<div class="text-xs text-text-tertiary">
-									Fee: {formatTransactionAmount(transferDetails()!.feeAmount, displayCurrency(), true)}
-								</div>
-							{/if}
+						<div class="text-sm text-text-tertiary truncate">
+							{transferAccountNames}
 						</div>
 					</div>
 					
-					<!-- Right side: Amount + Date -->
-					<div class="flex-shrink-0 text-right">
+					<!-- Right Column: Amount + Fee (Flexible) -->
+					<div class="flex-shrink-0 text-right flex flex-col items-end">
 						<!-- Transfer amount -->
-						<div class="font-bold text-lg text-blue-600 dark:text-blue-400 tracking-tight">
+						<div class="font-bold {amountInfo().fontSize} text-info tracking-tight">
 							{formatTransferAmount(displayAmount(), displayCurrency())}
 						</div>
 						
-						<!-- Date -->
-						{#if displayDate()}
-							<div class="text-xs text-text-tertiary font-medium">
-								{displayDate()}
+						<!-- Fee badge -->
+						{#if transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
+							<div class="text-xs text-text-tertiary font-medium mt-0.5">
+								Fee: {formatTransactionAmount(transferDetails()!.feeAmount, displayCurrency(), true)}
 							</div>
 						{/if}
 					</div>
@@ -581,21 +676,23 @@
 			</button>
 		</div>
 	{:else if isGroup}
-		<!-- Grouped Transaction -->
+		<!-- Grouped Transaction with Double Border -->
 		<div 
 			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
-				   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
+				   {cardStyling()} {statusInfo().mainBorderClass} {statusInfo().leftBorderClass} {statusInfo().bgClass} {statusInfo().shadowClass} {statusInfo().animateClass} {selectionClass()}
 				   hover:shadow-xl hover:shadow-bg-primary/30
 				   hover:scale-[1.008] hover:-translate-y-[0.5]
 				   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
-				   group-hover:border-golden-amber/50
-				   {getCategoryAccent(primaryTag())}"
+				   group-hover:border-golden-amber/50"
 		>
+			<!-- Double border effect for grouped transactions -->
+			<div class="absolute inset-0 rounded-xl {statusInfo().mainBorderClass} {statusInfo().leftBorderClass} pointer-events-none" style="margin: 2px;"></div>
+			
 			<!-- Subtle gradient overlay for depth -->
 			<div class="absolute inset-0 bg-gradient-to-br from-warm-ivory/[0.02] to-transparent pointer-events-none"></div>
 			
 			<!-- Grouped transaction content with two clickable areas -->
-			<div class="flex">
+			<div class="flex relative z-10">
 				<!-- Main content area - clickable to open transaction -->
 				<button
 					class="flex-1 text-left relative z-10 {layoutClass()}
@@ -613,22 +710,35 @@
 					bind:this={buttonElement}
 					aria-label={`${ariaLabel()}, click to view details`}
 				>
-					<div class="flex items-center justify-between">
-						<div class="flex items-center space-x-3">
-							<div class="w-10 h-10 bg-muted rounded-full flex items-center justify-center text-lg">
-								{getCategoryIcon(primaryTag())}
-							</div>
-							<div class="flex-1">
-								<div class="font-medium text-primary">{transactionDescription()}</div>
-								<div class="text-sm text-muted-foreground">{primaryTag()}</div>
-								<div class="text-xs text-muted-foreground/70">
-									Grouped transaction ({groupTransactions.length} parts)
+					<div class="flex items-center gap-3">
+						<!-- Left Border Area: Time Display (Fixed Width) -->
+						<div class="flex-shrink-0 flex items-center justify-center w-[10px] min-h-[3rem]">
+							{#if displayTime()}
+								<div class="text-xs font-medium text-text-secondary transform -rotate-90 whitespace-nowrap">
+									{displayTime()}
 								</div>
+							{/if}
+						</div>
+						
+						<!-- Middle Column: Grouped Transaction Info (Flexible, Truncates) -->
+						<div class="flex-1 min-w-0">
+							<div class="font-semibold text-text-primary text-base truncate">{transactionDescription() || 'Grouped transaction'}</div>
+							<div class="text-sm text-text-tertiary truncate">
+								<span>{accountName()}</span>
+								<span class="mx-1">-</span>
+								<span class="{categoryTextColor()} font-medium">
+									{primaryTag()}
+								</span>
+							</div>
+							<div class="text-xs text-text-tertiary">
+								({groupTransactions.length} parts)
 							</div>
 						</div>
-						<div class="text-right">
-							<div class="font-bold text-lg {(displayAmount() ?? 0) >= 0 ? 'text-success' : 'text-alert'} tracking-tight">
-								{formatTransactionAmount(displayAmount(), displayCurrency(), true)}
+						
+						<!-- Right Column: Amount (Flexible) -->
+						<div class="flex-shrink-0 text-right">
+							<div class="font-bold {amountInfo().fontSize} {amountInfo().class} tracking-tight">
+								{amountInfo().text}
 							</div>
 						</div>
 					</div>
@@ -661,20 +771,25 @@
 			{#if isExpanded}
 				<div id="group-transactions-{transaction.id}" class="px-4 pb-4 space-y-2" role="region" aria-label="Grouped transaction details">
 					{#each groupTransactions as groupTransaction}
-						<div class="bg-bg-tertiary/50 rounded-lg p-3 border border-bg-surface {getCategoryAccent(groupTransaction.categoryId || 'Uncategorized')}">
+						{@const groupCategory = groupTransactionCategories.get(groupTransaction.id) || null}
+						<div class="bg-bg-tertiary/50 rounded-lg p-3 border border-bg-surface {getCategoryBorder(groupCategory)}">
 							<div class="flex items-center justify-between">
 								<div class="min-w-0 flex-1">
 									<div class="text-sm font-medium text-text-primary">
 										{groupTransaction.description || 'No description'}
 									</div>
-									{#if groupTransaction.categoryId}
+									{#if groupCategory}
 										<div class="text-xs text-text-secondary truncate mt-1">
-											Category: {groupTransaction.categoryId}
+											{groupCategory.name} • {getWaterfallTierLabel(groupCategory.waterfallTier)}
+										</div>
+									{:else if groupTransaction.categoryId}
+										<div class="text-xs text-text-tertiary truncate mt-1">
+											Loading category...
 										</div>
 									{/if}
 								</div>
 								<div class="text-right ml-3">
-									<div class="font-semibold text-sm {(groupTransaction.amount ?? 0) >= 0 ? 'text-success' : 'text-alert'}">
+									<div class="font-semibold text-sm {(groupTransaction.amount ?? 0) >= 0 ? 'text-[var(--color-golden-amber)]' : 'text-[var(--color-warm-coral)]'}">
 										{formatTransactionAmount(groupTransaction.amount, groupTransaction.currency, true)}
 									</div>
 								</div>
@@ -688,7 +803,7 @@
 		<!-- Single Transaction -->
 		<div 
 			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
-				   {cardStyling()} {statusInfo().containerClass} {selectionClass()}
+				   {cardStyling()} {statusInfo().mainBorderClass} {statusInfo().leftBorderClass} {statusInfo().bgClass} {statusInfo().shadowClass} {statusInfo().animateClass} {selectionClass()}
 				   hover:shadow-xl hover:shadow-bg-primary/30
 				   hover:scale-[1.008] hover:-translate-y-[0.5]
 				   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
@@ -713,116 +828,78 @@
 				bind:this={buttonElement}
 				aria-label={ariaLabel()}
 			>
-				<div class="flex items-center justify-between">
-					<!-- Left side: Status + Content -->
-					<div class="flex items-center space-x-4 min-w-0 flex-1">
-						<!-- Status indicator with enhanced styling -->
-						<div class="flex-shrink-0 relative">
-							<div class="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center
-										transition-all duration-200 group-hover:scale-110 group-hover:shadow-md">
-								{#if statusInfo().icon === AlertCircle}
-									<AlertCircle class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
-								{:else if statusInfo().icon === Clock}
-									<Clock class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
-								{:else if statusInfo().icon === CheckCircle}
-									<CheckCircle class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
-								{:else if statusInfo().icon === XCircle}
-									<XCircle class="w-5 h-5 {statusInfo().iconClass} transition-transform duration-200 group-hover:scale-110" />
-								{/if}
-							</div>
-							
-							<!-- Confidence indicator ring for planned transactions -->
-							{#if confidenceInfo()}
-								<div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-bg-secondary
-									{confidenceInfo()?.color}"></div>
-							{/if}
-							
-							<!-- Priority number indicator -->
-							{#if transaction.priority}
-								<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-bg-primary border-2 border-bg-secondary
-										flex items-center justify-center text-[10px] font-bold {getPriorityColor(transaction.priority)}"
-										title="Priority {transaction.priority} - {getPriorityName(transaction.priority)}">
-									{transaction.priority}
-								</div>
-							{/if}
-						</div>
-						
-						<!-- Content -->
-						<div class="min-w-0 flex-1">
-							<!-- Primary tag with enhanced styling -->
-							<div class="flex items-center space-x-2">
-								<!-- Split indicator -->
-								{#if transaction.splitId}
-									<div class="flex-shrink-0">
-										<Split class="w-4 h-4 text-golden-amber" />
-									</div>
-								{/if}
-								
-								<h3 class="font-semibold text-text-primary capitalize truncate text-base">
-									{primaryTag().toString().replace('_', ' ')}
-								</h3>
-
-								<!-- Uncategorized indicator icon -->
-								{#if isUncategorized()}
-									<span 
-										class="flex-shrink-0" 
-										title="This transaction needs to be categorized"
-										aria-label="Uncategorized transaction"
-									>
-										<Tag class="w-4 h-4 text-warning" />
-									</span>
-								{/if}
-							</div>
-							
-							<!-- Description with improved typography -->
-							{#if transactionDescription()}
-								<p class="text-sm text-text-secondary truncate leading-relaxed">
-									{transactionDescription()}
-								</p>
-							{/if}
-							
-							<!-- Confidence label for planned transactions -->
-							{#if confidenceInfo()}
-								<div class="flex items-center space-x-1 mt-1">
-									<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
-										{confidenceInfo()?.label}
-									</span>
-								</div>
-							{/if}
-						</div>
-					</div>
-					
-					<!-- Right side: Amount + Date -->
-					<div class="flex-shrink-0 text-right">
-						<!-- Amount with enhanced styling -->
-						<div class="flex items-center justify-end space-x-2">
-							<!-- Recurring indicator -->
-							{#if transaction.recurrenceRule}
-								<div class="flex-shrink-0">
-									<RefreshCcw class="w-4 h-4 text-info animate-pulse" />
-								</div>
-							{/if}
-							
-							<div class="font-bold text-lg {amountInfo().class} tracking-tight">
-								{amountInfo().text}
-							</div>
-						</div>
-						
-						<!-- Date with improved styling -->
-						{#if displayDate()}
-							<div class="text-xs text-text-tertiary font-medium">
-								{displayDate()}
+				<div class="flex items-center gap-3">
+					<!-- Left Border Area: Time Display (Fixed Width) -->
+					<div class="flex-shrink-0 flex items-center justify-center w-[10px] min-h-[3rem]">
+						{#if displayTime()}
+							<div class="text-xs font-medium text-text-secondary transform -rotate-90 whitespace-nowrap">
+								{displayTime()}
 							</div>
 						{/if}
+					</div>
+					
+					<!-- Middle Column: Content (Flexible, Truncates) -->
+					<div class="flex-1 min-w-0">
+						<!-- Description (first line) -->
+						<div class="flex items-center space-x-2">
+							<!-- Split indicator -->
+							{#if transaction.groupId}
+								<div class="flex-shrink-0 w-0.5 h-4 bg-golden-amber rounded-full" title="Split transaction"></div>
+							{/if}
+							
+							<p class="font-semibold text-text-primary truncate text-base">
+								{transactionDescription() || 'No description'}
+							</p>
+
+							<!-- Uncategorized indicator -->
+							{#if isUncategorized()}
+								<span 
+									class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-warning border border-warning/50" 
+									title="This transaction needs to be categorized"
+									aria-label="Uncategorized transaction"
+								></span>
+							{/if}
+							
+							<!-- Recurring indicator -->
+							{#if transaction.recurrenceRule}
+								<div class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-info border border-info/50 animate-pulse" title="Recurring transaction"></div>
+							{/if}
+						</div>
 						
-						<!-- Status badge -->
-						<!-- <div class="mt-3">
-							<span class="inline-block px-3 py-1.5 rounded-full text-xs font-medium
-										bg-bg-tertiary text-text-secondary
-										border border-bg-surface">
-								{transaction.status}
-							</span>
-						</div> -->
+						<!-- Account - Category (second line, muted with colored category) -->
+						<div class="text-sm text-text-tertiary truncate mt-0.5">
+							<span>{accountName()}</span>
+							{#if !isTransfer()}
+								<span class="mx-1">-</span>
+								<span class="{categoryTextColor()} font-medium">
+									{primaryTag().toString().replace('_', ' ')}
+								</span>
+							{/if}
+						</div>
+						
+						<!-- Confidence label for planned transactions -->
+						{#if confidenceInfo()}
+							<div class="flex items-center space-x-1 mt-1">
+								<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-text-secondary border border-bg-surface">
+									{confidenceInfo()?.label}
+								</span>
+							</div>
+						{/if}
+					</div>
+					
+					<!-- Right Column: Amount + Fee (Flexible) -->
+					<div class="flex-shrink-0 text-right flex flex-col items-end">
+						<!-- Amount with dynamic font sizing -->
+						<div class="font-bold {amountInfo().fontSize} {amountInfo().class} tracking-tight">
+							{amountInfo().text}
+						</div>
+						
+						<!-- Fee badge (if applicable) -->
+						{#if isTransfer() && transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
+							<div class="text-xs text-text-tertiary font-medium mt-0.5">
+								Fee: {formatTransactionAmount(transferDetails()!.feeAmount, displayCurrency(), true)}
+							</div>
+						{/if}
 					</div>
 				</div>
 			</button>

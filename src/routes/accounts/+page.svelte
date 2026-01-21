@@ -5,7 +5,7 @@
   import { goto } from '$app/navigation';
   import { Button } from '$lib/components/ui/button/index.ts';
   import { Separator } from '$lib/components/ui/separator/index.ts';
-  import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
+  import { formatAmount, formatCurrencyAmount } from '$lib/utils/currency-utils';
   import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
@@ -53,8 +53,9 @@
     }
   });
 
-  function formatBalance(balance: number, currency: string, showPlus: boolean = false) {
-    return formatTransactionAmount(balance, currency, showPlus);
+  function formatBalance(balance: number, currency: string) {
+    // Show minus sign for negative balances, but no plus sign for positive balances
+    return formatCurrencyAmount(balance, currency, { showSign: true, showPlus: false });
   }
 
   function getBufferStatusIcon(status: ReturnType<typeof getBufferStatus>) {
