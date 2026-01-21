@@ -1,10 +1,15 @@
 <script lang="ts">
   import InsightList from '../shared/InsightList.svelte';
   import RecommendationsList from '../RecommendationsList.svelte';
+  import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
   import { Loader2, Lightbulb, RefreshCw, Plus, AlertCircle, AlertTriangle, Info, CheckCircle2 } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button/index.ts';
   import * as Card from '$lib/components/ui/card/index.ts';
   import type { OverviewTabProps, UnifiedInsight } from '../types';
+  import { accountService } from '$lib/core/services';
+  import { onMount } from 'svelte';
+
+  let hasCreditAccounts = $state(false);
 
   interface Props {
     insights: UnifiedInsight[];
@@ -61,6 +66,15 @@
     // TODO: Implement view all for specific category
     console.log('View all insights for category:', category);
   }
+
+  onMount(async () => {
+    try {
+      const accounts = await accountService.getAccounts();
+      hasCreditAccounts = accounts.some(acc => acc.type === 'credit' && acc.metadata?.creditLimit);
+    } catch (error) {
+      console.error('Error checking for credit accounts:', error);
+    }
+  });
 </script>
 
 <div class="overview-tab h-full overflow-y-auto {className}">
@@ -182,12 +196,22 @@
       </div>
     {/if}
 
+    <!-- Credit Utilization Optimization -->
+    {#if hasCreditAccounts}
+      <div>
+        <div class="flex items-center justify-between mb-3 sm:mb-4">
+          <h2 class="text-base sm:text-lg font-semibold text-foreground">Credit Utilization</h2>
+        </div>
+        <CreditUtilizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
+      </div>
+    {/if}
+
     <!-- Recommendations -->
     <div>
       <div class="flex items-center justify-between mb-3 sm:mb-4">
         <h2 class="text-base sm:text-lg font-semibold text-foreground">Personalized Recommendations</h2>
       </div>
-      <svelte:component this={RecommendationsList} maxItems={5} />
+      <RecommendationsList maxItems={5} />
     </div>
 
       <!-- Empty State -->

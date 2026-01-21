@@ -92,6 +92,95 @@ export function getCreditUtilization(account: Account): number | null {
 }
 
 /**
+ * Credit utilization status levels
+ */
+export type CreditUtilizationStatus = 'excellent' | 'good' | 'fair' | 'poor' | 'critical';
+
+/**
+ * Get credit utilization status based on percentage
+ * Based on credit score impact:
+ * - Excellent: 0-10% (best for credit score)
+ * - Good: 10-30% (good for credit score)
+ * - Fair: 30-50% (moderate impact)
+ * - Poor: 50-80% (negative impact)
+ * - Critical: 80-100% (significant negative impact)
+ */
+export function getCreditUtilizationStatus(utilization: number | null): CreditUtilizationStatus | null {
+	if (utilization === null) return null;
+	
+	if (utilization <= 10) return 'excellent';
+	if (utilization <= 30) return 'good';
+	if (utilization <= 50) return 'fair';
+	if (utilization <= 80) return 'poor';
+	return 'critical';
+}
+
+/**
+ * Calculate aggregate credit utilization across all credit accounts
+ * Returns total utilization percentage (total debt / total credit limit)
+ */
+export function getAggregateCreditUtilization(accounts: Account[]): {
+	utilization: number;
+	totalDebt: number;
+	totalCreditLimit: number;
+	accountCount: number;
+} | null {
+	const creditAccounts = accounts.filter(acc => acc.type === 'credit' && acc.metadata?.creditLimit);
+	
+	if (creditAccounts.length === 0) {
+		return null;
+	}
+	
+	let totalDebt = 0;
+	let totalCreditLimit = 0;
+	
+	for (const account of creditAccounts) {
+		const creditLimit = account.metadata?.creditLimit || 0;
+		if (creditLimit > 0) {
+			const currentDebt = Math.abs(Math.min(0, account.currentBalance));
+			totalDebt += currentDebt;
+			totalCreditLimit += creditLimit;
+		}
+	}
+	
+	if (totalCreditLimit === 0) {
+		return null;
+	}
+	
+	const utilization = (totalDebt / totalCreditLimit) * 100;
+	
+	return {
+		utilization,
+		totalDebt,
+		totalCreditLimit,
+		accountCount: creditAccounts.length
+	};
+}
+
+/**
+ * Get recommended payment amount to reach target utilization
+ */
+export function getRecommendedPaymentForTargetUtilization(
+	account: Account,
+	targetUtilization: number
+): number | null {
+	const utilization = getCreditUtilization(account);
+	if (utilization === null || account.metadata?.creditLimit === undefined) {
+		return null;
+	}
+	
+	if (utilization <= targetUtilization) {
+		return 0; // Already at or below target
+	}
+	
+	const currentDebt = Math.abs(Math.min(0, account.currentBalance));
+	const targetDebt = (account.metadata.creditLimit * targetUtilization) / 100;
+	const paymentNeeded = currentDebt - targetDebt;
+	
+	return Math.max(0, paymentNeeded);
+}
+
+/**
  * Check if account is below minimum balance
  */
 export function isBelowMinimumBalance(account: Account): boolean {

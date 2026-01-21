@@ -3,6 +3,7 @@ import type { Transaction, Category, Goal } from '$lib/core/db';
 import { behavioralAnalysisService, type BehaviorPattern } from './behavioral-analysis-service';
 import { appUsageAnalyticsService, type AppUsageMetrics } from './app-usage-analytics-service';
 import { insightsService } from './insights-service';
+import { creditUtilizationService } from './credit-utilization-service';
 import { budgetService } from '../core/budget-service';
 import { goalService } from '../core/goal-service';
 import { analyticsService } from './analytics-service';
@@ -14,7 +15,7 @@ import { userService } from '../core/user-service';
 
 export interface Recommendation {
 	id: string;
-	type: 'budget' | 'spending' | 'goal' | 'behavior' | 'feature' | 'timing' | 'category';
+	type: 'budget' | 'spending' | 'goal' | 'behavior' | 'feature' | 'timing' | 'category' | 'credit';
 	priority: 'low' | 'medium' | 'high' | 'urgent';
 	title: string;
 	description: string;
@@ -85,6 +86,7 @@ class RecommendationService {
 		recommendations.push(...await this.generateFeatureRecommendations(context));
 		recommendations.push(...await this.generateTimingRecommendations(context));
 		recommendations.push(...await this.generateCategoryRecommendations(context));
+		recommendations.push(...await this.generateCreditUtilizationRecommendations());
 
 		// Sort by priority and confidence
 		return recommendations.sort((a, b) => {
@@ -408,6 +410,52 @@ class RecommendationService {
 				});
 			}
 		});
+
+		return recommendations;
+	}
+
+	/**
+	 * Generate credit utilization recommendations
+	 */
+	private async generateCreditUtilizationRecommendations(): Promise<Recommendation[]> {
+		const recommendations: Recommendation[] = [];
+
+		try {
+			// Get credit utilization recommendations from the service
+			const creditRecommendations = await creditUtilizationService.generateRecommendations();
+
+			// Convert to general recommendation format
+			for (const creditRec of creditRecommendations) {
+				recommendations.push({
+					id: creditRec.id,
+					type: 'credit',
+					priority: creditRec.priority,
+					title: creditRec.title,
+					description: creditRec.description,
+					actionable: creditRec.actionable,
+					actionText: creditRec.recommendedAction,
+					actionUrl: creditRec.accountId ? `/accounts/${creditRec.accountId}` : '/insights?tab=optimization',
+					confidence: creditRec.estimatedImpact.estimatedScorePoints
+						? Math.min(100, 60 + creditRec.estimatedImpact.estimatedScorePoints)
+						: 75,
+					estimatedImpact:
+						creditRec.estimatedImpact.utilizationImprovement > 30
+							? 'high'
+							: creditRec.estimatedImpact.utilizationImprovement > 15
+								? 'medium'
+								: 'low',
+					metadata: {
+						...creditRec.metadata,
+						utilizationImprovement: creditRec.estimatedImpact.utilizationImprovement,
+						creditScoreImpact: creditRec.estimatedImpact.creditScoreImpact,
+						estimatedScorePoints: creditRec.estimatedImpact.estimatedScorePoints
+					},
+					createdAt: new Date().toISOString()
+				});
+			}
+		} catch (error) {
+			console.error('[RecommendationService] Error generating credit utilization recommendations:', error);
+		}
 
 		return recommendations;
 	}

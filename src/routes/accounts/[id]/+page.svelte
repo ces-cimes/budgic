@@ -9,10 +9,11 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { Pencil } from '@lucide/svelte';
-	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
-	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
-	import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
-	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
+import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
+import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
+import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
+import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
+import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import { planService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 
@@ -164,6 +165,16 @@
 					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
 						<h2 class="text-primary mb-4 text-xl font-semibold">Buffer Status</h2>
 						<BufferVisualization {account} showDetails={true} />
+					</div>
+				</section>
+			{/if}
+
+			<!-- Credit Utilization -->
+			{#if account && account.type === 'credit'}
+				<section class="mb-8">
+					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+						<h2 class="text-primary mb-4 text-xl font-semibold">Credit Utilization</h2>
+						<CreditUtilizationVisualization {account} showDetails={true} showRecommendations={true} />
 					</div>
 				</section>
 			{/if}

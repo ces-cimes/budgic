@@ -9,6 +9,7 @@
  * - Behavioral pattern detection and analysis
  * - App usage analytics
  * - Personalized recommendations
+ * - Credit utilization optimization
  */
 
 export { analyticsService } from './analytics-service';
@@ -22,4 +23,5 @@ export { recommendationService } from './recommendation-service';
 export { balanceProjectionService } from './balance-projection-service';
 export { feeAvoidanceService } from './fee-avoidance-service';
 export { optimizationService } from './optimization-service';
+export { creditUtilizationService } from './credit-utilization-service';
 export { notificationsService } from '../notifications-service';

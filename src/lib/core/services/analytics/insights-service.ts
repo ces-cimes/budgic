@@ -6,6 +6,7 @@ import { budgetService } from '../core/budget-service';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { balanceProjectionService } from './balance-projection-service';
+import { creditUtilizationService } from './credit-utilization-service';
 import { getBufferStatus, getBufferAmount, getBufferDeficit } from '$lib/utils/account-metadata-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 
@@ -228,6 +229,10 @@ class InsightsService {
             // Buffer insights
             const bufferInsights = await this.generateBufferInsights(crossRouteData.accounts, crossRouteData.transactions);
             newInsights.push(...bufferInsights);
+
+            // Credit utilization insights
+            const creditUtilizationInsights = await this.generateCreditUtilizationInsights(crossRouteData.accounts);
+            newInsights.push(...creditUtilizationInsights);
 
             // Behavioral insights (if enabled)
             if (context.includeBehavioral) {
@@ -601,6 +606,136 @@ class InsightsService {
                     });
                 }
             }
+        }
+
+        return insights;
+    }
+
+    /**
+     * Generate credit utilization insights
+     */
+    private async generateCreditUtilizationInsights(accounts: Account[]): Promise<Insight[]> {
+        const insights: Insight[] = [];
+
+        try {
+            // Get aggregate credit utilization analysis
+            const aggregate = await creditUtilizationService.analyzeAggregate();
+            if (!aggregate) {
+                return insights; // No credit accounts
+            }
+
+            // Generate aggregate insights
+            if (aggregate.status === 'critical' || aggregate.status === 'poor') {
+                const severity = aggregate.status === 'critical' ? 'alert' : 'warning';
+                insights.push({
+                    id: generateUUID(),
+                    type: 'credit_utilization',
+                    severity,
+                    title: `High Credit Utilization: ${aggregate.totalUtilization.toFixed(1)}%`,
+                    message: `Your overall credit utilization is ${aggregate.totalUtilization.toFixed(1)}%, which ${aggregate.status === 'critical' ? 'significantly' : 'may'} negatively impact your credit score. Consider paying down balances to reach optimal utilization (below 30%).`,
+                    percentage: aggregate.totalUtilization,
+                    threshold: 30,
+                    confidence: 95,
+                    actionable: true,
+                    actionText: 'View Recommendations',
+                    actionUrl: '/insights?tab=optimization',
+                    metadata: JSON.stringify({
+                        totalUtilization: aggregate.totalUtilization,
+                        totalDebt: aggregate.totalDebt,
+                        totalCreditLimit: aggregate.totalCreditLimit,
+                        accountCount: aggregate.accountCount,
+                        status: aggregate.status
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+
+            // Generate per-account insights for high utilization
+            for (const accountAnalysis of aggregate.accounts) {
+                if (accountAnalysis.status === 'critical') {
+                    insights.push({
+                        id: generateUUID(),
+                        type: 'credit_utilization',
+                        severity: 'alert',
+                        title: `Critical: ${accountAnalysis.accountName} at ${accountAnalysis.utilization.toFixed(1)}% Utilization`,
+                        message: `${accountAnalysis.accountName} has ${accountAnalysis.utilization.toFixed(1)}% credit utilization. This significantly impacts your credit score. ${accountAnalysis.recommendedPaymentForTarget ? `Pay ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(accountAnalysis.recommendedPaymentForTarget)} to reach optimal utilization.` : 'Consider paying down the balance.'}`,
+                        percentage: accountAnalysis.utilization,
+                        threshold: 30,
+                        amount: accountAnalysis.recommendedPaymentForTarget,
+                        confidence: 100,
+                        actionable: true,
+                        actionText: 'View Account',
+                        actionUrl: `/accounts/${accountAnalysis.accountId}`,
+                        metadata: JSON.stringify({
+                            accountId: accountAnalysis.accountId,
+                            accountName: accountAnalysis.accountName,
+                            utilization: accountAnalysis.utilization,
+                            currentDebt: accountAnalysis.currentDebt,
+                            creditLimit: accountAnalysis.creditLimit,
+                            recommendedPayment: accountAnalysis.recommendedPaymentForTarget
+                        }),
+                        isActive: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        deletedAt: null
+                    });
+                } else if (accountAnalysis.status === 'poor' && accountAnalysis.utilization > 50) {
+                    // Statement timing alert for high utilization accounts
+                    if (accountAnalysis.daysUntilStatementClose !== undefined && accountAnalysis.daysUntilStatementClose <= 7) {
+                        insights.push({
+                            id: generateUUID(),
+                            type: 'credit_utilization',
+                            severity: 'warning',
+                            title: `Pay Before Statement Closes: ${accountAnalysis.accountName}`,
+                            message: `Statement closes in ${accountAnalysis.daysUntilStatementClose} day(s). Paying down ${accountAnalysis.accountName} now will improve the utilization reported to credit bureaus.`,
+                            percentage: accountAnalysis.utilization,
+                            threshold: 30,
+                            confidence: 90,
+                            actionable: true,
+                            actionText: 'View Account',
+                            actionUrl: `/accounts/${accountAnalysis.accountId}`,
+                            metadata: JSON.stringify({
+                                accountId: accountAnalysis.accountId,
+                                accountName: accountAnalysis.accountName,
+                                utilization: accountAnalysis.utilization,
+                                daysUntilStatementClose: accountAnalysis.daysUntilStatementClose
+                            }),
+                            isActive: true,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            deletedAt: null
+                        });
+                    }
+                }
+            }
+
+            // Positive insight for excellent utilization (occasionally)
+            if (aggregate.status === 'excellent' && Math.random() < 0.1) {
+                insights.push({
+                    id: generateUUID(),
+                    type: 'credit_utilization',
+                    severity: 'success',
+                    title: 'Excellent Credit Utilization',
+                    message: `Great job! Your overall credit utilization is ${aggregate.totalUtilization.toFixed(1)}%, which is optimal for maintaining a good credit score.`,
+                    percentage: aggregate.totalUtilization,
+                    threshold: 30,
+                    confidence: 100,
+                    actionable: false,
+                    metadata: JSON.stringify({
+                        totalUtilization: aggregate.totalUtilization,
+                        status: aggregate.status
+                    }),
+                    isActive: true,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    deletedAt: null
+                });
+            }
+        } catch (error) {
+            console.error('[InsightsService] Error generating credit utilization insights:', error);
         }
 
         return insights;
