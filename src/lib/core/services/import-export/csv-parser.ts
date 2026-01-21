@@ -25,7 +25,10 @@ import type { CSVFile } from './types';
  */
 export function parseCSV(csvContent: string, fileName: string): CSVFile {
 	try {
-		const lines = csvContent.split(/\r?\n/).filter(line => line.trim().length > 0);
+		// Money Manager CSVs can contain multiline quoted fields (e.g. ZDATA notes/description).
+		// Splitting on newlines will corrupt those rows. Instead, split into records while
+		// respecting quotes.
+		const lines = splitCSVRecords(csvContent).filter((line) => line.trim().length > 0);
 		
 		if (lines.length === 0) {
 			throw new Error(`CSV file ${fileName} is empty`);
@@ -63,6 +66,55 @@ export function parseCSV(csvContent: string, fileName: string): CSVFile {
 	} catch (error) {
 		throw new Error(`Failed to parse CSV file ${fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
 	}
+}
+
+/**
+ * Split raw CSV content into logical records while respecting multiline quoted fields.
+ * A newline terminates a record only when we are not currently inside a quoted field.
+ */
+function splitCSVRecords(csvContent: string): string[] {
+	const records: string[] = [];
+	let current = '';
+	let inQuotes = false;
+
+	for (let i = 0; i < csvContent.length; i++) {
+		const char = csvContent[i];
+		const nextChar = csvContent[i + 1];
+
+		if (char === '"') {
+			// Escaped quote inside a quoted field ("")
+			if (inQuotes && nextChar === '"') {
+				current += '""';
+				i++; // Skip the next quote
+				continue;
+			}
+
+			inQuotes = !inQuotes;
+			current += char;
+			continue;
+		}
+
+		// Handle CRLF and LF line endings
+		if ((char === '\n' || char === '\r') && !inQuotes) {
+			// On CRLF, consume the LF after CR
+			if (char === '\r' && nextChar === '\n') {
+				i++;
+			}
+
+			records.push(current);
+			current = '';
+			continue;
+		}
+
+		current += char;
+	}
+
+	// Push trailing record
+	if (current.length > 0) {
+		records.push(current);
+	}
+
+	return records;
 }
 
 /**

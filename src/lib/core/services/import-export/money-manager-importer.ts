@@ -508,16 +508,24 @@ export class MoneyManagerImporter extends BaseImporter {
 
 					const pair = this.transferPairs.get(txUidTrans);
 					if (pair && pair.transferOut && pair.transferIn) {
-						await this.importTransferTransaction(pair);
-						processedTransferUids.add(txUidTrans);
-						this.statistics.transactionsImported++;
+						const imported = await this.importTransferTransaction(pair);
+						if (imported) {
+							processedTransferUids.add(txUidTrans);
+							this.statistics.transactionsImported++;
+						} else {
+							this.statistics.transactionsSkipped++;
+						}
 						continue;
 					}
 				}
 
 				// Handle regular transactions (income, expense, adjustment)
-				await this.importRegularTransaction(row);
-				this.statistics.transactionsImported++;
+				const imported = await this.importRegularTransaction(row);
+				if (imported) {
+					this.statistics.transactionsImported++;
+				} else {
+					this.statistics.transactionsSkipped++;
+				}
 
 				// Report progress periodically
 				if (i % 100 === 0) {
@@ -531,22 +539,26 @@ export class MoneyManagerImporter extends BaseImporter {
 					);
 				}
 			} catch (error) {
+				const mmUid = row.uid || row.ID || 'unknown';
+				const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 				this.addError({
 					type: 'database',
 					entityType: 'transaction',
-					message: `Failed to import transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
+					message: `Failed to import transaction (mmUid: ${mmUid}): ${errorMessage}`,
 					originalData: row,
 					lineNumber: i + 2 // +2 for header and 1-based indexing
 				});
 				this.statistics.transactionsSkipped++;
+				console.error(`[MM Import Error] Transaction ${mmUid} at line ${i + 2}:`, error);
 			}
 		}
 	}
 
 	/**
 	 * Import a regular transaction (income, expense, or adjustment)
+	 * @returns true if transaction was imported, false if skipped
 	 */
-	private async importRegularTransaction(row: Record<string, string>): Promise<void> {
+	private async importRegularTransaction(row: Record<string, string>): Promise<boolean> {
 		const assetUid = row.assetUid;
 		const ctgUid = row.ctgUid;
 		const doType = parseInt(row.DO_TYPE || '0', 10);
@@ -556,8 +568,9 @@ export class MoneyManagerImporter extends BaseImporter {
 		const accountId = assetUid ? this.accountMappings.get(assetUid) : undefined;
 		if (!accountId && doType !== 7 && doType !== 8) {
 			// Adjustments might not have accounts
-			this.addWarning(`Account not found for transaction, skipping`);
-			return;
+			// Log more details for debugging
+			this.addWarning(`Account not found for transaction (assetUid: ${assetUid}, mmUid: ${mmUid}), skipping`);
+			return false;
 		}
 
 		// Get category (optional for adjustments)
@@ -581,22 +594,47 @@ export class MoneyManagerImporter extends BaseImporter {
 			}
 		}
 
-		// Get amount - IMPORTANT: Use IN_ZMONEY (actual currency amount) not ZMONEY
-		// Amounts in MM CSV already have correct sign, so preserve as-is
-		const rawAmount = parseFloat(row.IN_ZMONEY || row.ZMONEY || '0');
-		const amount = mapAmount(rawAmount, doType);
+		// Get amounts from MM CSV:
+		// - IN_ZMONEY: Original amount in transaction currency (what user entered)
+		// - ZMONEY: Cached conversion to account currency (for balance calculations)
+		const inZmoney = parseFloat(row.IN_ZMONEY || '0');
+		const zmoney = parseFloat(row.ZMONEY || '0');
+		
+		// Original amount in transaction currency
+		const amount = mapAmount(inZmoney, doType);
+		
+		// Get account to check currency
+		const account = accountId ? await db.accounts.get(accountId) : null;
+		const accountCurrency = account?.currency;
+		const finalCurrency = currency?.code || extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')) || 'USD';
+		
+		// Cached conversion to account currency
+		// If currencies match, accountAmount = amount (1:1)
+		// Otherwise, use ZMONEY (cached conversion from MM)
+		const accountAmount = accountCurrency && finalCurrency === accountCurrency
+			? amount // Currencies match - use original amount
+			: mapAmount(zmoney, doType); // Currencies differ - use cached conversion
+		
 		// Use ZDATE (transaction time) as primary source, UTIME as fallback, WDATE as last resort
 		const clearedDate = mapDate(row.ZDATE, row.UTIME, row.WDATE);
 		const description = row.ZCONTENT || '';
 
 		// Check for duplicate by MM UID only (using preloaded map - O(1) lookup)
 		// This ensures 1-to-1 import - we only skip if the exact same transaction was already imported
+		// IMPORTANT: Only check against transactions that were imported in PREVIOUS import runs,
+		// not transactions being imported in the current run. The preload happens before import starts.
 		if (mmUid && mmUid !== 'null' && mmUid !== '') {
 			const existingByUid = this.findTransactionByMMUid(mmUid);
 			if (existingByUid) {
-				this.statistics.transactionsSkipped++;
-				return; // Skip exact duplicate (same MM UID)
+				// This transaction was already imported in a previous import run
+				return false; // Skip exact duplicate (same MM UID)
 			}
+		}
+		
+		// Calculate exchange rate if currencies differ (for metadata)
+		let exchangeRate: number | undefined;
+		if (accountCurrency && finalCurrency !== accountCurrency && amount !== 0 && accountAmount !== 0) {
+			exchangeRate = accountAmount / amount;
 		}
 
 		// Create import metadata with MM UID and original values for debugging
@@ -604,7 +642,7 @@ export class MoneyManagerImporter extends BaseImporter {
 			? JSON.stringify({ 
 				mmUid, 
 				source: 'money-manager',
-				originalAmount: rawAmount,
+				originalAmount: inZmoney,
 				originalCurrencyUid: currencyUid,
 				doType: doType,
 				zmoney: row.ZMONEY,
@@ -612,21 +650,33 @@ export class MoneyManagerImporter extends BaseImporter {
 			})
 			: undefined;
 
-		// IMPORTANT: Store original currency and amount - never convert during import
-		// Use the currency from the transaction row, NOT from the account
-		const finalCurrency = currency?.code || extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')) || 'USD';
+		// Currency conversion metadata
+		const currencyConversion = accountCurrency && finalCurrency !== accountCurrency && exchangeRate
+			? {
+				exchangeRate: exchangeRate,
+				conversionDate: clearedDate,
+				sourceCurrency: finalCurrency,
+				targetCurrency: accountCurrency
+			}
+			: undefined;
 		
-		// Debug logging for currency/amount issues
-		if (Math.abs(amount) > 1000 && (finalCurrency === 'RUB' || finalCurrency === 'USD')) {
-			console.log('[MM Import Debug]', {
+		// Debug logging for multi-currency transactions
+		if (accountCurrency && finalCurrency !== accountCurrency) {
+			console.log('[MM Import Multi-Currency]', {
 				mmUid,
-				rawAmount: rawAmount,
-				mappedAmount: amount,
-				currencyUid,
-				finalCurrency,
+				originalAmount: inZmoney,
+				originalCurrency: finalCurrency,
+				accountAmount: accountAmount,
+				accountCurrency: accountCurrency,
+				accountId: accountId,
 				doType,
 				description: description.substring(0, 50)
 			});
+		}
+		
+		// Validate accountAmount is set correctly
+		if (!accountAmount && accountId) {
+			console.warn(`[MM Import Warning] Transaction ${mmUid} has no accountAmount but has accountId ${accountId}`);
 		}
 		
 		const transaction: Transaction = {
@@ -634,28 +684,41 @@ export class MoneyManagerImporter extends BaseImporter {
 			type: mapTransactionType(doType),
 			status: 'cleared', // All imported transactions are historical
 			accountId: accountId,
-			amount: amount, // Original amount with preserved sign - NEVER convert
-			currency: finalCurrency, // Original currency from MM - NEVER convert
+			amount: amount, // Original amount in transaction currency (IN_ZMONEY)
+			currency: finalCurrency, // Original currency from MM
+			accountAmount: accountAmount, // Cached conversion to account currency (ZMONEY or AMOUNT_ACCOUNT)
 			description: description,
 			categoryId: categoryId,
 			clearedDate: clearedDate,
 			notes: row.ZCONTENT || '',
 			importSource: 'money-manager',
 			importMetadata: importMetadata,
+			currencyConversion: currencyConversion,
 			createdAt: parseTimestamp(row.UTIME),
 			updatedAt: parseTimestamp(row.UTIME),
 			deletedAt: null
 		};
 
-		await transactionService.createTransaction(transaction);
+		// Skip balance recalculation during import - will be done at the end
+		// accountAmount is already set from MM data, so transaction service will preserve it
+		await transactionService.createTransaction(transaction, true);
+		
+		// Add to existing transactions map to prevent duplicates within the same import run
+		// This prevents issues with out-of-order transactions in the CSV
+		if (mmUid && mmUid !== 'null' && mmUid !== '') {
+			this.existingMMTransactions.set(mmUid, transaction);
+		}
+		
+		return true; // Successfully imported
 	}
 
 	/**
 	 * Import a transfer transaction from a transfer pair
+	 * @returns true if transaction was imported, false if skipped
 	 */
-	private async importTransferTransaction(pair: TransferPair): Promise<void> {
+	private async importTransferTransaction(pair: TransferPair): Promise<boolean> {
 		if (!pair.transferOut || !pair.transferIn) {
-			return;
+			return false;
 		}
 
 		const outRow = pair.transferOut;
@@ -663,12 +726,21 @@ export class MoneyManagerImporter extends BaseImporter {
 		const mmUid = pair.txUidTrans; // Use transfer pair UID as identifier
 
 		// Get accounts
+		// For transfers:
+		// - DO_TYPE 3 (transfer out): assetUid = source account, toAssetUid = destination account
+		// - DO_TYPE 4 (transfer in): assetUid = destination account, toAssetUid = source account
+		// We use the transfer out row (DO_TYPE 3) as the source of truth for the transfer direction
 		const fromAccountId = outRow.assetUid ? this.accountMappings.get(outRow.assetUid) : undefined;
-		const toAccountId = inRow.assetUid ? this.accountMappings.get(inRow.assetUid) : undefined;
+		
+		// Use toAssetUid from the transfer out row (DO_TYPE 3) to get the destination account
+		// This is more reliable than using inRow.assetUid, as toAssetUid explicitly indicates the destination
+		const toAccountId = outRow.toAssetUid && outRow.toAssetUid !== 'null' && outRow.toAssetUid !== ''
+			? this.accountMappings.get(outRow.toAssetUid)
+			: (inRow.assetUid ? this.accountMappings.get(inRow.assetUid) : undefined);
 
 		if (!fromAccountId || !toAccountId) {
-			this.addWarning(`Transfer accounts not found, skipping transfer`);
-			return;
+			this.addWarning(`Transfer accounts not found (from: ${outRow.assetUid}, to: ${outRow.toAssetUid || inRow.assetUid}), skipping transfer`);
+			return false;
 		}
 
 		// Get currency
@@ -678,9 +750,23 @@ export class MoneyManagerImporter extends BaseImporter {
 			? await db.currencies.get(currencyId)
 			: await db.getCurrencyByCode(extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')));
 
-		// Transfer amount - use IN_ZMONEY (actual currency amount) with correct sign
-		// Amounts in MM CSV already have correct sign, so preserve as-is
-		const transferAmount = Math.abs(parseFloat(inRow.IN_ZMONEY || inRow.ZMONEY || '0'));
+		// Transfer amounts from MM CSV:
+		// - outRow.IN_ZMONEY: Original transfer amount in transaction currency (for source account perspective)
+		// - outRow.ZMONEY: Cached conversion to source account currency
+		// - inRow.IN_ZMONEY: Original transfer amount in transaction currency (for destination account perspective)
+		// - inRow.ZMONEY: Cached conversion to destination account currency
+		const outInZmoney = parseFloat(outRow.IN_ZMONEY || '0');
+		const outZmoney = parseFloat(outRow.ZMONEY || '0');
+		const inInZmoney = parseFloat(inRow.IN_ZMONEY || '0');
+		const inZmoney = parseFloat(inRow.ZMONEY || '0');
+		
+		// Original transfer amount in transaction currency
+		const transferAmount = Math.abs(inInZmoney || outInZmoney || 0);
+		
+		// Cached conversions for source and destination accounts
+		const sourceAccountAmount = Math.abs(outZmoney || 0); // Converted to source account currency
+		const toAccountAmount = Math.abs(inZmoney || 0); // Converted to destination account currency
+		
 		// Use ZDATE (transaction time) as primary source, UTIME as fallback, WDATE as last resort
 		// Prefer outRow values, fallback to inRow
 		const transferZdate = outRow.ZDATE || inRow.ZDATE;
@@ -688,14 +774,19 @@ export class MoneyManagerImporter extends BaseImporter {
 		const transferWdate = outRow.WDATE || inRow.WDATE;
 		const clearedDate = mapDate(transferZdate, transferUtime, transferWdate);
 		const description = outRow.ZCONTENT || inRow.ZCONTENT || 'Transfer';
+		
+		// Get account currencies for conversion metadata
+		const fromAccount = fromAccountId ? await db.accounts.get(fromAccountId) : null;
+		const toAccount = toAccountId ? await db.accounts.get(toAccountId) : null;
+		const fromAccountCurrency = fromAccount?.currency;
+		const toAccountCurrency = toAccount?.currency;
 
 		// Check for duplicate by MM transfer UID only (using preloaded map - O(1) lookup)
 		// This ensures 1-to-1 import - we only skip if the exact same transfer was already imported
 		if (mmUid && mmUid !== 'null' && mmUid !== '') {
 			const existingByUid = this.findTransactionByMMUid(mmUid);
 			if (existingByUid) {
-				this.statistics.transactionsSkipped++;
-				return; // Skip exact duplicate (same MM UID)
+				return false; // Skip exact duplicate (same MM UID)
 			}
 		}
 
@@ -704,30 +795,64 @@ export class MoneyManagerImporter extends BaseImporter {
 			? JSON.stringify({ mmUid, source: 'money-manager', type: 'transfer' })
 			: undefined;
 
+		// Calculate exchange rates for conversion metadata
+		const finalCurrency = currency?.code || 'USD';
+		let sourceExchangeRate: number | undefined;
+		let destExchangeRate: number | undefined;
+		
+		if (fromAccountCurrency && finalCurrency !== fromAccountCurrency && transferAmount !== 0 && sourceAccountAmount !== 0) {
+			sourceExchangeRate = sourceAccountAmount / transferAmount;
+		}
+		if (toAccountCurrency && finalCurrency !== toAccountCurrency && transferAmount !== 0 && toAccountAmount !== 0) {
+			destExchangeRate = toAccountAmount / transferAmount;
+		}
+		
+		// Currency conversion metadata (for source account)
+		const currencyConversion = fromAccountCurrency && finalCurrency !== fromAccountCurrency && sourceExchangeRate
+			? {
+				exchangeRate: sourceExchangeRate,
+				conversionDate: clearedDate,
+				sourceCurrency: finalCurrency,
+				targetCurrency: fromAccountCurrency
+			}
+			: undefined;
+
 		const transaction: Transaction = {
 			id: generateUUID(),
 			type: 'transfer',
 			status: 'cleared',
 			accountId: fromAccountId,
-			currency: currency?.code || 'USD',
+			currency: finalCurrency, // Transaction currency
+			accountAmount: sourceAccountAmount, // Cached: converted to source account currency (outRow.ZMONEY)
 			description: description,
 			transferDetails: {
 				toAccountId: toAccountId,
-				transferAmount: transferAmount,
+				transferAmount: transferAmount, // Original in transaction currency
+				toAccountAmount: toAccountAmount, // Cached: converted to destination account currency (inRow.ZMONEY)
 				feeAmount: 0, // TODO: Handle fees if txUidFee exists
 				feeAccountId: undefined,
+				feeAccountAmount: undefined,
 				feeCategoryId: undefined
 			},
 			clearedDate: clearedDate,
 			notes: outRow.ZCONTENT || inRow.ZCONTENT || '',
 			importSource: 'money-manager',
 			importMetadata: importMetadata,
+			currencyConversion: currencyConversion,
 			createdAt: parseTimestamp(outRow.UTIME || inRow.UTIME),
 			updatedAt: parseTimestamp(outRow.UTIME || inRow.UTIME),
 			deletedAt: null
 		};
 
-		await transactionService.createTransaction(transaction);
+		// Skip balance recalculation during import - will be done at the end
+		await transactionService.createTransaction(transaction, true);
+		
+		// Add to existing transactions map to prevent duplicates within the same import run
+		if (mmUid && mmUid !== 'null' && mmUid !== '') {
+			this.existingMMTransactions.set(mmUid, transaction);
+		}
+		
+		return true; // Successfully imported
 	}
 
 	/**

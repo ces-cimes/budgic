@@ -3,8 +3,195 @@ import type { Transaction } from '$lib/core/db';
 import { accountService } from './account-service';
 import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 import { balanceProjectionService } from '../analytics/balance-projection-service';
+import { exchangeRateService } from './exchange-rate-service';
 
 class TransactionService {
+    /**
+     * Calculate and cache currency conversions for a transaction
+     * This ensures balance calculations use the correct amounts in account currencies
+     * Returns only the fields that were calculated/modified
+     */
+    private async calculateCurrencyConversions(
+        transaction: Partial<Transaction>,
+        accountId?: string
+    ): Promise<Partial<Pick<Transaction, 'accountAmount' | 'currencyConversion' | 'transferDetails'>>> {
+        if (!accountId || !transaction.currency) {
+            return transaction;
+        }
+
+        const account = await accountService.getAccount(accountId);
+        if (!account) {
+            return transaction;
+        }
+
+        const transactionCurrency = transaction.currency;
+        const accountCurrency = account.currency;
+
+        // If currencies match, no conversion needed
+        if (transactionCurrency === accountCurrency) {
+            // For non-transfers, set accountAmount = amount
+            if (transaction.type !== 'transfer' && transaction.amount !== undefined) {
+                return {
+                    accountAmount: transaction.amount
+                };
+            }
+            return {};
+        }
+
+        // Currencies differ - need conversion
+        const transactionDate = transaction.clearedDate 
+            ? new Date(transaction.clearedDate) 
+            : transaction.plannedDate 
+                ? new Date(transaction.plannedDate)
+                : new Date();
+
+        // For regular transactions (income, expense, adjustment)
+        if (transaction.type !== 'transfer' && transaction.amount !== undefined) {
+            const convertedAmount = await exchangeRateService.convertAmount(
+                transaction.amount,
+                transactionCurrency,
+                accountCurrency,
+                transactionDate
+            );
+
+            if (convertedAmount !== null) {
+                return {
+                    accountAmount: convertedAmount,
+                    currencyConversion: {
+                        exchangeRate: convertedAmount / transaction.amount,
+                        conversionDate: transactionDate.toISOString(),
+                        sourceCurrency: transactionCurrency,
+                        targetCurrency: accountCurrency
+                    }
+                };
+            } else {
+                // Conversion failed - use original amount and log warning
+                console.warn(
+                    `Failed to convert ${transaction.amount} ${transactionCurrency} to ${accountCurrency} for transaction. ` +
+                    `Using original amount. Exchange rate may not be available for ${transactionDate.toISOString().substring(0, 10)}.`
+                );
+                return {};
+            }
+        }
+
+        // For transfers, handle source account conversion
+        if (transaction.type === 'transfer' && transaction.transferDetails) {
+            const result: Partial<Pick<Transaction, 'accountAmount' | 'currencyConversion' | 'transferDetails'>> = {};
+            
+            // Convert transfer amount for source account
+            if (transaction.transferDetails.transferAmount !== undefined) {
+                const sourceConverted = await exchangeRateService.convertAmount(
+                    transaction.transferDetails.transferAmount,
+                    transactionCurrency,
+                    accountCurrency,
+                    transactionDate
+                );
+
+                if (sourceConverted !== null) {
+                    result.accountAmount = sourceConverted;
+                }
+            }
+
+            // Convert fee amount if fee is on this account
+            if (transaction.transferDetails.feeAmount && transaction.transferDetails.feeAmount > 0) {
+                const feeAccountId = transaction.transferDetails.feeAccountId || accountId;
+                if (feeAccountId === accountId) {
+                    const feeConverted = await exchangeRateService.convertAmount(
+                        transaction.transferDetails.feeAmount,
+                        transactionCurrency,
+                        accountCurrency,
+                        transactionDate
+                    );
+
+                    if (feeConverted !== null) {
+                        result.transferDetails = {
+                            ...transaction.transferDetails,
+                            feeAccountAmount: feeConverted
+                        };
+                    }
+                }
+            }
+
+            // Store conversion metadata
+            if (result.accountAmount !== undefined) {
+                result.currencyConversion = {
+                    exchangeRate: result.accountAmount / (transaction.transferDetails.transferAmount || 1),
+                    conversionDate: transactionDate.toISOString(),
+                    sourceCurrency: transactionCurrency,
+                    targetCurrency: accountCurrency
+                };
+            }
+
+            return result;
+        }
+
+        return {};
+    }
+
+    /**
+     * Calculate currency conversions for transfer destination account
+     * Returns only the fields that were calculated/modified
+     */
+    private async calculateTransferDestinationConversion(
+        transaction: Partial<Transaction>
+    ): Promise<Partial<Pick<Transaction, 'transferDetails'>>> {
+        if (transaction.type !== 'transfer' || !transaction.transferDetails) {
+            return transaction;
+        }
+
+        const toAccountId = transaction.transferDetails.toAccountId;
+        if (!toAccountId || !transaction.currency) {
+            return transaction;
+        }
+
+        const toAccount = await accountService.getAccount(toAccountId);
+        if (!toAccount) {
+            return transaction;
+        }
+
+        const transactionCurrency = transaction.currency;
+        const toAccountCurrency = toAccount.currency;
+
+        // If currencies match, no conversion needed
+        if (transactionCurrency === toAccountCurrency) {
+            if (transaction.transferDetails.transferAmount !== undefined) {
+                return {
+                    transferDetails: {
+                        ...transaction.transferDetails,
+                        toAccountAmount: transaction.transferDetails.transferAmount
+                    }
+                };
+            }
+            return {};
+        }
+
+        // Convert transfer amount to destination account currency
+        const transactionDate = transaction.clearedDate 
+            ? new Date(transaction.clearedDate) 
+            : transaction.plannedDate 
+                ? new Date(transaction.plannedDate)
+                : new Date();
+
+        if (transaction.transferDetails.transferAmount !== undefined) {
+            const toAccountConverted = await exchangeRateService.convertAmount(
+                transaction.transferDetails.transferAmount,
+                transactionCurrency,
+                toAccountCurrency,
+                transactionDate
+            );
+
+            if (toAccountConverted !== null) {
+                return {
+                    transferDetails: {
+                        ...transaction.transferDetails,
+                        toAccountAmount: toAccountConverted
+                    }
+                };
+            }
+        }
+
+        return {};
+    }
     public get ready() {
         return db.isOpen();
     }
@@ -19,11 +206,67 @@ class TransactionService {
 
     /**
      * Create a new transaction
+     * @param skipBalanceRecalculation - If true, skip balance recalculation (useful for bulk imports)
      */
-    async createTransaction(data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<Transaction> {
+    async createTransaction(
+        data: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+        skipBalanceRecalculation: boolean = false
+    ): Promise<Transaction> {
+        // Calculate currency conversions before creating transaction
+        // IMPORTANT: If accountAmount is already set (e.g., from import), preserve it and skip conversion
+        let transactionData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> = { ...data };
+        
+        // Only calculate conversions if accountAmount is not already set
+        // This preserves imported conversions from MM or other sources
+        const hasAccountAmount = data.accountAmount !== undefined;
+        const hasTransferAmounts = data.type === 'transfer' && 
+            data.transferDetails?.toAccountAmount !== undefined;
+        
+        if (!hasAccountAmount && data.accountId) {
+            // Calculate conversion for source account only if not already provided
+            const conversions = await this.calculateCurrencyConversions(transactionData, data.accountId);
+            transactionData = { ...transactionData, ...conversions };
+        }
+        
+        // For transfers, calculate conversion for destination account only if not already provided
+        if (data.type === 'transfer' && data.transferDetails && !hasTransferAmounts) {
+            const transferConversions = await this.calculateTransferDestinationConversion(transactionData);
+            transactionData = { ...transactionData, ...transferConversions };
+            
+            // Also calculate fee conversion if fee account is different and not already provided
+            if (transactionData.transferDetails?.feeAccountId && 
+                transactionData.transferDetails.feeAccountId !== data.accountId &&
+                transactionData.transferDetails.feeAmount && 
+                transactionData.transferDetails.feeAmount > 0 &&
+                transactionData.transferDetails.feeAccountAmount === undefined) {
+                const feeAccount = await accountService.getAccount(transactionData.transferDetails.feeAccountId);
+                if (feeAccount && transactionData.currency && feeAccount.currency !== transactionData.currency) {
+                    const transactionDate = data.clearedDate 
+                        ? new Date(data.clearedDate) 
+                        : data.plannedDate 
+                            ? new Date(data.plannedDate)
+                            : new Date();
+                    
+                    const feeConverted = await exchangeRateService.convertAmount(
+                        transactionData.transferDetails.feeAmount,
+                        transactionData.currency,
+                        feeAccount.currency,
+                        transactionDate
+                    );
+                    
+                    if (feeConverted !== null && transactionData.transferDetails) {
+                        transactionData.transferDetails = {
+                            ...transactionData.transferDetails,
+                            feeAccountAmount: feeConverted
+                        };
+                    }
+                }
+            }
+        }
+
         const transaction: Transaction = {
             id: generateUUID(),
-            ...data,
+            ...transactionData,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             deletedAt: null
@@ -31,25 +274,27 @@ class TransactionService {
 
         await db.transactions.add(transaction);
         
-        // Update account balance only if accountId is present
-        const affectedAccountIds: string[] = [];
-        if (transaction.accountId) {
-            await accountService.recalculateAccountBalance(transaction.accountId);
-            affectedAccountIds.push(transaction.accountId);
-        }
-        
-        // Handle transfers - both accounts are affected
-        if (transaction.type === 'transfer' && transaction.transferDetails) {
-            const toAccountId = transaction.transferDetails.toAccountId;
-            if (toAccountId && !affectedAccountIds.includes(toAccountId)) {
-                await accountService.recalculateAccountBalance(toAccountId);
-                affectedAccountIds.push(toAccountId);
+        // Update account balance only if accountId is present and not skipping recalculation
+        if (!skipBalanceRecalculation) {
+            const affectedAccountIds: string[] = [];
+            if (transaction.accountId) {
+                await accountService.recalculateAccountBalance(transaction.accountId);
+                affectedAccountIds.push(transaction.accountId);
             }
-        }
-        
-        // Clear balance projection cache for affected accounts
-        if (affectedAccountIds.length > 0) {
-            balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
+            
+            // Handle transfers - both accounts are affected
+            if (transaction.type === 'transfer' && transaction.transferDetails) {
+                const toAccountId = transaction.transferDetails.toAccountId;
+                if (toAccountId && !affectedAccountIds.includes(toAccountId)) {
+                    await accountService.recalculateAccountBalance(toAccountId);
+                    affectedAccountIds.push(toAccountId);
+                }
+            }
+            
+            // Clear balance projection cache for affected accounts
+            if (affectedAccountIds.length > 0) {
+                balanceProjectionService.clearCacheForAccounts(affectedAccountIds);
+            }
         }
         
         // Emit sync event for transaction creation
@@ -74,9 +319,38 @@ class TransactionService {
             throw new Error(`Transaction ${id} not found`);
         }
 
-        const updatedTransaction = {
-            ...transaction,
-            ...updates,
+        // Check if amount, currency, or account changed - need to recalculate conversions
+        // BUT: Only recalculate if accountAmount is not already set (preserve imported conversions)
+        const needsRecalculation = 
+            (updates.amount !== undefined || 
+             updates.currency !== undefined || 
+             updates.accountId !== undefined ||
+             updates.transferDetails !== undefined ||
+             updates.clearedDate !== undefined ||
+             updates.plannedDate !== undefined) &&
+            // Only recalculate if accountAmount is not already set (preserve imported values)
+            updates.accountAmount === undefined;
+
+        let updatedData: Transaction = { ...transaction, ...updates };
+        
+        // Recalculate currency conversions if needed and not already provided
+        if (needsRecalculation && updatedData.accountAmount === undefined) {
+            const accountId = updatedData.accountId || transaction.accountId;
+            if (accountId) {
+                const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+                updatedData = { ...updatedData, ...conversions };
+            }
+            
+            // For transfers, recalculate destination conversion only if not already provided
+            if (updatedData.type === 'transfer' && updatedData.transferDetails && 
+                updatedData.transferDetails.toAccountAmount === undefined) {
+                const transferConversions = await this.calculateTransferDestinationConversion(updatedData);
+                updatedData = { ...updatedData, ...transferConversions };
+            }
+        }
+
+        const updatedTransaction: Transaction = {
+            ...updatedData,
             updatedAt: new Date().toISOString()
         };
 

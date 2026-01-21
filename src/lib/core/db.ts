@@ -389,21 +389,37 @@ export const CURRENCY_REGISTRY = new Map<string, CurrencyInfo>([
 /**
  * Helper function to calculate the actual balance impact of a transaction
  * For transfers, requires accountId to determine impact
+ * Uses cached accountAmount for multi-currency transactions
  */
 export function calculateTransactionImpact(transaction: Transaction, accountId?: string): number {
 	switch (transaction.type) {
 		case 'income':
-			return transaction.amount || 0; // Positive adds, negative subtracts
+			// Use cached accountAmount if available (converted to account currency), otherwise use original amount
+			const incomeAmount = transaction.accountAmount !== undefined 
+				? transaction.accountAmount 
+				: transaction.amount || 0;
+			return incomeAmount; // Positive adds, negative subtracts
 		case 'expense':
-			return -(transaction.amount || 0); // Positive subtracts, negative adds (like cashback)
+			// Use cached accountAmount if available (converted to account currency), otherwise use original amount
+			const expenseAmount = transaction.accountAmount !== undefined 
+				? transaction.accountAmount 
+				: transaction.amount || 0;
+			return -expenseAmount; // Positive subtracts, negative adds (like cashback)
 		case 'transfer':
 			// For transfers, use transferDetails instead of amount field
 			if (transaction.transferDetails && accountId) {
 				return calculateTransferImpact(transaction, accountId);
 			}
-			return transaction.amount || 0; // Fallback for legacy transfers
+			// Fallback for legacy transfers
+			return transaction.accountAmount !== undefined 
+				? transaction.accountAmount 
+				: transaction.amount || 0;
 		case 'adjustment':
-			return transaction.amount || 0; // Direct modification
+			// Use cached accountAmount if available (converted to account currency), otherwise use original amount
+			const adjustmentAmount = transaction.accountAmount !== undefined 
+				? transaction.accountAmount 
+				: transaction.amount || 0;
+			return adjustmentAmount; // Direct modification
 		default:
 			return 0;
 	}
@@ -412,26 +428,38 @@ export function calculateTransactionImpact(transaction: Transaction, accountId?:
 /**
  * Helper function to calculate transfer impact for a specific account
  * Transfers don't use the amount field - all amounts derived from transferDetails
+ * Uses cached accountAmount, toAccountAmount, and feeAccountAmount for multi-currency support
  */
 export function calculateTransferImpact(transaction: Transaction, accountId: string): number {
 	if (transaction.type !== 'transfer' || !transaction.transferDetails) {
 		return 0;
 	}
 
-	const { toAccountId, transferAmount, feeAmount, feeAccountId } = transaction.transferDetails;
+	const { toAccountId, transferAmount, toAccountAmount, feeAmount, feeAccountId, feeAccountAmount } = transaction.transferDetails;
 	const sourceAccountId = transaction.accountId;
 	const feeAccount = feeAccountId || sourceAccountId; // Default fee to source account
 
 	if (accountId === sourceAccountId) {
 		// Source account: money going out + fee (if fee is on this account)
-		const feeOnThisAccount = feeAccount === sourceAccountId ? feeAmount || 0 : 0;
-		return -(transferAmount + feeOnThisAccount);
+		// Use cached accountAmount for transfer amount (converted to source account currency)
+		const sourceTransferAmount = transaction.accountAmount !== undefined 
+			? transaction.accountAmount 
+			: transferAmount || 0;
+		
+		// Use cached feeAccountAmount if fee is on this account, otherwise use original feeAmount
+		const feeOnThisAccount = feeAccount === sourceAccountId 
+			? (feeAccountAmount !== undefined ? feeAccountAmount : feeAmount || 0)
+			: 0;
+		
+		return -(sourceTransferAmount + feeOnThisAccount);
 	} else if (accountId === toAccountId) {
 		// Destination account: money coming in
-		return transferAmount;
+		// Use cached toAccountAmount (converted to destination account currency)
+		return toAccountAmount !== undefined ? toAccountAmount : transferAmount || 0;
 	} else if (accountId === feeAccount && feeAmount && feeAmount > 0) {
 		// Fee account: fee expense (if fee is on different account)
-		return -feeAmount;
+		// Use cached feeAccountAmount (converted to fee account currency)
+		return -(feeAccountAmount !== undefined ? feeAccountAmount : feeAmount);
 	}
 
 	return 0; // No impact on other accounts
@@ -921,8 +949,10 @@ const TransactionSchema = BaseSchema.extend({
 
 	// Core fields (always present)
 	accountId: z.string().optional(), // Optional for planned transactions, required for cleared/pending
-	amount: z.number().optional(), // Optional for transfers - they use transferDetails
-	currency: z.string().min(3).max(3), // Shared across all splits
+	amount: z.number().optional(), // Original amount in transaction currency (what user entered)
+	currency: z.string().min(3).max(3), // Transaction currency
+	// Multi-currency support: cached conversion to account currency
+	accountAmount: z.number().optional(), // Cached: amount converted to account currency (for balance calculations)
 	description: z.string().optional(), // Can be customized per split transaction
 
 	// Simplified categorization - single category reference
@@ -947,10 +977,22 @@ const TransactionSchema = BaseSchema.extend({
 	transferDetails: z
 		.object({
 			toAccountId: z.string(), // Destination account
-			transferAmount: z.number().positive(), // Positive amount being transferred
-			feeAmount: z.number().min(0).default(0), // Fee amount (can be 0)
+			transferAmount: z.number().positive(), // Original transfer amount in transaction currency
+			toAccountAmount: z.number().positive().optional(), // Cached: transferAmount converted to destination account currency
+			feeAmount: z.number().min(0).default(0), // Original fee amount in transaction currency
 			feeAccountId: z.string().optional(), // Which account pays the fee (default: source)
+			feeAccountAmount: z.number().min(0).optional(), // Cached: feeAmount converted to fee account currency
 			feeCategoryId: z.string().optional() // Category for the fee
+		})
+		.optional(),
+	
+	// Currency conversion metadata (for multi-currency transactions)
+	currencyConversion: z
+		.object({
+			exchangeRate: z.number().optional(), // Exchange rate used for conversion (for reference)
+			conversionDate: z.string().datetime().optional(), // When conversion was performed
+			sourceCurrency: z.string().min(3).max(3).optional(), // Original transaction currency
+			targetCurrency: z.string().min(3).max(3).optional() // Account currency
 		})
 		.optional(),
 
@@ -2133,11 +2175,27 @@ export class BudgicDB extends Dexie {
 	}
 
 	async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
-		return await this.transactions
+		const transactions = await this.transactions
 			.where('accountId')
 			.equals(accountId)
 			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
+		
+		// Sort by date (oldest first) for consistent ordering
+		// This ensures balance calculations and other operations process transactions chronologically
+		return transactions.sort((a, b) => {
+			const dateA = a.clearedDate || a.plannedDate || a.createdAt;
+			const dateB = b.clearedDate || b.plannedDate || b.createdAt;
+			const timeA = new Date(dateA).getTime();
+			const timeB = new Date(dateB).getTime();
+			
+			// If dates are equal, use creation time as tiebreaker
+			if (timeA === timeB) {
+				return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+			}
+			
+			return timeA - timeB; // Oldest first
+		});
 	}
 
 	async getTransactionsRelatedToAccount(accountId: string): Promise<Transaction[]> {
@@ -2478,12 +2536,29 @@ export class BudgicDB extends Dexie {
 
 		// Start with the initial balance
 		let balance = account.initialBalance || 0;
+		
+		// Debug logging for balance calculation (only in development)
+		const isDebugMode = typeof window !== 'undefined' && (window as any).__BUDGIC_DEBUG__;
+		if (isDebugMode) {
+			console.log(`[Balance Calc] Account: ${account.name} (${accountId}), Starting balance: ${balance}`);
+		}
 
 		// Get all cleared transactions where this account is the source (accountId)
 		const sourceTransactions = await this.getTransactionsByAccount(accountId);
 		const clearedSourceTransactions = sourceTransactions.filter(
 			(t) => t.status === 'cleared' && !t.deletedAt
 		);
+		
+		// Debug: Log transaction count and check for multi-currency transactions
+		if (isDebugMode) {
+			console.log(`[Balance Calc] Found ${clearedSourceTransactions.length} cleared source transactions`);
+			const multiCurrencyCount = clearedSourceTransactions.filter(t => 
+				t.currency && t.accountAmount !== undefined && t.currency !== account.currency
+			).length;
+			if (multiCurrencyCount > 0) {
+				console.log(`[Balance Calc] Found ${multiCurrencyCount} multi-currency transactions`);
+			}
+		}
 
 		// Get all cleared transfer transactions that affect this account
 		// Since IndexedDB doesn't support querying nested fields, we need to get all transfers and filter
@@ -2530,10 +2605,47 @@ export class BudgicDB extends Dexie {
 		}
 		const allAffectingTransactions = Array.from(transactionMap.values());
 
-		// Apply impact of all transactions
+		// CRITICAL: Sort transactions chronologically (oldest first) before applying impacts
+		// Balance calculation must process transactions in chronological order
+		allAffectingTransactions.sort((a, b) => {
+			// Use clearedDate for cleared transactions, fallback to plannedDate or createdAt
+			const dateA = a.clearedDate || a.plannedDate || a.createdAt;
+			const dateB = b.clearedDate || b.plannedDate || b.createdAt;
+			const timeA = new Date(dateA).getTime();
+			const timeB = new Date(dateB).getTime();
+			
+			// If dates are equal, use creation time as tiebreaker for consistent ordering
+			if (timeA === timeB) {
+				return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+			}
+			
+			return timeA - timeB; // Oldest first
+		});
+
+		// Apply impact of all transactions in chronological order
+		let transactionCount = 0;
+		
 		for (const transaction of allAffectingTransactions) {
 			const impact = calculateTransactionImpact(transaction, accountId);
+			const previousBalance = balance;
 			balance += impact;
+			transactionCount++;
+			
+			if (isDebugMode) {
+				const date = transaction.clearedDate || transaction.plannedDate || transaction.createdAt;
+				const amountUsed = transaction.accountAmount !== undefined 
+					? transaction.accountAmount 
+					: transaction.amount;
+				const currencyInfo = transaction.currency && transaction.currency !== account.currency 
+					? ` (${transaction.currency}→${account.currency}, using accountAmount: ${transaction.accountAmount?.toFixed(2) || 'N/A'})`
+					: '';
+				const impactStr = impact > 0 ? `+${impact.toFixed(2)}` : impact.toFixed(2);
+				console.log(`[Balance Calc] ${date.substring(0, 10)}: ${transaction.type} ${impactStr} (original: ${transaction.amount?.toFixed(2) || 'N/A'}${currencyInfo}) (${previousBalance.toFixed(2)} → ${balance.toFixed(2)})`);
+			}
+		}
+		
+		if (isDebugMode) {
+			console.log(`[Balance Calc] Account: ${account.name}, Processed ${transactionCount} transactions, Final balance: ${balance}`);
 		}
 
 		await this.updateAccountBalance(accountId, balance);
