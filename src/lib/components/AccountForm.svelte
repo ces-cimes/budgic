@@ -148,25 +148,52 @@
         return;
       }
 
-      // Prepare account data
+      // Convert metadata proxy to plain object using JSON serialization
+      // This ensures all proxies are removed and we have a plain object
+      let plainMetadata: AccountMetadata | undefined = undefined;
+      if (accountMetadata && Object.keys(accountMetadata).length > 0) {
+        try {
+          // JSON serialization removes proxies and creates a plain object
+          plainMetadata = JSON.parse(JSON.stringify(accountMetadata)) as AccountMetadata;
+          // Remove any undefined/null values
+          Object.keys(plainMetadata).forEach(key => {
+            if ((plainMetadata as any)[key] === undefined || (plainMetadata as any)[key] === null) {
+              delete (plainMetadata as any)[key];
+            }
+          });
+          // If no valid properties remain, set to undefined
+          if (Object.keys(plainMetadata).length === 0) {
+            plainMetadata = undefined;
+          }
+        } catch (e) {
+          console.warn('Failed to serialize metadata, using empty object:', e);
+          plainMetadata = undefined;
+        }
+      }
+
+      // Prepare account data - create plain object to avoid proxy cloning issues with IndexedDB
       const accountData: Partial<Account> = {
         name: accountName.trim(),
         type: accountType,
         currency: currency, // currency is now guaranteed to be string
         initialBalance: balance,
         isActive: isActive,
-        metadata: accountMetadata && Object.keys(accountMetadata).length > 0 ? accountMetadata : undefined
+        metadata: plainMetadata
       };
 
       // If editing, preserve the current balance
       if (account.id) {
         accountData.id = account.id;
-        accountData.currentBalance = account.currentBalance;
+        // Extract currentBalance as plain value (not proxy)
+        accountData.currentBalance = typeof account.currentBalance === 'number' 
+          ? account.currentBalance 
+          : (account.currentBalance ? Number(account.currentBalance) : 0);
       } else {
         // For new accounts, set current balance to initial balance
         accountData.currentBalance = balance;
       }
 
+      // AccountData is already a plain object with no proxies, safe to pass to IndexedDB
       await onSubmit(accountData);
     } catch (error) {
       console.error('Failed to submit account:', error);
