@@ -43,7 +43,7 @@ export function useCurrencyFormatting() {
          */
         formatBalance: (
             amount: number | undefined | null, 
-            currency: string
+            currency: string | null
         ) => {
             return formatCurrencyWithLocale(amount, currency, locale, { 
                 showSign: false 

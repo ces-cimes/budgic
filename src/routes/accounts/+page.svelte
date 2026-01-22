@@ -56,7 +56,7 @@
     }
   });
 
-  function formatBalance(balance: number, currency: string) {
+  function formatBalance(balance: number, currency: string | null) {
     // Show minus sign for negative balances, but no plus sign for positive balances
     return formatCurrencyAmount(balance, currency, { showSign: true, showPlus: false });
   }
@@ -121,7 +121,7 @@
   <section class="mb-8">
     <div class="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
       <h2 class="text-lg font-medium mb-2">Total Balance</h2>
-      <div class="text-4xl font-bold">{currencyFormat.formatBalance(totalBalance, userCurrency || 'USD')}</div>
+      <div class="text-4xl font-bold">{formatBalance(totalBalance, userCurrency)}</div>
     </div>
   </section>
 

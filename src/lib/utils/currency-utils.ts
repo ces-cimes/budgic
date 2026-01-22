@@ -50,7 +50,8 @@ export function getDecimalPlaces(num: number): number {
 /**
  * Get currency information from the unified registry
  */
-export function getCurrencyInfo(code: string): CurrencyInfo | null {
+export function getCurrencyInfo(code: string | null): CurrencyInfo | null {
+    if (!code) return null;
     return CURRENCY_REGISTRY.get(code) || null;
 }
 
@@ -171,7 +172,7 @@ export interface FormatOptions {
  */
 export function formatCurrencyAmount(
     amount: number | undefined | null, 
-    currencyCode: string, 
+    currencyCode: string | null, 
     options: FormatOptions = {}
 ): string {
     const {
@@ -363,7 +364,7 @@ export function formatMainCurrencyAmount(amount: number | undefined | null, main
  */
 export function formatCurrencyForLocale(
     amount: number | undefined | null,
-    currencyCode: string,
+    currencyCode: string | null,
     locale: string = 'en-US',
     options: FormatOptions = {}
 ): string {
@@ -393,7 +394,7 @@ export function formatCurrencyForLocale(
  */
 export function formatCurrencyWithLocale(
     amount: number | undefined | null,
-    currencyCode: string,
+    currencyCode: string | null,
     locale: string = 'en-US',
     options: {
         showSign?: boolean;
