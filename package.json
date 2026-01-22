@@ -49,7 +49,8 @@
 		"typescript": "^5.0.0",
 		"typescript-eslint": "^8.20.0",
 		"vaul-svelte": "^1.0.0-next.7",
-		"vite": "^6.2.6"
+		"vite": "^6.2.6",
+		"vitest": "^4.0.17"
 	},
 	"dependencies": {
 		"@capacitor/android": "^7.4.4",
@@ -64,5 +65,9 @@
 		"mode-watcher": "^1.1.0",
 		"svelte-outside": "^0.0.3",
 		"zod": "^3.25.76"
+	},
+	"overrides": {
+		"cookie": ">=0.7.0",
+		"tar": ">=7.5.2"
 	}
 }
