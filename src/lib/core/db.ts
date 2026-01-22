@@ -1110,7 +1110,8 @@ const InsightSchema = BaseSchema.extend({
 		'savings_opportunity',
 		'behavioral',
 		'prediction',
-		'credit_utilization'
+		'credit_utilization',
+		'emergency_fund'
 	]),
 	severity: z.enum(['info', 'warning', 'alert', 'success']),
 	title: z.string().min(1),
