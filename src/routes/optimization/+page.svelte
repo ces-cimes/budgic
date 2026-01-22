@@ -5,6 +5,7 @@
 	import { OptimizationResultVisualization } from '$lib/components/optimization';
 	import { optimizationService, accountService } from '$lib/core/services';
 	import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
+	import RecurringTransactionManager from '$lib/components/recurring/RecurringTransactionManager.svelte';
 	import type { OptimizationResult, OptimizedPlan, OptimizationHistoryEntry } from '$lib/core/services/analytics/optimization-service';
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
@@ -148,6 +149,9 @@
 					<EmergencyFundVisualization showDetails={true} showRecommendations={true} />
 				</Card.Content>
 			</Card.Root>
+
+			<!-- Recurring Transaction Intelligence -->
+			<RecurringTransactionManager />
 
 			<!-- Account Selection -->
 			<Card.Root>
