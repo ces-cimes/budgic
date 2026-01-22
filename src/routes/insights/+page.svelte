@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import { BarChart3, TrendingUp, Award, RefreshCw, Shield, Sparkles } from '@lucide/svelte';
+	import { BarChart3, TrendingUp, Award, RefreshCw, Shield, Sparkles, Brain } from '@lucide/svelte';
 
 	// Shared components
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
@@ -18,6 +18,7 @@
 	} from '$lib/components/insights/tabs';
 	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import RecurringTransactionManager from '$lib/components/recurring/RecurringTransactionManager.svelte';
+	import LearningAdaptationPanel from '$lib/components/insights/LearningAdaptationPanel.svelte';
 
 	// Services
 	import { insightsService } from '$lib/core/services';
@@ -29,6 +30,7 @@
 		{ id: 'recurring', label: 'Recurring', icon: Sparkles },
 		{ id: 'predictions', label: 'Predictions', icon: BarChart3 }, // Using BarChart3 as placeholder
 		{ id: 'savings', label: 'Fee Avoidance', icon: Shield },
+		{ id: 'learning', label: 'Learning', icon: Brain },
 		{ id: 'badges', label: 'Badges', icon: Award }
 	];
 
@@ -174,6 +176,12 @@
 								initialMaxRisks={20}
 								onRecommendationApplied={handleRefresh}
 							/>
+						</div>
+					</TabContent>
+
+					<TabContent tabId="learning" isActive={activeTab === 'learning'} tabs={insightsTabs}>
+						<div class="p-2 sm:p-4">
+							<LearningAdaptationPanel />
 						</div>
 					</TabContent>
 

@@ -22,6 +22,7 @@ import { transactionService } from '../core/transaction-service';
 import { dependencyTrackingService } from '../core/dependency-tracking-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { feeAvoidanceService } from './fee-avoidance-service';
+import { learningAdaptationService } from './learning-adaptation-service';
 import { getBufferAmount, getBufferStatus, getBufferThresholds } from '$lib/utils/account-metadata-utils';
 import { getMaxFlexibilityDays, validateFlexibilityMovement } from '$lib/utils/flexibility-tier-utils';
 import { 
@@ -928,6 +929,7 @@ class OptimizationService {
 
 	/**
 	 * Generate optimization recommendations
+	 * Uses learned preferences to personalize recommendations
 	 */
 	private async generateRecommendations(
 		originalPlan: Map<string, Transaction>,
@@ -940,18 +942,27 @@ class OptimizationService {
 			return recommendations;
 		}
 
+		// Get learned preferences for optimization suggestions
+		const suggestionWeight = await learningAdaptationService.getPreferenceValue('optimization_suggestion_weight') || 1.0;
+		
+		// Filter movements based on learned category flexibility
+		const filteredMovements = await this.filterMovementsByFlexibility(optimizedPlan.movements);
+
 		// Group movements by impact
-		const highImpactMovements = optimizedPlan.movements.filter(m => Math.abs(m.daysMoved) > 7);
-		const mediumImpactMovements = optimizedPlan.movements.filter(m => 
+		const highImpactMovements = filteredMovements.filter(m => Math.abs(m.daysMoved) > 7);
+		const mediumImpactMovements = filteredMovements.filter(m => 
 			Math.abs(m.daysMoved) > 3 && Math.abs(m.daysMoved) <= 7
 		);
+
+		// Apply learned weight to recommendation priority
+		const basePriority = suggestionWeight < 0.5 ? 'low' : suggestionWeight > 1.5 ? 'high' : 'medium';
 
 		// Create recommendation for high-impact changes
 		if (highImpactMovements.length > 0) {
 			recommendations.push({
 				id: generateUUID(),
 				type: 'review',
-				priority: 'high',
+				priority: basePriority === 'high' ? 'high' : 'medium',
 				title: 'Significant Transaction Adjustments',
 				description: `${highImpactMovements.length} transactions can be moved to improve your financial position.`,
 				estimatedSavings: optimizedPlan.improvements
@@ -961,7 +972,11 @@ class OptimizationService {
 				transactionsAffected: highImpactMovements.map(m => m.transactionId),
 				suggestedMovements: highImpactMovements,
 				actionable: true,
-				metadata: {}
+				metadata: {
+					learnedWeight: suggestionWeight,
+					filteredCount: filteredMovements.length,
+					originalCount: optimizedPlan.movements.length
+				}
 			});
 		}
 
@@ -970,7 +985,7 @@ class OptimizationService {
 			recommendations.push({
 				id: generateUUID(),
 				type: 'apply',
-				priority: 'medium',
+				priority: basePriority,
 				title: 'Optimize Transaction Timing',
 				description: `Small adjustments to ${mediumImpactMovements.length} transactions can help avoid fees and maintain better balances.`,
 				estimatedSavings: optimizedPlan.improvements
@@ -979,11 +994,47 @@ class OptimizationService {
 				transactionsAffected: mediumImpactMovements.map(m => m.transactionId),
 				suggestedMovements: mediumImpactMovements,
 				actionable: true,
-				metadata: {}
+				metadata: {
+					learnedWeight: suggestionWeight,
+					filteredCount: filteredMovements.length,
+					originalCount: optimizedPlan.movements.length
+				}
 			});
 		}
 
 		return recommendations;
+	}
+
+	/**
+	 * Filter movements based on learned category flexibility
+	 */
+	private async filterMovementsByFlexibility(
+		movements: TransactionMovement[]
+	): Promise<TransactionMovement[]> {
+		const filtered: TransactionMovement[] = [];
+
+		for (const movement of movements) {
+			const transaction = await db.transactions.get(movement.transactionId);
+			if (!transaction || !transaction.categoryId) {
+				filtered.push(movement); // Include if no category
+				continue;
+			}
+
+			// Get learned flexibility for this category
+			const flexibilityKey = `${transaction.categoryId}_flexibility`;
+			const flexibility = await learningAdaptationService.getPreferenceValue(flexibilityKey);
+
+			// If flexibility is low (<0.3), only include if movement is small
+			if (flexibility !== null && flexibility < 0.3) {
+				if (Math.abs(movement.daysMoved) <= 3) {
+					filtered.push(movement); // Only small movements for low-flexibility categories
+				}
+			} else {
+				filtered.push(movement); // Include all movements for flexible categories
+			}
+		}
+
+		return filtered;
 	}
 
 	/**

@@ -1221,6 +1221,63 @@ const ReconciliationDiscrepancySchema = BaseSchema.extend({
 	resolvedAt: z.string().datetime().optional()
 });
 
+// Learning Pattern Schema - Stores detected spending and income patterns
+const LearningPatternSchema = BaseSchema.extend({
+	patternType: z.enum([
+		'day_of_week',
+		'weekly',
+		'monthly',
+		'seasonal',
+		'life_event',
+		'income_frequency',
+		'income_amount',
+		'paycheck_shift'
+	]),
+	categoryId: z.string().optional(), // Category this pattern applies to (if applicable)
+	title: z.string().min(1),
+	description: z.string().min(1),
+	confidence: z.number().min(0).max(100), // 0-100 confidence score
+	frequency: z.enum(['daily', 'weekly', 'monthly', 'irregular']),
+	pattern: z.string(), // JSON string containing pattern details
+	metadata: z.string(), // JSON string: { occurrences, minimumOccurrences, variance, coefficientOfVariation, timeframe, lastObserved, firstObserved }
+	isActive: z.boolean().default(true),
+	appliedToProjections: z.boolean().default(false), // Whether this pattern is used in projections
+	lastValidated: z.string().datetime().optional() // Last time pattern was validated against new data
+});
+
+// User Feedback Schema - Tracks user responses to suggestions and recommendations
+const UserFeedbackSchema = BaseSchema.extend({
+	feedbackType: z.enum([
+		'optimization_suggestion',
+		'allowance_warning',
+		'budget_adjustment',
+		'category_flexibility',
+		'pattern_confirmation',
+		'recommendation'
+	]),
+	suggestionId: z.string().optional(), // ID of the suggestion/optimization that triggered this feedback
+	action: z.enum(['accepted', 'rejected', 'modified', 'dismissed']),
+	details: z.string().optional(), // JSON string with additional context
+	metadata: z.string().optional() // JSON string with feedback metadata
+});
+
+// Optimization Preference Schema - Stores user preferences learned from feedback
+const OptimizationPreferenceSchema = BaseSchema.extend({
+	preferenceType: z.enum([
+		'category_flexibility',
+		'allowance_tuning',
+		'buffer_tuning',
+		'suggestion_weight',
+		'transaction_movement'
+	]),
+	categoryId: z.string().optional(), // Category this preference applies to (if applicable)
+	key: z.string().min(1), // Preference key (e.g., "entertainment_flexibility")
+	value: z.number(), // Preference value (e.g., flexibility score 0-1)
+	confidence: z.number().min(0).max(100), // Confidence in this preference (based on feedback count)
+	feedbackCount: z.number().min(0).default(0), // Number of feedback instances supporting this preference
+	metadata: z.string().optional() // JSON string with additional preference data
+});
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -1240,6 +1297,9 @@ export type Badge = z.infer<typeof BadgeSchema>;
 export type ReconciliationRecord = z.infer<typeof ReconciliationRecordSchema>;
 export type ReconciliationDiscrepancy = z.infer<typeof ReconciliationDiscrepancySchema>;
 export type FlexibilityTier = z.infer<typeof FlexibilityTier>;
+export type LearningPattern = z.infer<typeof LearningPatternSchema>;
+export type UserFeedback = z.infer<typeof UserFeedbackSchema>;
+export type OptimizationPreference = z.infer<typeof OptimizationPreferenceSchema>;
 
 // Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
@@ -1303,6 +1363,9 @@ export class BudgicDB extends Dexie {
 	badges!: Table<Badge>;
 	reconciliationRecords!: Table<ReconciliationRecord>;
 	reconciliationDiscrepancies!: Table<ReconciliationDiscrepancy>;
+	learningPatterns!: Table<LearningPattern>;
+	userFeedback!: Table<UserFeedback>;
+	optimizationPreferences!: Table<OptimizationPreference>;
 
 	constructor() {
 		super('BudgicDB');
@@ -1416,6 +1479,39 @@ export class BudgicDB extends Dexie {
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
 				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]'
+		});
+
+		// Version 14: Add learning and adaptation tables
+		this.version(14).stores({
+			// Core entities - 16 tables
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]'
 		});
 
 		// Add validation hooks

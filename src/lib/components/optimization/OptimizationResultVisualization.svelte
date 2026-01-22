@@ -3,7 +3,7 @@
 	import { formatCurrencyAmount } from '$lib/utils/currency-utils';
 	import { formatMainCurrencyAmount } from '$lib/utils/currency-utils';
 	import { format, differenceInDays, parseISO } from 'date-fns';
-	import { userService } from '$lib/core/services';
+	import { userService, learningAdaptationService } from '$lib/core/services';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -18,7 +18,8 @@
 		ArrowRight,
 		Sparkles,
 		Clock,
-		Target
+		Target,
+		X
 	} from '@lucide/svelte';
 	import { db } from '$lib/core/db';
 	import type { Transaction } from '$lib/core/db';
@@ -64,6 +65,24 @@
 	$effect(() => {
 		loadTransactions();
 	});
+
+	// Handle feedback on recommendations
+	async function handleFeedback(recommendationId: string, action: 'accepted' | 'rejected') {
+		try {
+			await learningAdaptationService.recordFeedback({
+				feedbackType: 'optimization_suggestion',
+				suggestionId: recommendationId,
+				action,
+				details: {
+					recommendationId,
+					improvement: result.improvement,
+					estimatedSavings: result.recommendations.find(r => r.id === recommendationId)?.estimatedSavings
+				}
+			});
+		} catch (error) {
+			console.error('Error recording feedback:', error);
+		}
+	}
 
 	// Format score for display (normalize large numbers)
 	function formatScore(score: number): string {
@@ -413,15 +432,32 @@
 											Estimated Savings: {formatMainCurrencyAmount(recommendation.estimatedSavings, userCurrency)}
 										</div>
 									{/if}
-									{#if recommendation.actionable && onApply}
-										<Button 
-											size="sm" 
-											onclick={handleApply}
-											class="mt-2"
+									<div class="flex gap-2 mt-2">
+										{#if recommendation.actionable && onApply}
+											<Button 
+												size="sm" 
+												onclick={handleApply}
+											>
+												Apply Optimization
+											</Button>
+										{/if}
+										<Button
+											size="sm"
+											variant="outline"
+											onclick={() => handleFeedback(recommendation.id, 'accepted')}
 										>
-											Apply Optimization
+											<CheckCircle2 class="w-4 h-4 mr-1" />
+											Helpful
 										</Button>
-									{/if}
+										<Button
+											size="sm"
+											variant="ghost"
+											onclick={() => handleFeedback(recommendation.id, 'rejected')}
+										>
+											<X class="w-4 h-4 mr-1" />
+											Not Helpful
+										</Button>
+									</div>
 								</div>
 							{/each}
 						</div>

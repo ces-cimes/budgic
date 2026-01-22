@@ -27,4 +27,5 @@ export { optimizationService } from './optimization-service';
 export { creditUtilizationService } from './credit-utilization-service';
 export { emergencyFundService } from './emergency-fund-service';
 export { recurringTransactionIntelligenceService } from './recurring-transaction-intelligence-service';
+export { learningAdaptationService } from './learning-adaptation-service';
 export { notificationsService } from '../notifications-service';
