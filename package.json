@@ -53,9 +53,9 @@
 		"vitest": "^4.0.17"
 	},
 	"dependencies": {
-		"@capacitor/android": "^7.4.4",
-		"@capacitor/cli": "^7.4.3",
-		"@capacitor/core": "^7.4.3",
+		"@capacitor/android": "^7.4.5",
+		"@capacitor/cli": "^7.4.5",
+		"@capacitor/core": "^7.4.5",
 		"@capawesome/capacitor-android-edge-to-edge-support": "^7.2.3",
 		"@inlang/paraglide-js": "^2.0.0",
 		"@neoconfetti/svelte": "^2.2.2",
@@ -68,6 +68,9 @@
 	},
 	"overrides": {
 		"cookie": ">=0.7.0",
-		"tar": ">=7.5.2"
+		"tar": ">=7.5.2",
+		"@capacitor/cli": {
+			"tar": "^6.1.11"
+		}
 	}
 }
