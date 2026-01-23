@@ -92,7 +92,7 @@
 			enableFilters={true}
 			enableSearch={true}
 			enableBasicToggles={true}
-			enableAdvancedFilters={false}
+			enableAdvancedFilters={true}
 			displayMode="detailed"
 			groupingMode="smart"
 			showSummary={true}

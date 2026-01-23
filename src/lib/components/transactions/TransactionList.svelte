@@ -10,21 +10,65 @@
 	import { dateUtils } from '$lib/utils/date-utils';
 	import { transactionService } from '$lib/core/services';
 	import type { Transaction, Account, Category } from '$lib/core/db';
+	import FilterButton from './filters/FilterButton.svelte';
+	import FilterSheet from './filters/FilterSheet.svelte';
+	import { getActiveFilterCount } from './filters/filter-utils';
 
 	// Filter state interface
 	export interface FilterState {
+		// Search
 		searchQuery: string;
+		
+		// Basic filters (always visible)
 		showPendingOnly: boolean;
 		dateFilterEnabled: boolean;
 		groupingMode: GroupingMode;
 		currentMonth: Date;
-		// Advanced filters can be added here later
-		accountIds?: string[];
+		
+		// Status filter (enhanced)
+		statuses?: ('cleared' | 'pending' | 'planned' | 'cancelled' | 'upcoming' | 'overdue')[];
+		
+		// Category filter
 		categoryIds?: string[];
-		status?: string[];
+		categoryType?: 'expense' | 'income';
+		waterfallTier?: ('survival' | 'security' | 'growth' | 'lifestyle')[];
+		
+		// Account filter
+		accountIds?: string[];
+		accountTypes?: ('checking' | 'savings' | 'credit' | 'cash' | 'investment' | 'crypto')[];
+		
+		// Amount filter
 		minAmount?: number;
 		maxAmount?: number;
+		
+		// Date range filter (enhanced)
 		dateRange?: { start: Date; end: Date };
+		dateType?: 'cleared' | 'planned';
+		
+		// Transaction type filter
+		types?: ('income' | 'expense' | 'transfer' | 'adjustment')[];
+		
+		// Recurring filter
+		recurring?: boolean;
+		
+		// Grouped transactions filter
+		grouped?: boolean;
+		
+		// Variance filter
+		hasVariance?: boolean;
+		underBudget?: boolean;
+		overBudget?: boolean;
+		
+		// Confidence level filter
+		confidence?: ('confirmed' | 'expected' | 'estimated')[];
+		
+		// Currency filter
+		currencies?: string[];
+		
+		// Import source filter
+		importSource?: string;
+		hasNotes?: boolean;
+		hasReference?: boolean;
 	}
 
 	interface TransactionListProps {
@@ -97,6 +141,9 @@
 	// Internal selection state
 	let internalSelectedIds = $state<Set<string>>(new Set());
 	let internalSelectionMode = $state(false);
+
+	// Filter sheet state
+	let filterSheetOpen = $state(false);
 
 	// Use external or internal state based on props
 	const filters = $derived(externalFilters ?? internalFilters);
@@ -239,37 +286,186 @@
 			});
 		}
 		
-		// Apply advanced filters if provided
+		// Apply status filter (enhanced)
+		if (currentFilters.statuses && currentFilters.statuses.length > 0) {
+			filtered = filtered.filter(t => {
+				const now = new Date();
+				// Check each selected status
+				for (const status of currentFilters.statuses!) {
+					if (status === 'upcoming') {
+						if (t.status === 'pending' && t.plannedDate) {
+							const plannedDate = new Date(t.plannedDate);
+							if (plannedDate > now) return true;
+						}
+					} else if (status === 'overdue') {
+						if (t.status === 'pending' && t.plannedDate) {
+							const plannedDate = new Date(t.plannedDate);
+							if (plannedDate < now) return true;
+						}
+					} else if (t.status === status) {
+						return true;
+					}
+				}
+				return false;
+			});
+		}
+		
+		// Apply category filter
+		if (currentFilters.categoryIds && currentFilters.categoryIds.length > 0) {
+			filtered = filtered.filter(t => {
+				if (currentFilters.categoryIds!.includes('__uncategorized__')) {
+					return !t.categoryId || currentFilters.categoryIds!.includes(t.categoryId);
+				}
+				return t.categoryId && currentFilters.categoryIds!.includes(t.categoryId);
+			});
+		}
+		
+		if (currentFilters.categoryType) {
+			filtered = filtered.filter(t => {
+				if (!t.categoryId) return false;
+				const category = categories[t.categoryId];
+				return category && category.type === currentFilters.categoryType;
+			});
+		}
+		
+		if (currentFilters.waterfallTier && currentFilters.waterfallTier.length > 0) {
+			filtered = filtered.filter(t => {
+				if (!t.categoryId) return false;
+				const category = categories[t.categoryId];
+				return category && currentFilters.waterfallTier!.includes(category.waterfallTier);
+			});
+		}
+		
+		// Apply account filter
 		if (currentFilters.accountIds && currentFilters.accountIds.length > 0) {
 			filtered = filtered.filter(t => t.accountId && currentFilters.accountIds!.includes(t.accountId));
 		}
 		
-		if (currentFilters.categoryIds && currentFilters.categoryIds.length > 0) {
-			filtered = filtered.filter(t => t.categoryId && currentFilters.categoryIds!.includes(t.categoryId));
+		if (currentFilters.accountTypes && currentFilters.accountTypes.length > 0) {
+			filtered = filtered.filter(t => {
+				if (!t.accountId) return false;
+				const account = accounts[t.accountId];
+				return account && currentFilters.accountTypes!.includes(account.type);
+			});
 		}
 		
-		if (currentFilters.status && currentFilters.status.length > 0) {
-			filtered = filtered.filter(t => currentFilters.status!.includes(t.status));
-		}
-		
+		// Apply amount filter
 		if (currentFilters.minAmount !== undefined) {
 			filtered = filtered.filter(t => {
-				const amount = t.amount || 0;
-				return Math.abs(amount) >= currentFilters.minAmount!;
+				const amount = Math.abs(t.amount || 0);
+				return amount >= currentFilters.minAmount!;
 			});
 		}
 		
 		if (currentFilters.maxAmount !== undefined) {
 			filtered = filtered.filter(t => {
-				const amount = t.amount || 0;
-				return Math.abs(amount) <= currentFilters.maxAmount!;
+				const amount = Math.abs(t.amount || 0);
+				return amount <= currentFilters.maxAmount!;
 			});
 		}
 		
+		// Apply date range filter (enhanced)
 		if (currentFilters.dateRange) {
 			filtered = filtered.filter(t => {
-				const transactionDate = new Date(getTransactionDate(t));
+				const dateType = currentFilters.dateType || 'cleared';
+				const transactionDate = dateType === 'planned' 
+					? (t.plannedDate ? new Date(t.plannedDate) : null)
+					: (t.clearedDate ? new Date(t.clearedDate) : null);
+				
+				if (!transactionDate) return false;
 				return transactionDate >= currentFilters.dateRange!.start && transactionDate <= currentFilters.dateRange!.end;
+			});
+		}
+		
+		// Apply transaction type filter
+		if (currentFilters.types && currentFilters.types.length > 0) {
+			filtered = filtered.filter(t => currentFilters.types!.includes(t.type));
+		}
+		
+		// Apply recurring filter
+		if (currentFilters.recurring !== undefined) {
+			filtered = filtered.filter(t => {
+				const isRecurring = !!t.recurrenceRule;
+				return currentFilters.recurring ? isRecurring : !isRecurring;
+			});
+		}
+		
+		// Apply grouped filter
+		if (currentFilters.grouped !== undefined) {
+			filtered = filtered.filter(t => {
+				const isGrouped = !!t.groupId;
+				return currentFilters.grouped ? isGrouped : !isGrouped;
+			});
+		}
+		
+		// Apply variance filters
+		if (currentFilters.hasVariance !== undefined && currentFilters.hasVariance) {
+			filtered = filtered.filter(t => {
+				return t.status === 'cleared' && 
+					t.plannedAmount !== undefined && 
+					t.amount !== undefined &&
+					t.plannedAmount !== t.amount;
+			});
+		}
+		
+		if (currentFilters.underBudget !== undefined && currentFilters.underBudget) {
+			filtered = filtered.filter(t => {
+				return t.status === 'cleared' && 
+					t.plannedAmount !== undefined && 
+					t.amount !== undefined &&
+					t.amount < t.plannedAmount;
+			});
+		}
+		
+		if (currentFilters.overBudget !== undefined && currentFilters.overBudget) {
+			filtered = filtered.filter(t => {
+				return t.status === 'cleared' && 
+					t.plannedAmount !== undefined && 
+					t.amount !== undefined &&
+					t.amount > t.plannedAmount;
+			});
+		}
+		
+		// Apply confidence filter
+		if (currentFilters.confidence && currentFilters.confidence.length > 0) {
+			filtered = filtered.filter(t => {
+				return t.confidence && currentFilters.confidence!.includes(t.confidence);
+			});
+		}
+		
+		// Apply currency filter
+		if (currentFilters.currencies && currentFilters.currencies.length > 0) {
+			filtered = filtered.filter(t => {
+				return t.currency && currentFilters.currencies!.includes(t.currency);
+			});
+		}
+		
+		// Apply import source filter
+		if (currentFilters.importSource) {
+			filtered = filtered.filter(t => {
+				if (!t.importMetadata) return false;
+				try {
+					const metadata = JSON.parse(t.importMetadata);
+					return metadata.source === currentFilters.importSource;
+				} catch {
+					return false;
+				}
+			});
+		}
+		
+		// Apply notes/reference filters
+		if (currentFilters.hasNotes !== undefined) {
+			filtered = filtered.filter(t => {
+				const hasNotes = !!(t.description && t.description.trim().length > 0);
+				return currentFilters.hasNotes ? hasNotes : !hasNotes;
+			});
+		}
+		
+		if (currentFilters.hasReference !== undefined) {
+			filtered = filtered.filter(t => {
+				// Assuming reference might be in importMetadata or a separate field
+				const hasReference = !!(t.importMetadata && t.importMetadata.includes('reference'));
+				return currentFilters.hasReference ? hasReference : !hasReference;
 			});
 		}
 		
@@ -535,12 +731,10 @@
 					{/if}
 					<!-- Advanced Filters Button -->
 					{#if enableAdvancedFilters}
-						<Button variant="outline" size="sm">
-							<!-- FilterButton component would go here -->
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-							</svg>
-						</Button>
+						<FilterButton 
+							activeFilterCount={getActiveFilterCount(filters)} 
+							onClick={() => filterSheetOpen = true} 
+						/>
 					{/if}
 				</div>
 
@@ -609,6 +803,13 @@
 							</ToggleGroup.Root>
 						</div>
 					{/if}
+					<!-- Advanced Filters Button (Mobile) -->
+					{#if enableAdvancedFilters}
+						<FilterButton 
+							activeFilterCount={getActiveFilterCount(filters)} 
+							onClick={() => filterSheetOpen = true} 
+						/>
+					{/if}
 
 					<!-- Month Navigation - Full width on mobile -->
 					{#if showDateNavigation}
@@ -643,6 +844,21 @@
 				</div>
 			</div>
 		</div>
+	{/if}
+
+	<!-- Filter Sheet -->
+	{#if enableAdvancedFilters}
+		<FilterSheet
+			bind:open={filterSheetOpen}
+			filters={filters}
+			{accounts}
+			{categories}
+			{userCurrency}
+			activeFilterCount={getActiveFilterCount(filters)}
+			onFiltersChange={updateFilters}
+			onClearAll={() => {}}
+			onApply={() => filterSheetOpen = false}
+		/>
 	{/if}
 
 	<!-- Compact Summary Stats -->
