@@ -18,6 +18,7 @@
     type ImportProgress,
     type DetectedSchema
   } from '$lib/core/services/import-export';
+  import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
 
   // State
   let isLoading = $state(true);
@@ -112,17 +113,23 @@
   }
 
   // Import data
-  async function importData(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    
-    if (!file) return;
-    
+  async function importData() {
     isImporting = true;
     error = null;
     success = null;
     
     try {
+      const file = await pickFile({
+        types: ['application/json'],
+        extensions: ['.json']
+      });
+      
+      if (!file) {
+        // User cancelled
+        isImporting = false;
+        return;
+      }
+      
       const text = await file.text();
       const data = JSON.parse(text);
       
@@ -142,8 +149,6 @@
       console.error('Error importing data:', err);
     } finally {
       isImporting = false;
-      // Reset file input
-      input.value = '';
     }
   }
 
@@ -167,6 +172,30 @@
     } catch (err) {
       error = `Failed to analyze CSV files: ${err instanceof Error ? err.message : 'Unknown error'}`;
       mmSchema = null;
+    }
+  }
+
+  // Pick Money Manager CSV files
+  async function pickMMFiles() {
+    try {
+      console.log('Picking CSV files...');
+      const files = await pickMultipleFiles({
+        types: ['text/csv'],
+        extensions: ['.csv']
+      });
+      
+      console.log('Picked files:', files.length, files.map(f => ({ name: f.name, size: f.size })));
+      
+      if (files.length > 0) {
+        mmFiles = files;
+        console.log('mmFiles updated:', mmFiles.length, mmFiles.map(f => ({ name: f.name, size: f.size })));
+        await handleMMFileSelection();
+      } else {
+        console.log('No files selected or user cancelled');
+      }
+    } catch (err) {
+      error = `Failed to pick files: ${err instanceof Error ? err.message : 'Unknown error'}`;
+      console.error('Error picking files:', err);
     }
   }
 
@@ -341,13 +370,14 @@
             <!-- JSON Import (Existing) -->
             <div>
               <label class="text-sm font-medium text-primary mb-2 block">Import from Budgic Backup</label>
-              <Input
-                type="file"
-                accept=".json"
-                onchange={importData}
+              <Button.Root
+                onclick={importData}
                 disabled={isImporting || isImportingMM}
+                variant="outline"
                 class="w-full"
-              />
+              >
+                Select JSON File
+              </Button.Root>
               <p class="text-sm text-muted-foreground mt-2">
                 Select a JSON export file to restore your data
               </p>
@@ -366,20 +396,14 @@
                 </Button.Root>
               </div>
               
-              <Input
-                type="file"
-                accept=".csv"
-                multiple
-                onchange={(e) => {
-                  const input = e.target as HTMLInputElement;
-                  mmFiles = Array.from(input.files || []);
-                  if (mmFiles.length > 0) {
-                    handleMMFileSelection();
-                  }
-                }}
+              <Button.Root
+                onclick={pickMMFiles}
                 disabled={isImporting || isImportingMM}
+                variant="outline"
                 class="w-full mb-2"
-              />
+              >
+                Select CSV Files
+              </Button.Root>
               <p class="text-sm text-muted-foreground mb-4">
                 Select CSV files exported from Money Manager (ASSETS.csv, ZCATEGORY.csv, INOUTCOME.csv, CURRENCY.csv, etc.)
               </p>
