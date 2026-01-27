@@ -638,7 +638,7 @@
 				bind:this={buttonElement}
 				aria-label={`${ariaLabel()}, click to view details`}
 			>
-				<div class="flex items-center gap-3">
+				<div class="flex items-center gap-2">
 					<!-- Left Border Area: Time Display (Fixed Width) -->
 					<div class="flex-shrink-0 flex items-center justify-center w-[10px] min-h-[3rem]">
 						{#if displayTime()}
@@ -710,7 +710,7 @@
 					bind:this={buttonElement}
 					aria-label={`${ariaLabel()}, click to view details`}
 				>
-					<div class="flex items-center gap-3">
+					<div class="flex items-center gap-2">
 						<!-- Left Border Area: Time Display (Fixed Width) -->
 						<div class="flex-shrink-0 flex items-center justify-center w-[10px] min-h-[3rem]">
 							{#if displayTime()}
@@ -828,7 +828,7 @@
 				bind:this={buttonElement}
 				aria-label={ariaLabel()}
 			>
-				<div class="flex items-center gap-3">
+				<div class="flex items-center gap-2">
 					<!-- Left Border Area: Time Display (Fixed Width) -->
 					<div class="flex-shrink-0 flex items-center justify-center w-[10px] min-h-[3rem]">
 						{#if displayTime()}
