@@ -3,6 +3,9 @@ import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 import { badgeService } from '../analytics/badge-service';
 import type { Goal, Transaction } from '$lib/core/db';
 
+/** Average days per month for time-bound goal calculations (calendar average) */
+const AVG_DAYS_PER_MONTH = 30.44;
+
 interface GoalProgress {
     goalId: string;
     goalName: string;
@@ -13,6 +16,30 @@ interface GoalProgress {
     estimatedCompletionDate?: string;
     isOnTrack: boolean;
     priority: Goal['priority'];
+    /** Required monthly savings to hit target by targetDate (time-bound goals) */
+    requiredMonthlySavings?: number;
+    /** Months remaining until target date (time-bound goals) */
+    monthsRemaining?: number;
+    /** Days remaining until target date (time-bound goals) */
+    daysRemaining?: number;
+    /** Suggested monthly savings for open-ended goals (user preference or recommendation) */
+    suggestedMonthlySavings?: number;
+    /** True if goal has a target date */
+    isTimeBound: boolean;
+}
+
+/**
+ * Result of required savings calculation for a goal.
+ * Used for display and for opportunity identification.
+ */
+export interface RequiredSavingsResult {
+    /** Required monthly amount to reach target by target date (time-bound) */
+    requiredMonthly: number;
+    monthsRemaining?: number;
+    daysRemaining?: number;
+    isTimeBound: boolean;
+    /** Suggested monthly for open-ended goals (user preference or algorithm) */
+    suggestedMonthly?: number;
 }
 
 interface GoalInsight {
@@ -325,6 +352,53 @@ class GoalService {
     }
 
     // ============================================================================
+    // REQUIRED SAVINGS CALCULATION (Phase 2.1)
+    // ============================================================================
+
+    /**
+     * Calculate required monthly savings for a goal.
+     * - Time-bound: required monthly = (target - current progress) / months remaining (months = days/30.44).
+     * - Open-ended: suggested monthly = user's monthlyContribution preference (algorithm recommendation can be added later).
+     */
+    getRequiredSavings(goal: Goal): RequiredSavingsResult {
+        const remainingAmount = Math.max(0, goal.targetAmount - goal.currentAmount);
+        const now = new Date();
+
+        if (goal.targetDate) {
+            const targetDate = new Date(goal.targetDate);
+            const timeRemaining = targetDate.getTime() - now.getTime();
+            const daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
+
+            if (daysRemaining <= 0) {
+                return {
+                    requiredMonthly: remainingAmount,
+                    monthsRemaining: 0,
+                    daysRemaining: 0,
+                    isTimeBound: true
+                };
+            }
+
+            const monthsRemaining = daysRemaining / AVG_DAYS_PER_MONTH;
+            const requiredMonthly = monthsRemaining > 0 ? remainingAmount / monthsRemaining : remainingAmount;
+
+            return {
+                requiredMonthly,
+                monthsRemaining,
+                daysRemaining,
+                isTimeBound: true
+            };
+        }
+
+        // Open-ended goal: use user's monthly contribution as suggested
+        const suggestedMonthly = goal.monthlyContribution;
+        return {
+            requiredMonthly: suggestedMonthly ?? 0,
+            isTimeBound: false,
+            suggestedMonthly
+        };
+    }
+
+    // ============================================================================
     // PRIVATE METHODS
     // ============================================================================
 
@@ -347,14 +421,20 @@ class GoalService {
         let isOnTrack = true;
         let estimatedCompletionDate: string | undefined;
 
+        let requiredMonthlySavings: number | undefined;
+        let monthsRemaining: number | undefined;
+        let daysRemaining: number | undefined;
+        let suggestedMonthlySavings: number | undefined;
+        const isTimeBound = Boolean(goal.targetDate);
+
         if (goal.targetDate) {
             const targetDate = new Date(goal.targetDate);
             const now = new Date();
             const timeRemaining = targetDate.getTime() - now.getTime();
-            const daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
+            const daysRemainingCalc = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
 
-            if (daysRemaining > 0) {
-                const dailyRequiredAmount = remainingAmount / daysRemaining;
+            if (daysRemainingCalc > 0) {
+                const dailyRequiredAmount = remainingAmount / daysRemainingCalc;
                 const averageDailyContribution = currentAmount / Math.max(1, Math.ceil((now.getTime() - new Date(goal.createdAt).getTime()) / (1000 * 60 * 60 * 24)));
                 
                 isOnTrack = averageDailyContribution >= dailyRequiredAmount;
@@ -363,7 +443,13 @@ class GoalService {
                     const estimatedDays = Math.ceil(remainingAmount / averageDailyContribution);
                     estimatedCompletionDate = new Date(now.getTime() + (estimatedDays * 24 * 60 * 60 * 1000)).toISOString();
                 }
+
+                daysRemaining = daysRemainingCalc;
+                monthsRemaining = daysRemainingCalc / AVG_DAYS_PER_MONTH;
+                requiredMonthlySavings = monthsRemaining > 0 ? remainingAmount / monthsRemaining : remainingAmount;
             }
+        } else {
+            suggestedMonthlySavings = goal.monthlyContribution;
         }
 
         return {
@@ -375,7 +461,12 @@ class GoalService {
             remainingAmount,
             estimatedCompletionDate,
             isOnTrack,
-            priority: goal.priority
+            priority: goal.priority,
+            requiredMonthlySavings,
+            monthsRemaining,
+            daysRemaining,
+            suggestedMonthlySavings,
+            isTimeBound
         };
     }
 }

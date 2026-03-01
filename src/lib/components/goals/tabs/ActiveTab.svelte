@@ -17,6 +17,7 @@
     CheckCircle
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
+  import { goalService } from '$lib/core/services';
   import type { Goal } from '../types';
 
   interface Props {
@@ -105,6 +106,18 @@
     return completionDate;
   }
 
+  /** Required/suggested monthly savings display for goal UI (Phase 2.1) */
+  function getRequiredSavingsDisplay(goal: Goal): { kind: 'time-bound'; amount: number; monthsRemaining?: number } | { kind: 'suggested'; amount: number } | null {
+    const req = goalService.getRequiredSavings(goal);
+    if (req.isTimeBound && req.requiredMonthly != null && req.requiredMonthly > 0) {
+      return { kind: 'time-bound', amount: req.requiredMonthly, monthsRemaining: req.monthsRemaining };
+    }
+    if (req.suggestedMonthly != null && req.suggestedMonthly > 0) {
+      return { kind: 'suggested', amount: req.suggestedMonthly };
+    }
+    return null;
+  }
+
   function handleAddProgress(goalId: string) {
     onGoalAction('add_progress', goalId);
   }
@@ -147,6 +160,7 @@
     <!-- Goals List -->
     <div class="space-y-4">
       {#each activeGoals as goal (goal.id)}
+        {@const reqDisplay = getRequiredSavingsDisplay(goal)}
         <Card.Root>
           <Card.Content class="p-6">
             <div class="space-y-4">
@@ -210,7 +224,7 @@
               </div>
 
               <!-- Goal Details -->
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t">
                 <div class="flex items-center space-x-2">
                   <DollarSign class="h-4 w-4 text-muted-foreground" />
                   <div>
@@ -241,6 +255,28 @@
                         {estCompletion ? estCompletion.toLocaleDateString() : 'Calculating...'}
                       {:else}
                         Not available
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <Target class="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <div class="text-sm text-muted-foreground">Required Monthly</div>
+                    <div class="font-medium text-primary">
+                      {#if reqDisplay}
+                        {#if reqDisplay.kind === 'time-bound'}
+                          {formatAmount(reqDisplay.amount, goal.currency)}
+                          {#if reqDisplay.monthsRemaining != null}
+                            <span class="text-xs text-muted-foreground block">to hit target in {Math.ceil(reqDisplay.monthsRemaining)} mo.</span>
+                          {/if}
+                        {:else}
+                          {formatAmount(reqDisplay.amount, goal.currency)}
+                          <span class="text-xs text-muted-foreground block">suggested (open-ended)</span>
+                        {/if}
+                      {:else}
+                        —
                       {/if}
                     </div>
                   </div>

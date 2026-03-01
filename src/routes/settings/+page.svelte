@@ -50,6 +50,7 @@
   let rolloverSurplusBehavior = $state<'rollover_next' | 'to_savings_goals' | 'hybrid'>('rollover_next');
   let rolloverSurplusHybridRatio = $state(50);
   let rolloverDeficitBehavior = $state<'reduce_next_period' | 'borrow_from_other' | 'one_time_exception'>('reduce_next_period');
+  let savingsOpportunityMinSurplus = $state<string>('');
 
   // Dev section state
   let isDevActionLoading = $state(false);
@@ -78,6 +79,8 @@
         rolloverSurplusHybridRatio = typeof rsh === 'number' ? Math.round(rsh * 100) : 50;
         const rdb = prefs.rolloverDeficitBehavior;
         rolloverDeficitBehavior = (rdb === 'reduce_next_period' || rdb === 'borrow_from_other' || rdb === 'one_time_exception') ? rdb : 'reduce_next_period';
+        const soms = prefs.savingsOpportunityMinSurplus;
+        savingsOpportunityMinSurplus = typeof soms === 'number' ? String(soms) : '';
       } else {
         // Create default preferences if none exist
         userPreferences = await userService.updateUserPreferences({
@@ -126,7 +129,11 @@
         envelopeBorrowRequireConfirmationRepeated,
         rolloverSurplusBehavior,
         rolloverSurplusHybridRatio: rolloverSurplusHybridRatio / 100,
-        rolloverDeficitBehavior
+        rolloverDeficitBehavior,
+        savingsOpportunityMinSurplus:
+          savingsOpportunityMinSurplus !== '' && !Number.isNaN(Number(savingsOpportunityMinSurplus))
+            ? Number(savingsOpportunityMinSurplus)
+            : undefined
       });
     } catch (error) {
       console.error('Failed to save preferences:', error);
@@ -456,6 +463,27 @@
               </Select>
             </div>
           </div>
+
+          <!-- Savings opportunity detection (Phase 2.2) -->
+          <div class="space-y-4 pt-4 border-t border-border">
+            <h3 class="text-sm font-medium">Savings opportunities</h3>
+            <p class="text-xs text-muted-foreground">
+              On the Goals page, suggest contributing surplus to goals when projected surplus exceeds this amount (default 50).
+            </p>
+            <div class="space-y-2">
+              <Label for="savings-opportunity-threshold">Minimum surplus to suggest</Label>
+              <Input
+                id="savings-opportunity-threshold"
+                type="number"
+                min="0"
+                step="10"
+                placeholder="50 (default)"
+                bind:value={savingsOpportunityMinSurplus}
+                class="max-w-[140px]"
+              />
+            </div>
+          </div>
+
           <div class="pt-4 border-t border-border">
             <p class="text-sm text-muted-foreground mb-2">Occasion awareness uses recurring spending events (e.g. Friday nights, holidays) to adjust your allowance.</p>
             <Button.Root variant="outline" size="sm" onclick={() => goto('/settings/occasions')}>

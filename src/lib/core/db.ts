@@ -1072,7 +1072,10 @@ const UserPreferencesSchema = BaseSchema.extend({
 	rolloverSurplusHybridRatio: z.number().min(0).max(1).default(0.5), // For hybrid: share to next period (rest to goals)
 	rolloverDeficitBehavior: z
 		.enum(['reduce_next_period', 'borrow_from_other', 'one_time_exception'])
-		.default('reduce_next_period') // What to do with category deficit at period end
+		.default('reduce_next_period'), // What to do with category deficit at period end
+
+	// Savings opportunity detection (Phase 2.2) – min surplus to suggest contributing to goals
+	savingsOpportunityMinSurplus: z.number().min(0).optional()
 });
 
 // User Actions Schema

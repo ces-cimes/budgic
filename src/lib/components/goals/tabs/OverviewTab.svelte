@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
@@ -14,9 +15,12 @@
     Clock,
     AlertCircle,
     BarChart3,
-    ExternalLink
+    ExternalLink,
+    Sparkles
   } from '@lucide/svelte';
   import { formatAmount } from '$lib/utils/currency-utils';
+  import { goalService, goalOpportunityService } from '$lib/core/services';
+  import type { SavingsOpportunitiesResult } from '$lib/core/services/core/goal-opportunity-service';
   import type { GoalsData, Goal } from '../types';
 
   interface Props {
@@ -28,6 +32,15 @@
   }
 
   let { goalsData, activeGoals, completedGoals, userCurrency, onGoalAction }: Props = $props();
+
+  let opportunitiesResult = $state<SavingsOpportunitiesResult | null>(null);
+  onMount(async () => {
+    try {
+      opportunitiesResult = await goalOpportunityService.getSavingsOpportunities();
+    } catch (e) {
+      console.error('Failed to load savings opportunities:', e);
+    }
+  });
 
   function getCategoryIcon(category: string) {
     const icons: Record<string, string> = {
@@ -86,6 +99,17 @@
       case 'paused': return AlertCircle;
       default: return Target;
     }
+  }
+
+  function getRequiredSavingsLabel(goal: Goal): string | null {
+    const req = goalService.getRequiredSavings(goal);
+    if (req.isTimeBound && req.requiredMonthly != null && req.requiredMonthly > 0) {
+      return `${formatAmount(req.requiredMonthly, goal.currency)}/mo to target`;
+    }
+    if (req.suggestedMonthly != null && req.suggestedMonthly > 0) {
+      return `${formatAmount(req.suggestedMonthly, goal.currency)}/mo suggested`;
+    }
+    return null;
   }
 </script>
 
@@ -185,6 +209,59 @@
         </div>
       </Card.Content>
     </Card.Root>
+
+    <!-- Savings opportunities (Phase 2.2) -->
+    {#if opportunitiesResult}
+      <Card.Root>
+        <Card.Header>
+          <div class="flex items-center gap-2">
+            <Sparkles class="h-5 w-5 text-amber-500" />
+            <div>
+              <Card.Title>Savings opportunities</Card.Title>
+              <Card.Description>
+                {#if opportunitiesResult.surplus >= opportunitiesResult.threshold}
+                  You have {formatAmount(opportunitiesResult.surplus, opportunitiesResult.currency)} surplus this period. Contribute to goals?
+                {:else if opportunitiesResult.surplus > 0}
+                  Surplus this period: {formatAmount(opportunitiesResult.surplus, opportunitiesResult.currency)} (suggestions when above {formatAmount(opportunitiesResult.threshold, opportunitiesResult.currency)})
+                {:else}
+                  No surplus this period after income, essentials, buffer, allowances, and goal commitments.
+                {/if}
+              </Card.Description>
+            </div>
+          </div>
+        </Card.Header>
+        <Card.Content>
+          {#if opportunitiesResult.opportunities.length > 0}
+            <div class="space-y-3">
+              {#each opportunitiesResult.opportunities as opp (opp.goalId)}
+                <div class="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium text-primary">{opp.goalName}</p>
+                    <p class="text-sm text-muted-foreground">{opp.impactMessage}</p>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0 ml-3">
+                    <span class="font-semibold text-amber-700 dark:text-amber-300">
+                      {formatAmount(opp.suggestedAmount, opp.currency)}
+                    </span>
+                    <Button.Root
+                      size="sm"
+                      variant="outline"
+                      onclick={() => onGoalAction('add_progress', opp.goalId)}
+                    >
+                      Add
+                    </Button.Root>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {:else if opportunitiesResult.surplus >= opportunitiesResult.threshold && activeGoals.length > 0}
+            <p class="text-sm text-muted-foreground">All goals are funded for this period or no remaining balance needed.</p>
+          {:else if opportunitiesResult.surplus >= opportunitiesResult.threshold}
+            <p class="text-sm text-muted-foreground">Create a goal to see contribution suggestions.</p>
+          {/if}
+        </Card.Content>
+      </Card.Root>
+    {/if}
   {/if}
 
   <!-- Active Goals Preview -->
@@ -217,6 +294,9 @@
                   </div>
                   <div class="text-sm text-muted-foreground mb-2">
                     {formatAmount(goal.currentAmount, goal.currency)} of {formatAmount(goal.targetAmount, goal.currency)}
+                    {#if getRequiredSavingsLabel(goal)}
+                      <span class="text-muted-foreground"> · {getRequiredSavingsLabel(goal)}</span>
+                    {/if}
                   </div>
                   <div class="w-full bg-muted rounded-full h-2">
                     <div 
