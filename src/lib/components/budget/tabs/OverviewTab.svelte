@@ -16,16 +16,24 @@
   import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
   import type { OverviewTabProps, DailyAllowance } from '../types.js';
   import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
+  import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
+  import RolloverCard from '$lib/components/budget/RolloverCard.svelte';
+  import OccasionsCard from '$lib/components/budget/OccasionsCard.svelte';
 
   const { 
     dailyAllowance,
     enhancedAllowance,
+    negativeAllowanceStatus = null,
+    recoverySuggestions = [],
     totalPlannedIncome, 
     totalPlannedExpenses, 
     netProjectedChange, 
     userCurrency, 
     onAddPlannedTransaction, 
-    onSetGoal 
+    onSetGoal,
+    onBorrowCreated,
+    onRolloverApplied,
+    accountId
   }: OverviewTabProps = $props();
 
   function getConfidenceColor(confidenceLevel: string) {
@@ -66,9 +74,27 @@
 <div class="space-y-6 p-4">
   <!-- Enhanced Allowance Card -->
   {#if enhancedAllowance}
-    <div class="bg-card rounded-xl p-6 shadow-sm border border-border">
-      <h2 class="text-xl font-semibold text-primary mb-4">Spending Allowance</h2>
-      <AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} />
+    <div class="bg-card rounded-xl p-6 shadow-sm border border-border space-y-4">
+      <h2 class="text-xl font-semibold text-primary">Spending Allowance</h2>
+      <AllowanceVisualization
+        allowance={enhancedAllowance}
+        showDetails={true}
+        showRecommendations={true}
+        negativeStatus={negativeAllowanceStatus}
+        recoverySuggestions={recoverySuggestions}
+      />
+      <EnvelopeBorrowingCard
+        accountId={accountId}
+        allowance={enhancedAllowance}
+        negativeStatus={negativeAllowanceStatus}
+        onBorrowCreated={onBorrowCreated}
+      />
+      <RolloverCard
+        accountId={accountId}
+        allowance={enhancedAllowance}
+        onRolloverApplied={onRolloverApplied}
+      />
+      <OccasionsCard accountId={accountId} allowance={enhancedAllowance} />
     </div>
   {:else if dailyAllowance}
     <!-- Fallback to simple allowance if enhanced not available -->

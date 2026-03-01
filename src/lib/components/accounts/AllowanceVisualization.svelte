@@ -1,19 +1,30 @@
 <script lang="ts">
 	import type { EnhancedAllowance, AllowanceRecommendation } from '$lib/utils/allowance-utils';
+	import type { NegativeAllowanceStatus, RecoverySuggestion } from '$lib/core/services/core/negative-allowance-service';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
-	import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp, Info, Wallet, ShoppingBag, Shield } from '@lucide/svelte';
+	import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp, Info, Wallet, ShoppingBag, Shield, Lightbulb } from '@lucide/svelte';
 	import { Progress } from '$lib/components/ui/progress';
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 	import { ChevronDown } from '@lucide/svelte';
 
 	interface Props {
 		allowance: EnhancedAllowance;
 		showDetails?: boolean;
 		showRecommendations?: boolean;
+		/** When spending exceeds allowance (for strong-warning / block UX) */
+		negativeStatus?: NegativeAllowanceStatus | null;
+		/** Recovery suggestions when allowance is negative */
+		recoverySuggestions?: RecoverySuggestion[];
 	}
 
-	const { allowance, showDetails = true, showRecommendations = true }: Props = $props();
+	const { allowance, showDetails = true, showRecommendations = true, negativeStatus = null, recoverySuggestions = [] }: Props = $props();
+
+	const showNegativeWarning = $derived(
+		negativeStatus?.isNegative &&
+			(negativeStatus.handlingMode === 'allow_with_strong_warning' || negativeStatus.handlingMode === 'block_with_warning')
+	);
 
 	let showMethodDetails = $state(false);
 	let showRecommendationsExpanded = $state(false);
@@ -30,9 +41,11 @@
 	});
 
 	const totalUsage = $derived(() => {
-		if (allowance.total.monthly === 0) return 0;
+		if (allowance.total.monthly === 0) return allowance.total.spentSoFar > 0 ? 100 : 0;
 		return Math.min(100, (allowance.total.spentSoFar / allowance.total.monthly) * 100);
 	});
+
+	const hasZeroAllowance = $derived(allowance.total.monthly <= 0);
 
 	// Get status based on usage
 	const getStatus = (usage: number) => {
@@ -51,6 +64,27 @@
 </script>
 
 <div class="space-y-4">
+	<!-- Negative Allowance Warning -->
+	{#if showNegativeWarning && negativeStatus?.warningMessage}
+		<Alert variant="destructive" class="border-destructive/50">
+			<AlertTriangle class="size-4" />
+			<AlertTitle>Over allowance</AlertTitle>
+			<AlertDescription>
+				<p class="font-medium">{negativeStatus.warningMessage}</p>
+				{#if recoverySuggestions.length > 0}
+					<ul class="mt-2 list-none space-y-1 text-sm">
+						{#each recoverySuggestions as suggestion}
+							<li class="flex items-start gap-2">
+								<Lightbulb class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+								<span>{suggestion.title}: {suggestion.description}</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</AlertDescription>
+		</Alert>
+	{/if}
+
 	<!-- Total Allowance Overview -->
 	<Card>
 		<CardHeader>
@@ -63,6 +97,11 @@
 			</CardDescription>
 		</CardHeader>
 		<CardContent class="space-y-4">
+			{#if hasZeroAllowance}
+				<div class="bg-muted/50 border-border rounded-lg border px-4 py-3 text-sm text-muted-foreground">
+					No spending allowance calculated (zero balance or no spending data). Add funds or historical transactions to see an allowance.
+				</div>
+			{/if}
 			<!-- Total Allowance Amount -->
 			<div class="text-center space-y-2">
 				<div class="text-3xl font-bold text-primary">

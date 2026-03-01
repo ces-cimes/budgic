@@ -6,7 +6,9 @@
 		transactionService,
 		accountService,
 		budgetService,
-		userService
+		userService,
+		planService,
+		negativeAllowanceService
 	} from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import type { Account, Transaction, Category } from '$lib/core/db';
@@ -123,6 +125,10 @@
 	// UI state
 	let showDeleteDialog = $state(false);
 	let isDeleting = $state(false);
+	let showAllowanceBlockDialog = $state(false);
+	let pendingTransactionData = $state<Record<string, unknown> | null>(null);
+	let pendingIsEdit = $state(false);
+	let pendingTransactionId = $state<string | null>(null);
 
 	// Computed date label
 	let dateLabel = $derived(() => {
@@ -411,6 +417,19 @@
 		}
 	});
 
+	async function doActualSubmit(
+		txData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+		isEdit: boolean,
+		existingId: string | null
+	) {
+		if (isEdit && existingId) {
+			await transactionService.updateTransaction(existingId, txData);
+		} else {
+			await transactionService.createTransaction(txData);
+		}
+		goto('/transactions');
+	}
+
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 		isLoading = true;
@@ -487,15 +506,44 @@
 				};
 			}
 
-			// Create or update transaction
-			if (isEditMode && transaction) {
-				await transactionService.updateTransaction(transaction.id, transactionData);
-			} else {
-				await transactionService.createTransaction(transactionData);
+			// Block-with-warning: if user prefers to be prompted when over allowance, check before saving an expense
+			if (
+				transactionType === 'expense' &&
+				(status === 'cleared' || status === 'pending') &&
+				(selectedAccount || true)
+			) {
+				try {
+					const allowance = selectedAccount
+						? await planService.getEnhancedAllowance(selectedAccount)
+						: await planService.getEnhancedAllowance();
+					const prefs = await userService.getUserPreferences();
+					const handling =
+						(prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ??
+						'allow_with_strong_warning';
+					const negStatus = await negativeAllowanceService.checkNegativeAllowance(
+						allowance,
+						handling as 'block_with_warning' | 'allow_with_strong_warning' | 'borrow_from_future' | 'borrow_from_other_categories',
+						selectedAccount || undefined
+					);
+					if (negStatus.shouldBlock) {
+						pendingTransactionData = transactionData as Record<string, unknown>;
+						pendingIsEdit = isEditMode;
+						pendingTransactionId = transaction?.id ?? null;
+						showAllowanceBlockDialog = true;
+						isLoading = false;
+						return;
+					}
+				} catch (_e) {
+					// Allow submit if allowance check fails (e.g. no accounts)
+				}
 			}
 
-			// Redirect to transactions list
-			goto('/transactions');
+			// Create or update transaction
+			await doActualSubmit(
+				transactionData as Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+				isEditMode,
+				transaction?.id ?? null
+			);
 		} catch (err) {
 			error =
 				err instanceof Error
@@ -1112,6 +1160,56 @@
 						<Trash2 size={16} />
 						<span>Delete Transaction</span>
 					{/if}
+				</Button.Root>
+			</Dialog.Footer>
+		</Dialog.Content>
+	</Dialog.Root>
+
+	<!-- Over allowance – block with warning confirmation -->
+	<Dialog.Root bind:open={showAllowanceBlockDialog}>
+		<Dialog.Content class="sm:max-w-md">
+			<Dialog.Header>
+				<Dialog.Title>Over spending allowance</Dialog.Title>
+				<Dialog.Description>
+					You're over your spending allowance for this period. Do you want to proceed and record this transaction anyway?
+				</Dialog.Description>
+			</Dialog.Header>
+			<Dialog.Footer class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+				<Button.Root
+					variant="outline"
+					onclick={() => {
+						showAllowanceBlockDialog = false;
+						pendingTransactionData = null;
+						pendingTransactionId = null;
+					}}
+					disabled={isLoading}
+				>
+					Cancel
+				</Button.Root>
+				<Button.Root
+					variant="default"
+					disabled={isLoading || !pendingTransactionData}
+					onclick={async () => {
+						if (!pendingTransactionData) return;
+						isLoading = true;
+						error = '';
+						try {
+							await doActualSubmit(
+								pendingTransactionData as Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+								pendingIsEdit,
+								pendingTransactionId
+							);
+							showAllowanceBlockDialog = false;
+							pendingTransactionData = null;
+							pendingTransactionId = null;
+						} catch (err) {
+							error = err instanceof Error ? err.message : 'Failed to save transaction';
+						} finally {
+							isLoading = false;
+						}
+					}}
+				>
+					{isLoading ? 'Saving...' : 'Proceed anyway'}
 				</Button.Root>
 			</Dialog.Footer>
 		</Dialog.Content>

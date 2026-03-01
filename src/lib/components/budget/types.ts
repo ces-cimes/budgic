@@ -21,12 +21,21 @@ export type { TabConfig } from '$lib/components/shared/types';
 export interface OverviewTabProps {
   dailyAllowance: DailyAllowance | null;
   enhancedAllowance?: import('$lib/utils/allowance-utils').EnhancedAllowance | null;
+  /** When spending exceeds allowance (for warnings) */
+  negativeAllowanceStatus?: import('$lib/core/services/core/negative-allowance-service').NegativeAllowanceStatus | null;
+  recoverySuggestions?: import('$lib/core/services/core/negative-allowance-service').RecoverySuggestion[];
   totalPlannedIncome: number;
   totalPlannedExpenses: number;
   netProjectedChange: number;
   userCurrency: string;
   onAddPlannedTransaction: () => void;
   onSetGoal: () => void;
+  /** Optional: called after envelope borrow is created (e.g. refresh allowance) */
+  onBorrowCreated?: () => void;
+  /** Optional: called after rollover is applied (e.g. refresh allowance) */
+  onRolloverApplied?: () => void;
+  /** Optional: account id for per-account envelope borrowing (omit for global) */
+  accountId?: string;
 }
 
 export interface ProjectionsTabProps {

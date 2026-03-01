@@ -29,8 +29,9 @@
     type DailyAllowance,
     type WeeklyProjection
   } from '$lib/components/budget';
-  import { planService, userService } from '$lib/core/services';
+  import { planService, userService, negativeAllowanceService } from '$lib/core/services';
   import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+  import type { NegativeAllowanceStatus, RecoverySuggestion } from '$lib/core/services/core/negative-allowance-service';
 
   // Tab configuration
   const budgetTabs: TabConfig[] = [
@@ -46,6 +47,8 @@
   let selectedAccountId = $state<string>('');
   let dailyAllowance = $state<DailyAllowance | null>(null);
   let enhancedAllowance = $state<EnhancedAllowance | null>(null);
+  let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
+  let recoverySuggestions = $state<RecoverySuggestion[]>([]);
   let weeklyProjections = $state<WeeklyProjection[]>([]);
   let planningData = $state<PlanningData | null>(null);
   let error = $state<string | null>(null);
@@ -117,15 +120,30 @@
       // Load global allowance (across all accounts)
       enhancedAllowance = await planService.getEnhancedAllowance();
       dailyAllowance = await planService.getDailyAllowance();
+
+      if (enhancedAllowance) {
+        const prefs = await userService.getUserPreferences();
+        const handling = (prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ?? 'allow_with_strong_warning';
+        negativeAllowanceStatus = await negativeAllowanceService.checkNegativeAllowance(
+          enhancedAllowance,
+          handling as 'block_with_warning' | 'allow_with_strong_warning' | 'borrow_from_future' | 'borrow_from_other_categories'
+        );
+        recoverySuggestions = negativeAllowanceStatus.isNegative
+          ? negativeAllowanceService.getRecoverySuggestions(enhancedAllowance)
+          : [];
+      } else {
+        negativeAllowanceStatus = null;
+        recoverySuggestions = [];
+      }
       
       // Load account-specific planning data if account selected
       if (selectedAccountId) {
         planningData = await planService.getPlanningData(selectedAccountId);
         weeklyProjections = await planService.getWeeklyProjections(selectedAccountId);
       }
-    } catch (error) {
-      console.error('Error loading planning data:', error);
-      error = error instanceof Error ? error.message : 'Failed to load planning data';
+    } catch (err) {
+      console.error('Error loading planning data:', err);
+      error = err instanceof Error ? err.message : 'Failed to load planning data';
     }
   }
 
@@ -195,12 +213,16 @@
           <OverviewTab
             dailyAllowance={dailyAllowance}
             enhancedAllowance={enhancedAllowance}
+            negativeAllowanceStatus={negativeAllowanceStatus}
+            recoverySuggestions={recoverySuggestions}
             totalPlannedIncome={totalPlannedIncome()}
             totalPlannedExpenses={totalPlannedExpenses()}
             netProjectedChange={netProjectedChange()}
             userCurrency={userCurrency}
             onAddPlannedTransaction={handleAddPlannedTransaction}
             onSetGoal={handleSetGoal}
+            onBorrowCreated={loadPlanningData}
+            onRolloverApplied={loadPlanningData}
           />
         </TabContent>
         

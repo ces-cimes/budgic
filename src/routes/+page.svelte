@@ -16,8 +16,13 @@
 	import Fab from '$lib/components/Fab.svelte';
 	import { Plus } from '@lucide/svelte';
 	import AllowanceSummary from '$lib/components/AllowanceSummary.svelte';
-	import { planService } from '$lib/core/services';
+	import {
+		planService,
+		userService as userServiceImport,
+		negativeAllowanceService
+	} from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { NegativeAllowanceStatus, RecoverySuggestion } from '$lib/core/services/core/negative-allowance-service';
 	import type { FeeRisk } from '$lib/core/services/analytics/fee-avoidance-service';
 	import { Shield, AlertTriangle } from '@lucide/svelte';
 
@@ -33,6 +38,8 @@
 	let insights = $state<any[]>([]);
 	let globalAllowance = $state<EnhancedAllowance | null>(null);
 	let isLoadingAllowance = $state(false);
+	let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
+	let recoverySuggestions = $state<RecoverySuggestion[]>([]);
 	let urgentFeeRisks = $state<FeeRisk[]>([]);
 	let isLoadingFeeRisks = $state(false);
 
@@ -87,6 +94,27 @@
 		isLoadingAllowance = true;
 		try {
 			globalAllowance = await planService.getEnhancedAllowance();
+			if (globalAllowance) {
+				const prefs = await userServiceImport.getUserPreferences();
+				const handling =
+					(prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ?? 'allow_with_strong_warning';
+				negativeAllowanceStatus = await negativeAllowanceService.checkNegativeAllowance(
+					globalAllowance,
+					handling as 'block_with_warning' | 'allow_with_strong_warning' | 'borrow_from_future' | 'borrow_from_other_categories'
+				);
+				recoverySuggestions = negativeAllowanceStatus.isNegative
+					? negativeAllowanceService.getRecoverySuggestions(globalAllowance)
+					: [];
+				if (negativeAllowanceStatus.isNegative) {
+					await negativeAllowanceService.recordCurrentNegativeAllowanceIfAny(
+						globalAllowance,
+						handling as 'block_with_warning' | 'allow_with_strong_warning' | 'borrow_from_future' | 'borrow_from_other_categories'
+					);
+				}
+			} else {
+				negativeAllowanceStatus = null;
+				recoverySuggestions = [];
+			}
 		} catch (error) {
 			console.error('Error loading global allowance:', error);
 		} finally {
@@ -213,7 +241,12 @@
 
 		<!-- Spending Allowance -->
 		<section class="mb-8">
-			<AllowanceSummary allowance={globalAllowance} isLoading={isLoadingAllowance} />
+			<AllowanceSummary
+				allowance={globalAllowance}
+				isLoading={isLoadingAllowance}
+				negativeStatus={negativeAllowanceStatus}
+				recoverySuggestions={recoverySuggestions}
+			/>
 		</section>
 
 		<!-- Quick Actions -->

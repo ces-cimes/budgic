@@ -9,7 +9,21 @@
   import { Input } from '$lib/components/ui/input/index.ts';
   import { Label } from '$lib/components/ui/label/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
+  import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger
+  } from '$lib/components/ui/select/index.ts';
   import { userService } from '$lib/core/services/index.ts';
+  import type { NegativeAllowanceHandling } from '$lib/core/services/core/negative-allowance-service';
+
+  const NEGATIVE_ALLOWANCE_LABELS: Record<NegativeAllowanceHandling, string> = {
+    block_with_warning: 'Block with warning – alert and require override',
+    allow_with_strong_warning: 'Allow with strong warning – permit but flag for review (default)',
+    borrow_from_future: "Borrow from future – use next period's allowance",
+    borrow_from_other_categories: 'Borrow from other categories – envelope borrowing'
+  };
   import { populateSampleData, clearAllData } from '$lib/core/test-data';
   import { onMount } from 'svelte';
   import Header from '$lib/components/Header.svelte';
@@ -28,7 +42,15 @@
   let autoCategorizationEnabled = $state(true);
   let stressDetectionEnabled = $state(true);
   let darkModeEnabled = $derived(mode.current === "dark");
-  
+  let negativeAllowanceHandling = $state<NegativeAllowanceHandling>('allow_with_strong_warning');
+  let envelopeBorrowMaxPerCategoryPercent = $state(50);
+  let envelopeBorrowRepaymentPeriods = $state(2);
+  let envelopeBorrowTotalLimit = $state<string>('');
+  let envelopeBorrowRequireConfirmationRepeated = $state(true);
+  let rolloverSurplusBehavior = $state<'rollover_next' | 'to_savings_goals' | 'hybrid'>('rollover_next');
+  let rolloverSurplusHybridRatio = $state(50);
+  let rolloverDeficitBehavior = $state<'reduce_next_period' | 'borrow_from_other' | 'one_time_exception'>('reduce_next_period');
+
   // Dev section state
   let isDevActionLoading = $state(false);
   let devActionMessage = $state<string | null>(null);
@@ -42,6 +64,20 @@
         notificationsEnabled = userPreferences.analyticsEnabled ?? true;
         autoCategorizationEnabled = userPreferences.enablePredictiveAnalytics ?? true;
         stressDetectionEnabled = userPreferences.enableAdvancedFeatures ?? true;
+        const nah = (userPreferences as { negativeAllowanceHandling?: NegativeAllowanceHandling }).negativeAllowanceHandling;
+        negativeAllowanceHandling = nah ?? 'allow_with_strong_warning';
+        const prefs = userPreferences as Record<string, unknown>;
+        const maxPct = prefs.envelopeBorrowMaxPerCategoryPercent;
+        envelopeBorrowMaxPerCategoryPercent = Math.round((typeof maxPct === 'number' ? maxPct : 0.5) * 100);
+        envelopeBorrowRepaymentPeriods = (prefs.envelopeBorrowRepaymentPeriods as number) ?? 2;
+        envelopeBorrowTotalLimit = (prefs.envelopeBorrowTotalLimit as number) != null ? String(prefs.envelopeBorrowTotalLimit) : '';
+        envelopeBorrowRequireConfirmationRepeated = (prefs.envelopeBorrowRequireConfirmationRepeated as boolean) ?? true;
+        const rsb = prefs.rolloverSurplusBehavior;
+        rolloverSurplusBehavior = (rsb === 'rollover_next' || rsb === 'to_savings_goals' || rsb === 'hybrid') ? rsb : 'rollover_next';
+        const rsh = prefs.rolloverSurplusHybridRatio;
+        rolloverSurplusHybridRatio = typeof rsh === 'number' ? Math.round(rsh * 100) : 50;
+        const rdb = prefs.rolloverDeficitBehavior;
+        rolloverDeficitBehavior = (rdb === 'reduce_next_period' || rdb === 'borrow_from_other' || rdb === 'one_time_exception') ? rdb : 'reduce_next_period';
       } else {
         // Create default preferences if none exist
         userPreferences = await userService.updateUserPreferences({
@@ -82,7 +118,15 @@
         analyticsEnabled: notificationsEnabled,
         enablePredictiveAnalytics: autoCategorizationEnabled,
         enableAdvancedFeatures: stressDetectionEnabled,
-        theme: darkModeEnabled ? 'dark' : 'light'
+        theme: darkModeEnabled ? 'dark' : 'light',
+        negativeAllowanceHandling,
+        envelopeBorrowMaxPerCategoryPercent: envelopeBorrowMaxPerCategoryPercent / 100,
+        envelopeBorrowRepaymentPeriods,
+        envelopeBorrowTotalLimit: envelopeBorrowTotalLimit === '' ? undefined : Number(envelopeBorrowTotalLimit),
+        envelopeBorrowRequireConfirmationRepeated,
+        rolloverSurplusBehavior,
+        rolloverSurplusHybridRatio: rolloverSurplusHybridRatio / 100,
+        rolloverDeficitBehavior
       });
     } catch (error) {
       console.error('Failed to save preferences:', error);
@@ -284,6 +328,139 @@
                 aria-label="Toggle advanced features"
               />
             </div>
+          </div>
+        </Card.Content>
+      </Card.Root>
+    </section>
+
+    <!-- Budget & Allowance -->
+    <section class="mb-8">
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>Budget &amp; Allowance</Card.Title>
+          <Card.Description>When spending exceeds your allowance this period</Card.Description>
+        </Card.Header>
+        <Card.Content>
+          <div class="space-y-2">
+            <Label for="negative-allowance-handling">Negative allowance handling</Label>
+            <Select
+              type="single"
+              value={negativeAllowanceHandling}
+              onValueChange={(v) => v && (negativeAllowanceHandling = v as NegativeAllowanceHandling)}
+            >
+              <SelectTrigger id="negative-allowance-handling" class="max-w-md" aria-label="Choose how to handle overspending">
+                {NEGATIVE_ALLOWANCE_LABELS[negativeAllowanceHandling] ?? 'Choose behaviour'}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="block_with_warning">{NEGATIVE_ALLOWANCE_LABELS.block_with_warning}</SelectItem>
+                <SelectItem value="allow_with_strong_warning">{NEGATIVE_ALLOWANCE_LABELS.allow_with_strong_warning}</SelectItem>
+                <SelectItem value="borrow_from_future">{NEGATIVE_ALLOWANCE_LABELS.borrow_from_future}</SelectItem>
+                <SelectItem value="borrow_from_other_categories">{NEGATIVE_ALLOWANCE_LABELS.borrow_from_other_categories}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p class="text-xs text-muted-foreground">
+              &quot;Allow with strong warning&quot; shows a prominent warning and recovery suggestions without blocking. All negative allowances are tracked for accountability.
+            </p>
+          </div>
+
+          <!-- Envelope borrowing limits (when using borrow from other categories) -->
+          <div class="space-y-4 pt-4 border-t border-border">
+            <h3 class="text-sm font-medium">Envelope borrowing limits</h3>
+            <p class="text-xs text-muted-foreground">
+              When you use &quot;Borrow from other categories&quot;, these limits apply.
+            </p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="space-y-2">
+                <Label for="envelope-borrow-max-pct">Max borrow per category (% of next period)</Label>
+                <Input
+                  id="envelope-borrow-max-pct"
+                  type="number"
+                  min="0"
+                  max="100"
+                  bind:value={envelopeBorrowMaxPerCategoryPercent}
+                  class="max-w-[120px]"
+                />
+                <p class="text-xs text-muted-foreground">e.g. 50 = up to 50% of next period&apos;s allowance</p>
+              </div>
+              <div class="space-y-2">
+                <Label for="envelope-borrow-repayment">Repayment periods</Label>
+                <Input
+                  id="envelope-borrow-repayment"
+                  type="number"
+                  min="1"
+                  max="6"
+                  bind:value={envelopeBorrowRepaymentPeriods}
+                  class="max-w-[80px]"
+                />
+                <p class="text-xs text-muted-foreground">Must repay within this many periods</p>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <Label for="envelope-borrow-total-limit">Total borrowing limit (optional)</Label>
+              <Input
+                id="envelope-borrow-total-limit"
+                type="number"
+                min="0"
+                placeholder="No limit"
+                bind:value={envelopeBorrowTotalLimit}
+                class="max-w-[140px]"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="envelope-borrow-confirm-repeated"
+                bind:checked={envelopeBorrowRequireConfirmationRepeated}
+                class="rounded border-input"
+              />
+              <Label for="envelope-borrow-confirm-repeated">Require confirmation for repeated borrowing</Label>
+            </div>
+          </div>
+
+          <!-- Rollover logic (period-end surplus/deficit) -->
+          <div class="space-y-4 pt-4 border-t border-border">
+            <h3 class="text-sm font-medium">Rollover (period end)</h3>
+            <p class="text-xs text-muted-foreground">
+              What to do with leftover or overspent allowance at the end of each period.
+            </p>
+            <div class="space-y-2">
+              <Label for="rollover-surplus">Surplus (unspent)</Label>
+              <Select type="single" value={rolloverSurplusBehavior} onValueChange={(v) => v && (rolloverSurplusBehavior = v as typeof rolloverSurplusBehavior)}>
+                <SelectTrigger id="rollover-surplus" class="max-w-md">
+                  {rolloverSurplusBehavior === 'rollover_next' ? 'Roll over to next period' : rolloverSurplusBehavior === 'to_savings_goals' ? 'Reallocate to savings goals' : 'Hybrid (split)'}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rollover_next">Roll over to next period</SelectItem>
+                  <SelectItem value="to_savings_goals">Reallocate to savings goals</SelectItem>
+                  <SelectItem value="hybrid">Hybrid (split)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {#if rolloverSurplusBehavior === 'hybrid'}
+              <div class="space-y-2">
+                <Label for="rollover-hybrid-ratio">Share to next period (%)</Label>
+                <Input id="rollover-hybrid-ratio" type="number" min="0" max="100" bind:value={rolloverSurplusHybridRatio} class="max-w-[80px]" />
+              </div>
+            {/if}
+            <div class="space-y-2">
+              <Label for="rollover-deficit">Deficit (overspent)</Label>
+              <Select type="single" value={rolloverDeficitBehavior} onValueChange={(v) => v && (rolloverDeficitBehavior = v as typeof rolloverDeficitBehavior)}>
+                <SelectTrigger id="rollover-deficit" class="max-w-md">
+                  {rolloverDeficitBehavior === 'reduce_next_period' ? 'Reduce next period allowance' : rolloverDeficitBehavior === 'borrow_from_other' ? 'Borrow from other categories' : 'One-time exception'}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="reduce_next_period">Reduce next period allowance</SelectItem>
+                  <SelectItem value="borrow_from_other">Borrow from other categories</SelectItem>
+                  <SelectItem value="one_time_exception">One-time exception (no adjustment)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div class="pt-4 border-t border-border">
+            <p class="text-sm text-muted-foreground mb-2">Occasion awareness uses recurring spending events (e.g. Friday nights, holidays) to adjust your allowance.</p>
+            <Button.Root variant="outline" size="sm" onclick={() => goto('/settings/occasions')}>
+              Manage occasions
+            </Button.Root>
           </div>
         </Card.Content>
       </Card.Root>

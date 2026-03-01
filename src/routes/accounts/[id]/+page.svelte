@@ -11,13 +11,15 @@
 	import { Pencil } from '@lucide/svelte';
 import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
 import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
+	import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
 import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
 import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
 import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
 import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
-	import { planService } from '$lib/core/services';
+	import { planService, negativeAllowanceService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { NegativeAllowanceStatus, RecoverySuggestion } from '$lib/core/services/core/negative-allowance-service';
 
 	const { data } = $props<{ data: any }>();
 
@@ -26,6 +28,8 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 	let isLoading = $state(true);
 	let userCurrency = $state<string | null>(null);
 	let enhancedAllowance = $state<EnhancedAllowance | null>(null);
+	let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
+	let recoverySuggestions = $state<RecoverySuggestion[]>([]);
 	let isLoadingAllowance = $state(false);
 
 	const accountId = $derived($page.params.id);
@@ -77,6 +81,21 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 		isLoadingAllowance = true;
 		try {
 			enhancedAllowance = await planService.getEnhancedAllowance(accountId);
+			if (enhancedAllowance) {
+				const prefs = await userService.getUserPreferences();
+				const handling = (prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ?? 'allow_with_strong_warning';
+				negativeAllowanceStatus = await negativeAllowanceService.checkNegativeAllowance(
+					enhancedAllowance,
+					handling as 'block_with_warning' | 'allow_with_strong_warning' | 'borrow_from_future' | 'borrow_from_other_categories',
+					accountId
+				);
+				recoverySuggestions = negativeAllowanceStatus.isNegative
+					? negativeAllowanceService.getRecoverySuggestions(enhancedAllowance)
+					: [];
+			} else {
+				negativeAllowanceStatus = null;
+				recoverySuggestions = [];
+			}
 		} catch (error) {
 			console.error('Error loading enhanced allowance:', error);
 		} finally {
@@ -215,6 +234,16 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 								allowance={enhancedAllowance}
 								showDetails={true}
 								showRecommendations={true}
+								negativeStatus={negativeAllowanceStatus}
+								recoverySuggestions={recoverySuggestions}
+							/>
+							<EnvelopeBorrowingCard
+								accountId={account?.id}
+								allowance={enhancedAllowance}
+								negativeStatus={negativeAllowanceStatus}
+								onBorrowCreated={async () => {
+									await loadAccount();
+								}}
 							/>
 						{:else}
 							<div class="text-muted-foreground py-8 text-center">

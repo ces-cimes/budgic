@@ -39,7 +39,19 @@ class UserService {
             // Create default preferences
             return await this.createDefaultPreferences();
         }
-        return preferences;
+        // Apply defaults for preferences added in later versions (e.g. negativeAllowanceHandling, envelope borrowing)
+        const prefs = preferences as Record<string, unknown>;
+        return {
+            ...preferences,
+            negativeAllowanceHandling: prefs.negativeAllowanceHandling ?? 'allow_with_strong_warning',
+            envelopeBorrowMaxPerCategoryPercent: (prefs.envelopeBorrowMaxPerCategoryPercent as number) ?? 0.5,
+            envelopeBorrowRepaymentPeriods: (prefs.envelopeBorrowRepaymentPeriods as number) ?? 2,
+            envelopeBorrowTotalLimit: prefs.envelopeBorrowTotalLimit as number | undefined,
+            envelopeBorrowRequireConfirmationRepeated: prefs.envelopeBorrowRequireConfirmationRepeated ?? true,
+            rolloverSurplusBehavior: (prefs.rolloverSurplusBehavior as UserPreferences['rolloverSurplusBehavior']) ?? 'rollover_next',
+            rolloverSurplusHybridRatio: typeof prefs.rolloverSurplusHybridRatio === 'number' ? prefs.rolloverSurplusHybridRatio : 0.5,
+            rolloverDeficitBehavior: (prefs.rolloverDeficitBehavior as UserPreferences['rolloverDeficitBehavior']) ?? 'reduce_next_period'
+        } as UserPreferences;
     }
 
     /**
@@ -74,6 +86,20 @@ class UserService {
                 enablePredictiveAnalytics: true,
                 analyticsEnabled: true,
                 backupEnabled: true,
+                emergencyFundTargetMonths: 6,
+                emergencyFundIncomeStability: 'stable',
+                emergencyFundJobType: 'regular',
+                emergencyFundDependents: 0,
+                emergencyFundHealthNeeds: 'none',
+                emergencyFundInsuranceGaps: 0,
+                negativeAllowanceHandling: 'allow_with_strong_warning',
+                envelopeBorrowMaxPerCategoryPercent: 0.5,
+                envelopeBorrowRepaymentPeriods: 2,
+                envelopeBorrowTotalLimit: undefined,
+                envelopeBorrowRequireConfirmationRepeated: true,
+                rolloverSurplusBehavior: 'rollover_next',
+                rolloverSurplusHybridRatio: 0.5,
+                rolloverDeficitBehavior: 'reduce_next_period',
                 ...updates,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
@@ -399,6 +425,20 @@ class UserService {
             enablePredictiveAnalytics: true,
             analyticsEnabled: true,
             backupEnabled: true,
+            emergencyFundTargetMonths: 6,
+            emergencyFundIncomeStability: 'stable',
+            emergencyFundJobType: 'regular',
+            emergencyFundDependents: 0,
+            emergencyFundHealthNeeds: 'none',
+            emergencyFundInsuranceGaps: 0,
+            negativeAllowanceHandling: 'allow_with_strong_warning',
+            envelopeBorrowMaxPerCategoryPercent: 0.5,
+            envelopeBorrowRepaymentPeriods: 2,
+            envelopeBorrowTotalLimit: undefined,
+            envelopeBorrowRequireConfirmationRepeated: true,
+            rolloverSurplusBehavior: 'rollover_next',
+            rolloverSurplusHybridRatio: 0.5,
+            rolloverDeficitBehavior: 'reduce_next_period',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             deletedAt: null

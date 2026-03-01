@@ -1052,7 +1052,27 @@ const UserPreferencesSchema = BaseSchema.extend({
 	emergencyFundJobType: z.enum(['regular', 'contractor', 'seasonal']).default('regular'), // Job type
 	emergencyFundDependents: z.number().min(0).default(0), // Number of dependents
 	emergencyFundHealthNeeds: z.enum(['none', 'low', 'medium', 'high']).default('none'), // Health needs level
-	emergencyFundInsuranceGaps: z.number().min(0).default(0) // Insurance gap amount (deductibles, etc.)
+	emergencyFundInsuranceGaps: z.number().min(0).default(0), // Insurance gap amount (deductibles, etc.)
+
+	// Negative Allowance Handling (when spending exceeds allowance)
+	negativeAllowanceHandling: z
+		.enum(['block_with_warning', 'allow_with_strong_warning', 'borrow_from_future', 'borrow_from_other_categories'])
+		.default('allow_with_strong_warning'),
+
+	// Envelope Borrowing limits (when using borrow_from_other_categories)
+	envelopeBorrowMaxPerCategoryPercent: z.number().min(0).max(1).default(0.5), // Max 50% of next period's allowance per category
+	envelopeBorrowRepaymentPeriods: z.number().min(1).max(6).default(2), // Must repay within 2 periods
+	envelopeBorrowTotalLimit: z.number().min(0).optional(), // Optional total borrowing cap (null = no cap)
+	envelopeBorrowRequireConfirmationRepeated: z.boolean().default(true), // Require explicit confirm for repeated borrowing
+
+	// Rollover logic (period-end surplus/deficit)
+	rolloverSurplusBehavior: z
+		.enum(['rollover_next', 'to_savings_goals', 'hybrid'])
+		.default('rollover_next'), // What to do with category surplus at period end
+	rolloverSurplusHybridRatio: z.number().min(0).max(1).default(0.5), // For hybrid: share to next period (rest to goals)
+	rolloverDeficitBehavior: z
+		.enum(['reduce_next_period', 'borrow_from_other', 'one_time_exception'])
+		.default('reduce_next_period') // What to do with category deficit at period end
 });
 
 // User Actions Schema
@@ -1278,6 +1298,65 @@ const OptimizationPreferenceSchema = BaseSchema.extend({
 	metadata: z.string().optional() // JSON string with additional preference data
 });
 
+// Negative Allowance Event Schema - Tracks when spending exceeds allowance (accountability)
+const NegativeAllowanceEventSchema = BaseSchema.extend({
+	periodStart: z.string().datetime(), // Start of allowance period
+	periodEnd: z.string().datetime(), // End of allowance period
+	accountId: z.string().optional(), // Account (if per-account); empty = global
+	category: z.enum(['total', 'essential', 'discretionary', 'buffer']), // Which allowance category went negative
+	allowanceAmount: z.number(), // Budgeted allowance for the period
+	spentAmount: z.number(), // Actual spent
+	overBy: z.number(), // spentAmount - allowanceAmount (positive when negative allowance)
+	currency: z.string().min(3).max(3),
+	handlingApplied: z.enum(['block_with_warning', 'allow_with_strong_warning', 'borrow_from_future', 'borrow_from_other_categories']), // User's setting when event occurred
+	recoveredAt: z.string().datetime().optional(), // When user resolved (e.g. moved transaction, next period started)
+	metadata: z.string().optional() // JSON: recoverySuggestionsAccepted, transactionIds, etc.
+});
+
+// Envelope Borrowing - Temporary borrowing between allowance categories
+const EnvelopeBorrowingSchema = BaseSchema.extend({
+	accountId: z.string().optional(), // Account (if per-account); empty = global
+	fromCategory: z.enum(['essential', 'discretionary', 'buffer']), // Lender category
+	toCategory: z.enum(['essential', 'discretionary', 'buffer']), // Borrower category (the one that was over)
+	amount: z.number().positive(),
+	currency: z.string().min(3).max(3),
+	periodStart: z.string().datetime(), // Period this borrow covers
+	periodEnd: z.string().datetime(),
+	dueRepayBy: z.string().datetime(), // Must repay by this date (e.g. period end + N periods)
+	repaidAmount: z.number().min(0).default(0),
+	repaidAt: z.string().datetime().optional(), // When fully repaid (or last partial repayment)
+	negativeAllowanceEventId: z.string().optional(), // Link to event that triggered this borrow
+	metadata: z.string().optional() // JSON: e.g. userConfirmedRepeated
+});
+
+// Rollover adjustment – applied to a future period's allowance (from previous period's surplus/deficit)
+const RolloverAdjustmentSchema = BaseSchema.extend({
+	accountId: z.string().optional(), // Account (if per-account); empty = global
+	forPeriodStart: z.string().datetime(), // Start of the period this adjustment applies to
+	category: z.enum(['essential', 'discretionary', 'buffer']),
+	amountDelta: z.number(), // Positive = add to allowance, negative = reduce
+	currency: z.string().min(3).max(3),
+	source: z.enum(['surplus_rollover', 'deficit_reduction', 'to_goals', 'one_time_exception']),
+	fromPeriodStart: z.string().datetime().optional(), // Period that generated this adjustment (for display)
+	metadata: z.string().optional()
+});
+
+// Occasion – recurring spending event (detected from history or user-defined) for allowance adjustments
+const OccasionSchema = BaseSchema.extend({
+	accountId: z.string().optional(), // Account (if per-account); empty = global
+	title: z.string().min(1),
+	occasionType: z.enum(['weekly', 'monthly', 'annual']),
+	pattern: z.string(), // JSON: weekly { dayOfWeek: 0-6 }, monthly { weekOfMonth?: 1-5, dayOfWeek?: 0-6 } or { dayOfMonth: 1-31 }, annual { month: 1-12, dayOfMonth?: 1-31 }
+	expectedAmountDelta: z.number(), // Positive = expect to spend more (add to allowance), negative = e.g. tax refund
+	currency: z.string().min(3).max(3),
+	source: z.enum(['detected', 'user_defined']).default('detected'),
+	confidence: z.number().min(0).max(100).default(80), // 0-100 for detected occasions
+	learningPatternId: z.string().optional(), // Link to LearningPattern if derived from it
+	isActive: z.boolean().default(true),
+	lastDetectedAt: z.string().datetime().optional(),
+	metadata: z.string().optional()
+});
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -1300,6 +1379,10 @@ export type FlexibilityTier = z.infer<typeof FlexibilityTier>;
 export type LearningPattern = z.infer<typeof LearningPatternSchema>;
 export type UserFeedback = z.infer<typeof UserFeedbackSchema>;
 export type OptimizationPreference = z.infer<typeof OptimizationPreferenceSchema>;
+export type NegativeAllowanceEvent = z.infer<typeof NegativeAllowanceEventSchema>;
+export type EnvelopeBorrowing = z.infer<typeof EnvelopeBorrowingSchema>;
+export type RolloverAdjustment = z.infer<typeof RolloverAdjustmentSchema>;
+export type Occasion = z.infer<typeof OccasionSchema>;
 
 // Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
@@ -1366,6 +1449,10 @@ export class BudgicDB extends Dexie {
 	learningPatterns!: Table<LearningPattern>;
 	userFeedback!: Table<UserFeedback>;
 	optimizationPreferences!: Table<OptimizationPreference>;
+	negativeAllowanceEvents!: Table<NegativeAllowanceEvent>;
+	envelopeBorrowings!: Table<EnvelopeBorrowing>;
+	rolloverAdjustments!: Table<RolloverAdjustment>;
+	occasions!: Table<Occasion>;
 
 	constructor() {
 		super('BudgicDB');
@@ -1512,6 +1599,153 @@ export class BudgicDB extends Dexie {
 				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
 			optimizationPreferences:
 				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]'
+		});
+
+		// Version 15: Add negative allowance events table (accountability tracking)
+		this.version(15).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]'
+		});
+
+		// Version 16: Envelope borrowing (temporary borrowing between categories)
+		this.version(16).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]'
+		});
+
+		// Version 17: Rollover adjustments (period-end surplus/deficit → next period)
+		this.version(17).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]'
+		});
+
+		// Version 18: Occasions (recurring spending events for allowance adjustments)
+		this.version(18).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions: 'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]'
 		});
 
 		// Add validation hooks
@@ -1927,6 +2161,104 @@ export class BudgicDB extends Dexie {
 				throw error;
 			}
 		});
+
+		// Negative Allowance Event validation
+		this.negativeAllowanceEvents.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = NegativeAllowanceEventSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Negative allowance event validation failed:', error);
+				console.error('Negative allowance event data:', obj);
+				throw error;
+			}
+		});
+
+		this.negativeAllowanceEvents.hook('updating', (modifications: Partial<NegativeAllowanceEvent>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				NegativeAllowanceEventSchema.parse(updated);
+			} catch (error) {
+				console.error('Negative allowance event update validation failed:', error);
+				console.error('Modifications:', modifications);
+				throw error;
+			}
+		});
+
+		// Envelope Borrowing validation
+		this.envelopeBorrowings.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = EnvelopeBorrowingSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Envelope borrowing validation failed:', error);
+				console.error('Envelope borrowing data:', obj);
+				throw error;
+			}
+		});
+
+		this.envelopeBorrowings.hook('updating', (modifications: Partial<EnvelopeBorrowing>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				EnvelopeBorrowingSchema.parse(updated);
+			} catch (error) {
+				console.error('Envelope borrowing update validation failed:', error);
+				console.error('Modifications:', modifications);
+				throw error;
+			}
+		});
+
+		// Rollover adjustment validation
+		this.rolloverAdjustments.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = RolloverAdjustmentSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Rollover adjustment validation failed:', error);
+				throw error;
+			}
+		});
+		this.rolloverAdjustments.hook('updating', (modifications: Partial<RolloverAdjustment>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				RolloverAdjustmentSchema.parse(updated);
+			} catch (error) {
+				console.error('Rollover adjustment update validation failed:', error);
+				throw error;
+			}
+		});
+
+		// Occasion validation
+		this.occasions.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = OccasionSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Occasion validation failed:', error);
+				throw error;
+			}
+		});
+		this.occasions.hook('updating', (modifications: Partial<Occasion>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				OccasionSchema.parse(updated);
+			} catch (error) {
+				console.error('Occasion update validation failed:', error);
+				throw error;
+			}
+		});
 	}
 
 	private setupSoftDeleteHooks() {
@@ -1975,6 +2307,38 @@ export class BudgicDB extends Dexie {
 		this.userActions.hook('reading', (obj) => {
 			if (!obj) {
 				console.warn('[DB Hook] userActions: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.negativeAllowanceEvents.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] negativeAllowanceEvents: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.envelopeBorrowings.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] envelopeBorrowings: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.rolloverAdjustments.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] rolloverAdjustments: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.occasions.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] occasions: obj is undefined', new Error().stack);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;

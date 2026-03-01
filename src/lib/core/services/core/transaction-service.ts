@@ -424,44 +424,39 @@ class TransactionService {
     }
 
     /**
-     * Get all transactions
+     * Get all transactions (excludes undefined from soft-delete reading hook)
      */
     async getAllTransactions(): Promise<Transaction[]> {
-        return await db.transactions.toArray();
+        const arr = await db.transactions.toArray();
+        return arr.filter((t): t is Transaction => t != null);
     }
 
     /**
      * Get transactions by account
      */
     async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
-        return await db.transactions.where('accountId').equals(accountId).toArray();
+        const arr = await db.transactions.where('accountId').equals(accountId).toArray();
+        return arr.filter((t): t is Transaction => t != null);
     }
 
     /**
      * Get transactions by category
      */
     async getTransactionsByCategory(categoryId: string): Promise<Transaction[]> {
-        return await db.transactions.where('categoryId').equals(categoryId).toArray();
+        const arr = await db.transactions.where('categoryId').equals(categoryId).toArray();
+        return arr.filter((t): t is Transaction => t != null);
     }
 
     /**
      * Get transactions by date range
      */
     async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
-        console.log('[TransactionService] getTransactionsByDateRange called:', { startDate, endDate });
         try {
-            const transactions = await db.transactions
+            const arr = await db.transactions
                 .where('clearedDate')
                 .between(startDate, endDate)
                 .toArray();
-            console.log('[TransactionService] Retrieved', transactions.length, 'transactions');
-            console.log('[TransactionService] Transaction check:', transactions.map(tx => ({
-                id: tx?.id,
-                isUndefined: tx === undefined,
-                isNull: tx === null,
-                hasDeletedAt: tx ? 'deletedAt' in tx : 'N/A'
-            })).slice(0, 5));
-            return transactions;
+            return arr.filter((t): t is Transaction => t != null);
         } catch (error) {
             console.error('[TransactionService] Error in getTransactionsByDateRange:', error);
             throw error;
@@ -472,17 +467,9 @@ class TransactionService {
      * Get transactions by status
      */
     async getTransactionsByStatus(status: Transaction['status']): Promise<Transaction[]> {
-        console.log('[TransactionService] getTransactionsByStatus called:', { status });
         try {
-            const transactions = await db.transactions.where('status').equals(status).toArray();
-            console.log('[TransactionService] Retrieved', transactions.length, 'transactions by status');
-            console.log('[TransactionService] Transaction check:', transactions.map(tx => ({
-                id: tx?.id,
-                isUndefined: tx === undefined,
-                isNull: tx === null,
-                hasDeletedAt: tx ? 'deletedAt' in tx : 'N/A'
-            })).slice(0, 5));
-            return transactions;
+            const arr = await db.transactions.where('status').equals(status).toArray();
+            return arr.filter((t): t is Transaction => t != null);
         } catch (error) {
             console.error('[TransactionService] Error in getTransactionsByStatus:', error);
             throw error;
@@ -757,7 +744,8 @@ class TransactionService {
         totalTransfers: number;
         averageTransactionAmount: number;
     }> {
-        const [transactions, accounts] = await Promise.all([db.transactions.toArray(), db.getActiveAccounts()]);
+        const [rawTransactions, accounts] = await Promise.all([db.transactions.toArray(), db.getActiveAccounts()]);
+        const transactions = rawTransactions.filter((t): t is Transaction => t != null);
         const accountMap = Object.fromEntries(accounts.map(a => [a.id, a]));
         const { userService, exchangeRateService } = await import('$lib/core/services');
         const preferences = await userService.getUserPreferences();
@@ -842,20 +830,22 @@ class TransactionService {
      * Get transactions by type
      */
     async getTransactionsByType(type: Transaction['type']): Promise<Transaction[]> {
-        return await db.transactions.where('type').equals(type).toArray();
+        const arr = await db.transactions.where('type').equals(type).toArray();
+        return arr.filter((t): t is Transaction => t != null);
     }
 
     /**
      * Search transactions
      */
     async searchTransactions(query: string): Promise<Transaction[]> {
-        const transactions = await db.transactions.toArray();
+        const arr = await db.transactions.toArray();
+        const valid = arr.filter((t): t is Transaction => t != null);
         const lowerQuery = query.toLowerCase();
-        
-        return transactions.filter((transaction: Transaction) => 
-            transaction.description?.toLowerCase().includes(lowerQuery) ||
-            transaction.reference?.toLowerCase().includes(lowerQuery) ||
-            transaction.notes?.toLowerCase().includes(lowerQuery)
+        return valid.filter(
+            (transaction) =>
+                transaction.description?.toLowerCase().includes(lowerQuery) ||
+                transaction.reference?.toLowerCase().includes(lowerQuery) ||
+                transaction.notes?.toLowerCase().includes(lowerQuery)
         );
     }
 }

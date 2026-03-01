@@ -1,4 +1,4 @@
-import { accountService, userService, transactionService, budgetService, crossRouteSyncService, insightsService } from '$lib/core/services';
+import { accountService, userService, transactionService, budgetService, crossRouteSyncService, insightsService, rolloverService, occasionService } from '$lib/core/services';
 import type { Account } from '$lib/core/db';
 import { calculateEnhancedAllowance, calculateGlobalAllowance, getSimpleDailyAllowance, type EnhancedAllowance } from '$lib/utils/allowance-utils';
 
@@ -136,16 +136,41 @@ class PlanService {
    */
   async getEnhancedAllowance(accountId?: string): Promise<EnhancedAllowance> {
     try {
+      let raw: EnhancedAllowance;
       // If accountId provided, return account-specific (for account detail pages)
       if (accountId) {
         const account = await accountService.getAccount(accountId);
-        if (account) {
-          return await calculateEnhancedAllowance(account);
-        }
+        raw = account
+          ? await calculateEnhancedAllowance(account)
+          : await calculateGlobalAllowance();
+      } else {
+        raw = await calculateGlobalAllowance();
       }
-      
-      // Otherwise return global allowance across all accounts
-      return await calculateGlobalAllowance();
+      const periodStart = raw.periodStart instanceof Date ? raw.periodStart : new Date(raw.periodStart);
+      const periodEnd = raw.periodEnd instanceof Date ? raw.periodEnd : new Date(raw.periodEnd);
+      const deltas = await rolloverService.getAdjustmentDeltasByCategory(accountId, periodStart);
+      let allowance = rolloverService.applyDeltasToAllowance(raw, deltas);
+      const occasionAdj = await occasionService.getAllowanceAdjustmentForPeriod(
+        accountId,
+        periodStart,
+        periodEnd,
+        allowance.total.currency
+      );
+      if (occasionAdj.totalDelta !== 0 && occasionAdj.currency === allowance.total.currency) {
+        const delta = occasionAdj.totalDelta;
+        const daysRemaining = allowance.total.daysRemaining;
+        const newRemaining = allowance.total.remaining + delta;
+        allowance = {
+          ...allowance,
+          total: {
+            ...allowance.total,
+            monthly: allowance.total.monthly + delta,
+            remaining: newRemaining,
+            dailySafe: daysRemaining > 0 ? newRemaining / daysRemaining : allowance.total.dailySafe
+          }
+        };
+      }
+      return allowance;
     } catch (error) {
       console.error('Error getting enhanced allowance:', error);
       // Return empty allowance structure on error
