@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search, ChevronLeft, ChevronRight, Clock, Calendar, Group } from '@lucide/svelte';
+	import { Search, ChevronLeft, ChevronRight, Clock, Calendar, Group, Receipt } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import * as ToggleGroup from "$lib/components/ui/toggle-group/index.ts";
@@ -99,6 +99,8 @@
 		// Callbacks
 		onTransactionClick?: (transaction: Transaction) => void;
 		onFiltersChange?: (filters: FilterState) => void;
+		/** When provided, empty state shows an "Add transaction" CTA button */
+		onAddTransaction?: () => void;
 		
 		// User currency for formatting
 		userCurrency?: string | null;
@@ -123,6 +125,7 @@
 		onSelectionChange,
 		onTransactionClick,
 		onFiltersChange,
+		onAddTransaction,
 		userCurrency = null
 	}: TransactionListProps = $props();
 
@@ -984,11 +987,15 @@
 		{/each}
 		
 		{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
-			<div class="bg-card rounded-2xl shadow-sm border border-border">
-				<div class="p-8 text-center text-muted-foreground">
-					<div class="text-lg mb-2">No transactions found</div>
-					<div class="text-sm">Try adjusting your filters or add a new transaction</div>
+			<div class="bg-card border-border flex flex-col items-center justify-center rounded-2xl border p-8 text-center shadow-sm">
+				<Receipt class="text-muted-foreground mb-3 h-12 w-12" />
+				<div class="text-primary mb-1 text-lg font-medium">No transactions found</div>
+				<div class="text-muted-foreground mb-4 text-sm">
+					Try adjusting your filters or add a new transaction.
 				</div>
+				{#if onAddTransaction}
+					<Button onclick={onAddTransaction}>Add transaction</Button>
+				{/if}
 			</div>
 		{/if}
 	</section>

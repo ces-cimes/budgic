@@ -2,13 +2,13 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import * as Button from '$lib/components/ui/button/index.ts';
-	import { accountService, transactionService, userService } from '$lib/core/services';
+	import { accountService, transactionService, userService, reconciliationService } from '$lib/core/services';
 	import type { Account, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import { Pencil } from '@lucide/svelte';
+	import { Pencil, Scale } from '@lucide/svelte';
 import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
 import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
@@ -31,6 +31,11 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 	let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
 	let recoverySuggestions = $state<RecoverySuggestion[]>([]);
 	let isLoadingAllowance = $state(false);
+	let reconciliationSummary = $state<{
+		lastReconciledDate: string | null;
+		daysSinceLastReconciliation: number;
+		unresolvedDiscrepancies: number;
+	} | null>(null);
 
 	const accountId = $derived($page.params.id);
 
@@ -42,6 +47,18 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 		await loadAccount();
 		await loadTransactions();
 		await loadEnhancedAllowance();
+		if (accountId) {
+			try {
+				const summary = await reconciliationService.getReconciliationSummary(accountId);
+				reconciliationSummary = {
+					lastReconciledDate: summary.lastReconciledDate ?? null,
+					daysSinceLastReconciliation: summary.daysSinceLastReconciliation,
+					unresolvedDiscrepancies: summary.unresolvedDiscrepancies ?? 0
+				};
+			} catch {
+				reconciliationSummary = null;
+			}
+		}
 	});
 
 	async function loadAccount() {
@@ -177,6 +194,38 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 							<span class="ml-2">Edit</span>
 						</Button.Root>
 					</div>
+				</div>
+			</section>
+
+			<!-- Reconciliation -->
+			<section class="mb-8">
+				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
+					<h2 class="text-primary mb-4 text-xl font-semibold">Reconciliation</h2>
+					{#if reconciliationSummary}
+						<div class="space-y-2 text-sm">
+							{#if reconciliationSummary.lastReconciledDate}
+								<p class="text-muted-foreground">
+									Last reconciled: {formatDate(reconciliationSummary.lastReconciledDate)}
+									{#if reconciliationSummary.daysSinceLastReconciliation >= 0 && reconciliationSummary.daysSinceLastReconciliation < 365}
+										({reconciliationSummary.daysSinceLastReconciliation} days ago)
+									{/if}
+								</p>
+							{:else}
+								<p class="text-muted-foreground">Not reconciled yet</p>
+							{/if}
+							{#if reconciliationSummary.unresolvedDiscrepancies > 0}
+								<p class="text-warning">{reconciliationSummary.unresolvedDiscrepancies} unresolved discrepancy(ies)</p>
+							{/if}
+						</div>
+					{/if}
+					<Button.Root
+						class="mt-4"
+						variant="outline"
+						onclick={() => goto(`/accounts/reconciliation?account=${account?.id ?? ''}`)}
+					>
+						<Scale class="mr-2 h-4 w-4" />
+						Reconcile
+					</Button.Root>
 				</div>
 			</section>
 

@@ -8,12 +8,12 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Progress } from '$lib/components/ui/progress';
-	import { 
-		TrendingUp, 
-		TrendingDown, 
-		Calendar, 
-		DollarSign, 
-		CheckCircle2, 
+	import {
+		TrendingUp,
+		TrendingDown,
+		Calendar,
+		DollarSign,
+		CheckCircle2,
 		AlertCircle,
 		ArrowRight,
 		Sparkles,
@@ -37,20 +37,18 @@
 	let isLoadingTransactions = $state(true);
 	let userCurrency = $state<string>('USD');
 
-	// Load transaction details
 	async function loadTransactions() {
 		try {
 			isLoadingTransactions = true;
-			// Load user currency
 			const preferences = await userService.getUserPreferences();
 			userCurrency = preferences?.currency || 'USD';
-			
+
 			const txIds = Array.from(result.originalPlan.keys());
 			const loaded = await Promise.all(
-				txIds.map(id => db.transactions.get(id))
+				txIds.map((id) => db.transactions.get(id))
 			);
 			const txMap = new Map<string, Transaction>();
-			loaded.forEach(tx => {
+			loaded.forEach((tx) => {
 				if (tx) txMap.set(tx.id, tx);
 			});
 			transactions = txMap;
@@ -61,12 +59,10 @@
 		}
 	}
 
-	// Load on mount
 	$effect(() => {
 		loadTransactions();
 	});
 
-	// Handle feedback on recommendations
 	async function handleFeedback(recommendationId: string, action: 'accepted' | 'rejected') {
 		try {
 			await learningAdaptationService.recordFeedback({
@@ -76,7 +72,8 @@
 				details: {
 					recommendationId,
 					improvement: result.improvement,
-					estimatedSavings: result.recommendations.find(r => r.id === recommendationId)?.estimatedSavings
+					estimatedSavings: result.recommendations.find((r) => r.id === recommendationId)
+						?.estimatedSavings
 				}
 			});
 		} catch (error) {
@@ -84,58 +81,37 @@
 		}
 	}
 
-	// Format score for display (normalize large numbers)
 	function formatScore(score: number): string {
 		const absScore = Math.abs(score);
-		
-		// For very large numbers, use scientific notation or scale down
-		if (absScore >= 1_000_000) {
-			// Show in millions
-			return `${(score / 1_000_000).toFixed(2)}M`;
-		} else if (absScore >= 1_000) {
-			// Show in thousands
-			return `${(score / 1_000).toFixed(2)}K`;
-		} else {
-			// Show as-is for smaller numbers
-			return score.toFixed(2);
-		}
+		if (absScore >= 1_000_000) return `${(score / 1_000_000).toFixed(2)}M`;
+		if (absScore >= 1_000) return `${(score / 1_000).toFixed(2)}K`;
+		return score.toFixed(2);
 	}
 
-	// Calculate improvement percentage
 	const improvementPercentage = $derived(() => {
 		if (result.baselineScore === 0) return 0;
 		return (result.improvement / Math.abs(result.baselineScore)) * 100;
 	});
 
-	// Group movements by impact
 	const movementsByImpact = $derived(() => {
 		if (!result.optimizedPlan) return { high: [], medium: [], low: [] };
-		
 		const high: TransactionMovement[] = [];
 		const medium: TransactionMovement[] = [];
 		const low: TransactionMovement[] = [];
-
-		result.optimizedPlan.movements.forEach(movement => {
+		result.optimizedPlan.movements.forEach((movement) => {
 			const absDays = Math.abs(movement.daysMoved);
-			if (absDays > 7) {
-				high.push(movement);
-			} else if (absDays > 3) {
-				medium.push(movement);
-			} else {
-				low.push(movement);
-			}
+			if (absDays > 7) high.push(movement);
+			else if (absDays > 3) medium.push(movement);
+			else low.push(movement);
 		});
-
 		return { high, medium, low };
 	});
 
-	// Get transaction name
 	function getTransactionName(txId: string): string {
 		const tx = transactions.get(txId);
 		return tx?.description || `Transaction ${txId.slice(0, 8)}`;
 	}
 
-	// Format movement direction
 	function formatMovement(movement: TransactionMovement): string {
 		const days = movement.daysMoved;
 		if (days === 0) return 'No change';
@@ -143,7 +119,6 @@
 		return `Moved back ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`;
 	}
 
-	// Get improvement type icon
 	function getImprovementIcon(type: PlanImprovement['type']) {
 		switch (type) {
 			case 'fee_avoidance':
@@ -187,7 +162,6 @@
 		</Card.Root>
 	{:else if result.optimizedPlan}
 		<div class="space-y-6">
-			<!-- Summary Card -->
 			<Card.Root>
 				<Card.Header>
 					<div class="flex items-center justify-between">
@@ -204,22 +178,20 @@
 					</div>
 				</Card.Header>
 				<Card.Content class="space-y-4">
-					<!-- Score Explanation -->
 					<div class="p-3 rounded-lg bg-muted/50 border border-border">
 						<div class="flex items-start gap-2">
 							<AlertCircle class="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
 							<div class="text-xs text-muted-foreground space-y-1">
 								<p class="font-medium text-foreground">About the Score:</p>
 								<p>
-									The optimization score evaluates your financial plan's health. Lower (more negative) scores indicate more issues like buffer violations or fees. 
-									The <strong>improvement</strong> value shows how much better the optimized plan is compared to your current plan. 
+									The optimization score evaluates your financial plan's health. Lower (more negative) scores indicate more issues like buffer violations or fees.
+									The <strong>improvement</strong> value shows how much better the optimized plan is compared to your current plan.
 									A positive improvement means the optimization found a better arrangement.
 								</p>
 							</div>
 						</div>
 					</div>
 
-					<!-- Score Comparison -->
 					<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 						<div class="space-y-2">
 							<div class="text-sm text-muted-foreground">Baseline Score</div>
@@ -249,7 +221,6 @@
 						</div>
 					</div>
 
-					<!-- Progress Bar -->
 					{#if result.baselineScore !== 0}
 						<div class="space-y-2">
 							<div class="flex justify-between text-sm">
@@ -260,7 +231,6 @@
 						</div>
 					{/if}
 
-					<!-- Metadata -->
 					<div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
 						<div class="space-y-1">
 							<div class="text-xs text-muted-foreground">Iterations</div>
@@ -284,7 +254,6 @@
 				</Card.Content>
 			</Card.Root>
 
-			<!-- Improvements -->
 			{#if result.optimizedPlan.improvements.length > 0}
 				<Card.Root>
 					<Card.Header>
@@ -311,19 +280,17 @@
 				</Card.Root>
 			{/if}
 
-			<!-- Transaction Movements -->
 			{#if result.optimizedPlan.movements.length > 0}
 				<Card.Root>
 					<Card.Header>
 						<Card.Title>Transaction Adjustments</Card.Title>
 						<Card.Description>
-							{result.optimizedPlan.movements.length} transaction{result.optimizedPlan.movements.length !== 1 ? 's' : ''} 
+							{result.optimizedPlan.movements.length} transaction{result.optimizedPlan.movements.length !== 1 ? 's' : ''}
 							will be adjusted
 						</Card.Description>
 					</Card.Header>
 					<Card.Content>
 						<div class="space-y-4">
-							<!-- High Impact -->
 							{#if movementsByImpact().high.length > 0}
 								<div class="space-y-2">
 									<div class="text-sm font-medium text-amber-600 dark:text-amber-400">
@@ -350,7 +317,6 @@
 								</div>
 							{/if}
 
-							<!-- Medium Impact -->
 							{#if movementsByImpact().medium.length > 0}
 								<div class="space-y-2">
 									<div class="text-sm font-medium">Medium Impact ({movementsByImpact().medium.length})</div>
@@ -375,7 +341,6 @@
 								</div>
 							{/if}
 
-							<!-- Low Impact -->
 							{#if movementsByImpact().low.length > 0}
 								<div class="space-y-2">
 									<div class="text-sm font-medium text-muted-foreground">
@@ -400,7 +365,6 @@
 				</Card.Root>
 			{/if}
 
-			<!-- Recommendations -->
 			{#if result.recommendations.length > 0}
 				<Card.Root>
 					<Card.Header>
@@ -434,10 +398,7 @@
 									{/if}
 									<div class="flex gap-2 mt-2">
 										{#if recommendation.actionable && onApply}
-											<Button 
-												size="sm" 
-												onclick={handleApply}
-											>
+											<Button size="sm" onclick={handleApply}>
 												Apply Optimization
 											</Button>
 										{/if}
@@ -465,7 +426,6 @@
 				</Card.Root>
 			{/if}
 
-			<!-- Actions -->
 			<div class="flex gap-2 justify-end">
 				{#if onDismiss}
 					<Button variant="outline" onclick={onDismiss}>

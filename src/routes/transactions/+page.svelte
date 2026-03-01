@@ -3,9 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { transactionService, userService, accountService } from '$lib/core/services';
-	import { db } from '$lib/core/db';  
+	import { db } from '$lib/core/db';
 	import TransactionList from '$lib/components/transactions/TransactionList.svelte';
 	import Header from '$lib/components/Header.svelte';
+	import Fab from '$lib/components/Fab.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import type { Transaction, Account, Category } from '$lib/core/db';
 
@@ -15,6 +16,7 @@
 	let accounts = $state<Record<string, Account>>({});
 	let budgetCategories = $state<Record<string, Category>>({});
 	let userCurrency = $state<string | null>(null);
+	let isLoading = $state(true);
 
 	onMount(async () => {
 		try {
@@ -37,16 +39,13 @@
 				acc[category.id] = category;
 				return acc;
 			}, {} as Record<string, Category>);
-			
-			console.log('Budget categories loaded:', budgetCategoriesData.length, 'categories');
-			
+
 			const transactionsData = await transactionService.getAllTransactions();
-			console.log('Raw transactions data:', transactionsData);
-			// Filter out any null/undefined or deleted transactions as a safety measure
-			transactions = transactionsData.filter(t => t && !t.deletedAt);
-			console.log('Processed transactions:', transactions);
+			transactions = transactionsData.filter((t) => t && !t.deletedAt);
 		} catch (error) {
 			console.error('Error loading transactions:', error);
+		} finally {
+			isLoading = false;
 		}
 	});
 
@@ -83,12 +82,21 @@
 	{/snippet}
 
 	<div class="container mx-auto p-2 sm:p-4 max-w-4xl">
+		{#if isLoading}
+			<div class="bg-card border-border flex min-h-[200px] items-center justify-center rounded-xl border p-8">
+				<div class="text-muted-foreground flex flex-col items-center gap-3 text-center">
+					<div class="bg-muted h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+					<p class="text-sm">Loading transactions…</p>
+				</div>
+			</div>
+		{:else}
 		<TransactionList
 			{transactions}
 			{accounts}
 			categories={budgetCategories}
 			{userCurrency}
 			onTransactionClick={handleTransactionClick}
+			onAddTransaction={() => goto('/transactions/add')}
 			enableFilters={true}
 			enableSearch={true}
 			enableBasicToggles={true}
@@ -98,5 +106,17 @@
 			showSummary={true}
 			showDateNavigation={true}
 		/>
+		{/if}
 	</div>
+
+	<Fab
+		position="bottom-right"
+		size="md"
+		variant="default"
+		onclick={() => goto('/transactions/add')}
+	>
+		{#snippet children()}
+			<Plus />
+		{/snippet}
+	</Fab>
 </PageLayout> 

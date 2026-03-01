@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import { BarChart3, TrendingUp, Award, RefreshCw, Shield, Sparkles, Brain } from '@lucide/svelte';
+	import { AlertCircle, TrendingUp, Award, RefreshCw, Shield, Zap } from '@lucide/svelte';
 
 	// Shared components
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
@@ -19,23 +19,22 @@
 	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import RecurringTransactionManager from '$lib/components/recurring/RecurringTransactionManager.svelte';
 	import LearningAdaptationPanel from '$lib/components/insights/LearningAdaptationPanel.svelte';
+	import OptimizeTab from '$lib/components/insights/OptimizeTab.svelte';
 
 	// Services
 	import { insightsService } from '$lib/core/services';
 
-	// Tab configuration
+	// Tab configuration (5 tabs per proposal: Alerts | Savings | Patterns | Optimize | Badges)
 	const insightsTabs: TabConfig[] = [
-		{ id: 'overview', label: 'Overview', icon: BarChart3 },
+		{ id: 'alerts', label: 'Alerts', icon: AlertCircle },
+		{ id: 'savings', label: 'Savings', icon: Shield },
 		{ id: 'patterns', label: 'Patterns', icon: TrendingUp },
-		{ id: 'recurring', label: 'Recurring', icon: Sparkles },
-		{ id: 'predictions', label: 'Predictions', icon: BarChart3 }, // Using BarChart3 as placeholder
-		{ id: 'savings', label: 'Fee Avoidance', icon: Shield },
-		{ id: 'learning', label: 'Learning', icon: Brain },
+		{ id: 'optimize', label: 'Optimize', icon: Zap },
 		{ id: 'badges', label: 'Badges', icon: Award }
 	];
 
-	// State
-	let activeTab = $state('overview');
+	// State (default to alerts; support legacy ?tab=overview via effect)
+	let activeTab = $state('alerts');
 	let isLoading = $state(true);
 	let insights = $state<any[]>([]);
 	let error = $state<string | null>(null);
@@ -58,10 +57,12 @@
 		}
 	});
 
-	// Handle URL parameters for tab selection
+	// Handle URL parameters for tab selection (map legacy tab names to consolidated tabs)
 	$effect(() => {
 		const urlParams = new URLSearchParams($page.url.search);
-		const tabParam = urlParams.get('tab');
+		let tabParam = urlParams.get('tab');
+		if (tabParam === 'overview') tabParam = 'alerts';
+		if (['recurring', 'predictions', 'learning'].includes(tabParam ?? '')) tabParam = 'patterns';
 		if (tabParam && insightsTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
 		}
@@ -147,26 +148,8 @@
 				class="flex-1"
 			>
 				{#snippet children()}
-					<TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={insightsTabs}>
+					<TabContent tabId="alerts" isActive={activeTab === 'alerts'} tabs={insightsTabs}>
 						<OverviewTab {insights} {isLoading} />
-					</TabContent>
-
-					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
-						<PatternsTab {isLoading} />
-					</TabContent>
-
-					<TabContent tabId="recurring" isActive={activeTab === 'recurring'} tabs={insightsTabs}>
-						<div class="p-2 sm:p-4">
-							<RecurringTransactionManager />
-						</div>
-					</TabContent>
-
-					<TabContent
-						tabId="predictions"
-						isActive={activeTab === 'predictions'}
-						tabs={insightsTabs}
-					>
-						<PredictionsTab {isLoading} />
 					</TabContent>
 
 					<TabContent tabId="savings" isActive={activeTab === 'savings'} tabs={insightsTabs}>
@@ -179,10 +162,29 @@
 						</div>
 					</TabContent>
 
-					<TabContent tabId="learning" isActive={activeTab === 'learning'} tabs={insightsTabs}>
-						<div class="p-2 sm:p-4">
-							<LearningAdaptationPanel />
+					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
+						<div class="space-y-8 p-2 sm:p-4">
+							<section>
+								<h2 class="text-primary mb-3 text-lg font-semibold">Behavioral patterns</h2>
+								<PatternsTab {isLoading} />
+							</section>
+							<section>
+								<h2 class="text-primary mb-3 text-lg font-semibold">Recurring</h2>
+								<RecurringTransactionManager />
+							</section>
+							<section>
+								<h2 class="text-primary mb-3 text-lg font-semibold">Predictions</h2>
+								<PredictionsTab {isLoading} />
+							</section>
+							<section>
+								<h2 class="text-primary mb-3 text-lg font-semibold">Learning</h2>
+								<LearningAdaptationPanel />
+							</section>
 						</div>
+					</TabContent>
+
+					<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
+						<OptimizeTab />
 					</TabContent>
 
 					<TabContent tabId="badges" isActive={activeTab === 'badges'} tabs={insightsTabs}>

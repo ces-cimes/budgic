@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import {
 		accountService,
-		budgetService,
 		transactionService,
 		userService,
 		feeAvoidanceService
@@ -32,10 +31,7 @@
 	let totalBalance = $state(0);
 	let recentTransactions = $state<any[]>([]);
 	let budgetCategories = $state<Record<string, any>>({});
-	let monthlyIncome = $state(0);
-	let monthlyExpenses = $state(0);
 	let userCurrency = $state<string>('USD');
-	let insights = $state<any[]>([]);
 	let globalAllowance = $state<EnhancedAllowance | null>(null);
 	let isLoadingAllowance = $state(false);
 	let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
@@ -56,28 +52,15 @@
 				db.getActiveCategories()
 			]);
 
-			accounts = accountsData.slice(0, 3); // Show top 3 accounts
+			accounts = accountsData;
 			totalBalance = balanceData;
-			recentTransactions = transactionsData.slice(0, 5); // Show last 5 transactions
+			recentTransactions = transactionsData.filter((t: any) => t && !t.deletedAt).slice(0, 5);
 			budgetCategories = categoriesData.reduce(
 				(acc: Record<string, any>, category: any) => {
 					acc[category.id] = category;
 					return acc;
 				},
 				{} as Record<string, any>
-			);
-
-			// Load insights
-			insights = []; // Simplified - insights will be loaded from insights page
-
-			// Calculate monthly totals using the simplified transaction system
-			const incomeTransactions = transactionsData.filter((t: any) => t.type === 'income');
-			const expenseTransactions = transactionsData.filter((t: any) => t.type === 'expense');
-
-			monthlyIncome = incomeTransactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-			monthlyExpenses = expenseTransactions.reduce(
-				(sum: number, t: any) => sum + (t.amount || 0),
-				0
 			);
 
 			// Load global allowance
@@ -197,50 +180,26 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard | Budgic</title>
+	<title>Home | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-	<div class="container mx-auto max-w-6xl px-4 py-6">
-		<!-- Welcome Header -->
-		<header class="mb-8">
-			<h1 class="text-primary mb-2 text-3xl font-bold">Welcome back!</h1>
-			<p class="text-muted-foreground">Here's your financial overview for today</p>
+	<div class="container mx-auto max-w-2xl px-4 py-6">
+		<header class="mb-6">
+			<h1 class="text-primary mb-1 text-2xl font-bold">Welcome back!</h1>
+			<p class="text-muted-foreground text-sm">Your financial status at a glance</p>
 		</header>
 
-		<!-- Quick Stats -->
-		<section class="mb-8">
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-4">
-				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-					<div class="text-muted-foreground mb-1 text-sm">Total Balance</div>
-					<div class="text-primary text-2xl font-bold">{formatAmount(totalBalance)}</div>
-					<div class="text-success text-sm">+2.5% from last month</div>
-				</div>
-
-				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-					<div class="text-muted-foreground mb-1 text-sm">Monthly Income</div>
-					<div class="text-success text-2xl font-bold">{formatAmount(monthlyIncome)}</div>
-					<div class="text-muted-foreground text-sm">This month</div>
-				</div>
-
-				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-					<div class="text-muted-foreground mb-1 text-sm">Monthly Expenses</div>
-					<div class="text-alert text-2xl font-bold">{formatAmount(monthlyExpenses)}</div>
-					<div class="text-muted-foreground text-sm">This month</div>
-				</div>
-
-				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-					<div class="text-muted-foreground mb-1 text-sm">Net Savings</div>
-					<div class="text-info text-2xl font-bold">
-						{formatAmount(monthlyIncome - monthlyExpenses)}
-					</div>
-					<div class="text-muted-foreground text-sm">This month</div>
-				</div>
+		<!-- Primary metric: total balance -->
+		<section class="mb-6">
+			<div class="bg-primary/10 border-border rounded-2xl border p-6">
+				<div class="text-muted-foreground mb-1 text-sm">Total balance</div>
+				<div class="text-primary text-3xl font-bold">{formatAmount(totalBalance)}</div>
 			</div>
 		</section>
 
-		<!-- Spending Allowance -->
-		<section class="mb-8">
+		<!-- Safe to spend (allowance) -->
+		<section class="mb-6">
 			<AllowanceSummary
 				allowance={globalAllowance}
 				isLoading={isLoadingAllowance}
@@ -249,279 +208,120 @@
 			/>
 		</section>
 
-		<!-- Quick Actions -->
-		<section class="mb-8">
-			<h2 class="text-primary mb-4 text-xl font-semibold">Quick Actions</h2>
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-				<Button.Root
-					onclick={() => goto('/transactions/add')}
-					class="h-auto flex-col items-start p-4"
-				>
-					<div class="text-primary mb-1 font-medium">Add Transaction</div>
-					<div class="text-muted-foreground text-sm">Record income or expense</div>
-				</Button.Root>
-
-				<Button.Root
-					onclick={() => goto('/accounts/add')}
-					variant="outline"
-					class="h-auto flex-col items-start p-4"
-				>
-					<div class="text-primary mb-1 font-medium">Add Account</div>
-					<div class="text-muted-foreground text-sm">Connect new account</div>
-				</Button.Root>
-
-				<Button.Root
-					onclick={() => goto('/budget')}
-					variant="outline"
-					class="h-auto flex-col items-start p-4"
-				>
-					<div class="text-primary mb-1 font-medium">View Budget</div>
-					<div class="text-muted-foreground text-sm">Check your plan</div>
-				</Button.Root>
-
-				<Button.Root
-					onclick={() => goto('/insights')}
-					variant="outline"
-					class="h-auto flex-col items-start p-4"
-				>
-					<div class="text-primary mb-1 font-medium">Get Insights</div>
-					<div class="text-muted-foreground text-sm">Financial analysis</div>
-				</Button.Root>
-			</div>
-		</section>
-
-		<!-- Recent Activity -->
-		<section class="mb-8">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-primary text-xl font-semibold">Recent Transactions</h2>
-				<Button.Root variant="ghost" onclick={() => goto('/transactions')}>View All</Button.Root>
-			</div>
-
-			<div class="bg-card border-border overflow-hidden rounded-2xl border shadow-sm">
-				<div class="divide-border divide-y">
-					{#each recentTransactions as transaction (transaction.id)}
-						<div class="hover:bg-accent cursor-pointer p-6 transition-colors">
-							<div class="flex items-center justify-between">
-								<div class="flex items-center space-x-4">
-									<div
-										class="bg-muted flex h-12 w-12 items-center justify-center rounded-full text-xl"
-									>
-										{getCategoryIcon(getCategoryName(transaction))}
-									</div>
-									<div>
-										<div class="text-primary font-medium">
-											{transaction.description || 'No description'}
-										</div>
-										<div class="text-muted-foreground text-sm">{getCategoryName(transaction)}</div>
-										<div class="text-muted-foreground/70 text-xs">
-											{getAccountName(transaction.accountId)} • {formatDate(
-												transaction.clearedDate || transaction.plannedDate || transaction.createdAt
-											)}
-										</div>
-										{#if transaction.groupId}
-											<div class="text-muted-foreground/70 mt-1 text-xs">Grouped transaction</div>
-										{/if}
-									</div>
-								</div>
-
-								<div class="text-right">
-									<div
-										class="font-semibold {(transaction.amount ?? 0) >= 0
-											? 'text-success'
-											: 'text-alert'}"
-									>
-										{formatTransactionAmount(
-											transaction.amount,
-											transaction.currency || userCurrency,
-											true
-										)}
-									</div>
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		</section>
-
-		<!-- Quick Insights -->
-		<section class="mb-8">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-primary text-xl font-semibold">Quick Insights</h2>
-				<Button.Root variant="ghost" onclick={() => goto('/insights')}>View All</Button.Root>
-			</div>
-
-			<div class="bg-card border-border rounded-2xl border p-4 shadow-sm">
-				{#if insights.length === 0}
-					<div class="text-muted-foreground py-4 text-center">
-						<p class="text-sm">No insights to display</p>
-					</div>
-				{:else}
-					<div class="space-y-3">
-						{#each insights.slice(0, 3) as insight (insight.id)}
-							<div class="bg-secondary/30 flex items-start gap-3 rounded-lg p-3">
-								<div class="mt-0.5 flex-shrink-0">
-									{#if insight.severity === 'alert'}
-										<div class="h-2 w-2 rounded-full bg-red-500"></div>
-									{:else if insight.severity === 'warning'}
-										<div class="h-2 w-2 rounded-full bg-yellow-500"></div>
-									{:else if insight.severity === 'success'}
-										<div class="h-2 w-2 rounded-full bg-green-500"></div>
-									{:else}
-										<div class="h-2 w-2 rounded-full bg-blue-500"></div>
-									{/if}
-								</div>
-								<div class="min-w-0 flex-1">
-									<h3 class="text-foreground text-sm leading-tight font-medium">
-										{insight.title}
-									</h3>
-									<p class="text-muted-foreground mt-1 text-xs">
-										{insight.message}
-									</p>
-								</div>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</section>
-
-		<!-- Fee Avoidance Alerts -->
-		{#if urgentFeeRisks.length > 0}
-			<section class="mb-8">
-				<div class="mb-4 flex items-center justify-between">
-					<h2 class="text-primary flex items-center gap-2 text-xl font-semibold">
-						<Shield class="h-5 w-5 text-orange-500" />
-						Fee Avoidance Alerts
+		<!-- Urgent alerts (fee risks + negative allowance) -->
+		{#if urgentFeeRisks.length > 0 || (negativeAllowanceStatus?.isNegative)}
+			<section class="mb-6">
+				<div class="mb-3 flex items-center justify-between">
+					<h2 class="text-primary flex items-center gap-2 text-sm font-semibold">
+						<Shield class="h-4 w-4 text-orange-500" />
+						Needs attention
 					</h2>
-					<Button.Root variant="ghost" onclick={() => goto('/insights?tab=savings')}>
-						View All
+					<Button.Root variant="ghost" size="sm" onclick={() => goto('/insights')}>
+						All alerts
 					</Button.Root>
 				</div>
-
-				<div
-					class="rounded-2xl border border-orange-500/20 bg-gradient-to-r from-orange-500/10 to-red-500/10 p-4 shadow-sm"
-				>
-					<div class="space-y-3">
-						{#each urgentFeeRisks as risk (risk.id)}
-							<div
-								class="bg-card/80 flex items-start gap-3 rounded-lg border border-orange-500/20 p-4 backdrop-blur-sm"
-							>
-								<div class="mt-1 flex-shrink-0">
-									<AlertTriangle
-										class="h-5 w-5 {risk.likelihood === 'imminent'
-											? 'text-red-500'
-											: 'text-orange-500'}"
-									/>
-								</div>
-								<div class="min-w-0 flex-1">
-									<div class="flex items-start justify-between gap-2">
-										<div class="flex-1">
-											<h3 class="text-foreground text-sm leading-tight font-semibold">
-												{risk.triggerCondition}
-											</h3>
-											<p class="text-muted-foreground mt-1 text-xs">
-												{risk.accountName} • {risk.daysUntilOccurrence !== null
-													? `${risk.daysUntilOccurrence} days`
-													: 'Soon'}
-											</p>
-										</div>
-										<div class="text-right">
-											<div class="text-sm font-bold text-red-500">
-												{formatAmount(risk.estimatedAmount)}
-											</div>
-											<div class="text-muted-foreground text-xs">fee at risk</div>
-										</div>
-									</div>
-									<Button.Root
-										variant="outline"
-										size="sm"
-										class="mt-3"
-										onclick={() => goto(`/accounts/${risk.accountId}`)}
-									>
-										View Account
-									</Button.Root>
-								</div>
+				<div class="space-y-2">
+					{#if negativeAllowanceStatus?.isNegative}
+						<a
+							href="/plan?tab=allowance"
+							class="bg-warning/10 border-warning/30 flex items-center justify-between rounded-xl border p-3 transition-colors hover:bg-warning/20"
+						>
+							<span class="text-sm font-medium text-primary">Allowance overspent</span>
+							<span class="text-muted-foreground text-xs">View plan →</span>
+						</a>
+					{/if}
+					{#each urgentFeeRisks.slice(0, 2) as risk (risk.id)}
+						<a
+							href="/accounts/{risk.accountId}"
+							class="bg-card border-border flex items-center justify-between rounded-xl border p-3 transition-colors hover:bg-accent"
+						>
+							<div class="min-w-0 flex-1">
+								<div class="text-sm font-medium text-primary truncate">{risk.triggerCondition}</div>
+								<div class="text-muted-foreground text-xs">{risk.accountName}</div>
 							</div>
-						{/each}
-					</div>
+							<div class="text-right text-sm font-semibold text-red-500">
+								{formatAmount(risk.estimatedAmount)}
+							</div>
+						</a>
+					{/each}
 				</div>
 			</section>
 		{/if}
 
-		<!-- Budget Overview -->
-		<section class="mb-8">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-primary text-xl font-semibold">Budget Overview</h2>
-				<Button.Root variant="ghost" onclick={() => goto('/budget')}>View Details</Button.Root>
-			</div>
-
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-				{#each Object.values(budgetCategories) as category (category.id)}
-					<div class="bg-card border-border rounded-xl border p-4 shadow-sm">
-						<div class="mb-2 flex items-center justify-between">
-							<div class="h-8 w-8 rounded-full" style="background-color: {category.color}"></div>
-							<span class="text-muted-foreground text-sm">
-								{Math.round((category.allocatedAmount / category.allocatedAmount) * 100)}%
-							</span>
-						</div>
-						<div class="text-primary mb-1 font-medium">{category.name}</div>
-						<div class="text-muted-foreground text-sm">
-							{formatAmount(category.allocatedAmount)} / {formatAmount(category.allocatedAmount)}
-						</div>
-						<div class="bg-muted mt-2 h-2 w-full rounded-full">
-							<div
-								class="h-2 rounded-full transition-all duration-300"
-								style="width: {Math.min(
-									(category.allocatedAmount / category.allocatedAmount) * 100,
-									100
-								)}%; background-color: {category.color}"
-							></div>
-						</div>
-					</div>
-				{/each}
+		<!-- Quick actions -->
+		<section class="mb-6">
+			<div class="grid grid-cols-2 gap-3">
+				<Button.Root
+					onclick={() => goto('/transactions/add')}
+					class="h-auto flex-col items-center justify-center gap-1 py-4"
+				>
+					<Plus class="h-5 w-5" />
+					<span class="text-sm font-medium">Add transaction</span>
+				</Button.Root>
+				<Button.Root
+					onclick={() => goto('/plan')}
+					variant="outline"
+					class="h-auto flex-col items-center justify-center gap-1 py-4"
+				>
+					<span class="text-sm font-medium">View plan</span>
+				</Button.Root>
 			</div>
 		</section>
 
-		<!-- Account Summary -->
+		<!-- Recent activity (compact) -->
 		<section class="mb-8">
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-primary text-xl font-semibold">Your Accounts</h2>
-				<Button.Root variant="ghost" onclick={() => goto('/accounts')}>View All</Button.Root>
+			<div class="mb-3 flex items-center justify-between">
+				<h2 class="text-primary text-sm font-semibold">Recent transactions</h2>
+				<Button.Root variant="ghost" size="sm" onclick={() => goto('/transactions')}>
+					View all
+				</Button.Root>
 			</div>
-
-			<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
-				{#each accounts as account}
-					<div
-						class="bg-card border-border cursor-pointer rounded-xl border p-6 shadow-sm transition-shadow hover:shadow-md"
+			<div class="bg-card border-border divide-border divide-y overflow-hidden rounded-xl border shadow-sm">
+				{#each recentTransactions as transaction (transaction.id)}
+					<button
+						type="button"
+						class="hover:bg-accent flex w-full items-center justify-between gap-3 p-4 text-left transition-colors"
+						onclick={() => goto(`/transactions/add/${transaction.id}`)}
 					>
-						<div class="mb-4 flex items-center justify-between">
-							<div
-								class="from-primary to-primary/80 flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r"
-							>
-								<span class="font-bold text-white">{account.name.charAt(0)}</span>
+						<div class="min-w-0 flex-1">
+							<div class="text-primary truncate text-sm font-medium">
+								{transaction.description || 'No description'}
 							</div>
-							<div class="text-right">
-								<div class="text-muted-foreground text-sm capitalize">{account.type}</div>
-							</div>
-						</div>
-
-						<h3 class="text-primary mb-2 font-semibold">{account.name}</h3>
-						<div class="text-primary text-2xl font-bold">{formatAmount(account.balance)}</div>
-
-						<div class="border-border mt-4 border-t pt-4">
-							<div class="flex justify-between text-sm">
-								<span class="text-muted-foreground">Last updated</span>
-								<span class="text-primary">Today</span>
+							<div class="text-muted-foreground text-xs">
+								{getCategoryName(transaction)} • {formatDate(
+									transaction.clearedDate || transaction.plannedDate || transaction.createdAt
+								)}
 							</div>
 						</div>
-					</div>
+						<div
+							class="flex-shrink-0 text-sm font-semibold {(transaction.amount ?? 0) >= 0
+								? 'text-success'
+								: 'text-alert'}"
+						>
+							{formatTransactionAmount(
+								transaction.amount,
+								transaction.currency || userCurrency,
+								true
+							)}
+						</div>
+					</button>
 				{/each}
+				{#if recentTransactions.length === 0}
+					<div class="text-muted-foreground p-6 text-center text-sm">
+						No recent transactions.
+						<button
+							type="button"
+							class="text-primary underline hover:no-underline"
+							onclick={() => goto('/transactions/add')}
+						>
+							Add one
+						</button>
+					</div>
+				{/if}
 			</div>
 		</section>
 	</div>
 
-	<!-- Floating Action Button -->
 	<Fab
 		position="bottom-right"
 		size="md"

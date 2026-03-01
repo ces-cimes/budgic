@@ -48,8 +48,8 @@
 				const categories = await budgetService.getBudgetCategories();
 				category = categories.find(cat => cat.id === categoryId) || null;
 				if (!category) {
-					// Category not found, redirect to categories list
-					goto('/categories');
+					// Category not found, redirect to Plan > Categories
+					goto('/plan?tab=categories');
 					return;
 				}
 			}
@@ -102,7 +102,7 @@
 			try {
 				// Soft delete by setting isActive to false
 				await budgetService.updateBudgetCategory(category.id, { isActive: false });
-				goto('/categories');
+				goto('/plan?tab=categories');
 			} catch (error) {
 				console.error('Error deleting category:', error);
 			}
@@ -136,8 +136,8 @@
 				<Button.Root 
 					variant="ghost" 
 					size="sm"
-					onclick={() => goto('/categories')}
-				>
+onclick={() => goto('/plan?tab=categories')}
+					>
 					← Back
 				</Button.Root>
 				<div>
@@ -281,7 +281,7 @@
 	<div class="text-center py-12">
 		<h2 class="text-xl font-semibold text-primary mb-2">Category not found</h2>
 		<p class="text-tertiary mb-4">The category you're looking for doesn't exist or has been deleted.</p>
-		<Button.Root onclick={() => goto('/categories')}>
+		<Button.Root onclick={() => goto('/plan?tab=categories')}>
 			Back to Categories
 		</Button.Root>
 	</div>

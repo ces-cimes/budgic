@@ -19,6 +19,8 @@
 	import type { ReconciliationRecord } from '$lib/core/db';
 	import { reconciliationService, accountService } from '$lib/core/services';
 	import { onMount } from 'svelte';
+	import { PageLayout } from '$lib/components/layouts';
+	import Header from '$lib/components/Header.svelte';
 
 	// State variables
 	let activeTab = $state('reconcile');
@@ -163,152 +165,160 @@
 </script>
 
 <svelte:head>
-	<title>Balance Reconciliation | Budgic</title>
+	<title>Reconciliation | Accounts | Budgic</title>
 	<meta
 		name="description"
 		content="Reconcile account balances and track discrepancies to ensure financial data accuracy."
 	/>
 </svelte:head>
 
-<div class="container mx-auto max-w-7xl space-y-6 px-4 py-6">
-	<!-- Page Header -->
-	<div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-		<div>
-			<h1 class="text-3xl font-bold tracking-tight">Balance Reconciliation</h1>
+<PageLayout>
+	{#snippet topBar()}
+		<Header
+			title="Reconciliation"
+			showBackButton={true}
+			backButtonLink="/accounts"
+			backButtonLabel="Back to Accounts"
+		/>
+	{/snippet}
+
+	{#snippet children()}
+		<div class="container mx-auto max-w-7xl space-y-6 px-4 py-6">
+			<!-- Page description -->
 			<p class="text-muted-foreground mt-1">
-				Ensure your account balances match external statements and resolve discrepancies
+				Ensure your account balances match external statements and resolve discrepancies.
 			</p>
-		</div>
-	</div>
 
-	<!-- Stats Overview -->
-	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-		{#if isLoadingStats}
-			{#each Array(4) as _}
-				<Card>
-					<CardContent class="pt-6">
-						<div class="animate-pulse">
-							<div class="bg-muted mb-2 h-8 w-12 rounded"></div>
-							<div class="bg-muted h-4 w-24 rounded"></div>
-						</div>
-					</CardContent>
-				</Card>
-			{/each}
-		{:else if statsError}
-			<div class="col-span-full">
-				<Alert variant="destructive">
-					<AlertCircle class="h-4 w-4" />
-					<AlertDescription>{statsError}</AlertDescription>
-				</Alert>
-			</div>
-		{:else}
-			<!-- Total Accounts -->
-			<Card>
-				<CardContent class="pt-6">
-					<div class="flex items-center space-x-2">
-						<BarChart3 class="h-5 w-5 text-blue-600" />
-						<div>
-							<p class="text-2xl font-bold">{reconciliationStats.totalAccounts}</p>
-							<p class="text-muted-foreground text-sm">Total Accounts</p>
-						</div>
+			<!-- Stats Overview -->
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+				{#if isLoadingStats}
+					{#each Array(4) as _}
+						<Card>
+							<CardContent class="pt-6">
+								<div class="animate-pulse">
+									<div class="bg-muted mb-2 h-8 w-12 rounded"></div>
+									<div class="bg-muted h-4 w-24 rounded"></div>
+								</div>
+							</CardContent>
+						</Card>
+					{/each}
+				{:else if statsError}
+					<div class="col-span-full">
+						<Alert variant="destructive">
+							<AlertCircle class="h-4 w-4" />
+							<AlertDescription>{statsError}</AlertDescription>
+						</Alert>
 					</div>
-				</CardContent>
-			</Card>
-
-			<!-- Needs Reconciliation -->
-			<Card>
-				<CardContent class="pt-6">
-					<div class="flex items-center space-x-2">
-						<Clock class="h-5 w-5 text-yellow-600" />
-						<div>
-							<div class="flex items-center gap-2">
-								<p class="text-2xl font-bold">{reconciliationStats.needsReconciliation}</p>
-								{#if reconciliationStats.needsReconciliation > 0}
-									<Badge variant="outline" size="sm">needs attention</Badge>
-								{/if}
+				{:else}
+					<!-- Total Accounts -->
+					<Card>
+						<CardContent class="pt-6">
+							<div class="flex items-center space-x-2">
+								<BarChart3 class="h-5 w-5 text-blue-600" />
+								<div>
+									<p class="text-2xl font-bold">{reconciliationStats.totalAccounts}</p>
+									<p class="text-muted-foreground text-sm">Total Accounts</p>
+								</div>
 							</div>
-							<p class="text-muted-foreground text-sm">Need Reconciliation</p>
-						</div>
-					</div>
-				</CardContent>
-			</Card>
+						</CardContent>
+					</Card>
 
-			<!-- Has Discrepancies -->
-			<Card>
-				<CardContent class="pt-6">
-					<div class="flex items-center space-x-2">
-						<AlertCircle class="h-5 w-5 text-red-600" />
-						<div>
-							<div class="flex items-center gap-2">
-								<p class="text-2xl font-bold">{reconciliationStats.hasDiscrepancies}</p>
-								{#if reconciliationStats.hasDiscrepancies > 0}
-									<Badge variant="destructive" size="sm">issues</Badge>
-								{/if}
+					<!-- Needs Reconciliation -->
+					<Card>
+						<CardContent class="pt-6">
+							<div class="flex items-center space-x-2">
+								<Clock class="h-5 w-5 text-yellow-600" />
+								<div>
+									<div class="flex items-center gap-2">
+										<p class="text-2xl font-bold">{reconciliationStats.needsReconciliation}</p>
+										{#if reconciliationStats.needsReconciliation > 0}
+											<Badge variant="outline">needs attention</Badge>
+										{/if}
+									</div>
+									<p class="text-muted-foreground text-sm">Need Reconciliation</p>
+								</div>
 							</div>
-							<p class="text-muted-foreground text-sm">With Discrepancies</p>
-						</div>
-					</div>
-				</CardContent>
-			</Card>
+						</CardContent>
+					</Card>
 
-			<!-- Last Reconciled -->
-			<Card>
-				<CardContent class="pt-6">
-					<div class="flex items-center space-x-2">
-						<CheckCircle2 class="h-5 w-5 text-green-600" />
-						<div>
-							<p class="text-sm font-semibold">
-								{reconciliationStats.lastReconciled
-									? formatDate(reconciliationStats.lastReconciled)
-									: 'Never'}
-							</p>
-							<p class="text-muted-foreground text-sm">Last Reconciled</p>
-						</div>
-					</div>
-				</CardContent>
-			</Card>
-		{/if}
-	</div>
+					<!-- Has Discrepancies -->
+					<Card>
+						<CardContent class="pt-6">
+							<div class="flex items-center space-x-2">
+								<AlertCircle class="h-5 w-5 text-red-600" />
+								<div>
+									<div class="flex items-center gap-2">
+										<p class="text-2xl font-bold">{reconciliationStats.hasDiscrepancies}</p>
+										{#if reconciliationStats.hasDiscrepancies > 0}
+											<Badge variant="destructive">issues</Badge>
+										{/if}
+									</div>
+									<p class="text-muted-foreground text-sm">With Discrepancies</p>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 
-	<!-- Main Content -->
-	<Tabs value={activeTab} onValueChange={handleTabChange} class="w-full">
-		<TabsList class="grid w-full max-w-md grid-cols-2">
-			<TabsTrigger value="reconcile" class="flex items-center gap-2">
-				<Plus class="h-4 w-4" />
-				New Reconciliation
-			</TabsTrigger>
-			<TabsTrigger value="history" class="flex items-center gap-2">
-				<History class="h-4 w-4" />
-				History
-				{#if reconciliationStats.hasDiscrepancies > 0}
-					<Badge variant="destructive" size="sm" class="ml-1">
-						{reconciliationStats.hasDiscrepancies}
-					</Badge>
+					<!-- Last Reconciled -->
+					<Card>
+						<CardContent class="pt-6">
+							<div class="flex items-center space-x-2">
+								<CheckCircle2 class="h-5 w-5 text-green-600" />
+								<div>
+									<p class="text-sm font-semibold">
+										{reconciliationStats.lastReconciled
+											? formatDate(reconciliationStats.lastReconciled)
+											: 'Never'}
+									</p>
+									<p class="text-muted-foreground text-sm">Last Reconciled</p>
+								</div>
+							</div>
+						</CardContent>
+					</Card>
 				{/if}
-			</TabsTrigger>
-		</TabsList>
+			</div>
 
-		<TabsContent value="reconcile" class="mt-6">
-			<ReconciliationForm
-				{selectedAccountId}
-				onReconciliationComplete={handleReconciliationComplete}
-			/>
-		</TabsContent>
+			<!-- Main Content -->
+			<Tabs value={activeTab} onValueChange={handleTabChange} class="w-full">
+				<TabsList class="grid w-full max-w-md grid-cols-2">
+					<TabsTrigger value="reconcile" class="flex items-center gap-2">
+						<Plus class="h-4 w-4" />
+						New Reconciliation
+					</TabsTrigger>
+					<TabsTrigger value="history" class="flex items-center gap-2">
+						<History class="h-4 w-4" />
+						History
+						{#if reconciliationStats.hasDiscrepancies > 0}
+							<Badge variant="destructive" class="ml-1">
+								{reconciliationStats.hasDiscrepancies}
+							</Badge>
+						{/if}
+					</TabsTrigger>
+				</TabsList>
 
-		<TabsContent value="history" class="mt-6">
-			<ReconciliationHistory {selectedAccountId} onReconcileClick={handleReconcileClick} />
-		</TabsContent>
-	</Tabs>
-</div>
+				<TabsContent value="reconcile" class="mt-6">
+					<ReconciliationForm
+						{selectedAccountId}
+						onReconciliationComplete={handleReconciliationComplete}
+					/>
+				</TabsContent>
 
-<!-- Action Button for Mobile -->
-<div class="fixed right-6 bottom-6 sm:hidden">
-	<Button
-		size="lg"
-		class="h-14 w-14 rounded-full shadow-lg"
-		on:click={() => handleTabChange('reconcile')}
-		aria-label="New reconciliation"
-	>
-		<TrendingUp class="h-6 w-6" />
-	</Button>
-</div>
+				<TabsContent value="history" class="mt-6">
+					<ReconciliationHistory {selectedAccountId} onReconcileClick={handleReconcileClick} />
+				</TabsContent>
+			</Tabs>
+		</div>
+
+		<!-- Action Button for Mobile -->
+		<div class="fixed right-6 bottom-20 z-40 sm:hidden">
+			<Button
+				size="lg"
+				class="h-14 w-14 rounded-full shadow-lg"
+				onclick={() => handleTabChange('reconcile')}
+				aria-label="New reconciliation"
+			>
+				<TrendingUp class="h-6 w-6" />
+			</Button>
+		</div>
+	{/snippet}
+</PageLayout>

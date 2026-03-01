@@ -434,7 +434,7 @@ class RecommendationService {
 					description: creditRec.description,
 					actionable: creditRec.actionable,
 					actionText: creditRec.recommendedAction,
-					actionUrl: creditRec.accountId ? `/accounts/${creditRec.accountId}` : '/insights?tab=optimization',
+					actionUrl: creditRec.accountId ? `/accounts/${creditRec.accountId}` : '/insights?tab=optimize',
 					confidence: creditRec.estimatedImpact.estimatedScorePoints
 						? Math.min(100, 60 + creditRec.estimatedImpact.estimatedScorePoints)
 						: 75,

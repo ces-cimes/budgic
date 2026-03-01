@@ -332,7 +332,7 @@
               <!-- No Budget Set -->
               <div class="text-center py-4">
                 <div class="text-muted-foreground text-sm mb-2">No budget allocated</div>
-                <Button variant="outline" size="sm" onclick={() => goto('/categories')}>
+                <Button variant="outline" size="sm" onclick={() => goto('/plan?tab=categories')}>
                   Set Budget
                 </Button>
               </div>
@@ -357,7 +357,7 @@
             <div class="text-muted-foreground text-xs">Create new budget category</div>
           </div>
         </Button>
-        <Button variant="outline" onclick={() => goto('/categories')} class="h-auto p-4">
+        <Button variant="outline" onclick={() => goto('/plan?tab=categories')} class="h-auto p-4">
           <div class="text-center">
             <DollarSign class="mx-auto mb-2" size={20} />
             <div class="font-medium">Manage Budget</div>

@@ -17,7 +17,7 @@
 	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 
-	// Icon mapping
+	// Icon mapping (plan/reports use wallet and trending-up)
 	const iconMap: Record<string, any> = {
 		'home': HomeIcon,
 		'receipt': ReceiptIcon,
@@ -28,7 +28,9 @@
 		'bell': BellIcon,
 		'settings': SettingsIcon,
 		'credit-card': CreditCardIcon,
-		'sparkles': SparklesIcon
+		'sparkles': SparklesIcon,
+		'plan': WalletIcon,
+		'reports': TrendingUpIcon
 	};
 
 	function isActive(path: string) {

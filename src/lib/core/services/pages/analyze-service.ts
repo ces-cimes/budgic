@@ -6,7 +6,7 @@ import type {
   PeriodData, 
   Report, 
   ReportType 
-} from '$lib/components/analyze/types.js';
+} from '$lib/components/reports/types.js';
 
 export class AnalyzeService {
   async loadInsights(): Promise<Insight[]> {

@@ -26,7 +26,7 @@
 	}
 
 	let {
-		open,
+		open = $bindable(),
 		activeFilterCount,
 		filters,
 		accounts,

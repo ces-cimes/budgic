@@ -79,8 +79,8 @@
 				isActive
 			});
 
-			// Redirect to categories list
-			goto('/categories');
+			// Redirect to Plan > Categories tab
+			goto('/plan?tab=categories');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create category';
 			console.error(err);
@@ -107,7 +107,7 @@
 		<Header 
 			title="Add Spending Category"
 			showBackButton={true}
-			backButtonLink="/categories"
+			backButtonLink="/plan?tab=categories"
 			backButtonLabel="Back to Categories"
 		>
 		<p class="text-muted-foreground text-sm">
@@ -122,7 +122,7 @@
 			<Button
 				type="button"
 				variant="outline"
-				onclick={() => goto('/categories')}
+				onclick={() => goto('/plan?tab=categories')}
 				disabled={isLoading}
 				class="grow"
 			>

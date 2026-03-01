@@ -9,7 +9,7 @@
 	// Lucide icons
 	import { HomeIcon, ReceiptIcon, TargetIcon, WalletIcon, TrendingUpIcon, CalendarIcon, BellIcon, SettingsIcon, CreditCardIcon, MoreHorizontalIcon, ChevronRightIcon } from '@lucide/svelte';
 
-	// Icon mapping
+	// Icon mapping (plan/reports use wallet and trending-up)
 	const iconMap: Record<string, any> = {
 		'home': HomeIcon,
 		'receipt': ReceiptIcon,
@@ -19,7 +19,9 @@
 		'calendar': CalendarIcon,
 		'bell': BellIcon,
 		'settings': SettingsIcon,
-		'credit-card': CreditCardIcon
+		'credit-card': CreditCardIcon,
+		'plan': WalletIcon,
+		'reports': TrendingUpIcon
 	};
 
 	let moreDrawerOpen = $state(false);

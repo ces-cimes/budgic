@@ -10,8 +10,9 @@
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
   import { getBufferStatus, getBufferAmount } from '$lib/utils/account-metadata-utils';
-  import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp } from '@lucide/svelte';
+  import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp, Scale } from '@lucide/svelte';
   import type { Account } from '$lib/core/db';
+  import { reconciliationService } from '$lib/core/services';
   import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
   import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
   import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
@@ -24,6 +25,7 @@
   let accounts = $state<any[]>([]);
   let totalBalance = $state(0);
   let userCurrency = $state<string | null>(null);
+  let needsReconciliationCount = $state(0);
 
   const accountIcons = {
     checking: Wallet,
@@ -51,6 +53,14 @@
         balance: account.currentBalance
       }));
       totalBalance = totalBalanceValue;
+      let needs = 0;
+      for (const account of accountsData) {
+        try {
+          const summary = await reconciliationService.getReconciliationSummary(account.id);
+          if (summary.daysSinceLastReconciliation > 30 || summary.daysSinceLastReconciliation === -1 || summary.unresolvedDiscrepancies > 0) needs++;
+        } catch { /* ignore */ }
+      }
+      needsReconciliationCount = needs;
     } catch (error) {
       console.error('Error loading accounts:', error);
     }
@@ -116,6 +126,25 @@
   {/snippet}
 
   <div class="container mx-auto p-2 sm:p-4 max-w-6xl">
+
+  <!-- Reconciliation -->
+  {#if needsReconciliationCount > 0}
+    <section class="mb-6">
+      <a
+        href="/accounts/reconciliation"
+        class="bg-warning/10 border-warning/30 flex items-center justify-between rounded-xl border p-4 transition-colors hover:bg-warning/20"
+      >
+        <div class="flex items-center gap-3">
+          <Scale class="text-warning h-5 w-5" />
+          <div>
+            <div class="font-medium text-primary">Reconcile accounts</div>
+            <div class="text-muted-foreground text-sm">{needsReconciliationCount} account{needsReconciliationCount === 1 ? '' : 's'} need attention</div>
+          </div>
+        </div>
+        <Button variant="outline" size="sm">Reconcile</Button>
+      </a>
+    </section>
+  {/if}
 
   <!-- Total Balance -->
   <section class="mb-8">

@@ -117,12 +117,11 @@ class NavigationStore {
 	 */
 	async loadItems(): Promise<void> {
 		try {
-			// Define static navigation items with unified ordering
-			// Important items (dashboard, transactions, budget, analyze) are positioned at the top
+			// New IA: 7 top-level items (Plan = Budget + Goals + Categories; Reports = Analyze; Reconciliation under Accounts)
 			const defaultItems = [
 				{
 					id: 'dashboard',
-					label: 'Dashboard',
+					label: 'Home',
 					path: '/',
 					icon: 'home',
 					visible: true,
@@ -139,28 +138,10 @@ class NavigationStore {
 					showInDesktop: true
 				},
 				{
-					id: 'budget',
-					label: 'Budget',
-					path: '/budget',
+					id: 'plan',
+					label: 'Plan',
+					path: '/plan',
 					icon: 'wallet',
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true
-				},
-				{
-					id: 'analyze',
-					label: 'Analyze',
-					path: '/analyze',
-					icon: 'trending-up',
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true
-				},
-				{
-					id: 'optimization',
-					label: 'Optimization',
-					path: '/optimization',
-					icon: 'sparkles',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
@@ -172,15 +153,6 @@ class NavigationStore {
 					icon: 'credit-card',
 					visible: true,
 					showInMobile: true,
-					showInDesktop: true
-				},
-				{
-					id: 'reconciliation',
-					label: 'Reconciliation',
-					path: '/reconciliation',
-					icon: 'trending-up',
-					visible: true,
-					showInMobile: true,
 					showInDesktop: true,
 					badge: {
 						type: 'count' as const,
@@ -188,24 +160,6 @@ class NavigationStore {
 						color: 'warning',
 						countKey: 'reconciliation'
 					}
-				},
-				{
-					id: 'categories',
-					label: 'Categories',
-					path: '/categories',
-					icon: 'calendar', // Using calendar icon for categories
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true
-				},
-				{
-					id: 'goals',
-					label: 'Goals',
-					path: '/goals',
-					icon: 'target',
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true
 				},
 				{
 					id: 'insights',
@@ -223,6 +177,15 @@ class NavigationStore {
 					}
 				},
 				{
+					id: 'reports',
+					label: 'Reports',
+					path: '/reports',
+					icon: 'trending-up',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true
+				},
+				{
 					id: 'settings',
 					label: 'Settings',
 					path: '/settings',
@@ -233,18 +196,30 @@ class NavigationStore {
 				}
 			];
 
+			// Map old nav ids to new (for users with saved order)
+			const legacyIdMap: Record<string, string> = {
+				budget: 'plan',
+				goals: 'plan',
+				categories: 'plan',
+				analyze: 'reports',
+				optimization: 'insights',
+				reconciliation: 'accounts'
+			};
+			const validIds = new Set(defaultItems.map((i) => i.id));
+
 			// Load custom order from localStorage
 			const customOrder = localStorage.getItem('budgic-navigation-order');
 			if (customOrder) {
 				try {
-					const orderArray = JSON.parse(customOrder);
-					// Reorder items based on saved order
-					const orderedItems = orderArray
-						.map((id: string) => defaultItems.find((item) => item.id === id))
+					const orderArray = JSON.parse(customOrder) as string[];
+					const mappedIds = orderArray
+						.map((id: string) => legacyIdMap[id] ?? id)
+						.filter((id) => validIds.has(id));
+					const uniqueOrder = [...new Set(mappedIds)];
+					const orderedItems = uniqueOrder
+						.map((id) => defaultItems.find((item) => item.id === id))
 						.filter(Boolean);
-
-					// Add any new items that weren't in the saved order
-					const existingIds = new Set(orderArray);
+					const existingIds = new Set(uniqueOrder);
 					const newItems = defaultItems.filter((item) => !existingIds.has(item.id));
 
 					this._items = [...orderedItems, ...newItems];
