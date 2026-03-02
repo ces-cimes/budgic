@@ -3,10 +3,7 @@
   import { onMount } from 'svelte';
   import { userService } from '$lib/core/services';
   import { PageLayout } from '$lib/components/layouts';
-  import * as Card from '$lib/components/ui/card/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
-  import { Input } from '$lib/components/ui/input/index.ts';
-  import { Label } from '$lib/components/ui/label/index.ts';
+  import Header from '$lib/components/Header.svelte';
   import type { UserPreferences } from '$lib/core/db';
 
   // State
@@ -74,103 +71,86 @@
 </script>
 
 <svelte:head>
-  <title>Profile Settings | Budgic</title>
+  <title>Profile | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-  
+  {#snippet topBar()}
+    <Header title="Profile" backButtonLabel="Back to settings" backButtonLink="/settings" />
+  {/snippet}
 
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <!-- Header -->
-    <header class="mb-8">
-      <div class="flex items-center gap-4 mb-4">
-        <Button.Root variant="ghost" size="sm" onclick={() => goto('/settings')}>
-          ← Back to Settings
-        </Button.Root>
-      </div>
-      <h1 class="text-3xl font-bold text-primary mb-2">Profile Settings</h1>
-      <p class="text-muted-foreground">Update your personal information and financial context</p>
-    </header>
-
+  <div class="mx-auto max-w-2xl px-4 py-6">
     {#if isLoading}
-      <div class="flex items-center justify-center py-12">
-        <div class="text-muted-foreground">Loading profile settings...</div>
+      <div class="space-y-4">
+        {#each [1, 2] as _}
+          <div class="h-24 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+        {/each}
       </div>
     {:else}
-      <!-- Error/Success Messages -->
       {#if error}
-        <div class="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-          <p class="text-destructive">{error}</p>
+        <div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
         </div>
       {/if}
-      
       {#if success}
-        <div class="mb-6 p-4 bg-success/10 border border-success/20 rounded-lg">
-          <p class="text-success">{success}</p>
+        <div class="mb-5 rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-sage-green)]">{success}</p>
         </div>
       {/if}
 
-      <!-- Profile Form -->
-      <form onsubmit={(e) => { e.preventDefault(); savePreferences(); }} class="space-y-8">
-        <!-- Basic Information -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Basic Information</Card.Title>
-            <Card.Description>Your personal details</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-4">
-            <div class="space-y-2">
-              <Label for="username">Username</Label>
-              <Input
+      <form onsubmit={(e) => { e.preventDefault(); savePreferences(); }} class="space-y-6">
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+          <div class="px-5 py-4 space-y-3">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Basic information</h2>
+            <div class="space-y-1.5">
+              <label for="username" class="text-sm font-medium text-[var(--color-text-primary)]">Name</label>
+              <input
                 id="username"
                 bind:value={username}
-                placeholder="Enter your username"
+                placeholder="Your name"
                 required
-                class="max-w-xs"
+                class="w-full max-w-xs rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
               />
-              <p class="text-sm text-muted-foreground">This will be displayed throughout the app</p>
+              <p class="text-xs text-[var(--color-text-tertiary)]">Displayed throughout the app</p>
             </div>
-          </Card.Content>
-        </Card.Root>
-
-        <!-- Life Context -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Life Context</Card.Title>
-            <Card.Description>Help us personalize your financial experience</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-6">
-            <div class="space-y-2">
-              <Label for="userMaturityLevel">Experience Level</Label>
-              <select 
-                id="userMaturityLevel"
-                bind:value={userMaturityLevel}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
-              >
-                {#each userMaturityOptions as option}
-                  <option value={option.value}>{option.label}</option>
-                {/each}
-              </select>
-              <p class="text-sm text-muted-foreground">This helps us customize features for your experience level</p>
+          </div>
+          <div class="px-5 py-4 space-y-3">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Experience level</h2>
+            <div class="grid grid-cols-2 gap-2">
+              {#each userMaturityOptions as option}
+                <button
+                  type="button"
+                  onclick={() => userMaturityLevel = option.value as typeof userMaturityLevel}
+                  class="rounded-xl border p-3 text-left transition-colors {userMaturityLevel === option.value
+                    ? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
+                    : 'border-border bg-[var(--color-bg-surface)] hover:border-[var(--color-amber)]/40'}"
+                >
+                  <p class="text-sm font-medium {userMaturityLevel === option.value ? 'text-[var(--color-amber)]' : 'text-[var(--color-text-primary)]'}">{option.label}</p>
+                  <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">{option.description}</p>
+                </button>
+              {/each}
             </div>
-          </Card.Content>
-        </Card.Root>
+          </div>
+        </div>
 
-
-        <!-- Actions -->
-        <div class="flex gap-4">
-          <Button.Root type="submit" disabled={isSaving}>
-            {#if isSaving}
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            {/if}
-            Save Changes
-          </Button.Root>
-          
-          <Button.Root type="button" variant="outline" onclick={resetToDefaults}>
-            Reset to Defaults
-          </Button.Root>
+        <div class="flex gap-3">
+          <button
+            type="submit"
+            disabled={isSaving}
+            class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+          >
+            {isSaving ? 'Saving…' : 'Save changes'}
+          </button>
+          <button
+            type="button"
+            onclick={() => goto('/settings')}
+            class="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)]"
+          >
+            Cancel
+          </button>
         </div>
       </form>
     {/if}
   </div>
 </PageLayout>
+

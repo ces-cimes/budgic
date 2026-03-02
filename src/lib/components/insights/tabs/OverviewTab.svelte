@@ -79,123 +79,93 @@
 </script>
 
 <div class="overview-tab h-full overflow-y-auto {className}">
-  <div class="p-2 sm:p-4 max-w-4xl mx-auto space-y-4 sm:space-y-6">
-    <!-- Loading State -->
+  <div class="px-4 py-5 max-w-4xl mx-auto space-y-6">
+    <!-- Loading State — skeleton, no spinner -->
     {#if isLoading}
-      <div class="text-center py-12">
-        <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-muted rounded-full flex items-center justify-center">
-          <Loader2 class="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground animate-spin" />
-        </div>
-        <p class="text-sm text-muted-foreground">Loading insights...</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {#each [1, 2, 3, 4] as _}
+          <div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+        {/each}
+      </div>
+      <div class="space-y-2">
+        {#each [1, 2, 3] as _}
+          <div class="h-20 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+        {/each}
       </div>
     {:else}
-      <!-- Summary Stats -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-      <Card.Root class="py-0">
-        <Card.Content class="p-3 sm:p-4">
-          <div class="flex items-center gap-2">
-            <AlertCircle class="w-3 h-3 text-red-500" />
-            <span class="text-xs sm:text-sm font-medium text-muted-foreground">Alerts</span>
+      <!-- Summary stats -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="rounded-xl bg-[var(--color-bg-tertiary)] border border-[var(--color-warm-coral)]/20 px-4 py-3">
+          <div class="flex items-center gap-1.5 mb-1">
+            <AlertCircle class="size-3 text-[var(--color-warm-coral)]" />
+            <span class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Alerts</span>
           </div>
-          <div class="text-lg sm:text-2xl font-bold text-foreground mt-1">
-            {insightsCount().alerts}
-          </div>
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root class="py-0">
-        <Card.Content class="p-3 sm:p-4">
-          <div class="flex items-center gap-2">
-            <AlertTriangle class="w-3 h-3 text-yellow-500" />
-            <span class="text-xs sm:text-sm font-medium text-muted-foreground">Warnings</span>
-          </div>
-          <div class="text-lg sm:text-2xl font-bold text-foreground mt-1">
-            {insightsCount().warnings}
-          </div>
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root class="py-0">
-        <Card.Content class="p-3 sm:p-4">
-          <div class="flex items-center gap-2">
-            <Info class="w-3 h-3 text-blue-500" />
-            <span class="text-xs sm:text-sm font-medium text-muted-foreground">Info</span>
-          </div>
-          <div class="text-lg sm:text-2xl font-bold text-foreground mt-1">
-            {insightsCount().info}
-          </div>
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root class="py-0">
-        <Card.Content class="p-3 sm:p-4">
-          <div class="flex items-center gap-2">
-            <CheckCircle2 class="w-3 h-3 text-green-500" />
-            <span class="text-xs sm:text-sm font-medium text-muted-foreground">Success</span>
-          </div>
-          <div class="text-lg sm:text-2xl font-bold text-foreground mt-1">
-            {insightsCount().celebrations}
-          </div>
-        </Card.Content>
-      </Card.Root>
-    </div>
-
-    <!-- Priority Insights (Alerts & Warnings) -->
-    {#if insightsByCategory().alerts.length > 0 || insightsByCategory().warnings.length > 0}
-      <div>
-        <div class="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 class="text-base sm:text-lg font-semibold text-foreground">Priority Insights</h2>
-          <span class="text-xs sm:text-sm text-muted-foreground">
-            {insightsByCategory().alerts.length + insightsByCategory().warnings.length} items
-          </span>
+          <p class="text-xl font-semibold text-[var(--color-text-primary)]">{insightsCount().alerts}</p>
         </div>
-        <InsightList 
-          insights={[...insightsByCategory().alerts, ...insightsByCategory().warnings]}
-          onDismiss={onDismiss}
-          onAction={onAction}
-        />
-      </div>
-    {/if}
-
-    <!-- Informational Insights -->
-    {#if insightsByCategory().info.length > 0}
-      <div>
-        <div class="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 class="text-base sm:text-lg font-semibold text-foreground">Informational</h2>
-          <span class="text-xs sm:text-sm text-muted-foreground">
-            {insightsByCategory().info.length} items
-          </span>
+        <div class="rounded-xl bg-[var(--color-bg-tertiary)] border border-[var(--color-amber)]/20 px-4 py-3">
+          <div class="flex items-center gap-1.5 mb-1">
+            <AlertTriangle class="size-3 text-[var(--color-amber)]" />
+            <span class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Warnings</span>
+          </div>
+          <p class="text-xl font-semibold text-[var(--color-text-primary)]">{insightsCount().warnings}</p>
         </div>
-        <InsightList 
-          insights={insightsByCategory().info}
-          maxItems={5}
-          showViewAll={insightsByCategory().info.length > 5}
-          onViewAll={() => handleViewAll('info')}
-          onDismiss={onDismiss}
-          onAction={onAction}
-        />
-      </div>
-    {/if}
-
-    <!-- Celebrations -->
-    {#if insightsByCategory().celebrations.length > 0}
-      <div>
-        <div class="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 class="text-base sm:text-lg font-semibold text-foreground">Celebrations</h2>
-          <span class="text-xs sm:text-sm text-muted-foreground">
-            {insightsByCategory().celebrations.length} items
-          </span>
+        <div class="rounded-xl bg-[var(--color-bg-tertiary)] border border-[var(--color-info)]/20 px-4 py-3">
+          <div class="flex items-center gap-1.5 mb-1">
+            <Info class="size-3 text-[var(--color-info)]" />
+            <span class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Info</span>
+          </div>
+          <p class="text-xl font-semibold text-[var(--color-text-primary)]">{insightsCount().info}</p>
         </div>
-        <InsightList 
-          insights={insightsByCategory().celebrations}
-          maxItems={3}
-          showViewAll={insightsByCategory().celebrations.length > 3}
-          onViewAll={() => handleViewAll('celebrations')}
-          onDismiss={onDismiss}
-          onAction={onAction}
-        />
+        <div class="rounded-xl bg-[var(--color-bg-tertiary)] border border-[var(--color-sage-green)]/20 px-4 py-3">
+          <div class="flex items-center gap-1.5 mb-1">
+            <CheckCircle2 class="size-3 text-[var(--color-sage-green)]" />
+            <span class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Good</span>
+          </div>
+          <p class="text-xl font-semibold text-[var(--color-text-primary)]">{insightsCount().celebrations}</p>
+        </div>
       </div>
-    {/if}
+
+      <!-- Priority insights (alerts & warnings) -->
+      {#if insightsByCategory().alerts.length > 0 || insightsByCategory().warnings.length > 0}
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Priority</h2>
+          <InsightList 
+            insights={[...insightsByCategory().alerts, ...insightsByCategory().warnings]}
+            onDismiss={onDismiss}
+            onAction={onAction}
+          />
+        </div>
+      {/if}
+
+      <!-- Informational insights -->
+      {#if insightsByCategory().info.length > 0}
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Informational</h2>
+          <InsightList 
+            insights={insightsByCategory().info}
+            maxItems={5}
+            showViewAll={insightsByCategory().info.length > 5}
+            onViewAll={() => handleViewAll('info')}
+            onDismiss={onDismiss}
+            onAction={onAction}
+          />
+        </div>
+      {/if}
+
+      <!-- Celebrations -->
+      {#if insightsByCategory().celebrations.length > 0}
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Celebrations</h2>
+          <InsightList 
+            insights={insightsByCategory().celebrations}
+            maxItems={3}
+            showViewAll={insightsByCategory().celebrations.length > 3}
+            onViewAll={() => handleViewAll('celebrations')}
+            onDismiss={onDismiss}
+            onAction={onAction}
+          />
+        </div>
+      {/if}
 
     <!-- Credit Utilization Optimization -->
     {#if hasCreditAccounts}

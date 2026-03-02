@@ -80,7 +80,7 @@
   {#if topBar}
     <header 
       data-page-top-bar
-      class="sticky z-40 bg-(--color-bg-secondary)
+      class="sticky z-40
         top-0 left-0 right-0
       "
     >

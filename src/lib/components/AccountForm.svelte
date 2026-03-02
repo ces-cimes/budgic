@@ -9,6 +9,7 @@
   import AccountMetadataForm from './AccountMetadataForm.svelte';
   import { FormFieldGrid, FormErrorAlert, CurrencyInput, AdvancedOptionsSection } from '$lib/components/forms';
   import { createMobileInputFocusHandler } from '$lib/utils/mobile-input-utils';
+  import { Wallet, PiggyBank, CreditCard } from '@lucide/svelte';
 
   interface Props {
     account?: Partial<Account>;
@@ -295,28 +296,27 @@
     </div>
 
     <!-- Account Type -->
-    <Label.Root for="accountType" class="">Account Type *</Label.Root>
-    <div>
-      <Select.Root type="single" bind:value={accountType}>
-        <Select.Trigger class="w-full">
-          {accountTypeTriggerContent}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Group>
-            {#each accountTypes as type (type.value)}
-              <Select.Item
-                value={type.value}
-                label={type.label}
-              >
-                <div class="flex items-center space-x-2">
-                  <span>{type.icon}</span>
-                  <span>{type.label}</span>
-                </div>
-              </Select.Item>
-            {/each}
-          </Select.Group>
-        </Select.Content>
-      </Select.Root>
+    <Label.Root for="accountType" class="">Account type *</Label.Root>
+    <div class="space-y-2">
+      <div class="grid grid-cols-3 gap-2">
+        {#each [
+          { value: 'checking', label: 'Checking', Icon: Wallet },
+          { value: 'savings', label: 'Savings', Icon: PiggyBank },
+          { value: 'credit', label: 'Credit', Icon: CreditCard }
+        ] as typeOption}
+          <button
+            type="button"
+            onclick={() => { accountType = typeOption.value as Account['type']; }}
+            class="flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-4 text-sm font-medium transition-all
+              {accountType === typeOption.value
+                ? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
+                : 'border-border bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]/40'}"
+          >
+            <typeOption.Icon class="size-5" />
+            {typeOption.label}
+          </button>
+        {/each}
+      </div>
       {#if errors.accountType}
         <p class="text-sm text-destructive mt-1" role="alert">{errors.accountType}</p>
       {/if}

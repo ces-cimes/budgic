@@ -48,25 +48,33 @@
 </script>
 
 <div
-	class="flex flex-col gap-1.5 rounded-lg border border-border bg-muted/30 px-3 py-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2"
+	class="glass flex flex-col gap-1.5 px-3 py-2.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2"
 	title="Today's allowance"
 >
-	<div class="flex items-center gap-2">
-		<Wallet class="size-4 shrink-0 text-muted-foreground" />
-		<span class="text-muted-foreground text-xs group-data-[collapsible=icon]:hidden">Allowance</span>
+	<div class="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">
+		<div class="flex items-center gap-2">
+			<Wallet class="size-3.5 shrink-0 text-[var(--color-amber)]" />
+			<span class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] group-data-[collapsible=icon]:hidden">Safe to spend</span>
+		</div>
 	</div>
 	{#if loading}
-		<span class="truncate text-sm font-medium">…</span>
+		<div class="h-4 w-16 animate-pulse rounded bg-[var(--color-bg-surface)] group-data-[collapsible=icon]:w-10"></div>
 	{:else if dailySafe != null}
-		<span class="truncate text-sm font-medium">
-			{formatTransactionAmount(dailySafe, currency)}<span class="text-muted-foreground text-xs group-data-[collapsible=icon]:hidden">/day</span>
-		</span>
+		<div class="flex items-baseline gap-1">
+			<span class="text-amount truncate text-[var(--color-text-primary)]">
+				{formatTransactionAmount(dailySafe, currency)}
+			</span>
+			<span class="text-[10px] text-[var(--color-text-tertiary)] group-data-[collapsible=icon]:hidden">/day</span>
+		</div>
 		{#if monthly != null && monthly > 0}
-			<div class="group-data-[collapsible=icon]:hidden">
-				<Progress value={progressPercent} max={100} class="h-1.5" />
+			<div class="budget-progress group-data-[collapsible=icon]:hidden">
+				<div
+					class="budget-progress-fill"
+					style="width: {progressPercent}%; --fill-pct: {progressPercent}"
+				></div>
 			</div>
 		{/if}
 	{:else}
-		<span class="text-muted-foreground text-xs">—</span>
+		<span class="text-[var(--color-text-tertiary)] text-xs">—</span>
 	{/if}
 </div>

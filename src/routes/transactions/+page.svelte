@@ -63,49 +63,65 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<!-- Header -->
 		<Header 
 			title="Transactions"
 			buttonProps={[
 				{
-					text: "Add Transaction",
+					text: "Add transaction",
 					onclick: () => goto('/transactions/add'),
 					size: "sm",
 					className: "hidden sm:flex",
-					target: "_blank",
-					rel: "noopener noreferrer",
 					icon: Plus
 				}
 			]}
-		>
-		</Header>
+		/>
 	{/snippet}
 
-	<div class="container mx-auto p-2 sm:p-4 max-w-4xl">
+	<div class="mx-auto max-w-4xl px-4 py-4 sm:px-6">
 		{#if isLoading}
-			<div class="bg-card border-border flex min-h-[200px] items-center justify-center rounded-xl border p-8">
-				<div class="text-muted-foreground flex flex-col items-center gap-3 text-center">
-					<div class="bg-muted h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
-					<p class="text-sm">Loading transactions…</p>
+			<!-- Skeleton loading state — no spinners -->
+			<div class="mb-4 bg-[var(--color-bg-tertiary)] rounded-xl px-5 py-3.5 border border-border">
+				<div class="grid grid-cols-3 gap-4">
+					{#each [1, 2, 3] as _}
+						<div class="flex flex-col items-center gap-1.5">
+							<div class="h-4 w-16 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+							<div class="h-2.5 w-10 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+						</div>
+					{/each}
 				</div>
 			</div>
+			<div class="space-y-2">
+				{#each [1, 2, 3, 4, 5, 6, 7, 8] as i}
+					<div
+						class="flex items-center gap-3 rounded-xl bg-[var(--color-bg-tertiary)] px-4 py-3 border border-border"
+						style="animation-delay: {i * 40}ms"
+					>
+						<div class="size-9 shrink-0 animate-pulse rounded-full bg-[var(--color-bg-surface)]"></div>
+						<div class="flex-1 space-y-2">
+							<div class="h-3.5 w-2/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+							<div class="h-2.5 w-1/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+						</div>
+						<div class="h-3.5 w-14 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+					</div>
+				{/each}
+			</div>
 		{:else}
-		<TransactionList
-			{transactions}
-			{accounts}
-			categories={budgetCategories}
-			{userCurrency}
-			onTransactionClick={handleTransactionClick}
-			onAddTransaction={() => goto('/transactions/add')}
-			enableFilters={true}
-			enableSearch={true}
-			enableBasicToggles={true}
-			enableAdvancedFilters={true}
-			displayMode="detailed"
-			groupingMode="smart"
-			showSummary={true}
-			showDateNavigation={true}
-		/>
+			<TransactionList
+				{transactions}
+				{accounts}
+				categories={budgetCategories}
+				{userCurrency}
+				onTransactionClick={handleTransactionClick}
+				onAddTransaction={() => goto('/transactions/add')}
+				enableFilters={true}
+				enableSearch={true}
+				enableBasicToggles={true}
+				enableAdvancedFilters={true}
+				displayMode="detailed"
+				groupingMode="smart"
+				showSummary={true}
+				showDateNavigation={true}
+			/>
 		{/if}
 	</div>
 
@@ -119,4 +135,4 @@
 			<Plus />
 		{/snippet}
 	</Fab>
-</PageLayout> 
+</PageLayout>

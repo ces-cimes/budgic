@@ -64,18 +64,21 @@
 <Tabs.Root value={activeTab} onValueChange={onTabChange} class="w-full">
   <div 
     bind:this={tabContainer}
-    class="overflow-x-auto scrollbar-hide border-t border-border {className}"
+    class="overflow-x-auto scrollbar-hide px-4 py-2 border-t border-border {className}"
     style="scrollbar-width: none; -ms-overflow-style: none;"
     onwheel={handleWheelScroll}
   >
-    <Tabs.List class="w-full justify-start bg-transparent p-0 h-auto rounded-none">
+    <Tabs.List class="inline-flex items-center gap-1 bg-transparent p-0 h-auto rounded-none">
       {#each tabs as tab (tab.id)}
         <Tabs.Trigger 
           value={tab.id}
-          class="flex items-center gap-2 px-4 py-2 border-x-0 border-t-0 border-b-2 border-transparent rounded-none bg-transparent hover:bg-secondary/20 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap transition-all"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors
+                 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]
+                 data-[state=active]:bg-[var(--color-amber-subtle)] data-[state=active]:text-[var(--color-amber)]
+                 data-[state=active]:shadow-none border-0 bg-transparent"
         >
           {#if tab.icon}
-            <tab.icon class="w-4 h-4" />
+            <tab.icon class="size-3.5" />
           {/if}
           {tab.label}
         </Tabs.Trigger>

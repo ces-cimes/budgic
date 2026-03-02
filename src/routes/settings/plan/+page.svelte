@@ -2,9 +2,6 @@
   import { goto } from '$app/navigation';
   import { userService } from '$lib/core/services/index.ts';
   import type { NegativeAllowanceHandling } from '$lib/core/services/core/negative-allowance-service';
-  import { Input } from '$lib/components/ui/input/index.ts';
-  import { Label } from '$lib/components/ui/label/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
   import {
     Select,
     SelectContent,
@@ -14,7 +11,6 @@
   import { onMount } from 'svelte';
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
-  import * as Card from '$lib/components/ui/card/index.ts';
 
   const NEGATIVE_ALLOWANCE_LABELS: Record<NegativeAllowanceHandling, string> = {
     block_with_warning: 'Block with warning – alert and require override',
@@ -102,18 +98,19 @@
     />
   {/snippet}
 
-  <div class="container mx-auto max-w-2xl p-4">
+  <div class="mx-auto max-w-2xl px-4 py-6">
     {#if isLoading}
-      <div class="text-muted-foreground py-8 text-center">Loading…</div>
+      <div class="h-96 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
     {:else}
-      <Card.Root class="border-border">
-        <Card.Header>
-          <Card.Title>Negative allowance</Card.Title>
-          <Card.Description>When spending exceeds your allowance this period</Card.Description>
-        </Card.Header>
-        <Card.Content class="space-y-4">
-          <div class="space-y-2">
-            <Label for="negative-allowance-handling">Handling</Label>
+      <div class="space-y-6">
+        <!-- Negative allowance -->
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+          <div class="px-5 py-3 border-b border-border">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Negative allowance</h2>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">When spending exceeds your allowance this period</p>
+          </div>
+          <div class="px-5 py-4 space-y-2">
+            <label for="negative-allowance-handling" class="text-sm font-medium text-[var(--color-text-primary)]">Handling</label>
             <Select
               type="single"
               value={negativeAllowanceHandling}
@@ -129,39 +126,53 @@
                 <SelectItem value="borrow_from_other_categories">{NEGATIVE_ALLOWANCE_LABELS.borrow_from_other_categories}</SelectItem>
               </SelectContent>
             </Select>
-            <p class="text-muted-foreground text-xs">"Allow with strong warning" shows a prominent warning and recovery suggestions without blocking.</p>
+            <p class="text-xs text-[var(--color-text-tertiary)]">"Allow with strong warning" permits spending but surfaces recovery suggestions.</p>
           </div>
+        </div>
 
-          <div class="space-y-4 border-t border-border pt-4">
-            <h3 class="text-sm font-medium">Envelope borrowing limits</h3>
-            <p class="text-muted-foreground text-xs">When you use "Borrow from other categories", these limits apply.</p>
+        <!-- Envelope borrowing -->
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+          <div class="px-5 py-3 border-b border-border">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Envelope borrowing limits</h2>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Applies when "Borrow from other categories" is selected</p>
+          </div>
+          <div class="px-5 py-4 space-y-4">
             <div class="grid gap-4 sm:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="envelope-borrow-max-pct">Max borrow per category (% of next period)</Label>
-                <Input id="envelope-borrow-max-pct" type="number" min="0" max="100" bind:value={envelopeBorrowMaxPerCategoryPercent} class="max-w-[120px]" />
+              <div class="space-y-1.5">
+                <label for="envelope-borrow-max-pct" class="text-sm font-medium text-[var(--color-text-primary)]">Max per category (%)</label>
+                <input id="envelope-borrow-max-pct" type="number" min="0" max="100" bind:value={envelopeBorrowMaxPerCategoryPercent}
+                  class="w-24 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]" />
               </div>
-              <div class="space-y-2">
-                <Label for="envelope-borrow-repayment">Repayment periods</Label>
-                <Input id="envelope-borrow-repayment" type="number" min="1" max="6" bind:value={envelopeBorrowRepaymentPeriods} class="max-w-[80px]" />
+              <div class="space-y-1.5">
+                <label for="envelope-borrow-repayment" class="text-sm font-medium text-[var(--color-text-primary)]">Repayment periods</label>
+                <input id="envelope-borrow-repayment" type="number" min="1" max="6" bind:value={envelopeBorrowRepaymentPeriods}
+                  class="w-20 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]" />
               </div>
             </div>
-            <div class="space-y-2">
-              <Label for="envelope-borrow-total-limit">Total borrowing limit (optional)</Label>
-              <Input id="envelope-borrow-total-limit" type="number" min="0" placeholder="No limit" bind:value={envelopeBorrowTotalLimit} class="max-w-[140px]" />
+            <div class="space-y-1.5">
+              <label for="envelope-borrow-total-limit" class="text-sm font-medium text-[var(--color-text-primary)]">Total borrowing limit (optional)</label>
+              <input id="envelope-borrow-total-limit" type="number" min="0" placeholder="No limit" bind:value={envelopeBorrowTotalLimit}
+                class="w-36 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]" />
             </div>
-            <div class="flex items-center gap-2">
-              <input type="checkbox" id="envelope-borrow-confirm-repeated" bind:checked={envelopeBorrowRequireConfirmationRepeated} class="rounded border-input" />
-              <Label for="envelope-borrow-confirm-repeated">Require confirmation for repeated borrowing</Label>
-            </div>
+            <label class="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox" id="envelope-borrow-confirm-repeated" bind:checked={envelopeBorrowRequireConfirmationRepeated}
+                class="rounded border-border accent-[var(--color-amber)]" />
+              <span class="text-sm text-[var(--color-text-primary)]">Require confirmation for repeated borrowing</span>
+            </label>
           </div>
+        </div>
 
-          <div class="space-y-4 border-t border-border pt-4">
-            <h3 class="text-sm font-medium">Rollover (period end)</h3>
-            <p class="text-muted-foreground text-xs">What to do with leftover or overspent allowance at the end of each period.</p>
-            <div class="space-y-2">
-              <Label for="rollover-surplus">Surplus (unspent)</Label>
+        <!-- Rollover -->
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+          <div class="px-5 py-3 border-b border-border">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Rollover at period end</h2>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">What to do with leftover or overspent allowance</p>
+          </div>
+          <div class="px-5 py-4 space-y-4">
+            <div class="space-y-1.5">
+              <label for="rollover-surplus" class="text-sm font-medium text-[var(--color-text-primary)]">Surplus (unspent)</label>
               <Select type="single" value={rolloverSurplusBehavior} onValueChange={(v) => v && (rolloverSurplusBehavior = v as typeof rolloverSurplusBehavior)}>
-                <SelectTrigger id="rollover-surplus" class="max-w-md">
+                <SelectTrigger id="rollover-surplus" class="max-w-sm">
                   {rolloverSurplusBehavior === 'rollover_next' ? 'Roll over to next period' : rolloverSurplusBehavior === 'to_savings_goals' ? 'Reallocate to savings goals' : 'Hybrid (split)'}
                 </SelectTrigger>
                 <SelectContent>
@@ -172,15 +183,16 @@
               </Select>
             </div>
             {#if rolloverSurplusBehavior === 'hybrid'}
-              <div class="space-y-2">
-                <Label for="rollover-hybrid-ratio">Share to next period (%)</Label>
-                <Input id="rollover-hybrid-ratio" type="number" min="0" max="100" bind:value={rolloverSurplusHybridRatio} class="max-w-[80px]" />
+              <div class="space-y-1.5">
+                <label for="rollover-hybrid-ratio" class="text-sm font-medium text-[var(--color-text-primary)]">Share to next period (%)</label>
+                <input id="rollover-hybrid-ratio" type="number" min="0" max="100" bind:value={rolloverSurplusHybridRatio}
+                  class="w-20 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]" />
               </div>
             {/if}
-            <div class="space-y-2">
-              <Label for="rollover-deficit">Deficit (overspent)</Label>
+            <div class="space-y-1.5">
+              <label for="rollover-deficit" class="text-sm font-medium text-[var(--color-text-primary)]">Deficit (overspent)</label>
               <Select type="single" value={rolloverDeficitBehavior} onValueChange={(v) => v && (rolloverDeficitBehavior = v as typeof rolloverDeficitBehavior)}>
-                <SelectTrigger id="rollover-deficit" class="max-w-md">
+                <SelectTrigger id="rollover-deficit" class="max-w-sm">
                   {rolloverDeficitBehavior === 'reduce_next_period' ? 'Reduce next period allowance' : rolloverDeficitBehavior === 'borrow_from_other' ? 'Borrow from other categories' : 'One-time exception'}
                 </SelectTrigger>
                 <SelectContent>
@@ -191,26 +203,37 @@
               </Select>
             </div>
           </div>
+        </div>
 
-          <div class="space-y-4 border-t border-border pt-4">
-            <h3 class="text-sm font-medium">Savings opportunities</h3>
-            <p class="text-muted-foreground text-xs">Suggest contributing surplus to goals when projected surplus exceeds this amount.</p>
-            <div class="space-y-2">
-              <Label for="savings-opportunity-threshold">Minimum surplus to suggest</Label>
-              <Input id="savings-opportunity-threshold" type="number" min="0" step="10" placeholder="50" bind:value={savingsOpportunityMinSurplus} class="max-w-[140px]" />
-            </div>
+        <!-- Savings opportunities -->
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+          <div class="px-5 py-3 border-b border-border">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Savings opportunities</h2>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Suggest contributing surplus to goals</p>
           </div>
-
-          <div class="border-t border-border pt-4">
-            <p class="text-muted-foreground mb-2 text-sm">Occasion awareness uses recurring spending events to adjust your allowance.</p>
-            <Button.Root variant="outline" size="sm" onclick={() => goto('/settings/occasions')}>
-              Manage occasions
-            </Button.Root>
+          <div class="px-5 py-4 space-y-1.5">
+            <label for="savings-opportunity-threshold" class="text-sm font-medium text-[var(--color-text-primary)]">Minimum surplus to suggest</label>
+            <input id="savings-opportunity-threshold" type="number" min="0" step="10" placeholder="50" bind:value={savingsOpportunityMinSurplus}
+              class="w-36 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]" />
           </div>
-        </Card.Content>
-      </Card.Root>
+        </div>
 
-      <Button.Root variant="ghost" class="mt-4" onclick={() => goto('/settings')}>← Back to Settings</Button.Root>
+        <!-- Occasions link -->
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] px-5 py-4 flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-[var(--color-text-primary)]">Occasions</p>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Recurring spending events that adjust your allowance</p>
+          </div>
+          <button
+            type="button"
+            onclick={() => goto('/settings/occasions')}
+            class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)]"
+          >
+            Manage
+          </button>
+        </div>
+      </div>
     {/if}
   </div>
 </PageLayout>
+

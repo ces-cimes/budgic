@@ -4,9 +4,7 @@
   import { userService } from '$lib/core/services';
   import { db } from '$lib/core/db';
   import { PageLayout } from '$lib/components/layouts';
-  import * as Card from '$lib/components/ui/card/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
-  import * as Alert from '$lib/components/ui/alert/index.ts';
+  import Header from '$lib/components/Header.svelte';
   import type { UserPreferences } from '$lib/core/db';
 
   // State
@@ -100,113 +98,94 @@
 </script>
 
 <svelte:head>
-  <title>Display Settings | Budgic</title>
+  <title>Display | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <!-- Header -->
-    <header class="mb-8">
-      <div class="flex items-center gap-4 mb-4">
-        <Button.Root variant="ghost" size="sm" onclick={() => goto('/settings')}>
-          ← Back to Settings
-        </Button.Root>
-      </div>
-      <h1 class="text-3xl font-bold text-primary mb-2">Display Settings</h1>
-      <p class="text-muted-foreground">Customize your app appearance and preferences</p>
-    </header>
+  {#snippet topBar()}
+    <Header title="Display" backButtonLabel="Back to settings" backButtonLink="/settings" />
+  {/snippet}
 
+  <div class="mx-auto max-w-2xl px-4 py-6">
     {#if isLoading}
-      <div class="flex items-center justify-center py-12">
-        <div class="text-muted-foreground">Loading display settings...</div>
+      <div class="space-y-4">
+        {#each [1, 2] as _}
+          <div class="h-24 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+        {/each}
       </div>
     {:else}
-      <!-- Error/Success Messages -->
       {#if error}
-        <Alert.Root variant="destructive" class="mb-6">
-          <Alert.Description>{error}</Alert.Description>
-        </Alert.Root>
+        <div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+        </div>
       {/if}
-      
       {#if success}
-        <Alert.Root variant="default" class="mb-6">
-          <Alert.Description>{success}</Alert.Description>
-        </Alert.Root>
+        <div class="mb-5 rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-sage-green)]">{success}</p>
+        </div>
       {/if}
 
-      <!-- Display Settings Form -->
-      <form onsubmit={(e) => { e.preventDefault(); savePreferences(); }} class="space-y-8">
-        <!-- Theme and Language -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Appearance</Card.Title>
-            <Card.Description>Choose your preferred theme and language</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-6">
-            <div class="space-y-2">
-              <label for="theme-select" class="text-sm font-medium text-primary">Theme</label>
-              <select 
+      <form onsubmit={(e) => { e.preventDefault(); savePreferences(); }} class="space-y-6">
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+          <div class="px-5 py-4 space-y-3">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Appearance</h2>
+            <div class="space-y-1.5">
+              <label for="theme-select" class="text-sm font-medium text-[var(--color-text-primary)]">Theme</label>
+              <select
                 id="theme-select"
                 bind:value={theme}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+                class="w-full max-w-xs rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
               >
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
               </select>
-              <p class="text-sm text-muted-foreground">Choose between light and dark themes</p>
             </div>
-
-            <div class="space-y-2">
-              <label for="language-select" class="text-sm font-medium text-primary">Language</label>
-              <select 
+            <div class="space-y-1.5">
+              <label for="language-select" class="text-sm font-medium text-[var(--color-text-primary)]">Language</label>
+              <select
                 id="language-select"
                 bind:value={language}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+                class="w-full max-w-xs rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
               >
                 {#each languageOptions as option}
                   <option value={option.value}>{option.label}</option>
                 {/each}
               </select>
-              <p class="text-sm text-muted-foreground">Select your preferred language</p>
             </div>
-          </Card.Content>
-        </Card.Root>
-
-        <!-- Currency -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Currency</Card.Title>
-            <Card.Description>Set your default currency for financial data</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-6">
-            <div class="space-y-2">
-              <label for="currency-select" class="text-sm font-medium text-primary">Default Currency</label>
-              <select 
+          </div>
+          <div class="px-5 py-4 space-y-3">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Default currency</h2>
+            <div class="space-y-1.5">
+              <label for="currency-select" class="text-sm font-medium text-[var(--color-text-primary)]">Currency</label>
+              <select
                 id="currency-select"
                 bind:value={currency}
-                class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+                class="w-full max-w-xs rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
               >
                 {#each currencyOptions as option}
                   <option value={option.value}>{option.label}</option>
                 {/each}
               </select>
-              <p class="text-sm text-muted-foreground">This will be used as the default currency for new accounts and transactions</p>
+              <p class="text-xs text-[var(--color-text-tertiary)]">Used for new accounts and transactions</p>
             </div>
-          </Card.Content>
-        </Card.Root>
+          </div>
+        </div>
 
-        <!-- Actions -->
-        <div class="flex gap-4">
-          <Button.Root type="submit" disabled={isSaving}>
-            {#if isSaving}
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            {/if}
-            Save Settings
-          </Button.Root>
-          
-          <Button.Root variant="outline" onclick={() => goto('/settings')}>
+        <div class="flex gap-3">
+          <button
+            type="submit"
+            disabled={isSaving}
+            class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+          >
+            {isSaving ? 'Saving…' : 'Save changes'}
+          </button>
+          <button
+            type="button"
+            onclick={() => goto('/settings')}
+            class="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)]"
+          >
             Cancel
-          </Button.Root>
+          </button>
         </div>
       </form>
     {/if}

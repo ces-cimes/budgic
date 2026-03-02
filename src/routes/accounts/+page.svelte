@@ -108,119 +108,119 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <!-- Header -->
     <Header 
       title="Accounts"
       buttonProps={[
         {
-          text: "Add Account",
+          text: "Add account",
           onclick: () => goto('/accounts/add'),
           size: "sm",
           className: "hidden sm:flex",
-          target: "_blank",
-          rel: "noopener noreferrer",
           icon: Plus
         }
       ]}
     />
   {/snippet}
 
-  <div class="container mx-auto p-2 sm:p-4 max-w-6xl">
+  <div class="mx-auto max-w-4xl px-4 py-6">
 
-  <!-- Reconciliation -->
-  {#if needsReconciliationCount > 0}
-    <section class="mb-6">
+    <!-- Reconciliation banner (coral strip, attention-needed) -->
+    {#if needsReconciliationCount > 0}
       <a
         href="/accounts/reconciliation"
-        class="bg-warning/10 border-warning/30 flex items-center justify-between rounded-xl border p-4 transition-colors hover:bg-warning/20"
+        class="mb-6 flex items-center justify-between rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3.5 transition-colors hover:bg-[var(--color-warm-coral)]/12 block"
       >
         <div class="flex items-center gap-3">
-          <Scale class="text-warning h-5 w-5" />
+          <Scale class="size-4 shrink-0 text-[var(--color-warm-coral)]" />
           <div>
-            <div class="font-medium text-primary">Reconcile accounts</div>
-            <div class="text-muted-foreground text-sm">{needsReconciliationCount} account{needsReconciliationCount === 1 ? '' : 's'} need attention</div>
+            <p class="text-sm font-medium text-[var(--color-text-primary)]">Reconcile accounts</p>
+            <p class="text-xs text-[var(--color-text-tertiary)]">{needsReconciliationCount} account{needsReconciliationCount === 1 ? '' : 's'} need attention</p>
           </div>
         </div>
-        <Button variant="outline" size="sm">Reconcile</Button>
+        <span class="text-xs font-medium text-[var(--color-warm-coral)]">Review →</span>
       </a>
+    {/if}
+
+    <!-- Total balance hero -->
+    <section class="mb-10 pt-4 text-center">
+      <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">Total balance</p>
+      <div class="text-hero animate-count-up">{formatBalance(totalBalance, userCurrency)}</div>
+      {#if accounts.length > 0}
+        <p class="mt-2 text-xs text-[var(--color-text-tertiary)]">across {accounts.length} account{accounts.length === 1 ? '' : 's'}</p>
+      {/if}
     </section>
-  {/if}
 
-  <!-- Total Balance -->
-  <section class="mb-8">
-    <div class="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 text-primary-foreground">
-      <h2 class="text-lg font-medium mb-2">Total Balance</h2>
-      <div class="text-4xl font-bold">{formatBalance(totalBalance, userCurrency)}</div>
-    </div>
-  </section>
-
-  <!-- Credit Utilization Overview -->
-  {#if accounts.some((acc: Account) => acc.type === 'credit')}
-    <section class="mb-8">
-      <div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-        <h2 class="text-primary mb-4 text-xl font-semibold">Credit Utilization Overview</h2>
-        <CreditUtilizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
-      </div>
-    </section>
-  {/if}
-
-  <!-- Interest Optimization Overview -->
-  {#if accounts.some((acc: Account) => acc.metadata?.interestRate || acc.metadata?.apr)}
-    <section class="mb-8">
-      <div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-        <h2 class="text-primary mb-4 text-xl font-semibold">Interest Analysis Overview</h2>
-        <InterestOptimizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
-      </div>
-    </section>
-  {/if}
-
-  <!-- Emergency Fund Overview -->
-  {#if accounts.some((acc: Account) => acc.metadata?.isEmergencyFund || acc.type === 'savings')}
-    <section class="mb-8">
-      <div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-        <h2 class="text-primary mb-4 text-xl font-semibold">Emergency Fund Status</h2>
-        <EmergencyFundVisualization showDetails={true} showRecommendations={true} />
-      </div>
-    </section>
-  {/if}
-
-  <!-- Account Cards -->
-  <section class="mb-8">
-    <h2 class="text-xl font-semibold text-primary mb-4">Your Accounts</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Account cards -->
+    <section class="mb-10 space-y-3">
       {#each accounts as account}
         {@const bufferStatus = (account.type === 'checking' || account.type === 'savings') ? getBufferStatus(account) : null}
         {@const bufferAmount = (account.type === 'checking' || account.type === 'savings') ? getBufferAmount(account) : 0}
         {@const StatusIcon = bufferStatus ? getBufferStatusIcon(bufferStatus) : null}
-        <button 
+        {@const typeColor = account.type === 'checking' ? 'border-l-[var(--color-amber)]' : account.type === 'savings' ? 'border-l-[var(--color-sage-green)]' : account.type === 'credit' ? 'border-l-[var(--color-info)]' : 'border-l-border'}
+        <button
           type="button"
-          class="bg-card rounded-2xl p-6 shadow-sm border border-border hover:shadow-md transition-shadow cursor-pointer text-left w-full"
+          class="group w-full border-l-4 {typeColor} bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6 text-left transition-all hover:border-[var(--color-amber)]/30 hover:shadow-md animate-card-enter"
           onclick={() => goto(`/accounts/${account.id}`)}
         >
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-2">
-                <h3 class="font-semibold text-primary">{account.name}</h3>
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <svelte:component this={accountIcons[account.type as keyof typeof accountIcons] || Wallet} class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
+                <h3 class="font-semibold text-[var(--color-text-primary)] truncate">{account.name}</h3>
                 {#if StatusIcon && bufferAmount > 0 && bufferStatus}
-                  <StatusIcon class="w-4 h-4 {getBufferStatusColor(bufferStatus)}" />
+                  <StatusIcon class="size-3.5 shrink-0 {getBufferStatusColor(bufferStatus)}" />
                 {/if}
               </div>
-              <div class="text-2xl font-bold {account.balance >= 0 ? 'text-success' : 'text-alert'}">
-                {formatBalance(account.balance, account.currency)}
-              </div>
+              <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">{account.type}</p>
+              <div class="text-hero-sm">{formatBalance(account.balance, account.currency)}</div>
               {#if bufferAmount > 0 && bufferStatus && (bufferStatus === 'warning' || bufferStatus === 'critical')}
-                <div class="text-xs mt-1 {bufferStatus === 'critical' ? 'text-destructive' : 'text-warning'}">
+                <p class="text-xs mt-1.5 {bufferStatus === 'critical' ? 'text-[var(--color-warm-coral)]' : 'text-[var(--color-amber)]'}">
                   Buffer: {formatBalance(bufferAmount, account.currency)}
-                </div>
+                </p>
               {/if}
-            </div>
-            <div class="text-right">
-              <div class="text-sm text-muted-foreground capitalize">{account.type}</div>
             </div>
           </div>
         </button>
       {/each}
-    </div>
-  </section>
+
+      {#if accounts.length === 0}
+        <div class="flex flex-col items-center py-16 text-center">
+          <Wallet class="mb-4 size-8 text-[var(--color-text-disabled)]" />
+          <p class="text-sm text-[var(--color-text-secondary)]">No accounts added.</p>
+          <Button variant="ghost" size="sm" class="mt-3 text-[var(--color-amber)]" onclick={() => goto('/accounts/add')}>
+            Add account
+          </Button>
+        </div>
+      {/if}
+    </section>
+
+    <!-- Details: visualizations (secondary, collapsed feel) -->
+    {#if accounts.some((acc: Account) => acc.type === 'credit')}
+      <section class="mb-6">
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Credit utilization</h2>
+        <div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
+          <CreditUtilizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
+        </div>
+      </section>
+    {/if}
+
+    {#if accounts.some((acc: Account) => acc.metadata?.interestRate || acc.metadata?.apr)}
+      <section class="mb-6">
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Interest analysis</h2>
+        <div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
+          <InterestOptimizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
+        </div>
+      </section>
+    {/if}
+
+    {#if accounts.some((acc: Account) => acc.metadata?.isEmergencyFund || acc.type === 'savings')}
+      <section class="mb-6">
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Emergency fund</h2>
+        <div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
+          <EmergencyFundVisualization showDetails={true} showRecommendations={true} />
+        </div>
+      </section>
+    {/if}
+
   </div>
-</PageLayout> 
+</PageLayout>

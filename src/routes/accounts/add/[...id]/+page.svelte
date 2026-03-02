@@ -20,8 +20,8 @@
 
 	// Computed properties
 	let isEditMode = $derived(!!account && !!accountId);
-	let pageTitle = $derived(isEditMode ? 'Edit Account' : 'Add Account');
-	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update' : 'Create'));
+	let pageTitle = $derived(isEditMode ? 'Edit account' : 'New account');
+	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating…' : 'Creating…') : (isEditMode ? 'Update' : 'Create'));
 
 	onMount(async () => {
 		try {
@@ -120,20 +120,22 @@
 			title={pageTitle}
 			showBackButton={true}
 			backButtonLink={isEditMode && account ? `/accounts/${account.id}` : '/accounts'}
-			backButtonLabel={isEditMode && account ? 'Back to Account' : 'Back to Accounts'}
+			backButtonLabel={isEditMode && account ? 'Back to account' : 'Back to accounts'}
 		/>
 	{/snippet}
 
-	<div class="container mx-auto px-4 py-4 md:py-6 max-w-2xl">
+	<div class="mx-auto max-w-2xl px-4 py-6">
 		{#if error && !isLoading}
-			<div class="mb-6 p-4 bg-destructive/10 border border-destructive rounded-md">
-				<p class="text-sm text-destructive">{error}</p>
+			<div class="mb-6 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-4">
+				<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
 			</div>
 		{/if}
 
 		{#if isLoading}
-			<div class="text-center py-12">
-				<p class="text-muted-foreground">Loading...</p>
+			<div class="space-y-4 pt-4">
+				{#each [1, 2, 3] as _}
+					<div class="h-12 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+				{/each}
 			</div>
 		{:else if (!isEditMode || account)}
 			<!-- Account Form -->

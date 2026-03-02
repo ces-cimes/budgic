@@ -867,23 +867,23 @@
 	<!-- Compact Summary Stats -->
 	{#if showSummary}
 		<section class="mb-4">
-			<div class="bg-card rounded-xl p-4 shadow-sm border border-border">
+			<div class="bg-[var(--color-bg-tertiary)] rounded-xl px-5 py-3.5 border border-border">
 				<div class="grid grid-cols-3 gap-4 text-center">
 					<div>
-						<div class="text-base font-bold {summaryStats.income === 0 ? 'text-primary' : 'text-[var(--color-sage-green)]'}">
+						<div class="text-amount {summaryStats.income === 0 ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-sage-green)]'}">
 							{formatAmountWithSign(summaryStats.income, true)}
 						</div>
-						<div class="text-xs text-tertiary">Income</div>
+						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Income</div>
 					</div>
 					<div>
-						<div class="text-base font-bold {summaryStats.expenses === 0 ? 'text-primary' : 'text-[var(--color-warm-coral)]'}">{formatAmountWithSign(summaryStats.expenses)}</div>
-						<div class="text-xs text-tertiary">Expenses</div>
+						<div class="text-amount {summaryStats.expenses === 0 ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-warm-coral)]'}">{formatAmountWithSign(summaryStats.expenses)}</div>
+						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Expenses</div>
 					</div>
 					<div>
-						<div class="text-base font-bold {summaryStats.net === 0 ? 'text-primary' : (summaryStats.net >= 0 ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]')}">
+						<div class="text-amount {summaryStats.net === 0 ? 'text-[var(--color-text-tertiary)]' : (summaryStats.net >= 0 ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]')}">
 							{formatAmountWithSign(summaryStats.net, true)}
 						</div>
-						<div class="text-xs text-tertiary">Net</div>
+						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Net</div>
 					</div>
 				</div>
 			</div>
@@ -902,21 +902,18 @@
 			{@const totals = dateGroupTotals[dateGroup.group.key] ?? { income: 0, expenses: 0, net: 0 }}
 			<!-- Date Group Section -->
 			<div class="space-y-1">
-				<!-- Date Group Header with Transaction Count -->
-				<div class="flex items-center justify-between px-1">
-					<h3 class="text-lg font-semibold text-primary">
+				<!-- Date Group Header -->
+				<div class="flex items-center justify-between px-4 py-2 bg-[var(--color-bg-secondary)] rounded-lg">
+					<h3 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">
 						{dateGroup.group.label}
 					</h3>
-					<div class="flex items-center space-x-2">
-						<span class="text-xs text-muted-foreground">{dateGroup.transactions.length}tx</span>
-						<div class="flex space-x-1">
-							<span class="px-2 py-1 rounded-full {totals.income === 0 ? 'bg-muted text-primary' : 'bg-[var(--color-sage-green)]/10 text-[var(--color-sage-green)]'} text-xs font-medium">
-								{formatAmountWithSign(totals.income, true)}
-							</span>
-							<span class="px-2 py-1 rounded-full {totals.expenses === 0 ? 'bg-muted text-primary' : 'bg-[var(--color-warm-coral)]/10 text-[var(--color-warm-coral)]'} text-xs font-medium">
-								{formatAmountWithSign(totals.expenses)}
-							</span>
-						</div>
+					<div class="flex items-center gap-3">
+						{#if totals.income > 0}
+							<span class="text-amount-sm text-[var(--color-sage-green)]">{formatAmountWithSign(totals.income, true)}</span>
+						{/if}
+						{#if totals.expenses !== 0}
+							<span class="text-amount-sm text-[var(--color-text-secondary)]">{formatAmountWithSign(totals.expenses)}</span>
+						{/if}
 					</div>
 				</div>
 				
@@ -987,14 +984,26 @@
 		{/each}
 		
 		{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
-			<div class="bg-card border-border flex flex-col items-center justify-center rounded-2xl border p-8 text-center shadow-sm">
-				<Receipt class="text-muted-foreground mb-3 h-12 w-12" />
-				<div class="text-primary mb-1 text-lg font-medium">No transactions found</div>
-				<div class="text-muted-foreground mb-4 text-sm">
-					Try adjusting your filters or add a new transaction.
-				</div>
-				{#if onAddTransaction}
-					<Button onclick={onAddTransaction}>Add transaction</Button>
+			<div class="flex flex-col items-center justify-center py-16 text-center">
+				<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
+				<p class="text-sm text-[var(--color-text-secondary)]">
+					{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
+						No transactions match your filters.
+					{:else}
+						Nothing yet. Add your first transaction.
+					{/if}
+				</p>
+				{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
+					<Button
+						variant="ghost"
+						size="sm"
+						class="mt-3 text-[var(--color-text-tertiary)]"
+						onclick={() => updateFilters({ searchQuery: '', showPendingOnly: false, dateFilterEnabled: true, groupingMode: 'smart', currentMonth: new Date() })}
+					>
+						Clear filters
+					</Button>
+				{:else if onAddTransaction}
+					<Button variant="ghost" size="sm" class="mt-3 text-[var(--color-amber)]" onclick={onAddTransaction}>Add transaction</Button>
 				{/if}
 			</div>
 		{/if}

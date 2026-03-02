@@ -150,239 +150,170 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 			title={account ? account.name : 'Account'}
 			showBackButton={true}
 			backButtonLink="/accounts"
-			backButtonLabel="Back to Accounts"
+			backButtonLabel="Back to accounts"
 			buttonProps={account
-				? [
-						{
-							text: 'Edit',
-							onclick: handleEdit,
-							variant: 'outline',
-							size: 'sm',
-							icon: Pencil,
-							className: 'hidden sm:flex'
-						}
-					]
+				? [{ text: 'Edit', onclick: handleEdit, variant: 'ghost', size: 'sm', icon: Pencil }]
 				: []}
 		/>
 	{/snippet}
 
-	<div class="container mx-auto max-w-6xl p-2 sm:p-4">
+	<div class="mx-auto max-w-4xl px-4 py-6">
 		{#if account && !isLoading}
-			<!-- Account Balance Card -->
-			<section class="mb-8">
-				<div
-					class="from-primary to-primary/80 text-primary-foreground rounded-2xl bg-gradient-to-r p-6"
-				>
-					<div class="flex items-start justify-between">
-						<div class="flex-1">
-							<h2 class="mb-2 text-lg font-medium">Current Balance</h2>
-							<div class="text-4xl font-bold">
-								{formatBalance(account.currentBalance, account.currency)}
-							</div>
-							<p class="text-primary-foreground/70 mt-2">
-								Initial balance: {formatBalance(account.initialBalance, account.currency)}
-							</p>
-						</div>
-						<!-- Edit button for mobile -->
-						<Button.Root
-							variant="outline"
-							size="sm"
-							onclick={handleEdit}
-							class="text-primary-foreground border-primary-foreground/20 hover:bg-primary-foreground/10 sm:hidden"
-						>
-							<Pencil size={16} />
-							<span class="ml-2">Edit</span>
-						</Button.Root>
-					</div>
-				</div>
+
+			<!-- Hero: account balance -->
+			<section class="mb-10 pt-4 text-center">
+				<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">
+					{account.type} balance
+				</p>
+				<div class="text-hero animate-count-up">{formatBalance(account.currentBalance, account.currency)}</div>
+				{#if account.initialBalance !== account.currentBalance}
+					<p class="mt-2 text-xs text-[var(--color-text-tertiary)]">
+						Started at {formatBalance(account.initialBalance, account.currency)}
+					</p>
+				{/if}
 			</section>
 
-			<!-- Reconciliation -->
-			<section class="mb-8">
-				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-					<h2 class="text-primary mb-4 text-xl font-semibold">Reconciliation</h2>
-					{#if reconciliationSummary}
-						<div class="space-y-2 text-sm">
-							{#if reconciliationSummary.lastReconciledDate}
-								<p class="text-muted-foreground">
-									Last reconciled: {formatDate(reconciliationSummary.lastReconciledDate)}
-									{#if reconciliationSummary.daysSinceLastReconciliation >= 0 && reconciliationSummary.daysSinceLastReconciliation < 365}
-										({reconciliationSummary.daysSinceLastReconciliation} days ago)
-									{/if}
-								</p>
-							{:else}
-								<p class="text-muted-foreground">Not reconciled yet</p>
-							{/if}
-							{#if reconciliationSummary.unresolvedDiscrepancies > 0}
-								<p class="text-warning">{reconciliationSummary.unresolvedDiscrepancies} unresolved discrepancy(ies)</p>
-							{/if}
-						</div>
-					{/if}
-					<Button.Root
-						class="mt-4"
-						variant="outline"
+			<!-- Reconciliation status row -->
+			{#if reconciliationSummary}
+				{@const needsAttention = reconciliationSummary.daysSinceLastReconciliation > 30 || reconciliationSummary.daysSinceLastReconciliation === -1 || reconciliationSummary.unresolvedDiscrepancies > 0}
+				<section class="mb-6">
+					<button
+						type="button"
+						class="w-full flex items-center justify-between rounded-xl border px-5 py-3.5 transition-colors text-left
+							{needsAttention
+								? 'border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 hover:bg-[var(--color-warm-coral)]/12'
+								: 'border-border bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-bg-surface)]'}"
 						onclick={() => goto(`/accounts/reconciliation?account=${account?.id ?? ''}`)}
 					>
-						<Scale class="mr-2 h-4 w-4" />
-						Reconcile
-					</Button.Root>
-				</div>
-			</section>
+						<div class="flex items-center gap-3">
+							<Scale class="size-4 shrink-0 {needsAttention ? 'text-[var(--color-warm-coral)]' : 'text-[var(--color-text-tertiary)]'}" />
+							<div>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">Reconciliation</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									{#if reconciliationSummary.lastReconciledDate}
+										Last reconciled {reconciliationSummary.daysSinceLastReconciliation} days ago
+										{#if reconciliationSummary.unresolvedDiscrepancies > 0}
+											· {reconciliationSummary.unresolvedDiscrepancies} discrepancy(ies)
+										{/if}
+									{:else}
+										Not reconciled yet
+									{/if}
+								</p>
+							</div>
+						</div>
+						<span class="text-xs font-medium {needsAttention ? 'text-[var(--color-warm-coral)]' : 'text-[var(--color-text-tertiary)]'}">
+							{needsAttention ? 'Reconcile →' : 'View →'}
+						</span>
+					</button>
+				</section>
+			{/if}
 
-			<!-- Buffer Status -->
-			{#if account && (account.type === 'checking' || account.type === 'savings')}
-				<section class="mb-8">
-					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-						<h2 class="text-primary mb-4 text-xl font-semibold">Buffer Status</h2>
+			<!-- Visualizations — each with section label -->
+			{#if account.type === 'checking' || account.type === 'savings'}
+				<section class="mb-6">
+					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Buffer status</h2>
+					<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
 						<BufferVisualization {account} showDetails={true} />
 					</div>
 				</section>
 			{/if}
 
-			<!-- Credit Utilization -->
-			{#if account && account.type === 'credit'}
-				<section class="mb-8">
-					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-						<h2 class="text-primary mb-4 text-xl font-semibold">Credit Utilization</h2>
+			{#if account.type === 'credit'}
+				<section class="mb-6">
+					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Credit utilization</h2>
+					<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
 						<CreditUtilizationVisualization {account} showDetails={true} showRecommendations={true} />
 					</div>
 				</section>
 			{/if}
 
-			<!-- Interest Optimization -->
-			{#if account && (account.metadata?.interestRate || account.metadata?.apr)}
-				<section class="mb-8">
-					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-						<h2 class="text-primary mb-4 text-xl font-semibold">Interest Analysis</h2>
+			{#if account.metadata?.interestRate || account.metadata?.apr}
+				<section class="mb-6">
+					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Interest analysis</h2>
+					<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
 						<InterestOptimizationVisualization {account} showDetails={true} showRecommendations={true} />
 					</div>
 				</section>
 			{/if}
 
-			<!-- Emergency Fund Status -->
-			{#if account && account.metadata?.isEmergencyFund}
-				<section class="mb-8">
-					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-						<h2 class="text-primary mb-4 text-xl font-semibold">Emergency Fund Status</h2>
+			{#if account.metadata?.isEmergencyFund}
+				<section class="mb-6">
+					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Emergency fund</h2>
+					<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
 						<EmergencyFundVisualization showDetails={true} showRecommendations={true} />
 					</div>
 				</section>
 			{/if}
 
-			<!-- Enhanced Allowance -->
-			{#if account && (account.type === 'checking' || account.type === 'savings')}
-				<section class="mb-8">
-					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-						<h2 class="text-primary mb-4 text-xl font-semibold">Spending Allowance</h2>
+			{#if account.type === 'checking' || account.type === 'savings'}
+				<section class="mb-6">
+					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Safe to spend</h2>
+					<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
 						{#if isLoadingAllowance}
-							<div class="text-muted-foreground py-8 text-center">
-								Loading allowance calculation...
+							<div class="space-y-3 py-4">
+								<div class="h-4 w-1/2 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+								<div class="h-3 w-1/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
 							</div>
 						{:else if enhancedAllowance}
-							<AllowanceVisualization
-								allowance={enhancedAllowance}
-								showDetails={true}
-								showRecommendations={true}
-								negativeStatus={negativeAllowanceStatus}
-								recoverySuggestions={recoverySuggestions}
-							/>
-							<EnvelopeBorrowingCard
-								accountId={account?.id}
-								allowance={enhancedAllowance}
-								negativeStatus={negativeAllowanceStatus}
-								onBorrowCreated={async () => {
-									await loadAccount();
-								}}
-							/>
+							<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
+							<EnvelopeBorrowingCard accountId={account?.id} allowance={enhancedAllowance} negativeStatus={negativeAllowanceStatus} onBorrowCreated={async () => { await loadAccount(); }} />
 						{:else}
-							<div class="text-muted-foreground py-8 text-center">
-								Unable to calculate allowance
-							</div>
+							<p class="text-sm text-[var(--color-text-tertiary)] py-4">Unable to calculate allowance.</p>
 						{/if}
 					</div>
 				</section>
-			{/if}
 
-			<!-- Balance Projection -->
-			{#if account && (account.type === 'checking' || account.type === 'savings')}
-				<section class="mb-8">
-					<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-						<h2 class="text-primary mb-4 text-xl font-semibold">Balance Projection</h2>
+				<section class="mb-6">
+					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Balance projection</h2>
+					<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
 						<BalanceProjectionChart accountId={account.id} daysAhead={90} showDetails={true} />
 					</div>
 				</section>
 			{/if}
 
-			<!-- Fee Avoidance -->
-			<section class="mb-8">
-				<div class="bg-card border-border rounded-xl border p-6 shadow-sm">
-					<h2 class="text-primary mb-4 text-xl font-semibold">Fee Avoidance</h2>
-					<FeeAvoidancePanel
-						accountId={account.id}
-						initialMaxRisks={5}
-						onRecommendationApplied={async () => {
-							await loadAccount();
-							await loadTransactions();
-							await loadEnhancedAllowance();
-						}}
-					/>
+			<section class="mb-6">
+				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Fee avoidance</h2>
+				<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
+					<FeeAvoidancePanel accountId={account.id} initialMaxRisks={5} onRecommendationApplied={async () => { await loadAccount(); await loadTransactions(); await loadEnhancedAllowance(); }} />
 				</div>
 			</section>
 
-			<!-- Transactions List -->
-			<section class="space-y-4">
-				<div class="flex items-center justify-between">
-					<h2 class="text-primary text-xl font-semibold">Recent Transactions</h2>
-					<Button.Root onclick={() => goto('/transactions/add')}>Add Transaction</Button.Root>
+			<!-- Recent transactions -->
+			<section>
+				<div class="flex items-center justify-between mb-4">
+					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Recent transactions</h2>
+					<Button.Root variant="ghost" size="sm" onclick={() => goto('/transactions/add')} class="text-[var(--color-amber)] text-xs">
+						Add transaction
+					</Button.Root>
 				</div>
 
 				{#if transactions.length === 0}
-					<div class="bg-card border-border rounded-lg border py-12 text-center">
-						<p class="text-muted-foreground mb-4">No transactions found for this account</p>
-						<Button.Root onclick={() => goto('/transactions/add')}>
-							Add Your First Transaction
-						</Button.Root>
+					<div class="flex flex-col items-center py-12 text-center">
+						<p class="text-sm text-[var(--color-text-secondary)]">No transactions yet.</p>
 					</div>
 				{:else}
-					<div class="bg-card border-border rounded-lg border">
+					<div class="rounded-2xl border border-border overflow-hidden">
 						{#each transactions.slice(0, 10).filter((t) => t) as transaction (transaction.id)}
-							<div class="border-border hover:bg-muted/50 border-b p-4 last:border-b-0">
-								<div class="flex items-center justify-between">
-									<div>
-										<p class="font-medium">{transaction?.description || 'No description'}</p>
-										<p class="text-muted-foreground text-sm">
-											{formatDate(
-												transaction?.clearedDate ||
-													transaction?.plannedDate ||
-													transaction?.createdAt ||
-													''
-											)}
-										</p>
-									</div>
-									<div class="text-right">
-										<p
-											class="font-semibold {(transaction?.amount ?? 0) >= 0
-												? 'text-success'
-												: 'text-destructive'}"
-										>
-											{formatBalance(
-												transaction?.amount ?? 0,
-												transaction?.currency || account?.currency || userCurrency || 'USD'
-											)}
-										</p>
-										<p class="text-muted-foreground text-sm capitalize">
-											{transaction?.type || 'unknown'}
-										</p>
-									</div>
+							<button
+								type="button"
+								class="w-full flex items-center justify-between gap-4 border-b border-border px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] last:border-b-0"
+								onclick={() => goto(`/transactions/add/${transaction.id}`)}
+							>
+								<div class="min-w-0 flex-1">
+									<p class="text-sm font-medium text-[var(--color-text-primary)] truncate">{transaction?.description || 'No description'}</p>
+									<p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">{formatDate(transaction?.clearedDate || transaction?.plannedDate || transaction?.createdAt || '')}</p>
 								</div>
-							</div>
+								<span class="text-amount shrink-0 {transaction?.type === 'income' ? 'text-[var(--color-sage-green)]' : 'text-foreground'}">
+									{formatBalance(transaction?.amount ?? 0, transaction?.currency || account?.currency || userCurrency || 'USD')}
+								</span>
+							</button>
 						{/each}
 					</div>
 
 					{#if transactions.length > 10}
-						<div class="text-center">
-							<Button.Root variant="outline" onclick={() => goto('/transactions')}>
-								View All Transactions
+						<div class="mt-4 text-center">
+							<Button.Root variant="ghost" size="sm" onclick={() => goto('/transactions')} class="text-[var(--color-text-tertiary)]">
+								View all transactions
 							</Button.Root>
 						</div>
 					{/if}

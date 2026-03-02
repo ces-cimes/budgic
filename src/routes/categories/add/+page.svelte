@@ -2,14 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { budgetService } from '$lib/core/services';
 	import type { Category } from '$lib/core/db';
-	import { Button } from '$lib/components/ui/button/index.ts';
-	import * as Input from '$lib/components/ui/input/index.ts';
-	import * as Label from '$lib/components/ui/label/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
-	import * as Switch from '$lib/components/ui/switch/index.ts';
-	import * as Alert from '$lib/components/ui/alert/index.ts';
-	import * as Tabs from '$lib/components/ui/tabs/index.ts';
-	import * as Card from '$lib/components/ui/card/index.ts';
+	import { Switch } from '$lib/components/ui/switch/index.ts';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 
@@ -98,205 +92,145 @@
 </script>
 
 <svelte:head>
-	<title>Add Spending Category - Budgic</title>
+	<title>New category | Budgic</title>
 </svelte:head>
 
 <PageLayout>
 	{#snippet topBar()}
-		<!-- Header -->
-		<Header 
-			title="Add Spending Category"
-			showBackButton={true}
+		<Header
+			title="New category"
+			backButtonLabel="Back to categories"
 			backButtonLink="/plan?tab=categories"
-			backButtonLabel="Back to Categories"
-		>
-		<p class="text-muted-foreground text-sm">
-			Create a new spending category to organize your expenses
-		</p>
-		</Header>
+		/>
 	{/snippet}
 
 	{#snippet bottomBar()}
-		<!-- Action buttons for form submission -->
-		<div class="flex justify-end space-x-4 max-w-4xl mx-auto">
-			<Button
+		<div class="bg-[var(--color-bg-secondary)]/90 backdrop-blur-sm border-t border-border px-4 py-3 flex gap-3">
+			<button
 				type="button"
-				variant="outline"
 				onclick={() => goto('/plan?tab=categories')}
 				disabled={isLoading}
-				class="grow"
+				class="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
 			>
 				Cancel
-			</Button>
-			<Button
+			</button>
+			<button
 				type="submit"
 				form="category-form"
 				disabled={isLoading}
-				class="grow"
+				class="flex-1 rounded-xl bg-[var(--color-amber)] px-4 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
 			>
-				{isLoading ? 'Creating...' : 'Create Category'}
-			</Button>
+				{isLoading ? 'Creating…' : 'Create category'}
+			</button>
 		</div>
 	{/snippet}
 
-	<div class="container mx-auto p-4 max-w-4xl space-y-4">
+	<div class="mx-auto max-w-2xl px-4 py-6">
 		{#if error}
-			<Alert.Root variant="destructive">
-				<Alert.Title>Error</Alert.Title>
-				<Alert.Description>{error}</Alert.Description>
-			</Alert.Root>
+			<div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3">
+				<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+			</div>
 		{/if}
 
-		<!-- Category Form -->
-		<section>
-			<form id="category-form" onsubmit={handleSubmit} class="space-y-4">
-			<!-- Tabs for different sections -->
-			<Tabs.Root bind:value={activeTab} class="w-full">
-				<Tabs.List class="grid w-full grid-cols-1">
-					<Tabs.Trigger value="basic">Category Information</Tabs.Trigger>
-				</Tabs.List>
+		<form id="category-form" onsubmit={handleSubmit} class="space-y-6">
+			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+				<div class="px-5 py-2.5">
+					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Category details</h2>
+				</div>
 
-				<!-- Basic Information Tab -->
-				<Tabs.Content value="basic" class="space-y-4">
-					<Card.Root>
-						<Card.Header>
-							<Card.Title>Category Details</Card.Title>
-							<Card.Description>Basic information about your budget category</Card.Description>
-						</Card.Header>
-						<Card.Content class="space-y-4">
-							<!-- Category Name -->
-							<div class="space-y-2">
-								<Label.Root for="name">Category Name *</Label.Root>
-								<Input.Root
-									id="name"
-									bind:value={name}
-									placeholder="e.g., Groceries, Entertainment, Emergency Fund"
-									required
-								/>
-							</div>
+				<div class="px-5 py-4 space-y-1.5">
+					<label for="name" class="text-sm font-medium text-[var(--color-text-primary)]">Name</label>
+					<input
+						id="name"
+						bind:value={name}
+						placeholder="e.g., Groceries, Entertainment"
+						required
+						class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+					/>
+				</div>
 
-							<!-- Category Type -->
-							<div class="space-y-2">
-								<Label.Root for="type">Category Type *</Label.Root>
-								<Select.Root type="single" bind:value={type}>
-									<Select.Trigger>
-										{typeOptions.find(opt => opt.value === type)?.label || "Select category type"}
-									</Select.Trigger>
-									<Select.Content>
-										{#each typeOptions as option}
-											<Select.Item value={option.value}>
-												<div>
-													<div class="font-medium">{option.label}</div>
-													<div class="text-sm text-muted-foreground">{option.description}</div>
-												</div>
-											</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</div>
+				<div class="px-5 py-4 space-y-2">
+					<p class="text-sm font-medium text-[var(--color-text-primary)]">Type</p>
+					<div class="grid grid-cols-2 gap-2">
+						{#each typeOptions as option}
+							<button
+								type="button"
+								onclick={() => type = option.value}
+								class="rounded-xl border p-3 text-left transition-colors {type === option.value
+									? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
+									: 'border-border bg-[var(--color-bg-surface)] hover:border-[var(--color-amber)]/40'}"
+							>
+								<p class="text-sm font-medium {type === option.value ? 'text-[var(--color-amber)]' : 'text-[var(--color-text-primary)]'}">{option.label}</p>
+								<p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">{option.description}</p>
+							</button>
+						{/each}
+					</div>
+				</div>
 
-							<!-- Waterfall Tier -->
-							<div class="space-y-2">
-								<Label.Root for="waterfallTier">Priority Level *</Label.Root>
-								<Select.Root type="single" bind:value={waterfallTier}>
-									<Select.Trigger>
-										{waterfallOptions.find(opt => opt.value === waterfallTier)?.label || "Select priority level"}
-									</Select.Trigger>
-									<Select.Content>
-										{#each waterfallOptions as option}
-											<Select.Item value={option.value}>
-												<div>
-													<div class="font-medium">{option.label}</div>
-													<div class="text-sm text-muted-foreground">{option.description}</div>
-												</div>
-											</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</div>
+				<div class="px-5 py-4 space-y-2">
+					<p class="text-sm font-medium text-[var(--color-text-primary)]">Priority tier</p>
+					<div class="grid grid-cols-2 gap-2">
+						{#each waterfallOptions as option}
+							<button
+								type="button"
+								onclick={() => waterfallTier = option.value}
+								class="rounded-xl border p-3 text-left transition-colors {waterfallTier === option.value
+									? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
+									: 'border-border bg-[var(--color-bg-surface)] hover:border-[var(--color-amber)]/40'}"
+							>
+								<p class="text-sm font-medium {waterfallTier === option.value ? 'text-[var(--color-amber)]' : 'text-[var(--color-text-primary)]'}">{option.label}</p>
+								<p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">{option.description}</p>
+							</button>
+						{/each}
+					</div>
+				</div>
 
-							<!-- Priority within waterfall tier -->
-							<div class="space-y-2">
-								<Label.Root for="priority">Priority (within {waterfallTier})</Label.Root>
-								<Input.Root
-									id="priority"
-									type="number"
-									bind:value={priority}
-									min="1"
-									max="100"
-								/>
-								<p class="text-xs text-muted-foreground">Lower numbers = higher priority</p>
-							</div>
+				<div class="px-5 py-4 space-y-1.5">
+					<label for="budgetAmount" class="text-sm font-medium text-[var(--color-text-primary)]">Budget amount <span class="text-[var(--color-text-tertiary)]">(optional)</span></label>
+					<input
+						id="budgetAmount"
+						type="number"
+						bind:value={budgetAmount}
+						placeholder="0.00"
+						step="0.01"
+						class="w-36 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+					/>
+				</div>
 
-							<!-- Budget Amount -->
-							<div class="space-y-2">
-								<Label.Root for="budgetAmount">Budget Amount (Optional)</Label.Root>
-								<div class="relative">
-									<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">$</span>
-									<Input.Root
-										id="budgetAmount"
-										type="number"
-										bind:value={budgetAmount}
-										placeholder="0.00"
-										step="0.01"
-										class="pl-8"
-									/>
-								</div>
-								<p class="text-xs text-muted-foreground">
-									Leave empty if you don't want to set a budget for this category
-								</p>
-							</div>
+				<div class="px-5 py-4 space-y-1.5">
+					<label for="color" class="text-sm font-medium text-[var(--color-text-primary)]">Color</label>
+					<div class="flex flex-wrap gap-2">
+						{#each colorOptions as option}
+							<button
+								type="button"
+								onclick={() => color = option.value}
+								class="size-8 rounded-full transition-all {color === option.value ? 'ring-2 ring-offset-2 ring-[var(--color-amber)]' : 'opacity-70 hover:opacity-100'}"
+								style="background-color: {option.value}"
+								title={option.label}
+							></button>
+						{/each}
+					</div>
+				</div>
 
-							<!-- Color -->
-							<div class="space-y-2">
-								<Label.Root for="color">Color</Label.Root>
-								<Select.Root type="single" bind:value={color}>
-									<Select.Trigger>
-										<div class="flex items-center space-x-2">
-											<div class="w-4 h-4 rounded-full" style="background-color: {color}"></div>
-											<span>{colorOptions.find(opt => opt.value === color)?.label || 'Custom'}</span>
-										</div>
-									</Select.Trigger>
-									<Select.Content>
-										{#each colorOptions as option}
-											<Select.Item value={option.value}>
-												<div class="flex items-center space-x-2">
-													<div class="w-4 h-4 rounded-full" style="background-color: {option.value}"></div>
-													<span>{option.label}</span>
-												</div>
-											</Select.Item>
-										{/each}
-									</Select.Content>
-								</Select.Root>
-							</div>
+				<div class="px-5 py-4 space-y-1.5">
+					<label for="description" class="text-sm font-medium text-[var(--color-text-primary)]">Description <span class="text-[var(--color-text-tertiary)]">(optional)</span></label>
+					<textarea
+						id="description"
+						bind:value={description}
+						placeholder="Optional description…"
+						rows="2"
+						class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] resize-none outline-none focus:border-[var(--color-amber)]"
+					></textarea>
+				</div>
 
-							<!-- Description -->
-							<div class="space-y-2">
-								<Label.Root for="description">Description</Label.Root>
-								<textarea
-									id="description"
-									bind:value={description}
-									placeholder="Optional description for this category..."
-									rows="3"
-									class="w-full px-3 py-2 border border-input rounded-md bg-background text-primary resize-none focus:ring-2 focus:ring-ring focus:border-transparent"
-								></textarea>
-							</div>
-
-							<!-- Active Status -->
-							<div class="space-y-2">
-								<div class="flex items-center space-x-2">
-									<Switch.Root bind:checked={isActive} />
-									<Label.Root for="isActive">Category is active</Label.Root>
-								</div>
-								<p class="text-xs text-muted-foreground">
-									Inactive categories won't appear in transaction forms but will be preserved for historical data
-								</p>
-							</div>
-						</Card.Content>
-					</Card.Root>
-				</Tabs.Content>
-			</Tabs.Root>
-			</form>
-		</section>
+				<div class="flex items-center justify-between px-5 py-4">
+					<div>
+						<p class="text-sm font-medium text-[var(--color-text-primary)]">Active</p>
+						<p class="text-xs text-[var(--color-text-tertiary)]">Inactive categories are hidden in forms</p>
+					</div>
+					<Switch bind:checked={isActive} />
+				</div>
+			</div>
+		</form>
 	</div>
 </PageLayout>

@@ -1,23 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
-	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Switch } from '$lib/components/ui/switch/index.ts';
-	import { 
-		Card,
-		CardContent,
-		CardDescription,
-		CardFooter,
-		CardHeader,
-		CardTitle
-	} from '$lib/components/ui/card/index.ts';
-	import * as Alert from '$lib/components/ui/alert/index.ts';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import { PageLayout } from '$lib/components/layouts';
+	import Header from '$lib/components/Header.svelte';
 	import { toast } from 'svelte-sonner';
 	
 	// Lucide icons
-	import { HomeIcon, ReceiptIcon, TargetIcon, WalletIcon, TrendingUpIcon, CalendarIcon, BellIcon, SettingsIcon, CreditCardIcon, GripVerticalIcon, InfoIcon, SmartphoneIcon, MonitorIcon } from '@lucide/svelte';
+	import { HomeIcon, ReceiptIcon, TargetIcon, WalletIcon, TrendingUpIcon, CalendarIcon, BellIcon, SettingsIcon, CreditCardIcon, GripVertical, Smartphone, Monitor } from '@lucide/svelte';
 
 	// Icon mapping
 	const iconMap: Record<string, any> = {
@@ -145,107 +135,85 @@
 </script>
 
 <svelte:head>
-	<title>Navigation Settings | Budgic</title>
+	<title>Navigation | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-	<div class="container max-w-4xl mx-auto p-4 space-y-6">
-		<div class="space-y-2">
-			<h1 class="text-3xl font-bold text-[var(--color-text-primary)]">Navigation Settings</h1>
-			<p class="text-[var(--color-text-secondary)]">
-				Customize the order and visibility of navigation items for desktop and mobile
+	{#snippet topBar()}
+		<Header title="Navigation" backButtonLabel="Back to settings" backButtonLink="/settings" />
+	{/snippet}
+
+	<div class="mx-auto max-w-2xl px-4 py-6 space-y-4">
+		<div class="rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3">
+			<p class="text-xs text-[var(--color-text-secondary)]">
+				Drag items to reorder. The first 4 visible items appear in the mobile bar; the rest are in the "More" menu.
 			</p>
 		</div>
 
-		<Alert.Root>
-			<InfoIcon class="h-4 w-4" />
-			<Alert.Title>Pro Tip</Alert.Title>
-			<Alert.Description>
-				Drag and drop items to reorder them. Both desktop and mobile navigation use the same order - the first 4 items appear in the mobile main bar, with the rest accessible via the "More" button.
-			</Alert.Description>
-		</Alert.Root>
-
 		{#if loading}
-			<div class="flex items-center justify-center py-12">
-				<LoadingSpinner />
+			<div class="space-y-2">
+				{#each [1,2,3,4,5] as _}
+					<div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+				{/each}
 			</div>
 		{:else}
-			<Card class="border border-[var(--color-border)]">
-				<CardHeader>
-					<CardTitle>Navigation Items</CardTitle>
-					<CardDescription>
-						Customize which navigation items appear and in what order
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<div class="space-y-2">
-						{#each items as item, index (item.id)}
-							{@const IconComponent = iconMap[item.icon] || HomeIcon}
-							<div
-								role="listitem"
-								draggable="true"
-								ondragstart={(e) => handleDragStart(e, item)}
-								ondragover={(e) => handleDragOver(e, index)}
-								ondrop={(e) => handleDrop(e, index)}
-								ondragend={handleDragEnd}
-								class="flex items-center gap-3 p-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-secondary)] transition-all
-									{dragOverIndex === index ? 'border-[var(--color-golden-amber)] bg-[var(--color-bg-tertiary)]' : ''}
-									hover:border-[var(--color-border-hover)] cursor-move"
-							>
-								<GripVerticalIcon class="w-5 h-5 text-[var(--color-text-tertiary)] flex-shrink-0" />
-								
-								<div class="flex items-center gap-3 flex-1">
-									<IconComponent class="w-5 h-5 text-[var(--color-text-secondary)] flex-shrink-0" />
-									<div class="flex-1">
-										<div class="font-medium text-[var(--color-text-primary)]">
-											{item.label}
-										</div>
-										<div class="text-xs text-[var(--color-text-tertiary)]">{item.path}</div>
-									</div>
+			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+				<div class="px-5 py-2.5 border-b border-border">
+					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Navigation items</h2>
+				</div>
+				<div class="divide-y divide-border">
+					{#each items as item, index (item.id)}
+						{@const IconComponent = iconMap[item.icon] || HomeIcon}
+						<div
+							role="listitem"
+							draggable="true"
+							ondragstart={(e) => handleDragStart(e, item)}
+							ondragover={(e) => handleDragOver(e, index)}
+							ondrop={(e) => handleDrop(e, index)}
+							ondragend={handleDragEnd}
+							class="flex items-center gap-3 px-4 py-3 cursor-move transition-colors {dragOverIndex === index ? 'bg-[var(--color-amber-subtle)]' : 'hover:bg-[var(--color-bg-surface)]'}"
+						>
+							<GripVertical class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
+							<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)]">
+								<IconComponent class="size-4 text-[var(--color-text-secondary)]" />
+							</div>
+							<div class="flex-1 min-w-0">
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">{item.label}</p>
+								<p class="text-xs text-[var(--color-text-tertiary)] truncate">{item.path}</p>
+							</div>
+							<div class="flex items-center gap-3 shrink-0">
+								<div class="flex items-center gap-1.5" title="Mobile">
+									<Smartphone class="size-3.5 text-[var(--color-text-tertiary)]" />
+									<Switch
+										checked={item.showInMobile}
+										onCheckedChange={(checked) => toggleVisibility(item.id, 'showInMobile', checked)}
+										disabled={saving}
+									/>
 								</div>
-
-								<div class="flex flex-col gap-2 flex-shrink-0">
-									<!-- Mobile toggle -->
-									<div class="flex items-center gap-1" title="Show on Mobile">
-										<SmartphoneIcon class="w-4 h-4 text-[var(--color-text-secondary)]" />
-										<Switch 
-											checked={item.showInMobile}
-											onCheckedChange={(checked) => toggleVisibility(item.id, 'showInMobile', checked)}
-											disabled={saving}
-										/>
-									</div>
-
-									<!-- Desktop toggle -->
-									<div class="flex items-center gap-1" title="Show on Desktop">
-										<MonitorIcon class="w-4 h-4 text-[var(--color-text-secondary)]" />
-										<Switch 
-											checked={item.showInDesktop}
-											onCheckedChange={(checked) => toggleVisibility(item.id, 'showInDesktop', checked)}
-											disabled={saving}
-										/>
-									</div>
+								<div class="flex items-center gap-1.5" title="Desktop">
+									<Monitor class="size-3.5 text-[var(--color-text-tertiary)]" />
+									<Switch
+										checked={item.showInDesktop}
+										onCheckedChange={(checked) => toggleVisibility(item.id, 'showInDesktop', checked)}
+										disabled={saving}
+									/>
 								</div>
 							</div>
-						{/each}
-					</div>
-				</CardContent>
-				<CardFooter class="flex justify-end gap-2">
-					<Button 
-						variant="outline" 
-						onclick={resetToDefaults}
-						disabled={saving}
-					>
-						Reset to Defaults
-					</Button>
-					<Button 
-						onclick={() => navigationStore.refresh()}
-						disabled={saving}
-					>
-						{saving ? 'Saving...' : 'Refresh'}
-					</Button>
-				</CardFooter>
-			</Card>
+						</div>
+					{/each}
+				</div>
+			</div>
+
+			<button
+				type="button"
+				onclick={resetToDefaults}
+				disabled={saving}
+				class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+			>
+				Reset to defaults
+			</button>
 		{/if}
 	</div>
 </PageLayout>
+
 

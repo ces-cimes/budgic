@@ -9,9 +9,7 @@
 		type SidebarFooterCardId
 	} from '$lib/config/sidebar-footer-cards';
 	import { PageLayout } from '$lib/components/layouts';
-	import * as Card from '$lib/components/ui/card/index.ts';
-	import * as Button from '$lib/components/ui/button/index.ts';
-	import * as Alert from '$lib/components/ui/alert/index.ts';
+	import Header from '$lib/components/Header.svelte';
 	import { Switch } from '$lib/components/ui/switch/index.ts';
 	import { toast } from 'svelte-sonner';
 	import { GripVertical } from '@lucide/svelte';
@@ -123,45 +121,39 @@
 </script>
 
 <svelte:head>
-	<title>Sidebar | Settings | Budgic</title>
+	<title>Sidebar | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-	<div class="container mx-auto max-w-2xl px-4 py-6">
-		<header class="mb-6">
-			<Button.Root variant="ghost" size="sm" onclick={() => goto('/settings')}>
-				← Back to Settings
-			</Button.Root>
-			<h1 class="mt-2 text-2xl font-bold text-primary">Sidebar</h1>
-			<p class="text-muted-foreground text-sm">
-				Choose which info cards appear in the desktop sidebar footer (above Settings)
-			</p>
-		</header>
+	{#snippet topBar()}
+		<Header title="Sidebar" backButtonLabel="Back to settings" backButtonLink="/settings" />
+	{/snippet}
 
+	<div class="mx-auto max-w-2xl px-4 py-6 space-y-4">
 		{#if error}
-			<Alert.Root variant="destructive" class="mb-4">
-				<Alert.Description>{error}</Alert.Description>
-			</Alert.Root>
+			<div class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3">
+				<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+			</div>
 		{/if}
 
 		{#if isLoading}
-			<div class="text-muted-foreground py-8 text-center">Loading…</div>
+			<div class="space-y-2">
+				{#each [1,2,3] as _}
+					<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+				{/each}
+			</div>
 		{:else}
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Footer info cards</Card.Title>
-					<Card.Description>
-						Toggle cards on or off and drag to reorder. Only enabled cards are shown in the sidebar.
-					</Card.Description>
-				</Card.Header>
-				<Card.Content class="space-y-3">
+			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+				<div class="px-5 py-2.5 border-b border-border">
+					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Footer info cards</h2>
+					<p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Toggle and drag to reorder. Only enabled cards appear in the sidebar.</p>
+				</div>
+				<div class="divide-y divide-border">
 					<!-- Enabled cards in order (draggable) -->
 					{#each enabledIds as id, index (`enabled-${id}`)}
 						{@const meta = SIDEBAR_FOOTER_CARDS[id]}
 						<div
-							class="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3 {dragOverIndex === index && draggedId
-								? 'border-primary ring-1 ring-primary/30'
-								: ''}"
+							class="flex items-center gap-3 px-4 py-3 cursor-move transition-colors {dragOverIndex === index && draggedId ? 'bg-[var(--color-amber-subtle)]' : 'hover:bg-[var(--color-bg-surface)]'}"
 							draggable="true"
 							ondragstart={(e) => handleDragStart(e, id)}
 							ondragover={(e) => handleDragOver(e, index)}
@@ -169,10 +161,10 @@
 							ondragend={handleDragEnd}
 							role="listitem"
 						>
-							<GripVertical class="size-4 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing" />
+							<GripVertical class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
 							<div class="min-w-0 flex-1">
-								<div class="font-medium text-primary">{meta.label}</div>
-								<div class="text-muted-foreground text-xs">{meta.description}</div>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">{meta.description}</p>
 							</div>
 							<Switch
 								checked={true}
@@ -182,14 +174,14 @@
 							/>
 						</div>
 					{/each}
-					<!-- Disabled cards (can be enabled) -->
+					<!-- Disabled cards -->
 					{#each SIDEBAR_FOOTER_CARD_IDS.filter((id) => !enabledIds.includes(id)) as id (`disabled-${id}`)}
 						{@const meta = SIDEBAR_FOOTER_CARDS[id]}
-						<div class="flex items-center gap-3 rounded-lg border border-border border-dashed bg-muted/10 p-3 opacity-80" role="listitem">
+						<div class="flex items-center gap-3 px-4 py-3 opacity-50" role="listitem">
 							<span class="size-4 shrink-0"></span>
 							<div class="min-w-0 flex-1">
-								<div class="font-medium text-primary">{meta.label}</div>
-								<div class="text-muted-foreground text-xs">{meta.description}</div>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">{meta.description}</p>
 							</div>
 							<Switch
 								checked={false}
@@ -199,13 +191,18 @@
 							/>
 						</div>
 					{/each}
-				</Card.Content>
-				<Card.Footer class="flex justify-end gap-2">
-					<Button.Root variant="outline" onclick={resetToDefaults} disabled={isSaving}>
-						Reset to defaults
-					</Button.Root>
-				</Card.Footer>
-			</Card.Root>
+				</div>
+			</div>
+
+			<button
+				type="button"
+				onclick={resetToDefaults}
+				disabled={isSaving}
+				class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+			>
+				Reset to defaults
+			</button>
 		{/if}
 	</div>
 </PageLayout>
+

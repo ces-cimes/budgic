@@ -356,66 +356,39 @@
 		}
 	};
 
-	// Format amount with proper styling and dynamic font sizing
+	// Format amount with proper styling — design system rules:
+	// Income = sage green, Expense = foreground (NOT coral), Transfer = info
 	const amountInfo = $derived(() => {
-		const balanceImpact = calculateTransactionImpact(transaction);
-		const isPositiveImpact = balanceImpact > 0;
-		
 		let textClass = '';
-		let glowClass = '';
 		
-		// Color based on transaction type (not the sign)
 		if (transaction.type === 'income') {
-			textClass = 'text-[var(--color-golden-amber)]';
-			glowClass = 'drop-shadow-[0_0_1px_var(--color-golden-amber)]';
+			textClass = 'text-[var(--color-sage-green)]';
 		} else if (transaction.type === 'expense') {
-			textClass = 'text-[var(--color-warm-coral)]';
-			glowClass = 'drop-shadow-[0_0_1px_var(--color-alert)]';
+			textClass = 'text-foreground'; // expenses are normal, not alarming
 		} else {
-			// For transfer and adjustment, use impact-based color
-			if (isPositiveImpact) {
-				textClass = 'text-[var(--color-golden-amber)]';
-				glowClass = 'drop-shadow-[0_0_1px_var(--color-golden-amber)]';
-			} else {
-				textClass = 'text-[var(--color-warm-coral)]';
-				glowClass = 'drop-shadow-[0_0_1px_var(--color-alert)]';
-			}
+			// Transfer and adjustment: use info color (neutral movement)
+			textClass = 'text-[var(--color-info)]';
 		}
 		
-		// Adjust opacity for planned transactions
+		// Soften planned transactions
 		if (transaction.status === 'planned') {
-			textClass += ' opacity-80';
-			glowClass = ''; // Remove glow for planned transactions
+			textClass += ' opacity-70';
 		}
 		
 		// Format amount with correct sign based on transaction type
 		const rawAmount = displayAmount();
 		let amountForFormatting = rawAmount;
 		
-		// Apply sign logic:
-		// Income: keep sign as-is (100 → +100, -100 → -100)
-		// Expense: flip sign (100 → -100, -100 → +100)
 		if (transaction.type === 'expense') {
 			amountForFormatting = -rawAmount;
 		}
-		// For income, transfer, and adjustment, keep the sign as-is
 		
-		// Format amount with proper currency symbol and decimal places
 		const formattedAmount = formatTransactionAmount(amountForFormatting, displayCurrency(), true);
-		
-		// Dynamic font sizing based on amount length
-		let fontSizeClass = 'text-lg'; // Default for medium amounts (9-12 chars)
-		const amountLength = formattedAmount.length;
-		if (amountLength <= 8) {
-			fontSizeClass = 'text-xl'; // Larger for small amounts
-		} else if (amountLength >= 13) {
-			fontSizeClass = 'text-base'; // Smaller for large amounts
-		}
 		
 		return {
 			text: formattedAmount,
-			class: `${textClass} ${glowClass}`.trim(),
-			fontSize: fontSizeClass,
+			class: textClass,
+			fontSize: '', // unused — amount class handles sizing
 			isIncome: transaction.type === 'income'
 		};
 	});
@@ -660,10 +633,10 @@
 					
 					<!-- Right Column: Amount + Fee (Flexible) -->
 					<div class="flex-shrink-0 text-right flex flex-col items-end">
-						<!-- Transfer amount -->
-						<div class="font-bold {amountInfo().fontSize} text-info tracking-tight">
-							{formatTransferAmount(displayAmount(), displayCurrency())}
-						</div>
+					<!-- Transfer amount -->
+					<div class="text-amount text-[var(--color-info)]">
+						{formatTransferAmount(displayAmount(), displayCurrency())}
+					</div>
 						
 						<!-- Fee badge -->
 						{#if transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
@@ -735,12 +708,12 @@
 							</div>
 						</div>
 						
-						<!-- Right Column: Amount (Flexible) -->
-						<div class="flex-shrink-0 text-right">
-							<div class="font-bold {amountInfo().fontSize} {amountInfo().class} tracking-tight">
-								{amountInfo().text}
-							</div>
+					<!-- Right Column: Amount (Flexible) -->
+					<div class="flex-shrink-0 text-right">
+						<div class="text-amount {amountInfo().class}">
+							{amountInfo().text}
 						</div>
+					</div>
 					</div>
 				</button>
 				
@@ -789,7 +762,7 @@
 									{/if}
 								</div>
 								<div class="text-right ml-3">
-									<div class="font-semibold text-sm {(groupTransaction.amount ?? 0) >= 0 ? 'text-[var(--color-golden-amber)]' : 'text-[var(--color-warm-coral)]'}">
+									<div class="text-amount {groupTransaction.type === 'income' ? 'text-[var(--color-sage-green)]' : 'text-foreground'}">
 										{formatTransactionAmount(groupTransaction.amount, groupTransaction.currency, true)}
 									</div>
 								</div>
@@ -889,10 +862,10 @@
 					
 					<!-- Right Column: Amount + Fee (Flexible) -->
 					<div class="flex-shrink-0 text-right flex flex-col items-end">
-						<!-- Amount with dynamic font sizing -->
-						<div class="font-bold {amountInfo().fontSize} {amountInfo().class} tracking-tight">
-							{amountInfo().text}
-						</div>
+					<!-- Amount -->
+					<div class="text-amount {amountInfo().class}">
+						{amountInfo().text}
+					</div>
 						
 						<!-- Fee badge (if applicable) -->
 						{#if isTransfer() && transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}

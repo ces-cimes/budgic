@@ -2,13 +2,7 @@
   import { goto } from '$app/navigation';
   import { PageLayout } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
-  import * as Card from '$lib/components/ui/card/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
-  import * as Input from '$lib/components/ui/input/index.ts';
-  import * as Label from '$lib/components/ui/label/index.ts';
-  import * as Textarea from '$lib/components/ui/textarea/index.ts';
   import * as Select from '$lib/components/ui/select/index.ts';
-  import { ArrowLeft, Save } from '@lucide/svelte';
   import { goalsService } from '$lib/core/services';
   import type { CreateGoalRequest, GoalCategory, GoalPriority } from '$lib/components/goals/types';
 
@@ -32,26 +26,26 @@
   });
 
   // Goal categories
-  const goalCategories: { value: GoalCategory; label: string; icon: string }[] = [
-    { value: 'emergency_fund', label: 'Emergency Fund', icon: '🛡️' },
-    { value: 'vacation', label: 'Vacation', icon: '✈️' },
-    { value: 'house_down_payment', label: 'House Down Payment', icon: '🏠' },
-    { value: 'car_purchase', label: 'Car Purchase', icon: '🚗' },
-    { value: 'education', label: 'Education', icon: '🎓' },
-    { value: 'retirement', label: 'Retirement', icon: '💰' },
-    { value: 'debt_payoff', label: 'Debt Payoff', icon: '💳' },
-    { value: 'investment', label: 'Investment', icon: '📈' },
-    { value: 'wedding', label: 'Wedding', icon: '💍' },
-    { value: 'home_improvement', label: 'Home Improvement', icon: '🔨' },
-    { value: 'other', label: 'Other', icon: '🎯' }
+  const goalCategories: { value: GoalCategory; label: string }[] = [
+    { value: 'emergency_fund', label: 'Emergency fund' },
+    { value: 'vacation', label: 'Vacation' },
+    { value: 'house_down_payment', label: 'House down payment' },
+    { value: 'car_purchase', label: 'Car purchase' },
+    { value: 'education', label: 'Education' },
+    { value: 'retirement', label: 'Retirement' },
+    { value: 'debt_payoff', label: 'Debt payoff' },
+    { value: 'investment', label: 'Investment' },
+    { value: 'wedding', label: 'Wedding' },
+    { value: 'home_improvement', label: 'Home improvement' },
+    { value: 'other', label: 'Other' }
   ];
 
   // Goal priorities
-  const goalPriorities: { value: GoalPriority; label: string; color: string }[] = [
-    { value: 'low', label: 'Low', color: 'text-blue-600' },
-    { value: 'medium', label: 'Medium', color: 'text-yellow-600' },
-    { value: 'high', label: 'High', color: 'text-orange-600' },
-    { value: 'critical', label: 'Critical', color: 'text-red-600' }
+  const goalPriorities: { value: GoalPriority; label: string }[] = [
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'high', label: 'High' },
+    { value: 'critical', label: 'Critical' }
   ];
 
   // Currencies
@@ -101,206 +95,171 @@
 </script>
 
 <svelte:head>
-  <title>Add Goal | Budgic</title>
+  <title>New goal | Budgic</title>
 </svelte:head>
 
 <PageLayout>
   {#snippet topBar()}
-    <Header 
-      title="Add Goal" 
-      variant="default"
-      buttonProps={[
-        {
-          onclick: handleCancel,
-          size: "sm",
-          icon: ArrowLeft,
-          variant: "ghost"
-        }
-      ]}
+    <Header
+      title="New goal"
+      backButtonLabel="Back to plan"
+      backButtonLink="/plan"
     />
   {/snippet}
 
-  {#snippet children()}
-    <div class="p-6 max-w-2xl mx-auto">
-      {#if success}
-        <Card.Root class="mb-6">
-          <Card.Content class="p-6 text-center">
-            <div class="text-green-600 text-6xl mb-4">✅</div>
-            <h3 class="text-xl font-semibold text-primary mb-2">Goal Created Successfully!</h3>
-            <p class="text-muted-foreground">Redirecting to goals page...</p>
-          </Card.Content>
-        </Card.Root>
-      {:else}
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Create New Goal</Card.Title>
-            <Card.Description>
-              Set up a new financial goal to track your progress and stay motivated.
-            </Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-6">
-            {#if error}
-              <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p class="text-red-800 dark:text-red-200 text-sm">{error}</p>
-              </div>
-            {/if}
-
-            <form onsubmit={handleSubmit} class="space-y-6">
-              <!-- Goal Name -->
-              <div class="space-y-2">
-                <Label.Root for="name">Goal Name *</Label.Root>
-                <Input.Root
-                  id="name"
-                  bind:value={formData.name}
-                  placeholder="e.g., Emergency Fund, Vacation to Europe"
-                  required
-                />
-              </div>
-
-              <!-- Description -->
-              <div class="space-y-2">
-                <Label.Root for="description">Description</Label.Root>
-                <Textarea.Root
-                  id="description"
-                  bind:value={formData.description}
-                  placeholder="Optional description of your goal..."
-                  rows={3}
-                />
-              </div>
-
-              <!-- Target Amount and Currency -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="space-y-2">
-                  <Label.Root for="targetAmount">Target Amount *</Label.Root>
-                  <Input.Root
-                    id="targetAmount"
-                    type="number"
-                    bind:value={formData.targetAmount}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                <div class="space-y-2">
-                  <Label.Root for="currency">Currency</Label.Root>
-                  <Select.Root type="single" bind:value={formData.currency}>
-                    <Select.Trigger>
-                      {formData.currency ? currencies.find(c => c.value === formData.currency)?.label : "Select currency"}
-                    </Select.Trigger>
-                    <Select.Content>
-                      {#each currencies as currency}
-                        <Select.Item value={currency.value}>{currency.label}</Select.Item>
-                      {/each}
-                    </Select.Content>
-                  </Select.Root>
-                </div>
-              </div>
-
-              <!-- Category and Priority -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="space-y-2">
-                  <Label.Root for="category">Category</Label.Root>
-                  <Select.Root type="single" bind:value={formData.category}>
-                    <Select.Trigger>
-                      {formData.category ? goalCategories.find(c => c.value === formData.category)?.label : "Select category"}
-                    </Select.Trigger>
-                    <Select.Content>
-                      {#each goalCategories as category}
-                        <Select.Item value={category.value}>
-                          <span class="flex items-center gap-2">
-                            <span>{category.icon}</span>
-                            <span>{category.label}</span>
-                          </span>
-                        </Select.Item>
-                      {/each}
-                    </Select.Content>
-                  </Select.Root>
-                </div>
-                <div class="space-y-2">
-                  <Label.Root for="priority">Priority</Label.Root>
-                  <Select.Root type="single" bind:value={formData.priority}>
-                    <Select.Trigger>
-                      {formData.priority ? goalPriorities.find(p => p.value === formData.priority)?.label : "Select priority"}
-                    </Select.Trigger>
-                    <Select.Content>
-                      {#each goalPriorities as priority}
-                        <Select.Item value={priority.value}>
-                          <span class="flex items-center gap-2">
-                            <span class={priority.color}>●</span>
-                            <span>{priority.label}</span>
-                          </span>
-                        </Select.Item>
-                      {/each}
-                    </Select.Content>
-                  </Select.Root>
-                </div>
-              </div>
-
-              <!-- Target Date -->
-              <div class="space-y-2">
-                <Label.Root for="targetDate">Target Date</Label.Root>
-                <Input.Root
-                  id="targetDate"
-                  type="date"
-                  bind:value={formData.targetDate}
-                />
-                <p class="text-sm text-muted-foreground">Optional: When you want to achieve this goal</p>
-              </div>
-
-              <!-- Monthly Contribution -->
-              <div class="space-y-2">
-                <Label.Root for="monthlyContribution">Monthly Contribution</Label.Root>
-                <Input.Root
-                  id="monthlyContribution"
-                  type="number"
-                  bind:value={formData.monthlyContribution}
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                />
-                <p class="text-sm text-muted-foreground">Optional: How much you plan to contribute monthly</p>
-              </div>
-
-              <!-- Recurring Goal -->
-              <div class="flex items-center space-x-2">
-                <input
-                  id="isRecurring"
-                  type="checkbox"
-                  bind:checked={formData.isRecurring}
-                  class="rounded border-gray-300"
-                />
-                <Label.Root for="isRecurring">This is a recurring goal</Label.Root>
-              </div>
-
-              <!-- Action Buttons -->
-              <div class="flex gap-3 pt-4">
-                <Button.Root
-                  type="submit"
-                  disabled={isLoading}
-                  class="flex-1"
-                >
-                  {#if isLoading}
-                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Creating...
-                  {:else}
-                    <Save class="h-4 w-4 mr-2" />
-                    Create Goal
-                  {/if}
-                </Button.Root>
-                <Button.Root
-                  type="button"
-                  variant="outline"
-                  onclick={handleCancel}
-                  disabled={isLoading}
-                >
-                  Cancel
-                </Button.Root>
-              </div>
-            </form>
-          </Card.Content>
-        </Card.Root>
+  <div class="mx-auto max-w-2xl px-4 py-6">
+    {#if success}
+      <div class="rounded-2xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 p-8 text-center">
+        <p class="text-sm font-medium text-[var(--color-sage-green)]">Goal created. Redirecting…</p>
+      </div>
+    {:else}
+      {#if error}
+        <div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+        </div>
       {/if}
-    </div>
-  {/snippet}
+
+      <form onsubmit={handleSubmit} class="space-y-6">
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+          <div class="px-5 py-2.5">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Goal details</h2>
+          </div>
+
+          <div class="px-5 py-4 space-y-1.5">
+            <label for="goal-name" class="text-sm font-medium text-[var(--color-text-primary)]">Name</label>
+            <input
+              id="goal-name"
+              bind:value={formData.name}
+              placeholder="e.g., Emergency fund, Europe trip"
+              required
+              class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+            />
+          </div>
+
+          <div class="px-5 py-4 space-y-1.5">
+            <label for="goal-description" class="text-sm font-medium text-[var(--color-text-primary)]">Description <span class="text-[var(--color-text-tertiary)]">(optional)</span></label>
+            <textarea
+              id="goal-description"
+              bind:value={formData.description}
+              placeholder="Why this goal matters…"
+              rows="2"
+              class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] resize-none outline-none focus:border-[var(--color-amber)]"
+            ></textarea>
+          </div>
+
+          <div class="grid grid-cols-2 gap-0 divide-x divide-border">
+            <div class="px-5 py-4 space-y-1.5">
+              <label for="goal-amount" class="text-sm font-medium text-[var(--color-text-primary)]">Target amount</label>
+              <input
+                id="goal-amount"
+                type="number"
+                bind:value={formData.targetAmount}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                required
+                class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+              />
+            </div>
+            <div class="px-5 py-4 space-y-1.5">
+              <label for="goal-currency" class="text-sm font-medium text-[var(--color-text-primary)]">Currency</label>
+              <Select.Root type="single" bind:value={formData.currency}>
+                <Select.Trigger id="goal-currency" class="w-full">
+                  {formData.currency}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each currencies as curr}
+                    <Select.Item value={curr.value}>{curr.label}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-0 divide-x divide-border">
+            <div class="px-5 py-4 space-y-1.5">
+              <label for="goal-category" class="text-sm font-medium text-[var(--color-text-primary)]">Category</label>
+              <Select.Root type="single" bind:value={formData.category}>
+                <Select.Trigger id="goal-category" class="w-full">
+                  {goalCategories.find(c => c.value === formData.category)?.label || 'Select'}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each goalCategories as cat}
+                    <Select.Item value={cat.value}>{cat.label}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+            <div class="px-5 py-4 space-y-1.5">
+              <label for="goal-priority" class="text-sm font-medium text-[var(--color-text-primary)]">Priority</label>
+              <Select.Root type="single" bind:value={formData.priority}>
+                <Select.Trigger id="goal-priority" class="w-full">
+                  {goalPriorities.find(p => p.value === formData.priority)?.label || 'Select'}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each goalPriorities as pri}
+                    <Select.Item value={pri.value}>{pri.label}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-0 divide-x divide-border">
+            <div class="px-5 py-4 space-y-1.5">
+              <label for="goal-date" class="text-sm font-medium text-[var(--color-text-primary)]">Target date <span class="text-[var(--color-text-tertiary)]">(optional)</span></label>
+              <input
+                id="goal-date"
+                type="date"
+                bind:value={formData.targetDate}
+                class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+              />
+            </div>
+            <div class="px-5 py-4 space-y-1.5">
+              <label for="goal-monthly" class="text-sm font-medium text-[var(--color-text-primary)]">Monthly contribution</label>
+              <input
+                id="goal-monthly"
+                type="number"
+                bind:value={formData.monthlyContribution}
+                placeholder="0.00"
+                min="0"
+                step="0.01"
+                class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between px-5 py-4">
+            <p class="text-sm font-medium text-[var(--color-text-primary)]">Recurring goal</p>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                id="isRecurring"
+                type="checkbox"
+                bind:checked={formData.isRecurring}
+                class="rounded accent-[var(--color-amber)]"
+              />
+            </label>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            type="submit"
+            disabled={isLoading}
+            class="flex-1 rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+          >
+            {isLoading ? 'Creating…' : 'Create goal'}
+          </button>
+          <button
+            type="button"
+            onclick={handleCancel}
+            disabled={isLoading}
+            class="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    {/if}
+  </div>
 </PageLayout>

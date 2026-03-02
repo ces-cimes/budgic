@@ -195,7 +195,7 @@
 	{/snippet}
 
 	{#snippet children()}
-		<div class="container mx-auto h-full p-2 sm:p-4 max-w-4xl">
+		<div class="mx-auto h-full max-w-4xl">
 			<TabContentWrapper
 				tabs={planTabs}
 				activeTab={activeTab}
@@ -204,133 +204,103 @@
 			>
 				{#snippet children()}
 					<TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
-						<div class="space-y-6 p-4">
-							<Card.Root class="border-border">
-								<Card.Header>
-									<Card.Title class="text-lg">Financial summary</Card.Title>
-								</Card.Header>
-								<Card.Content class="space-y-4">
-									<div class="grid grid-cols-2 gap-4">
-										<div class="text-center">
-											<div class="text-success text-2xl font-bold">
-												{formatTransactionAmount(totalPlannedIncome, userCurrency)}
-											</div>
-											<div class="text-muted-foreground text-sm">Planned income</div>
+						<div class="space-y-5 px-4 py-5">
+							<!-- Financial summary -->
+							<div class="rounded-2xl bg-[var(--color-bg-tertiary)] border border-border p-5">
+								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Financial summary</h2>
+								<div class="grid grid-cols-2 gap-4 mb-4">
+									<div class="text-center">
+										<div class="text-hero-sm text-[var(--color-sage-green)]">
+											{formatTransactionAmount(totalPlannedIncome, userCurrency)}
 										</div>
-										<div class="text-center">
-											<div class="text-destructive text-2xl font-bold">
-												{formatTransactionAmount(totalPlannedExpenses, userCurrency)}
-											</div>
-											<div class="text-muted-foreground text-sm">Planned expenses</div>
-										</div>
+										<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-1">Income</div>
 									</div>
 									<div class="text-center">
-										<div class="flex items-center justify-center gap-2">
-											{#if netProjectedChange >= 0}
-												<TrendingUp class="text-success" size={20} />
-												<div class="text-success text-xl font-bold">
-													+{formatTransactionAmount(netProjectedChange, userCurrency)}
-												</div>
-											{:else}
-												<TrendingDown class="text-destructive" size={20} />
-												<div class="text-destructive text-xl font-bold">
-													{formatTransactionAmount(netProjectedChange, userCurrency)}
-												</div>
-											{/if}
+										<div class="text-hero-sm text-[var(--color-warm-coral)]">
+											{formatTransactionAmount(totalPlannedExpenses, userCurrency)}
 										</div>
-										<div class="text-muted-foreground text-sm">Net projected change</div>
+										<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-1">Expenses</div>
 									</div>
-								</Card.Content>
-							</Card.Root>
-							<BudgetTab
-								userCurrency={userCurrency}
-								selectedAccountId={selectedAccountId}
-								planningData={planningData}
-								onSetGoal={() => goto('/goals/add')}
-							/>
+								</div>
+								<div class="border-t border-border pt-4 text-center">
+									<div class="flex items-center justify-center gap-2">
+										{#if netProjectedChange >= 0}
+											<TrendingUp class="size-4 text-[var(--color-amber)]" />
+											<span class="text-hero-sm text-[var(--color-amber)]">+{formatTransactionAmount(netProjectedChange, userCurrency)}</span>
+										{:else}
+											<TrendingDown class="size-4 text-[var(--color-warm-coral)]" />
+											<span class="text-hero-sm text-[var(--color-warm-coral)]">{formatTransactionAmount(netProjectedChange, userCurrency)}</span>
+										{/if}
+									</div>
+									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-1">Net projected</p>
+								</div>
+							</div>
+							<BudgetTab userCurrency={userCurrency} selectedAccountId={selectedAccountId} planningData={planningData} onSetGoal={() => goto('/goals/add')} />
 							<PlanRulesSummary />
 						</div>
 					</TabContent>
 
 					<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
-						<div class="space-y-6 p-4">
+						<div class="space-y-5 px-4 py-5">
 							{#if enhancedAllowance}
-								<div class="bg-card border-border rounded-xl border p-6 shadow-sm space-y-4">
-									<h2 class="text-primary text-xl font-semibold">Spending allowance</h2>
-									<AllowanceVisualization
-										allowance={enhancedAllowance}
-										showDetails={true}
-										showRecommendations={true}
-										negativeStatus={negativeAllowanceStatus}
-										recoverySuggestions={recoverySuggestions}
-									/>
+								<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-5 space-y-4">
+									<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
 									<PlanRulesSummary />
 								</div>
 							{:else if dailyAllowance}
-								<Card.Root class="border-border">
-									<Card.Header>
-										<Card.Title class="text-primary text-lg">Daily allowance</Card.Title>
-									</Card.Header>
-									<Card.Content>
-										<div class="text-primary text-3xl font-bold">
-											{formatTransactionAmount(dailyAllowance.amount, userCurrency)}
-										</div>
-										<div class="text-muted-foreground text-sm">
-											{dailyAllowance.daysRemaining} days remaining
-										</div>
-									</Card.Content>
-								</Card.Root>
+								<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-5">
+									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">Daily allowance</p>
+									<div class="text-hero-sm">{formatTransactionAmount(dailyAllowance.amount, userCurrency)}</div>
+									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{dailyAllowance.daysRemaining} days remaining</p>
+								</div>
 							{:else}
-								<div class="text-muted-foreground rounded-xl border border-border bg-card p-6 text-center">
-									No allowance data. Add accounts and budget categories to see your safe-to-spend.
+								<div class="flex flex-col items-center py-12 text-center">
+									<p class="text-sm text-[var(--color-text-secondary)]">No allowance data yet.</p>
+									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">Add accounts and budget categories to see your safe-to-spend.</p>
 								</div>
 							{/if}
-							<Button variant="outline" onclick={() => goto('/settings')}>
-								<Settings class="mr-2 h-4 w-4" />
+							<Button variant="ghost" size="sm" onclick={() => goto('/settings/plan')} class="text-[var(--color-text-tertiary)]">
+								<Settings class="mr-2 size-3.5" />
 								Budget & allowance settings
 							</Button>
 						</div>
 					</TabContent>
 
 					<TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
-						<div class="p-4">
-							<div class="mb-4 flex gap-2">
+						<div class="px-4 py-5">
+							<!-- Goals sub-tabs — pill style -->
+							<div class="flex items-center gap-1 mb-5">
 								{#each goalsSubTabs as t}
-									<Button
-										variant={goalsSubTab === t.id ? 'default' : 'outline'}
-										size="sm"
+									<button
+										type="button"
 										onclick={() => handleGoalsSubTabChange(t.id)}
+										class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors
+											{goalsSubTab === t.id
+												? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
+												: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
 									>
 										{t.label}
-									</Button>
+									</button>
 								{/each}
+								<div class="ml-auto">
+									<Button variant="ghost" size="sm" onclick={() => goto('/goals/add')} class="text-[var(--color-amber)] gap-1.5">
+										<Plus class="size-3.5" />
+										Add goal
+									</Button>
+								</div>
 							</div>
 							{#if goalsSubTab === 'overview'}
-								<GoalsOverviewTab
-									goalsData={goalsData}
-									activeGoals={activeGoals}
-									completedGoals={completedGoals}
-									userCurrency={userCurrency}
-									onGoalAction={handleGoalAction}
-								/>
+								<GoalsOverviewTab goalsData={goalsData} activeGoals={activeGoals} completedGoals={completedGoals} userCurrency={userCurrency} onGoalAction={handleGoalAction} />
 							{:else if goalsSubTab === 'active'}
-								<GoalsActiveTab
-									activeGoals={activeGoals}
-									userCurrency={userCurrency}
-									onGoalAction={handleGoalAction}
-								/>
+								<GoalsActiveTab activeGoals={activeGoals} userCurrency={userCurrency} onGoalAction={handleGoalAction} />
 							{:else}
-								<GoalsCompletedTab
-									completedGoals={completedGoals}
-									userCurrency={userCurrency}
-									onGoalAction={handleGoalAction}
-								/>
+								<GoalsCompletedTab completedGoals={completedGoals} userCurrency={userCurrency} onGoalAction={handleGoalAction} />
 							{/if}
 						</div>
 					</TabContent>
 
 					<TabContent tabId="categories" isActive={activeTab === 'categories'} tabs={planTabs}>
-						<div class="p-4">
+						<div class="px-4 py-5">
 							<CategoriesTabContent />
 						</div>
 					</TabContent>

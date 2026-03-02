@@ -593,70 +593,96 @@
 			title={pageTitle}
 			showBackButton={true}
 			backButtonLink="/transactions"
-			backButtonLabel="Back to Transactions"
+			backButtonLabel="Back to transactions"
 		/>
 	{/snippet}
 
-	<div class="container mx-auto max-w-2xl px-4 py-4 md:py-6">
+	<div class="mx-auto max-w-2xl px-4 py-6">
 		<FormErrorAlert error={error || null} />
 
-		<!-- Transaction Form -->
-		<section class="mb-6">
-			<form id="transaction-form" onsubmit={handleSubmit} class="space-y-4">
-				<!-- Transaction Type and Status - Always Visible -->
-				<div class="mb-6 space-y-4">
-					<!-- Transaction Type -->
-					<div class="space-y-2">
-						<Label.Root>Transaction Type *</Label.Root>
-						<ToggleGroup.Root
-							type="single"
-							size="sm"
-							variant="outline"
-							bind:value={transactionType}
-							class="w-full"
-						>
-							<ToggleGroup.Item value="expense" aria-label="Expense" class="flex-1">
-								Expense
-							</ToggleGroup.Item>
-							<ToggleGroup.Item value="income" aria-label="Income" class="flex-1">
-								Income
-							</ToggleGroup.Item>
-							<ToggleGroup.Item value="transfer" aria-label="Transfer" class="flex-1">
-								Transfer
-							</ToggleGroup.Item>
-							<ToggleGroup.Item value="adjustment" aria-label="Adjustment" class="flex-1">
-								Adjustment
-							</ToggleGroup.Item>
-						</ToggleGroup.Root>
-					</div>
+		<form id="transaction-form" onsubmit={handleSubmit} class="space-y-8">
 
-					<!-- Transaction Status -->
-					<div class="space-y-2">
-						<Label.Root>Transaction Status *</Label.Root>
-						<ToggleGroup.Root
-							type="single"
-							size="sm"
-							variant="outline"
-							bind:value={status}
-							class="w-full"
-						>
-							<ToggleGroup.Item value="cleared" aria-label="Cleared" class="flex-1">
-								Cleared
-							</ToggleGroup.Item>
-							<ToggleGroup.Item value="planned" aria-label="Planned" class="flex-1">
-								Planned
-							</ToggleGroup.Item>
-							<ToggleGroup.Item value="pending" aria-label="Pending" class="flex-1">
-								Pending
-							</ToggleGroup.Item>
-						</ToggleGroup.Root>
-					</div>
+			<!-- ── Amount (hero of the form) ── -->
+			<div class="flex flex-col items-center gap-3 py-4">
+				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Amount</h2>
+				<div class="relative flex items-center gap-2">
+					<button
+						type="button"
+						bind:this={currencyButtonRef}
+						onclick={() => (showCurrencySheet = true)}
+						class="flex items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--color-bg-surface)]"
+						aria-label="Change currency"
+					>
+						<span class="font-display text-2xl text-[var(--color-text-secondary)]">{currencySymbol()}</span>
+						<ChevronDown class="size-3.5 text-[var(--color-text-tertiary)]" />
+					</button>
+					<input
+						id="amount"
+						type="number"
+						bind:value={amount}
+						placeholder="0.00"
+						step={(() => {
+							const info = currentCurrencyInfo();
+							if (!info) return '0.01';
+							const decimals = info.decimalPlaces;
+							if (decimals === 0) return '1';
+							if (decimals === 1) return '0.1';
+							if (decimals === 2) return '0.01';
+							return `0.${'0'.repeat(decimals - 1)}1`;
+						})()}
+						required
+						onfocus={handleInputFocus}
+						class="w-48 border-0 border-b-2 border-[var(--color-amber)] bg-transparent text-center font-display text-4xl text-[var(--color-hero-number)] outline-none placeholder:text-[var(--color-text-disabled)] focus:border-[var(--color-amber)]"
+					/>
+				</div>
+			</div>
+
+			<!-- ── Type & status ── -->
+			<div class="space-y-5">
+				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Type</h2>
+				<ToggleGroup.Root
+					type="single"
+					size="sm"
+					variant="outline"
+					bind:value={transactionType}
+					class="w-full"
+				>
+					<ToggleGroup.Item value="expense" aria-label="Expense" class="flex-1">Expense</ToggleGroup.Item>
+					<ToggleGroup.Item value="income" aria-label="Income" class="flex-1">Income</ToggleGroup.Item>
+					<ToggleGroup.Item value="transfer" aria-label="Transfer" class="flex-1">Transfer</ToggleGroup.Item>
+					<ToggleGroup.Item value="adjustment" aria-label="Adjustment" class="flex-1">Adjustment</ToggleGroup.Item>
+				</ToggleGroup.Root>
+
+				<ToggleGroup.Root
+					type="single"
+					size="sm"
+					variant="outline"
+					bind:value={status}
+					class="w-full"
+				>
+					<ToggleGroup.Item value="cleared" aria-label="Cleared" class="flex-1">Cleared</ToggleGroup.Item>
+					<ToggleGroup.Item value="planned" aria-label="Planned" class="flex-1">Planned</ToggleGroup.Item>
+					<ToggleGroup.Item value="pending" aria-label="Pending" class="flex-1">Pending</ToggleGroup.Item>
+				</ToggleGroup.Root>
+			</div>
+
+			<!-- ── Details ── -->
+			<div class="space-y-4">
+				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Details</h2>
+
+				<div class="space-y-2">
+					<Label.Root for="description">Description *</Label.Root>
+					<Input.Root
+						id="description"
+						bind:value={description}
+						placeholder="e.g., Grocery shopping, Salary deposit"
+						required
+						onfocus={handleInputFocus}
+					/>
 				</div>
 
-				<!-- Main Form Fields -->
-				<FormFieldGrid>
-					<!-- Account Selection -->
-					<Label.Root for="account" class="">
+				<div class="space-y-2">
+					<Label.Root for="account">
 						Account {status === 'planned' && transactionType !== 'transfer' ? '' : '*'}
 					</Label.Root>
 					<Select.Root
@@ -672,11 +698,9 @@
 									: 'Select an account'}
 						</Select.Trigger>
 						<Select.Content>
-							<Select.Item value=""
-								>{status === 'planned' && transactionType !== 'transfer'
-									? 'No account (optional)'
-									: 'Select an account'}</Select.Item
-							>
+							<Select.Item value="">
+								{status === 'planned' && transactionType !== 'transfer' ? 'No account (optional)' : 'Select an account'}
+							</Select.Item>
 							{#each accounts as account}
 								<Select.Item value={account.id}>
 									{account.name} (${account.currentBalance.toFixed(2)})
@@ -684,52 +708,53 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+				</div>
 
-					<!-- Description -->
-					<Label.Root for="description" class="">Description *</Label.Root>
-					<Input.Root
-						id="description"
-						bind:value={description}
-						placeholder="e.g., Grocery shopping, Salary deposit"
-						required
-						onfocus={handleInputFocus}
-					/>
+				<div class="space-y-2">
+					<Label.Root for="transactionDate">{dateLabel()}</Label.Root>
+					{#if status === 'cleared'}
+						<Input.Root id="transactionDate" type="datetime-local" bind:value={clearedDate} required onfocus={handleInputFocus} />
+					{:else if status === 'planned'}
+						<Input.Root id="transactionDate" type="datetime-local" bind:value={plannedDate} required onfocus={handleInputFocus} />
+					{:else}
+						<Input.Root id="transactionDate" type="datetime-local" bind:value={clearedDate} onfocus={handleInputFocus} />
+					{/if}
+				</div>
 
-					<!-- Amount -->
-					<Label.Root for="amount" class="">Amount *</Label.Root>
-					<div class="relative flex flex-1 items-center">
-						<button
-							type="button"
-							bind:this={currencyButtonRef}
-							onclick={() => (showCurrencySheet = true)}
-							class="hover:bg-secondary absolute top-1/2 left-2 z-10 flex -translate-y-1/2 transform items-center gap-1 rounded-md px-2 py-1 transition-colors"
-							aria-label="Change currency"
-						>
-							<span class="text-primary text-sm font-medium">{currencySymbol()}</span>
-							<ChevronDown class="text-muted-foreground h-3 w-3" />
-						</button>
-						<Input.Root
-							id="amount"
-							type="number"
-							bind:value={amount}
-							placeholder="0.00"
-							step={(() => {
-								const info = currentCurrencyInfo();
-								if (!info) return '0.01';
-								const decimals = info.decimalPlaces;
-								if (decimals === 0) return '1';
-								if (decimals === 1) return '0.1';
-								if (decimals === 2) return '0.01';
-								return `0.${'0'.repeat(decimals - 1)}1`;
-							})()}
-							style="padding-left: {currencyButtonPadding}px;"
-							required
-							onfocus={handleInputFocus}
-						/>
+				{#if status === 'planned' || status === 'cleared'}
+					<div class="flex items-center justify-between rounded-xl bg-[var(--color-bg-tertiary)] px-4 py-3">
+						<div>
+							<p class="text-sm font-medium">Recurring</p>
+							{#if isRecurring}
+								<p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Set frequency below</p>
+							{/if}
+						</div>
+						<Switch.Root bind:checked={isRecurring} />
 					</div>
+					{#if isRecurring}
+						<Select.Root type="single" bind:value={recurrenceRule}>
+							<Select.Trigger class="w-full">
+								{recurrenceRule || 'Select frequency'}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="daily">Daily</Select.Item>
+								<Select.Item value="weekly">Weekly</Select.Item>
+								<Select.Item value="biweekly">Bi-weekly</Select.Item>
+								<Select.Item value="monthly">Monthly</Select.Item>
+								<Select.Item value="quarterly">Quarterly</Select.Item>
+								<Select.Item value="yearly">Yearly</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					{/if}
+				{/if}
+			</div>
 
-					<!-- Category -->
-					<Label.Root for="category" class="">Category</Label.Root>
+			<!-- ── Category ── -->
+			<div class="space-y-4">
+				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Category</h2>
+
+				<div class="space-y-2">
+					<Label.Root for="category">Category</Label.Root>
 					<Select.Root type="single" bind:value={selectedCategory}>
 						<Select.Trigger class="w-full">
 							{selectedCategory
@@ -745,377 +770,159 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+				</div>
 
-					<!-- Uncategorized prompt for expenses -->
-					{#if transactionType === 'expense' && !selectedCategory}
-						<div></div>
-						<Alert.Root variant="default" class="border-warning/20 bg-warning/5">
-							<Alert.Title class="flex items-center gap-2">
-								<Tag class="h-4 w-4" />
-								Uncategorized Transaction
-							</Alert.Title>
-							<Alert.Description>
-								This expense will be automatically assigned to "Uncategorized". Consider selecting a
-								category for better budget tracking and analytics.
-							</Alert.Description>
-						</Alert.Root>
-					{/if}
+				{#if transactionType === 'expense' && !selectedCategory}
+					<div class="flex items-center gap-3 rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3">
+						<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
+						<p class="text-sm text-[var(--color-text-secondary)]">
+							This expense will be assigned to "Uncategorized". Add a category for better tracking.
+						</p>
+					</div>
+				{/if}
 
-					<!-- Transfer Destination (only for transfers) -->
-					{#if transactionType === 'transfer'}
-						<Label.Root for="toAccount" class="">Destination Account *</Label.Root>
+				{#if transactionType === 'transfer'}
+					<div class="space-y-2">
+						<Label.Root for="toAccount">Destination account *</Label.Root>
 						<Select.Root type="single" bind:value={toAccountId} required>
-							<Select.Trigger>
-								{toAccountId
-									? accounts.find((a) => a.id === toAccountId)?.name
-									: 'Select destination account'}
+							<Select.Trigger class="w-full">
+								{toAccountId ? accounts.find((a) => a.id === toAccountId)?.name : 'Select destination account'}
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Item value="">Select destination account</Select.Item>
 								{#each accounts as account}
-									<Select.Item value={account.id}>
-										{account.name} (${account.currentBalance.toFixed(2)})
-									</Select.Item>
+									<Select.Item value={account.id}>{account.name} (${account.currentBalance.toFixed(2)})</Select.Item>
 								{/each}
 							</Select.Content>
 						</Select.Root>
+					</div>
 
-						<!-- Transfer Fee (simplified) -->
-						{#if hasTransferFee}
-							<div class=" flex items-center justify-between justify-end gap-2">
-								<Label.Root for="transferFee">Transfer Fee</Label.Root>
-								<button
-									type="button"
-									onclick={() => (hasTransferFee = false)}
-									class="text-muted-foreground hover:text-primary text-xs md:hidden"
-								>
+					{#if hasTransferFee}
+						<div class="space-y-2">
+							<div class="flex items-center justify-between">
+								<Label.Root for="feeAmount">Transfer fee</Label.Root>
+								<button type="button" onclick={() => (hasTransferFee = false)} class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
 									Remove
 								</button>
 							</div>
-							<div class="flex-1 space-y-2">
-								<div class="flex hidden items-center justify-end gap-2 md:flex">
-									<button
-										type="button"
-										onclick={() => (hasTransferFee = false)}
-										class="text-muted-foreground hover:text-primary text-xs"
-									>
-										Remove
-									</button>
+							<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
+								<div class="relative">
+									<span class="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-[var(--color-text-tertiary)]">{currencySymbol()}</span>
+									<Input.Root id="feeAmount" type="number" bind:value={transferFeeAmount} placeholder="0.00" step={(() => { const info = currentCurrencyInfo(); if (!info) return '0.01'; const d = info.decimalPlaces; if (d === 0) return '1'; if (d === 1) return '0.1'; if (d === 2) return '0.01'; return `0.${'0'.repeat(d - 1)}1`; })()} class="pl-8" min="0" onfocus={handleInputFocus} />
 								</div>
-								<div class="grid grid-cols-1 gap-2 md:grid-cols-3">
-									<div class="relative">
-										<span
-											class="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 transform text-sm"
-											>{currencySymbol()}</span
-										>
-										<Input.Root
-											id="feeAmount"
-											type="number"
-											bind:value={transferFeeAmount}
-											placeholder="0.00"
-											step={(() => {
-												const info = currentCurrencyInfo();
-												if (!info) return '0.01';
-												const decimals = info.decimalPlaces;
-												if (decimals === 0) return '1';
-												if (decimals === 1) return '0.1';
-												if (decimals === 2) return '0.01';
-												return `0.${'0'.repeat(decimals - 1)}1`;
-											})()}
-											class="pl-8"
-											min="0"
-											onfocus={handleInputFocus}
-										/>
-									</div>
-									<Select.Root type="single" bind:value={transferFeeAccountId}>
-										<Select.Trigger class="text-sm">
-											{transferFeeAccountId
-												? accounts.find((a) => a.id === transferFeeAccountId)?.name
-												: 'Account'}
-										</Select.Trigger>
-										<Select.Content>
-											<Select.Item value="">Source account</Select.Item>
-											{#each accounts as account}
-												<Select.Item value={account.id}>{account.name}</Select.Item>
-											{/each}
-										</Select.Content>
-									</Select.Root>
-									<Select.Root type="single" bind:value={transferFeeCategoryId}>
-										<Select.Trigger class="text-sm">
-											{transferFeeCategoryId
-												? categories.find((c) => c.id === transferFeeCategoryId)?.name
-												: 'Category'}
-										</Select.Trigger>
-										<Select.Content>
-											<Select.Item value="">Default</Select.Item>
-											{#each categories as category}
-												<Select.Item value={category.id}>{category.name}</Select.Item>
-											{/each}
-										</Select.Content>
-									</Select.Root>
-								</div>
-							</div>
-						{:else}
-							<div class="flex-shrink-0"></div>
-							<button
-								type="button"
-								onclick={() => (hasTransferFee = true)}
-								class="text-muted-foreground hover:text-primary text-sm"
-							>
-								+ Add transfer fee
-							</button>
-						{/if}
-					{/if}
-
-					<!-- Consolidated Date Field -->
-					<Label.Root for="transactionDate" class="">{dateLabel()}</Label.Root>
-					{#if status === 'cleared'}
-						<Input.Root
-							id="transactionDate"
-							type="datetime-local"
-							bind:value={clearedDate}
-							required
-							onfocus={handleInputFocus}
-						/>
-					{:else if status === 'planned'}
-						<Input.Root
-							id="transactionDate"
-							type="datetime-local"
-							bind:value={plannedDate}
-							required
-							onfocus={handleInputFocus}
-						/>
-					{:else}
-						<Input.Root
-							id="transactionDate"
-							type="datetime-local"
-							bind:value={clearedDate}
-							onfocus={handleInputFocus}
-						/>
-					{/if}
-
-					<!-- Recurring Transaction (only for planned/cleared) -->
-					{#if status === 'planned' || status === 'cleared'}
-						<Label.Root for="recurring" class="">Recurring</Label.Root>
-						<div class="space-y-2">
-							<div class="flex items-center space-x-2">
-								<Switch.Root bind:checked={isRecurring} />
-								<Label.Root for="recurring" class="font-normal">Recurring transaction</Label.Root>
-							</div>
-
-							{#if isRecurring}
-								<Select.Root type="single" bind:value={recurrenceRule}>
-									<Select.Trigger>
-										{recurrenceRule || 'Select frequency'}
-									</Select.Trigger>
+								<Select.Root type="single" bind:value={transferFeeAccountId}>
+									<Select.Trigger class="text-sm">{transferFeeAccountId ? accounts.find((a) => a.id === transferFeeAccountId)?.name : 'Account'}</Select.Trigger>
 									<Select.Content>
-										<Select.Item value="daily">Daily</Select.Item>
-										<Select.Item value="weekly">Weekly</Select.Item>
-										<Select.Item value="biweekly">Bi-weekly</Select.Item>
-										<Select.Item value="monthly">Monthly</Select.Item>
-										<Select.Item value="quarterly">Quarterly</Select.Item>
-										<Select.Item value="yearly">Yearly</Select.Item>
+										<Select.Item value="">Source account</Select.Item>
+										{#each accounts as account}<Select.Item value={account.id}>{account.name}</Select.Item>{/each}
 									</Select.Content>
 								</Select.Root>
-							{/if}
+								<Select.Root type="single" bind:value={transferFeeCategoryId}>
+									<Select.Trigger class="text-sm">{transferFeeCategoryId ? categories.find((c) => c.id === transferFeeCategoryId)?.name : 'Category'}</Select.Trigger>
+									<Select.Content>
+										<Select.Item value="">Default</Select.Item>
+										{#each categories as category}<Select.Item value={category.id}>{category.name}</Select.Item>{/each}
+									</Select.Content>
+								</Select.Root>
+							</div>
 						</div>
+					{:else}
+						<button type="button" onclick={() => (hasTransferFee = true)} class="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-amber)] transition-colors">
+							+ Add transfer fee
+						</button>
 					{/if}
-				</FormFieldGrid>
+				{/if}
+			</div>
 
-				<!-- Advanced Options -->
-				<AdvancedOptionsSection>
-					<!-- Group Transaction -->
-					<Label.Root for="group" class="text-right md:flex-shrink-0">Group</Label.Root>
-					<div class="flex-1 space-y-2">
-						<div class="flex items-center space-x-2">
-							<Switch.Root bind:checked={isGroupTransaction} />
-							<Label.Root for="group" class="font-normal">Grouped transaction</Label.Root>
-						</div>
-
-						{#if isGroupTransaction}
-							<Input.Root
-								id="groupName"
-								bind:value={groupName}
-								placeholder="Group name"
-								required
-								onfocus={handleInputFocus}
-							/>
-						{/if}
+			<!-- ── Advanced ── -->
+			<AdvancedOptionsSection>
+				<Label.Root for="group" class="text-right md:flex-shrink-0">Group</Label.Root>
+				<div class="flex-1 space-y-2">
+					<div class="flex items-center space-x-2">
+						<Switch.Root bind:checked={isGroupTransaction} />
+						<Label.Root for="group" class="font-normal">Grouped transaction</Label.Root>
 					</div>
+					{#if isGroupTransaction}
+						<Input.Root id="groupName" bind:value={groupName} placeholder="Group name" required onfocus={handleInputFocus} />
+					{/if}
+				</div>
 
-					<!-- Reference -->
-					<Label.Root for="reference" class="md:w-40 md:flex-shrink-0 md:text-right"
-						>Reference</Label.Root
-					>
-					<Input.Root
-						id="reference"
-						bind:value={reference}
-						placeholder="e.g., Check #1234, Invoice #ABC123"
-						onfocus={handleInputFocus}
-					/>
+				<Label.Root for="reference" class="md:w-40 md:flex-shrink-0 md:text-right">Reference</Label.Root>
+				<Input.Root id="reference" bind:value={reference} placeholder="e.g., Check #1234, Invoice #ABC123" onfocus={handleInputFocus} />
 
-					<!-- Notes -->
-					<Label.Root for="notes" class="md:w-40 md:flex-shrink-0 md:pt-2 md:text-right"
-						>Notes</Label.Root
-					>
-					<textarea
-						id="notes"
-						bind:value={notes}
-						placeholder="Additional notes..."
-						rows="3"
-						class="border-input bg-background text-primary focus:ring-ring w-full resize-none rounded-md border px-3 py-2 focus:border-transparent focus:ring-2"
-						onfocus={handleInputFocus}
-					></textarea>
+				<Label.Root for="notes" class="md:w-40 md:flex-shrink-0 md:pt-2 md:text-right">Notes</Label.Root>
+				<textarea
+					id="notes"
+					bind:value={notes}
+					placeholder="Additional notes..."
+					rows="3"
+					class="border-input bg-background text-primary focus:ring-ring w-full resize-none rounded-md border px-3 py-2 focus:border-transparent focus:ring-2"
+					onfocus={handleInputFocus}
+				></textarea>
 
-					<!-- Priority -->
-					<LabelWithTooltip
-						for="priority"
-						tooltip="Priority helps the optimization system understand transaction importance. Higher numbers = more important."
-					>
-						Priority
-					</LabelWithTooltip>
-					<Select.Root
-						type="single"
-						value={priorityString}
-						onValueChange={(value) => {
-							if (value && value !== '') {
-								const numValue = parseInt(value, 10);
-								if (!isNaN(numValue)) {
-									priority = numValue;
-									priorityString = value;
-								}
-							} else {
-								priority = undefined;
-								priorityString = '';
-							}
-						}}
-					>
-						<Select.Trigger class="w-full">
-							{priority
-								? `${priority} - ${PRIORITY_LEVELS.find((p) => p.value === priority)?.name || 'Unknown'}`
-								: 'Select priority'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="">No priority</Select.Item>
-							{#each PRIORITY_LEVELS as level}
-								<Select.Item value={level.value.toString()}>
-									{level.value} - {level.name}
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
+				<LabelWithTooltip for="priority" tooltip="Priority helps the optimization system understand transaction importance. Higher numbers = more important.">
+					Priority
+				</LabelWithTooltip>
+				<Select.Root type="single" value={priorityString} onValueChange={(value) => { if (value && value !== '') { const numValue = parseInt(value, 10); if (!isNaN(numValue)) { priority = numValue; priorityString = value; } } else { priority = undefined; priorityString = ''; } }}>
+					<Select.Trigger class="w-full">{priority ? `${priority} - ${PRIORITY_LEVELS.find((p) => p.value === priority)?.name || 'Unknown'}` : 'Select priority'}</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="">No priority</Select.Item>
+						{#each PRIORITY_LEVELS as level}<Select.Item value={level.value.toString()}>{level.value} - {level.name}</Select.Item>{/each}
+					</Select.Content>
+				</Select.Root>
 
-					<!-- Directional Constraint -->
-					<LabelWithTooltip
-						for="directionalConstraint"
-						tooltip="Controls how the transaction date can be moved during optimization. Leave empty for full flexibility."
-					>
-						Directional Constraint
-					</LabelWithTooltip>
-					<Select.Root
-						type="single"
-						value={directionalConstraint || 'none'}
-						onValueChange={(value) => {
-							directionalConstraint =
-								value === 'none' || value === '' ? undefined : (value as DirectionalConstraint);
-						}}
-					>
-						<Select.Trigger class="w-full">
-							{directionalConstraint && directionalConstraint !== 'none'
-								? DIRECTIONAL_CONSTRAINTS.find((c) => c.value === directionalConstraint)?.name
-								: 'Select constraint'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="none">No constraint</Select.Item>
-							{#each DIRECTIONAL_CONSTRAINTS.filter((c) => c.value !== 'none') as constraint}
-								<Select.Item value={constraint.value}>
-									{constraint.icon}
-									{constraint.name}
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
+				<LabelWithTooltip for="directionalConstraint" tooltip="Controls how the transaction date can be moved during optimization. Leave empty for full flexibility.">
+					Directional constraint
+				</LabelWithTooltip>
+				<Select.Root type="single" value={directionalConstraint || 'none'} onValueChange={(value) => { directionalConstraint = value === 'none' || value === '' ? undefined : (value as DirectionalConstraint); }}>
+					<Select.Trigger class="w-full">{directionalConstraint && directionalConstraint !== 'none' ? DIRECTIONAL_CONSTRAINTS.find((c) => c.value === directionalConstraint)?.name : 'Select constraint'}</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="none">No constraint</Select.Item>
+						{#each DIRECTIONAL_CONSTRAINTS.filter((c) => c.value !== 'none') as constraint}<Select.Item value={constraint.value}>{constraint.icon} {constraint.name}</Select.Item>{/each}
+					</Select.Content>
+				</Select.Root>
 
-					<!-- Flexibility Tier -->
-					<LabelWithTooltip
-						for="flexibilityTier"
-						tooltip="Defines how many days the transaction date can be moved during optimization. Works together with directional constraints."
-					>
-						Flexibility Tier
-					</LabelWithTooltip>
-					<Select.Root
-						type="single"
-						value={flexibilityTier || ''}
-						onValueChange={(value) => {
-							flexibilityTier = value === '' || !value ? undefined : (value as FlexibilityTier);
-						}}
-					>
-						<Select.Trigger class="w-full">
-							{flexibilityTier
-								? FLEXIBILITY_TIERS.find((t) => t.value === flexibilityTier)?.name
-								: 'Select flexibility tier'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="">No tier</Select.Item>
-							{#each FLEXIBILITY_TIERS as tier}
-								<Select.Item value={tier.value}>
-									{tier.icon}
-									{tier.name} ({tier.daysRange})
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
-				</AdvancedOptionsSection>
-			</form>
-		</section>
+				<LabelWithTooltip for="flexibilityTier" tooltip="Defines how many days the transaction date can be moved during optimization. Works together with directional constraints.">
+					Flexibility tier
+				</LabelWithTooltip>
+				<Select.Root type="single" value={flexibilityTier || ''} onValueChange={(value) => { flexibilityTier = value === '' || !value ? undefined : (value as FlexibilityTier); }}>
+					<Select.Trigger class="w-full">{flexibilityTier ? FLEXIBILITY_TIERS.find((t) => t.value === flexibilityTier)?.name : 'Select flexibility tier'}</Select.Trigger>
+					<Select.Content>
+						<Select.Item value="">No tier</Select.Item>
+						{#each FLEXIBILITY_TIERS as tier}<Select.Item value={tier.value}>{tier.icon} {tier.name} ({tier.daysRange})</Select.Item>{/each}
+					</Select.Content>
+				</Select.Root>
+			</AdvancedOptionsSection>
+		</form>
 
 		<!-- Dependency Tracking (only in edit mode) -->
 		{#if transaction?.id}
-			<section class="mb-6">
+			<section class="mt-8 space-y-6">
 				<DependencyManager
 					transactionId={transaction.id}
-					onDependenciesChange={() => {
-						console.log('Dependencies updated');
-					}}
+					onDependenciesChange={() => { console.log('Dependencies updated'); }}
 				/>
-			</section>
-
-			<section class="mb-6">
 				<DependencyGraphVisualization transactionId={transaction.id} />
 			</section>
 		{/if}
 	</div>
 
 	{#snippet bottomBar()}
-		<!-- Action buttons for form submission - Sticky on mobile -->
-		<div class="mx-auto flex max-w-2xl justify-between">
-			<!-- Delete Button (only in edit mode) -->
+		<div class="mx-auto flex max-w-2xl items-center justify-between bg-[var(--color-bg-secondary)]/90 backdrop-blur-sm px-4">
 			{#if isEditMode}
-				<Button.Root
-					type="button"
-					variant="destructive"
-					onclick={() => (showDeleteDialog = true)}
-					disabled={isLoading || isDeleting}
-					class="flex items-center gap-2"
-				>
+				<Button.Root type="button" variant="destructive" onclick={() => (showDeleteDialog = true)} disabled={isLoading || isDeleting} class="flex items-center gap-2">
 					<Trash2 size={16} />
 					Delete
 				</Button.Root>
 			{:else}
 				<div></div>
 			{/if}
-
-			<div class="flex space-x-4">
-				<Button.Root
-					type="button"
-					variant="outline"
-					onclick={() => goto('/transactions')}
-					disabled={isLoading || isDeleting}
-				>
+			<div class="flex gap-3">
+				<Button.Root type="button" variant="ghost" onclick={() => goto('/transactions')} disabled={isLoading || isDeleting}>
 					Cancel
 				</Button.Root>
 				<Button.Root type="submit" form="transaction-form" disabled={isLoading || isDeleting}>
-					{submitButtonText}
+					{isLoading ? 'Saving…' : submitButtonText}
 				</Button.Root>
 			</div>
 		</div>

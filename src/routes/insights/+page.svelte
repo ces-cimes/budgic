@@ -123,7 +123,6 @@
 	{#snippet topBar()}
 		<Header
 			title="Insights"
-			description="Financial intelligence and behavioral patterns"
 			variant="with-tabs"
 			buttonProps={[
 				{
@@ -163,21 +162,21 @@
 					</TabContent>
 
 					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
-						<div class="space-y-8 p-2 sm:p-4">
+						<div class="space-y-8 px-4 py-5">
 							<section>
-								<h2 class="text-primary mb-3 text-lg font-semibold">Behavioral patterns</h2>
+								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Behavioral patterns</h2>
 								<PatternsTab {isLoading} />
 							</section>
 							<section>
-								<h2 class="text-primary mb-3 text-lg font-semibold">Recurring</h2>
+								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Recurring</h2>
 								<RecurringTransactionManager />
 							</section>
 							<section>
-								<h2 class="text-primary mb-3 text-lg font-semibold">Predictions</h2>
+								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Predictions</h2>
 								<PredictionsTab {isLoading} />
 							</section>
 							<section>
-								<h2 class="text-primary mb-3 text-lg font-semibold">Learning</h2>
+								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Learning</h2>
 								<LearningAdaptationPanel />
 							</section>
 						</div>

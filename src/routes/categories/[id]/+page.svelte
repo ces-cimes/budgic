@@ -1,15 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import * as Button from '$lib/components/ui/button/index.ts';
-	import * as Tabs from '$lib/components/ui/tabs/index.ts';
-	import * as Card from '$lib/components/ui/card/index.ts';
-	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { budgetService, transactionService, userService } from '$lib/core/services';
 	import type { Category, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';
 	import { formatAmount } from '$lib/utils/currency-utils';
 	import { PageLayout } from '$lib/components/layouts';
+	import Header from '$lib/components/Header.svelte';
 
 	const { data } = $props<{ data: any }>();
 
@@ -25,11 +22,11 @@
 
 	const categoryId = $derived($page.params.id);
 
-	const waterfallColors = {
-		survival: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-		security: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
-		growth: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-		lifestyle: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+	const waterfallColors: Record<string, string> = {
+		survival: 'text-[var(--color-warm-coral)]',
+		security: 'text-[var(--color-amber)]',
+		growth: 'text-[var(--color-sage-green)]',
+		lifestyle: 'text-[var(--color-info)]'
 	};
 
 	onMount(async () => {
@@ -122,168 +119,113 @@
 </svelte:head>
 
 <PageLayout>
-	
+	{#snippet topBar()}
+		<Header
+			title={category?.name || 'Category'}
+			backButtonLabel="Back to categories"
+			backButtonLink="/plan?tab=categories"
+			buttonProps={category && !isEditing ? [
+				{ text: 'Edit', onclick: startEditing, variant: 'ghost', size: 'sm' }
+			] : category && isEditing ? [
+				{ text: 'Cancel', onclick: cancelEditing, variant: 'ghost', size: 'sm' }
+			] : []}
+		/>
+	{/snippet}
 
-	{#if isLoading}
-	<div class="flex items-center justify-center min-h-96">
-		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-	</div>
-{:else if category}
-	<div class="space-y-6">
-		<!-- Header -->
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-4">
-				<Button.Root 
-					variant="ghost" 
-					size="sm"
-onclick={() => goto('/plan?tab=categories')}
-					>
-					← Back
-				</Button.Root>
-				<div>
-					<h1 class="text-2xl font-bold text-primary">{category.name}</h1>
-					<Badge class={waterfallColors[category.waterfallTier]}>
-						{category.waterfallTier}
-					</Badge>
-				</div>
+	<div class="mx-auto max-w-2xl px-4 py-6">
+		{#if isLoading}
+			<div class="space-y-4">
+				<div class="h-28 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+				<div class="h-48 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
 			</div>
-			
-			<div class="flex gap-2">
-				{#if !isEditing}
-					<Button.Root 
-						variant="outline" 
-						onclick={startEditing}
-					>
-						Edit
-					</Button.Root>
-					<Button.Root 
-						variant="destructive" 
-						onclick={deleteCategory}
-					>
-						Delete
-					</Button.Root>
-				{:else}
-					<Button.Root 
-						variant="outline" 
-						onclick={cancelEditing}
-					>
-						Cancel
-					</Button.Root>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Category Details -->
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Category Details</Card.Title>
-			</Card.Header>
-			<Card.Content class="space-y-4">
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<div>
-						<div class="text-sm font-medium text-secondary">Budget Amount</div>
-						<p class="text-lg font-semibold">{formatAmount(category.budgetAmount || 0, userCurrency)}</p>
-					</div>
-					<div>
-						<div class="text-sm font-medium text-secondary">Spent</div>
-						<p class="text-lg font-semibold text-destructive">{formatAmount(spent, userCurrency)}</p>
-					</div>
-					<div>
-						<div class="text-sm font-medium text-secondary">Remaining</div>
-						<p class="text-lg font-semibold {remaining >= 0 ? 'text-success' : 'text-destructive'}">{formatAmount(remaining, userCurrency)}</p>
-					</div>
-					<div>
-						<div class="text-sm font-medium text-secondary">Priority</div>
-						<p class="text-lg font-semibold">#{category.priority}</p>
-					</div>
-				</div>
-
-				{#if category.description}
-					<div>
-						<div class="text-sm font-medium text-secondary">Description</div>
-						<p class="text-sm text-tertiary">{category.description}</p>
-					</div>
-				{/if}
-			</Card.Content>
-		</Card.Root>
-
-		<!-- Tabs -->
-		<Tabs.Root bind:value={activeTab} class="w-full">
-			<Tabs.List class="grid w-full grid-cols-2">
-				<Tabs.Trigger value="overview">Overview</Tabs.Trigger>
-				<Tabs.Trigger value="transactions">Transactions</Tabs.Trigger>
-			</Tabs.List>
-			
-			<Tabs.Content value="overview" class="space-y-4">
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Budget Overview</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						<div class="space-y-4">
-							<div class="flex justify-between items-center">
-								<span class="text-sm font-medium">Budget Utilization</span>
-								<span class="text-sm text-tertiary">{spendingPercentage.toFixed(1)}%</span>
-							</div>
-							<div class="w-full bg-muted rounded-full h-3">
-								<div 
-									class="h-3 rounded-full transition-all duration-300 {spendingPercentage > 100 ? 'bg-destructive' : spendingPercentage > 80 ? 'bg-warning' : 'bg-success'}"
-									style="width: {Math.min(spendingPercentage, 100)}%"
-								></div>
-							</div>
+		{:else if category}
+			<div class="space-y-6">
+				<!-- Hero stats -->
+				<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] p-5">
+					<div class="flex items-start justify-between mb-4">
+						<div>
+							<p class="text-[10px] font-semibold uppercase tracking-widest {waterfallColors[category.waterfallTier] || 'text-[var(--color-text-tertiary)]'}">{category.waterfallTier}</p>
+							{#if category.description}
+								<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{category.description}</p>
+							{/if}
 						</div>
-					</Card.Content>
-				</Card.Root>
-			</Tabs.Content>
-			
-			<Tabs.Content value="transactions" class="space-y-4">
-				<Card.Root>
-					<Card.Header>
-						<Card.Title>Recent Transactions</Card.Title>
-					</Card.Header>
-					<Card.Content>
-						{#if transactions.length > 0}
-							<div class="space-y-2">
-								{#each transactions.slice(0, 10) as transaction}
-									<div class="flex items-center justify-between p-3 border rounded-lg">
-										<div class="flex-1">
-											<div class="flex items-center gap-2">
-												<p class="font-medium">{transaction.description || 'No description'}</p>
-												{#if transaction.groupId}
-													<Badge variant="secondary" class="text-xs">Grouped</Badge>
-												{/if}
-											</div>
-											<p class="text-sm text-tertiary">
-												{new Date(transaction.clearedDate || transaction.plannedDate || transaction.createdAt).toLocaleDateString()}
-											</p>
-											{#if transaction.groupName}
-												<p class="text-xs text-tertiary">Group: {transaction.groupName}</p>
-											{/if}
-										</div>
-										<div class="text-right">
-											<p class="font-semibold {transaction.type === 'expense' ? 'text-destructive' : 'text-success'}">
-												{transaction.type === 'expense' ? '-' : '+'}{formatAmount(Math.abs(transaction.amount || 0), transaction.currency)}
-											</p>
-											<p class="text-xs text-tertiary capitalize">{transaction.type}</p>
-										</div>
+						<button
+							onclick={deleteCategory}
+							class="text-xs text-[var(--color-warm-coral)] hover:underline"
+						>
+							Delete
+						</button>
+					</div>
+					<div class="grid grid-cols-3 gap-4">
+						<div>
+							<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Budget</p>
+							<p class="text-amount-sm text-[var(--color-text-primary)] mt-1">{formatAmount(category.budgetAmount || 0, userCurrency)}</p>
+						</div>
+						<div>
+							<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Spent</p>
+							<p class="text-amount-sm text-foreground mt-1">{formatAmount(spent, userCurrency)}</p>
+						</div>
+						<div>
+							<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Remaining</p>
+							<p class="text-amount-sm {remaining >= 0 ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]'} mt-1">{formatAmount(remaining, userCurrency)}</p>
+						</div>
+					</div>
+				</div>
+
+				<!-- Budget progress -->
+				<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] p-5">
+					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Budget utilization</h2>
+					<div class="flex items-center justify-between mb-2">
+						<span class="text-sm text-[var(--color-text-secondary)]">Used</span>
+						<span class="text-sm font-medium text-[var(--color-text-primary)]">{spendingPercentage.toFixed(1)}%</span>
+					</div>
+					<div class="budget-progress">
+						<div
+							class="budget-progress-fill {spendingPercentage > 100 ? '!bg-[var(--color-warm-coral)]' : ''}"
+							style="width: {Math.min(spendingPercentage, 100)}%"
+						></div>
+					</div>
+				</div>
+
+				<!-- Transactions -->
+				<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+					<div class="px-5 py-3 border-b border-border">
+						<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Recent transactions</h2>
+					</div>
+					{#if transactions.length > 0}
+						<div class="divide-y divide-border">
+							{#each transactions.slice(0, 10) as transaction}
+								<div class="flex items-center justify-between px-5 py-3">
+									<div class="min-w-0 flex-1">
+										<p class="text-sm font-medium text-[var(--color-text-primary)] truncate">{transaction.description || 'No description'}</p>
+										<p class="text-xs text-[var(--color-text-tertiary)]">
+											{new Date(transaction.clearedDate || transaction.plannedDate || transaction.createdAt).toLocaleDateString()}
+										</p>
 									</div>
-								{/each}
-							</div>
-						{:else}
-							<p class="text-center text-tertiary py-8">No transactions found for this category.</p>
-						{/if}
-					</Card.Content>
-				</Card.Root>
-			</Tabs.Content>
-		</Tabs.Root>
+									<p class="text-amount-sm ml-4 {transaction.type === 'income' ? 'text-[var(--color-sage-green)]' : 'text-foreground'}">
+										{transaction.type === 'income' ? '+' : ''}{formatAmount(Math.abs(transaction.amount || 0), transaction.currency)}
+									</p>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="px-5 py-10 text-center">
+							<p class="text-sm text-[var(--color-text-tertiary)]">No transactions yet.</p>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{:else}
+			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] p-12 text-center">
+				<p class="text-sm text-[var(--color-text-primary)] mb-1">Category not found</p>
+				<p class="text-xs text-[var(--color-text-tertiary)] mb-4">This category doesn't exist or was deleted.</p>
+				<button
+					onclick={() => goto('/plan?tab=categories')}
+					class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] transition-colors"
+				>
+					Back to categories
+				</button>
+			</div>
+		{/if}
 	</div>
-{:else}
-	<div class="text-center py-12">
-		<h2 class="text-xl font-semibold text-primary mb-2">Category not found</h2>
-		<p class="text-tertiary mb-4">The category you're looking for doesn't exist or has been deleted.</p>
-		<Button.Root onclick={() => goto('/plan?tab=categories')}>
-			Back to Categories
-		</Button.Root>
-	</div>
-	{/if}
 </PageLayout>

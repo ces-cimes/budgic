@@ -1,15 +1,11 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
-  import * as Form from '$lib/components/ui/form/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
-  import * as Progress from '$lib/components/ui/progress/index.ts';
   import * as Select from '$lib/components/ui/select/index.ts';
-  import * as Label from '$lib/components/ui/label/index.ts';
-  import * as Alert from '$lib/components/ui/alert/index.ts';
   import { PageLayout } from '$lib/components/layouts';
   import { userService } from '$lib/core/services';
   import { db, type UserPreferences, type Currency } from '$lib/core/db';
+  import { BarChart2, Target, Lightbulb } from '@lucide/svelte';
 
   const { data } = $props<{ data: any }>();
 
@@ -58,7 +54,7 @@
       if (preferences.currency && currencies.length > 0) {
         // Validate currency exists in available currencies
         const currencyExists = currencies.some(c => c.value === preferences.currency);
-        formData.currency = currencyExists ? preferences.currency : currencies[0]?.value || null;
+        formData.currency = currencyExists ? preferences.currency : currencies[0]?.value || 'USD';
       } else if (currencies.length > 0) {
         formData.currency = currencies[0].value;
       }
@@ -73,13 +69,13 @@
     }
   });
 
-  const goals: Array<{ id: string; label: string; icon: string }> = [
-    { id: 'save_money', label: 'Save more money', icon: '💰' },
-    { id: 'track_spending', label: 'Track spending habits', icon: '📊' },
-    { id: 'pay_debt', label: 'Pay off debt', icon: '💳' },
-    { id: 'invest', label: 'Start investing', icon: '📈' },
-    { id: 'emergency_fund', label: 'Build emergency fund', icon: '🛡️' },
-    { id: 'budget_better', label: 'Create better budget', icon: '📋' }
+  const goals: Array<{ id: string; label: string }> = [
+    { id: 'save_money', label: 'Save more money' },
+    { id: 'track_spending', label: 'Track spending habits' },
+    { id: 'pay_debt', label: 'Pay off debt' },
+    { id: 'invest', label: 'Start investing' },
+    { id: 'emergency_fund', label: 'Build an emergency fund' },
+    { id: 'budget_better', label: 'Create a better budget' }
   ];
 
   const experienceLevels: Array<{ value: 'beginner' | 'intermediate' | 'advanced' | 'expert'; label: string }> = [
@@ -225,199 +221,211 @@
 </svelte:head>
 
 <PageLayout>
-  {#if isLoading}
-    <div class="min-h-screen bg-background flex items-center justify-center">
-      <div class="text-center">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-        <p class="text-muted-foreground">Loading...</p>
-      </div>
-    </div>
-  {:else}
-  <div class="min-h-screen bg-background flex items-center justify-center p-4">
-  <div class="w-full max-w-2xl">
-    <!-- Progress Bar -->
-    <div class="mb-8">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-sm text-muted-foreground">Step {currentStep} of {totalSteps}</span>
-        <span class="text-sm text-muted-foreground">{Math.round((currentStep / totalSteps) * 100)}%</span>
-      </div>
-      <Progress.Root value={(currentStep / totalSteps) * 100} class="h-2" />
-    </div>
-
-    <!-- Step Content -->
-    <div class="bg-card rounded-2xl p-8 shadow-sm border border-border">
-      <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-primary mb-2">{getStepTitle()}</h1>
-        <p class="text-muted-foreground">{getStepDescription()}</p>
-      </div>
-
-      <!-- Error Message -->
-      {#if error}
-        <Alert.Root variant="destructive" class="mb-6">
-          <Alert.Description>{error}</Alert.Description>
-        </Alert.Root>
-      {/if}
-
-      <!-- Step 1: Welcome -->
-      {#if currentStep === 1}
-        <div class="text-center space-y-6">
-          <div class="text-6xl mb-4">🎯</div>
-          <h2 class="text-xl font-semibold text-primary">Your Financial Journey Starts Here</h2>
-          <p class="text-muted-foreground">
-            Budgic helps you take control of your finances with smart budgeting, 
-            personalized insights, and goal tracking.
-          </p>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-            <div class="text-center">
-              <div class="text-2xl mb-2">📊</div>
-              <div class="font-medium text-primary">Smart Tracking</div>
-              <div class="text-sm text-muted-foreground">Automated categorization</div>
-            </div>
-            <div class="text-center">
-              <div class="text-2xl mb-2">🎯</div>
-              <div class="font-medium text-primary">Goal Setting</div>
-              <div class="text-sm text-muted-foreground">Achieve your targets</div>
-            </div>
-            <div class="text-center">
-              <div class="text-2xl mb-2">💡</div>
-              <div class="font-medium text-primary">Insights</div>
-              <div class="text-sm text-muted-foreground">Personalized advice</div>
-            </div>
-          </div>
-        </div>
-      {/if}
-
-      <!-- Step 2: Personal Information -->
-      {#if currentStep === 2}
-        <form class="space-y-6">
-          <div class="space-y-2">
-            <Label.Root for="username">Username</Label.Root>
-            <input
-              id="username"
-              type="text"
-              bind:value={formData.username}
-              placeholder="Enter your username"
-              class="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground"
-              required
-            />
-          </div>
-
-          <div class="space-y-2">
-            <Label.Root for="currency">Currency</Label.Root>
-            <Select.Root type="single" bind:value={formData.currency}>
-              <Select.Trigger>
-                {formData.currency ? currencies.find(c => c.value === formData.currency)?.label : "Select your currency"}
-              </Select.Trigger>
-              <Select.Content>
-                {#each currencies as currency}
-                  <Select.Item value={currency.value}>{currency.label}</Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
-          </div>
-
-          <div class="space-y-2">
-            <Label.Root for="theme">Theme</Label.Root>
-            <Select.Root type="single" bind:value={formData.theme}>
-              <Select.Trigger>
-                {formData.theme === 'light' ? 'Light Theme' : 'Dark Theme'}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="light">Light Theme</Select.Item>
-                <Select.Item value="dark">Dark Theme</Select.Item>
-              </Select.Content>
-            </Select.Root>
-          </div>
-
-          <div class="space-y-2">
-            <Label.Root for="language">Language</Label.Root>
-            <Select.Root type="single" bind:value={formData.language}>
-              <Select.Trigger>
-                {formData.language === 'en' ? 'English' : 'Русский'}
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="en">English</Select.Item>
-                <Select.Item value="ru">Русский</Select.Item>
-              </Select.Content>
-            </Select.Root>
-          </div>
-        </form>
-      {/if}
-
-      <!-- Step 3: Financial Goals -->
-      {#if currentStep === 3}
+  <div class="flex min-h-screen items-center justify-center px-4 py-12 bg-[var(--color-bg-primary)]">
+    <div class="w-full max-w-lg">
+      {#if isLoading}
         <div class="space-y-4">
-          <p class="text-muted-foreground mb-6">Select all that apply:</p>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {#each goals as goal}
-              <button
-                class="p-4 border-2 rounded-xl text-left transition-all {formData.financialGoals.includes(goal.id) ? 'border-primary bg-primary/10' : 'border-border hover:border-border/80'}"
-                onclick={() => toggleGoal(goal.id)}
-              >
-                <div class="flex items-center space-x-3">
-                  <div class="text-2xl">{goal.icon}</div>
-                  <div class="font-medium text-primary">{goal.label}</div>
-                </div>
-              </button>
-            {/each}
+          <div class="h-2 animate-pulse rounded-full bg-[var(--color-bg-tertiary)]"></div>
+          <div class="h-64 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+        </div>
+      {:else}
+        <!-- Wordmark -->
+        <div class="text-center mb-8">
+          <p class="font-display text-2xl text-[var(--color-hero-number)]">Budgic</p>
+        </div>
+
+        <!-- Progress -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-[var(--color-text-tertiary)]">Step {currentStep} of {totalSteps}</span>
+            <span class="text-xs text-[var(--color-text-tertiary)]">{Math.round((currentStep / totalSteps) * 100)}%</span>
+          </div>
+          <div class="budget-progress">
+            <div class="budget-progress-fill" style="width: {(currentStep / totalSteps) * 100}%"></div>
           </div>
         </div>
-      {/if}
 
-      <!-- Step 4: Experience Level -->
-      {#if currentStep === 4}
-        <div class="space-y-6">
-          <p class="text-muted-foreground">This helps us personalize your experience:</p>
-          <div class="space-y-4">
-            {#each experienceLevels as level}
-              <button
-                class="w-full p-4 border-2 rounded-xl text-left transition-all {formData.userMaturityLevel === level.value ? 'border-primary bg-primary/10' : 'border-border hover:border-border/80'}"
-                onclick={() => formData.userMaturityLevel = level.value}
-              >
-                <div class="font-medium text-primary">{level.label}</div>
-              </button>
-            {/each}
+        <!-- Card -->
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] p-8">
+          <div class="mb-6">
+            <h1 class="text-xl font-semibold text-[var(--color-text-primary)]">{getStepTitle()}</h1>
+            <p class="text-sm text-[var(--color-text-tertiary)] mt-1">{getStepDescription()}</p>
           </div>
-        </div>
-      {/if}
 
-      <!-- Navigation Buttons -->
-      <div class="flex justify-between mt-8">
-        <div class="flex gap-2">
-          <Button.Root
-            variant="outline"
-            onclick={prevStep}
-            disabled={currentStep === 1 || isSaving}
-          >
-            Previous
-          </Button.Root>
-          {#if currentStep > 1}
-            <Button.Root
-              variant="ghost"
-              onclick={handleSkip}
-              disabled={isSaving}
-              class="text-muted-foreground"
-            >
-              Skip
-            </Button.Root>
+          {#if error}
+            <div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3">
+              <p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+            </div>
           {/if}
-        </div>
 
-        {#if currentStep === totalSteps}
-          <Button.Root onclick={handleSubmit} disabled={isSaving}>
-            {#if isSaving}
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+          <!-- Step 1: Welcome -->
+          {#if currentStep === 1}
+            <div class="space-y-6">
+              <div class="grid grid-cols-3 gap-3">
+                <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-4 text-center">
+                  <div class="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                    <BarChart2 class="size-4 text-[var(--color-amber)]" />
+                  </div>
+                  <p class="text-xs font-medium text-[var(--color-text-primary)]">Smart tracking</p>
+                  <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Auto-categorized</p>
+                </div>
+                <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-4 text-center">
+                  <div class="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                    <Target class="size-4 text-[var(--color-amber)]" />
+                  </div>
+                  <p class="text-xs font-medium text-[var(--color-text-primary)]">Goal setting</p>
+                  <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Achieve targets</p>
+                </div>
+                <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-4 text-center">
+                  <div class="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                    <Lightbulb class="size-4 text-[var(--color-amber)]" />
+                  </div>
+                  <p class="text-xs font-medium text-[var(--color-text-primary)]">Insights</p>
+                  <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Personalised</p>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Step 2: Personal Information -->
+          {#if currentStep === 2}
+            <div class="space-y-4">
+              <div class="space-y-1.5">
+                <label for="ob-username" class="text-sm font-medium text-[var(--color-text-primary)]">Your name</label>
+                <input
+                  id="ob-username"
+                  type="text"
+                  bind:value={formData.username}
+                  placeholder="What should we call you?"
+                  class="w-full rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <label for="ob-currency" class="text-sm font-medium text-[var(--color-text-primary)]">Currency</label>
+                <Select.Root type="single" bind:value={formData.currency}>
+                  <Select.Trigger id="ob-currency" class="w-full">
+                    {formData.currency ? (currencies.find(c => c.value === formData.currency)?.label ?? formData.currency) : 'Select currency'}
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each currencies as currency}
+                      <Select.Item value={currency.value}>{currency.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1.5">
+                  <label for="ob-theme" class="text-sm font-medium text-[var(--color-text-primary)]">Theme</label>
+                  <Select.Root type="single" bind:value={formData.theme}>
+                    <Select.Trigger id="ob-theme" class="w-full">
+                      {formData.theme === 'light' ? 'Light' : 'Dark'}
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="light">Light</Select.Item>
+                      <Select.Item value="dark">Dark</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
+                </div>
+                <div class="space-y-1.5">
+                  <label for="ob-language" class="text-sm font-medium text-[var(--color-text-primary)]">Language</label>
+                  <Select.Root type="single" bind:value={formData.language}>
+                    <Select.Trigger id="ob-language" class="w-full">
+                      {formData.language === 'en' ? 'English' : 'Русский'}
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="en">English</Select.Item>
+                      <Select.Item value="ru">Русский</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Step 3: Financial Goals -->
+          {#if currentStep === 3}
+            <div class="space-y-2">
+              <p class="text-xs text-[var(--color-text-tertiary)] mb-3">Select all that apply</p>
+              <div class="grid grid-cols-2 gap-2">
+                {#each goals as goal}
+                  <button
+                    type="button"
+                    onclick={() => toggleGoal(goal.id)}
+                    class="rounded-xl border p-3 text-left text-sm font-medium transition-colors {formData.financialGoals.includes(goal.id)
+                      ? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
+                      : 'border-border text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]/40'}"
+                  >
+                    {goal.label}
+                  </button>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
+          <!-- Step 4: Experience Level -->
+          {#if currentStep === 4}
+            <div class="space-y-2">
+              {#each experienceLevels as level}
+                <button
+                  type="button"
+                  onclick={() => formData.userMaturityLevel = level.value}
+                  class="w-full rounded-xl border p-3.5 text-left transition-colors {formData.userMaturityLevel === level.value
+                    ? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
+                    : 'border-border hover:border-[var(--color-amber)]/40'}"
+                >
+                  <p class="text-sm font-medium {formData.userMaturityLevel === level.value ? 'text-[var(--color-amber)]' : 'text-[var(--color-text-primary)]'}">{level.label}</p>
+                </button>
+              {/each}
+            </div>
+          {/if}
+
+          <!-- Navigation -->
+          <div class="flex items-center justify-between mt-8 gap-3">
+            <div class="flex gap-2">
+              {#if currentStep > 1}
+                <button
+                  type="button"
+                  onclick={prevStep}
+                  disabled={isSaving}
+                  class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+                >
+                  Previous
+                </button>
+              {/if}
+              {#if currentStep > 1}
+                <button
+                  type="button"
+                  onclick={handleSkip}
+                  disabled={isSaving}
+                  class="rounded-xl px-4 py-2 text-sm text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-text-secondary)] disabled:opacity-50"
+                >
+                  Skip
+                </button>
+              {/if}
+            </div>
+
+            {#if currentStep === totalSteps}
+              <button
+                type="button"
+                onclick={handleSubmit}
+                disabled={isSaving}
+                class="rounded-xl bg-[var(--color-amber)] px-6 py-2 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+              >
+                {isSaving ? 'Setting up…' : 'Get started'}
+              </button>
+            {:else}
+              <button
+                type="button"
+                onclick={nextStep}
+                disabled={isSaving}
+                class="rounded-xl bg-[var(--color-amber)] px-6 py-2 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+              >
+                Next
+              </button>
             {/if}
-            Get Started
-          </Button.Root>
-        {:else}
-          <Button.Root onclick={nextStep} disabled={isSaving}>
-            Next
-          </Button.Root>
-        {/if}
-      </div>
+          </div>
+        </div>
+      {/if}
     </div>
   </div>
-  </div>
-  {/if}
-</PageLayout> 
+</PageLayout>

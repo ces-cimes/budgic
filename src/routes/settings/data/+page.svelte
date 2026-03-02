@@ -3,12 +3,9 @@
   import { onMount } from 'svelte';
   import { userService } from '$lib/core/services';
   import { PageLayout } from '$lib/components/layouts';
-  import * as Card from '$lib/components/ui/card/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
-  import * as Alert from '$lib/components/ui/alert/index.ts';
+  import Header from '$lib/components/Header.svelte';
   import * as Select from '$lib/components/ui/select/index.ts';
   import { Checkbox } from '$lib/components/ui/checkbox/index.ts';
-  import { Input } from '$lib/components/ui/input/index.ts';
   import { db } from '$lib/core/db';
   import { 
     MoneyManagerImporter, 
@@ -282,369 +279,238 @@
 </script>
 
 <svelte:head>
-  <title>Data Management | Budgic</title>
+  <title>Export & import | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <!-- Header -->
-    <header class="mb-8">
-      <div class="flex items-center gap-4 mb-4">
-        <Button.Root variant="ghost" size="sm" onclick={() => goto('/settings')}>
-          ← Back to Settings
-        </Button.Root>
-      </div>
-      <h1 class="text-3xl font-bold text-primary mb-2">Data Management</h1>
-      <p class="text-muted-foreground">Export, import, and manage your financial data</p>
-    </header>
+  {#snippet topBar()}
+    <Header title="Export & import" backButtonLabel="Back to settings" backButtonLink="/settings" />
+  {/snippet}
 
+  <div class="mx-auto max-w-2xl px-4 py-6 space-y-6">
     {#if isLoading}
-      <div class="flex items-center justify-center py-12">
-        <div class="text-muted-foreground">Loading data settings...</div>
-      </div>
+      <div class="h-36 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
     {:else}
-      <!-- Error/Success Messages -->
       {#if error}
-        <Alert.Root variant="destructive" class="mb-6">
-          <Alert.Description>{error}</Alert.Description>
-        </Alert.Root>
+        <div class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+        </div>
       {/if}
-      
       {#if success}
-        <Alert.Root class="mb-6">
-          <Alert.Description>{success}</Alert.Description>
-        </Alert.Root>
+        <div class="rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-sage-green)]">{success}</p>
+        </div>
       {/if}
 
-      <!-- Export Settings -->
-      <Card.Root class="mb-8">
-        <Card.Header>
-          <Card.Title>Export Settings</Card.Title>
-          <Card.Description>Choose your preferred export format</Card.Description>
-        </Card.Header>
-        <Card.Content class="space-y-4">
-          <div class="space-y-2">
-            <label for="export-format" class="text-sm font-medium text-primary">Export Format</label>
-            <select 
+      <!-- Export -->
+      <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+        <div class="px-5 py-3 border-b border-border">
+          <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Export</h2>
+          <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Download a backup of all your financial data</p>
+        </div>
+        <div class="px-5 py-4 space-y-3">
+          <div class="space-y-1.5">
+            <label for="export-format" class="text-sm font-medium text-[var(--color-text-primary)]">Format</label>
+            <select
               id="export-format"
               bind:value={exportFormat}
-              class="max-w-md w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+              class="w-full max-w-xs rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
             >
               {#each exportFormatOptions as option}
-                <option value={option.value}>{option.label} - {option.description}</option>
+                <option value={option.value}>{option.label} — {option.description}</option>
               {/each}
             </select>
           </div>
-        </Card.Content>
-      </Card.Root>
+          <button
+            onclick={exportData}
+            disabled={isExporting}
+            class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+          >
+            {isExporting ? 'Exporting…' : `Export ${exportFormat.toUpperCase()}`}
+          </button>
+        </div>
+      </div>
 
-      <!-- Data Actions -->
-      <div class="space-y-6">
-        <!-- Export Data -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Export Data</Card.Title>
-            <Card.Description>Download a backup of all your financial data</Card.Description>
-          </Card.Header>
-          <Card.Content>
-            <Button.Root 
-              onclick={exportData} 
-              disabled={isExporting}
-              class="w-full"
-            >
-              {#if isExporting}
-                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              {/if}
-              Export Data ({exportFormat.toUpperCase()})
-            </Button.Root>
-          </Card.Content>
-        </Card.Root>
+      <!-- Import Budgic backup -->
+      <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+        <div class="px-5 py-3 border-b border-border">
+          <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Import from Budgic backup</h2>
+        </div>
+        <div class="px-5 py-4 space-y-2">
+          <button
+            onclick={importData}
+            disabled={isImporting || isImportingMM}
+            class="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+          >
+            Select JSON file
+          </button>
+          <p class="text-xs text-[var(--color-text-tertiary)]">Restore from a previous Budgic JSON export</p>
+        </div>
+      </div>
 
-        <!-- Import Data -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Import Data</Card.Title>
-            <Card.Description>Restore data from a previous backup or import from Money Manager</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-4">
-            <!-- JSON Import (Existing) -->
-            <div>
-              <label class="text-sm font-medium text-primary mb-2 block">Import from Budgic Backup</label>
-              <Button.Root
-                onclick={importData}
-                disabled={isImporting || isImportingMM}
-                variant="outline"
-                class="w-full"
-              >
-                Select JSON File
-              </Button.Root>
-              <p class="text-sm text-muted-foreground mt-2">
-                Select a JSON export file to restore your data
-              </p>
+      <!-- Import Money Manager -->
+      <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+        <div class="px-5 py-3 border-b border-border flex items-center justify-between">
+          <div>
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Import from Money Manager</h2>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">ASSETS.csv, ZCATEGORY.csv, INOUTCOME.csv, CURRENCY.csv…</p>
+          </div>
+          <button
+            type="button"
+            onclick={() => showMMImport = !showMMImport}
+            class="text-xs text-[var(--color-amber)] font-medium"
+          >
+            {showMMImport ? 'Hide' : 'Options'}
+          </button>
+        </div>
+        <div class="px-5 py-4 space-y-4">
+          <button
+            onclick={pickMMFiles}
+            disabled={isImporting || isImportingMM}
+            class="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+          >
+            Select CSV files
+          </button>
+
+          {#if mmFiles.length > 0}
+            <div class="rounded-xl bg-[var(--color-bg-surface)] p-3 space-y-1">
+              <p class="text-xs font-medium text-[var(--color-text-secondary)]">{mmFiles.length} file{mmFiles.length > 1 ? 's' : ''} selected</p>
+              {#each mmFiles as file}
+                <p class="text-xs text-[var(--color-text-tertiary)]">• {file.name}</p>
+              {/each}
             </div>
+          {/if}
 
-            <!-- Money Manager Import -->
-            <div class="border-t pt-4">
-              <div class="flex items-center justify-between mb-2">
-                <label class="text-sm font-medium text-primary">Import from Money Manager</label>
-                <Button.Root
-                  variant="outline"
-                  size="sm"
-                  onclick={() => showMMImport = !showMMImport}
-                >
-                  {showMMImport ? 'Hide' : 'Show'} Options
-                </Button.Root>
+          {#if mmSchema}
+            <div class="rounded-xl p-3 {mmSchema.isValid ? 'border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8' : 'border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)]'}">
+              {#if mmSchema.isValid}
+                <p class="text-xs text-[var(--color-sage-green)]">All required tables found ({mmSchema.tables.length})</p>
+              {:else}
+                <p class="text-xs text-[var(--color-amber)]">Missing: {mmSchema.missingTables.join(', ')}</p>
+              {/if}
+            </div>
+          {/if}
+
+          {#if showMMImport}
+            <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-4 space-y-4">
+              <p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Import options</p>
+              <div class="space-y-2">
+                {#each [
+                  { key: 'importAccounts', label: 'Accounts' },
+                  { key: 'importCategories', label: 'Categories' },
+                  { key: 'importTransactions', label: 'Transactions' },
+                  { key: 'importCurrencies', label: 'Currencies' },
+                  { key: 'importBudgets', label: 'Budgets (optional)' }
+                ] as opt}
+                  <label class="flex items-center gap-2.5 cursor-pointer">
+                    <Checkbox bind:checked={mmImportOptions[opt.key as keyof typeof mmImportOptions] as boolean} />
+                    <span class="text-sm text-[var(--color-text-primary)]">Import {opt.label}</span>
+                  </label>
+                {/each}
               </div>
-              
-              <Button.Root
-                onclick={pickMMFiles}
-                disabled={isImporting || isImportingMM}
-                variant="outline"
-                class="w-full mb-2"
-              >
-                Select CSV Files
-              </Button.Root>
-              <p class="text-sm text-muted-foreground mb-4">
-                Select CSV files exported from Money Manager (ASSETS.csv, ZCATEGORY.csv, INOUTCOME.csv, CURRENCY.csv, etc.)
-              </p>
-
-              {#if mmFiles.length > 0}
-                <div class="bg-muted p-3 rounded-md mb-4">
-                  <p class="text-sm font-medium mb-2">Selected files ({mmFiles.length}):</p>
-                  <ul class="text-sm text-muted-foreground space-y-1">
-                    {#each mmFiles as file}
-                      <li>• {file.name}</li>
-                    {/each}
-                  </ul>
+              <div class="space-y-1.5">
+                <p class="text-xs font-medium text-[var(--color-text-secondary)]">Conflict resolution</p>
+                <Select.Root type="single" bind:value={mmImportOptions.conflictResolution}>
+                  <Select.Trigger class="w-full max-w-xs">
+                    {mmImportOptions.conflictResolution === 'skip' ? 'Skip duplicates' :
+                     mmImportOptions.conflictResolution === 'rename' ? 'Rename with suffix' :
+                     mmImportOptions.conflictResolution === 'merge' ? 'Merge data' : 'Replace existing'}
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="skip">Skip duplicates</Select.Item>
+                    <Select.Item value="rename">Rename with suffix</Select.Item>
+                    <Select.Item value="merge">Merge data</Select.Item>
+                    <Select.Item value="replace">Replace existing</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+              </div>
+              {#if mmImportOptions.importTransactions}
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="space-y-1.5">
+                    <label for="mm-date-start" class="text-xs font-medium text-[var(--color-text-secondary)]">Date start</label>
+                    <input id="mm-date-start" type="date" bind:value={mmImportOptions.transactionDateStart}
+                      class="w-full rounded-xl border border-border bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]" />
+                  </div>
+                  <div class="space-y-1.5">
+                    <label for="mm-date-end" class="text-xs font-medium text-[var(--color-text-secondary)]">Date end</label>
+                    <input id="mm-date-end" type="date" bind:value={mmImportOptions.transactionDateEnd}
+                      class="w-full rounded-xl border border-border bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]" />
+                  </div>
                 </div>
               {/if}
-
-              {#if mmSchema}
-                <div class="bg-muted p-3 rounded-md mb-4">
-                  <p class="text-sm font-medium mb-2">Detected Schema:</p>
-                  {#if mmSchema.isValid}
-                    <p class="text-sm text-green-600 dark:text-green-400 mb-2">✓ All required tables found</p>
-                  {:else}
-                    <p class="text-sm text-yellow-600 dark:text-yellow-400 mb-2">
-                      ⚠ Missing tables: {mmSchema.missingTables.join(', ')}
-                    </p>
-                  {/if}
-                  <p class="text-xs text-muted-foreground">
-                    Found {mmSchema.tables.length} table(s)
-                  </p>
-                </div>
-              {/if}
-
-              {#if showMMImport}
-                <div class="border rounded-md p-4 space-y-4 bg-muted/50">
-                  <div>
-                    <p class="text-sm font-medium mb-3">Import Options</p>
-                    <div class="space-y-2">
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <Checkbox bind:checked={mmImportOptions.importAccounts} />
-                        <span class="text-sm">Import Accounts</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <Checkbox bind:checked={mmImportOptions.importCategories} />
-                        <span class="text-sm">Import Categories</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <Checkbox bind:checked={mmImportOptions.importTransactions} />
-                        <span class="text-sm">Import Transactions</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <Checkbox bind:checked={mmImportOptions.importCurrencies} />
-                        <span class="text-sm">Import Currencies</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <Checkbox bind:checked={mmImportOptions.importBudgets} />
-                        <span class="text-sm">Import Budgets (optional)</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label class="text-sm font-medium mb-2 block">Conflict Resolution</label>
-                    <Select.Root 
-                      type="single" 
-                      bind:value={mmImportOptions.conflictResolution}
-                    >
-                      <Select.Trigger class="w-full">
-                        {mmImportOptions.conflictResolution === 'skip' ? 'Skip duplicates' :
-                         mmImportOptions.conflictResolution === 'rename' ? 'Rename with suffix' :
-                         mmImportOptions.conflictResolution === 'merge' ? 'Merge data' :
-                         mmImportOptions.conflictResolution === 'replace' ? 'Replace existing' :
-                         'Select conflict resolution strategy'}
-                      </Select.Trigger>
-                      <Select.Content>
-                        <Select.Item value="skip">Skip duplicates</Select.Item>
-                        <Select.Item value="rename">Rename with suffix</Select.Item>
-                        <Select.Item value="merge">Merge data</Select.Item>
-                        <Select.Item value="replace">Replace existing</Select.Item>
-                      </Select.Content>
-                    </Select.Root>
-                    <p class="text-xs text-muted-foreground mt-1">
-                      How to handle accounts/categories that already exist
-                    </p>
-                  </div>
-
-                  {#if mmImportOptions.importTransactions}
-                    <div class="grid grid-cols-2 gap-4">
-                      <div>
-                        <label class="text-sm font-medium mb-2 block">Transaction Date Start</label>
-                        <Input
-                          type="date"
-                          bind:value={mmImportOptions.transactionDateStart}
-                          class="w-full"
-                        />
-                      </div>
-                      <div>
-                        <label class="text-sm font-medium mb-2 block">Transaction Date End</label>
-                        <Input
-                          type="date"
-                          bind:value={mmImportOptions.transactionDateEnd}
-                          class="w-full"
-                        />
-                      </div>
-                    </div>
-                    <p class="text-xs text-muted-foreground">
-                      Optional: Filter transactions by date range (leave empty to import all)
-                    </p>
-                  {/if}
-                </div>
-              {/if}
-
-              {#if mmProgress}
-                <div class="bg-muted p-4 rounded-md mb-4">
-                  <div class="flex items-center justify-between mb-2">
-                    <p class="text-sm font-medium">{mmProgress.step}</p>
-                    <p class="text-sm text-muted-foreground">{mmProgress.percentage}%</p>
-                  </div>
-                  <div class="w-full bg-background rounded-full h-2 mb-2">
-                    <div 
-                      class="bg-primary h-2 rounded-full transition-all duration-300"
-                      style="width: {mmProgress.percentage}%"
-                    ></div>
-                  </div>
-                  {#if mmProgress.currentItem}
-                    <p class="text-xs text-muted-foreground">{mmProgress.currentItem}</p>
-                  {/if}
-                  <p class="text-xs text-muted-foreground mt-1">
-                    {mmProgress.itemsProcessed} of {mmProgress.totalItems} items
-                  </p>
-                </div>
-              {/if}
-
-              {#if mmResult}
-                <div class="border rounded-md p-4 space-y-3">
-                  <div class="flex items-center gap-2">
-                    {#if mmResult.success}
-                      <span class="text-green-600 dark:text-green-400 text-lg">✓</span>
-                      <p class="font-medium text-green-600 dark:text-green-400">Import Completed Successfully</p>
-                    {:else}
-                      <span class="text-red-600 dark:text-red-400 text-lg">✗</span>
-                      <p class="font-medium text-red-600 dark:text-red-400">Import Completed with Errors</p>
-                    {/if}
-                  </div>
-                  
-                  <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p class="font-medium mb-1">Imported:</p>
-                      <ul class="text-muted-foreground space-y-0.5">
-                        <li>Accounts: {mmResult.statistics.accountsImported}</li>
-                        <li>Categories: {mmResult.statistics.categoriesImported}</li>
-                        <li>Transactions: {mmResult.statistics.transactionsImported}</li>
-                        <li>Currencies: {mmResult.statistics.currenciesImported}</li>
-                      </ul>
-                    </div>
-                    <div>
-                      <p class="font-medium mb-1">Skipped:</p>
-                      <ul class="text-muted-foreground space-y-0.5">
-                        <li>Accounts: {mmResult.statistics.accountsSkipped}</li>
-                        <li>Categories: {mmResult.statistics.categoriesSkipped}</li>
-                        <li>Transactions: {mmResult.statistics.transactionsSkipped}</li>
-                        <li>Currencies: {mmResult.statistics.currenciesSkipped}</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {#if mmResult.errors.length > 0}
-                    <div>
-                      <p class="font-medium text-sm mb-2 text-red-600 dark:text-red-400">
-                        Errors ({mmResult.errors.length}):
-                      </p>
-                      <div class="max-h-40 overflow-y-auto space-y-1">
-                        {#each mmResult.errors.slice(0, 10) as err}
-                          <p class="text-xs text-muted-foreground">
-                            {err.entityType || 'Unknown'}: {err.message}
-                          </p>
-                        {/each}
-                        {#if mmResult.errors.length > 10}
-                          <p class="text-xs text-muted-foreground">
-                            ... and {mmResult.errors.length - 10} more errors
-                          </p>
-                        {/if}
-                      </div>
-                    </div>
-                  {/if}
-
-                  {#if mmResult.warnings.length > 0}
-                    <div>
-                      <p class="font-medium text-sm mb-2 text-yellow-600 dark:text-yellow-400">
-                        Warnings ({mmResult.warnings.length}):
-                      </p>
-                      <div class="max-h-40 overflow-y-auto space-y-1">
-                        {#each mmResult.warnings.slice(0, 5) as warning}
-                          <p class="text-xs text-muted-foreground">• {warning}</p>
-                        {/each}
-                        {#if mmResult.warnings.length > 5}
-                          <p class="text-xs text-muted-foreground">
-                            ... and {mmResult.warnings.length - 5} more warnings
-                          </p>
-                        {/if}
-                      </div>
-                    </div>
-                  {/if}
-
-                  <p class="text-xs text-muted-foreground">
-                    Import completed in {(mmResult.duration / 1000).toFixed(2)}s
-                  </p>
-                </div>
-              {/if}
-
-              <Button.Root
-                onclick={handleMMImport}
-                disabled={isImporting || isImportingMM || mmFiles.length === 0}
-                class="w-full mt-4"
-              >
-                {#if isImportingMM}
-                  <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                {/if}
-                Import from Money Manager
-              </Button.Root>
             </div>
-          </Card.Content>
-        </Card.Root>
+          {/if}
 
-        <!-- Clear Data -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Clear All Data</Card.Title>
-            <Card.Description>Permanently delete all your financial data</Card.Description>
-          </Card.Header>
-          <Card.Content>
-            <Button.Root 
-              variant="destructive"
-              onclick={clearAllData}
-              class="w-full"
-            >
-              Clear All Data
-            </Button.Root>
-            <p class="text-sm text-muted-foreground mt-2">
-              ⚠️ This action cannot be undone. Make sure to export your data first.
-            </p>
-          </Card.Content>
-        </Card.Root>
+          {#if mmProgress}
+            <div class="rounded-xl bg-[var(--color-bg-surface)] p-4 space-y-2">
+              <div class="flex items-center justify-between">
+                <p class="text-xs font-medium text-[var(--color-text-primary)]">{mmProgress.step}</p>
+                <p class="text-xs text-[var(--color-text-tertiary)]">{mmProgress.percentage}%</p>
+              </div>
+              <div class="budget-progress">
+                <div class="budget-progress-fill" style="width: {mmProgress.percentage}%"></div>
+              </div>
+              <p class="text-xs text-[var(--color-text-tertiary)]">{mmProgress.itemsProcessed} / {mmProgress.totalItems}</p>
+            </div>
+          {/if}
+
+          {#if mmResult}
+            <div class="rounded-xl border {mmResult.success ? 'border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8' : 'border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8'} p-4 space-y-3">
+              <p class="text-sm font-medium {mmResult.success ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]'}">
+                {mmResult.success ? 'Import complete' : 'Import completed with errors'}
+              </p>
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <p class="font-medium text-[var(--color-text-secondary)] mb-1">Imported</p>
+                  <p class="text-[var(--color-text-tertiary)]">Accounts: {mmResult.statistics.accountsImported}</p>
+                  <p class="text-[var(--color-text-tertiary)]">Categories: {mmResult.statistics.categoriesImported}</p>
+                  <p class="text-[var(--color-text-tertiary)]">Transactions: {mmResult.statistics.transactionsImported}</p>
+                </div>
+                <div>
+                  <p class="font-medium text-[var(--color-text-secondary)] mb-1">Skipped</p>
+                  <p class="text-[var(--color-text-tertiary)]">Accounts: {mmResult.statistics.accountsSkipped}</p>
+                  <p class="text-[var(--color-text-tertiary)]">Categories: {mmResult.statistics.categoriesSkipped}</p>
+                  <p class="text-[var(--color-text-tertiary)]">Transactions: {mmResult.statistics.transactionsSkipped}</p>
+                </div>
+              </div>
+              {#if mmResult.errors.length > 0}
+                <div class="max-h-32 overflow-y-auto space-y-1">
+                  {#each mmResult.errors.slice(0, 8) as err}
+                    <p class="text-xs text-[var(--color-warm-coral)]">{err.entityType || 'Unknown'}: {err.message}</p>
+                  {/each}
+                  {#if mmResult.errors.length > 8}
+                    <p class="text-xs text-[var(--color-text-tertiary)]">…and {mmResult.errors.length - 8} more</p>
+                  {/if}
+                </div>
+              {/if}
+              <p class="text-xs text-[var(--color-text-tertiary)]">Completed in {(mmResult.duration / 1000).toFixed(2)}s</p>
+            </div>
+          {/if}
+
+          <button
+            onclick={handleMMImport}
+            disabled={isImporting || isImportingMM || mmFiles.length === 0}
+            class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+          >
+            {isImportingMM ? 'Importing…' : 'Import from Money Manager'}
+          </button>
+        </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="rounded-2xl border border-[var(--color-warm-coral)]/20 bg-[var(--color-warm-coral)]/5 overflow-hidden">
+        <div class="px-5 py-3 border-b border-[var(--color-warm-coral)]/15">
+          <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-warm-coral)]">Danger zone</h2>
+        </div>
+        <div class="px-5 py-4 space-y-2">
+          <button
+            onclick={clearAllData}
+            class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-2.5 text-sm font-semibold text-[var(--color-warm-coral)] transition-colors hover:bg-[var(--color-warm-coral)]/12"
+          >
+            Clear all data
+          </button>
+          <p class="text-xs text-[var(--color-text-tertiary)]">Permanently deletes everything. Export first.</p>
+        </div>
       </div>
     {/if}
   </div>

@@ -152,8 +152,8 @@
           </div>
         </div>
 
-        <!-- Badges Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+        <!-- Badges Grid — 2 col mobile, 3 col tablet+ -->
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
           {#each filteredBadges as badge (badge.id)}
             {#if onViewDetails}
               <Button
@@ -176,14 +176,9 @@
         </div>
 
         {#if filteredBadges.length === 0}
-          <div class="text-center py-12">
-            <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-muted rounded-full flex items-center justify-center">
-              <Filter class="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
-            </div>
-            <h3 class="text-lg sm:text-xl font-semibold text-foreground mb-2">No badges match your filters</h3>
-            <p class="text-sm text-muted-foreground max-w-md mx-auto px-4">
-              Try adjusting your filters to see more badges.
-            </p>
+          <div class="flex flex-col items-center py-12 text-center">
+            <Filter class="size-8 mb-4 text-[var(--color-text-disabled)]" />
+            <p class="text-sm text-[var(--color-text-secondary)]">No badges match your filters.</p>
           </div>
         {/if}
       </div>

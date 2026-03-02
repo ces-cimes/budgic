@@ -3,10 +3,9 @@
   import { onMount } from 'svelte';
   import { userService } from '$lib/core/services';
   import { PageLayout } from '$lib/components/layouts';
-  import * as Card from '$lib/components/ui/card/index.ts';
-  import * as Button from '$lib/components/ui/button/index.ts';
+  import Header from '$lib/components/Header.svelte';
   import { Switch } from '$lib/components/ui/switch/index.ts';
-  import * as Alert from '$lib/components/ui/alert/index.ts';
+  import { BarChart2, HardDrive } from '@lucide/svelte';
   import type { UserPreferences } from '$lib/core/db';
 
   // State
@@ -59,95 +58,75 @@
 </script>
 
 <svelte:head>
-  <title>Security & Privacy Settings | Budgic</title>
+  <title>Security & privacy | Budgic</title>
 </svelte:head>
 
 <PageLayout>
-  <div class="container mx-auto px-4 py-6 max-w-4xl">
-    <!-- Header -->
-    <header class="mb-8">
-      <div class="flex items-center gap-4 mb-4">
-        <Button.Root variant="ghost" size="sm" onclick={() => goto('/settings')}>
-          ← Back to Settings
-        </Button.Root>
-      </div>
-      <h1 class="text-3xl font-bold text-primary mb-2">Security & Privacy</h1>
-      <p class="text-muted-foreground">Control your data privacy and security preferences</p>
-    </header>
+  {#snippet topBar()}
+    <Header title="Security & privacy" backButtonLabel="Back to settings" backButtonLink="/settings" />
+  {/snippet}
 
+  <div class="mx-auto max-w-2xl px-4 py-6">
     {#if isLoading}
-      <div class="flex items-center justify-center py-12">
-        <div class="text-muted-foreground">Loading security settings...</div>
-      </div>
+      <div class="h-36 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
     {:else}
-      <!-- Error/Success Messages -->
       {#if error}
-        <Alert.Root variant="destructive" class="mb-6">
-          <Alert.Description>{error}</Alert.Description>
-        </Alert.Root>
+        <div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+        </div>
       {/if}
-      
       {#if success}
-        <Alert.Root variant="default" class="mb-6">
-          <Alert.Description>{success}</Alert.Description>
-        </Alert.Root>
+        <div class="mb-5 rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-5 py-3">
+          <p class="text-sm text-[var(--color-sage-green)]">{success}</p>
+        </div>
       {/if}
 
-      <!-- Privacy Settings -->
-      <form onsubmit={(e) => { e.preventDefault(); savePreferences(); }} class="space-y-8">
-        <!-- Data Privacy -->
-        <Card.Root>
-          <Card.Header>
-            <Card.Title>Data Privacy</Card.Title>
-            <Card.Description>Control how your data is used and shared</Card.Description>
-          </Card.Header>
-          <Card.Content class="space-y-6">
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  📊
-                </div>
-                <div>
-                  <div class="font-medium text-primary">Analytics</div>
-                  <div class="text-sm text-muted-foreground">Help improve the app by sharing usage data</div>
-                </div>
+      <form onsubmit={(e) => { e.preventDefault(); savePreferences(); }} class="space-y-6">
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+          <div class="px-5 py-2.5">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Data privacy</h2>
+          </div>
+          <div class="flex items-center justify-between gap-4 px-5 py-4">
+            <div class="flex items-center gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                <BarChart2 class="size-4 text-[var(--color-amber)]" />
               </div>
-              <Switch
-                bind:checked={analyticsEnabled}
-                aria-label="Toggle analytics"
-              />
-            </div>
-
-            <div class="flex items-center justify-between space-x-4">
-              <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 min-w-10 min-h-10 bg-accent rounded-lg flex items-center justify-center text-accent-foreground">
-                  💾
-                </div>
-                <div>
-                  <div class="font-medium text-primary">Data Backup</div>
-                  <div class="text-sm text-muted-foreground">Automatically backup your financial data</div>
-                </div>
+              <div>
+                <p class="text-sm font-medium text-[var(--color-text-primary)]">Analytics</p>
+                <p class="text-xs text-[var(--color-text-tertiary)]">Help improve the app by sharing usage data</p>
               </div>
-              <Switch
-                bind:checked={backupEnabled}
-                aria-label="Toggle data backup"
-              />
             </div>
-          </Card.Content>
-        </Card.Root>
+            <Switch bind:checked={analyticsEnabled} aria-label="Toggle analytics" />
+          </div>
+          <div class="flex items-center justify-between gap-4 px-5 py-4">
+            <div class="flex items-center gap-3">
+              <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                <HardDrive class="size-4 text-[var(--color-amber)]" />
+              </div>
+              <div>
+                <p class="text-sm font-medium text-[var(--color-text-primary)]">Data backup</p>
+                <p class="text-xs text-[var(--color-text-tertiary)]">Automatically back up your financial data</p>
+              </div>
+            </div>
+            <Switch bind:checked={backupEnabled} aria-label="Toggle data backup" />
+          </div>
+        </div>
 
-        <!-- Actions -->
-        <div class="flex gap-4">
-          <Button.Root type="submit" disabled={isSaving}>
-            {#if isSaving}
-              <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            {/if}
-            Save Settings
-          </Button.Root>
-          
-          <Button.Root variant="outline" onclick={() => goto('/settings')}>
+        <div class="flex gap-3">
+          <button
+            type="submit"
+            disabled={isSaving}
+            class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+          >
+            {isSaving ? 'Saving…' : 'Save changes'}
+          </button>
+          <button
+            type="button"
+            onclick={() => goto('/settings')}
+            class="rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)]"
+          >
             Cancel
-          </Button.Root>
+          </button>
         </div>
       </form>
     {/if}

@@ -4,10 +4,7 @@
 	import { occasionService } from '$lib/core/services';
 	import type { Occasion } from '$lib/core/db';
 	import { PageLayout } from '$lib/components/layouts';
-	import * as Card from '$lib/components/ui/card/index.ts';
-	import * as Button from '$lib/components/ui/button/index.ts';
-	import { Input } from '$lib/components/ui/input/index.ts';
-	import { Label } from '$lib/components/ui/label/index.ts';
+	import Header from '$lib/components/Header.svelte';
 	import { Switch } from '$lib/components/ui/switch/index.ts';
 	import {
 		Select,
@@ -120,118 +117,145 @@
 </svelte:head>
 
 <PageLayout>
-	<div class="container mx-auto max-w-3xl space-y-6 p-4">
-		<div class="flex items-center gap-4 mb-4">
-			<Button.Root variant="ghost" size="sm" onclick={() => goto('/settings')}>
-				← Back to Settings
-			</Button.Root>
-		</div>
-		<div>
-			<h1 class="text-2xl font-semibold">Occasion awareness</h1>
-			<p class="text-muted-foreground text-sm mt-1">
-				Recurring spending events (e.g. Friday nights, first weekend, holidays) are used to adjust your allowance so you can plan ahead.
-			</p>
-		</div>
+	{#snippet topBar()}
+		<Header title="Occasions" backButtonLabel="Back to plan settings" backButtonLink="/settings/plan" />
+	{/snippet}
 
+	<div class="mx-auto max-w-2xl px-4 py-6 space-y-4">
 		{#if error}
-			<div class="rounded-lg bg-destructive/10 text-destructive px-4 py-2 text-sm">{error}</div>
+			<div class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3">
+				<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
+			</div>
 		{/if}
 		{#if success}
-			<div class="rounded-lg bg-success/10 text-success px-4 py-2 text-sm">{success}</div>
+			<div class="rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-4 py-3">
+				<p class="text-sm text-[var(--color-sage-green)]">{success}</p>
+			</div>
 		{/if}
 
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="flex items-center gap-2">
-					<CalendarDays class="w-5 h-5" />
-					Occasions
-				</Card.Title>
-				<Card.Description>
-					Detect from transaction history or add your own. Inactive occasions do not affect your allowance.
-				</Card.Description>
-			</Card.Header>
-			<Card.Content class="space-y-4">
-				<div class="flex flex-wrap gap-2">
-					<Button.Root onclick={detectFromHistory} disabled={detecting}>
-						<RefreshCw class="w-4 h-4 mr-2" />
-						{detecting ? 'Detecting…' : 'Detect from history'}
-					</Button.Root>
-					<Button.Root variant="outline" onclick={() => (showAddForm = !showAddForm)}>
-						<Plus class="w-4 h-4 mr-2" />
-						Add occasion
-					</Button.Root>
-				</div>
+		<p class="text-xs text-[var(--color-text-tertiary)] px-1">
+			Recurring spending events adjust your allowance so you can plan ahead.
+		</p>
 
-				{#if showAddForm}
-					<div class="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-						<Label for="add-title">Title</Label>
-						<Input id="add-title" bind:value={addTitle} placeholder="e.g. Friday nights" class="max-w-xs" />
-						<div class="flex gap-4">
-							<div>
-								<Label>Type</Label>
-								<Select type="single" value={addType} onValueChange={(v) => v && (addType = v as typeof addType)}>
-									<SelectTrigger class="w-[140px] mt-1">
-										{addType === 'weekly' ? 'Weekly' : addType === 'monthly' ? 'Monthly' : 'Annual'}
+		<div class="flex gap-2">
+			<button
+				onclick={detectFromHistory}
+				disabled={detecting}
+				class="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+			>
+				<RefreshCw class="size-3.5" />
+				{detecting ? 'Detecting…' : 'Detect from history'}
+			</button>
+			<button
+				onclick={() => (showAddForm = !showAddForm)}
+				class="flex items-center gap-1.5 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] px-4 py-2 text-sm font-medium text-[var(--color-amber)] transition-colors"
+			>
+				<Plus class="size-3.5" />
+				Add occasion
+			</button>
+		</div>
+
+		{#if showAddForm}
+			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+				<div class="px-5 py-2.5 border-b border-border">
+					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">New occasion</h2>
+				</div>
+				<div class="px-5 py-4 space-y-4">
+					<div class="space-y-1.5">
+						<label for="add-title" class="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
+						<input
+							id="add-title"
+							bind:value={addTitle}
+							placeholder="e.g. Friday nights"
+							class="w-full max-w-xs rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+						/>
+					</div>
+					<div class="flex flex-wrap gap-3">
+						<div class="space-y-1.5">
+							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Type</p>
+							<Select type="single" value={addType} onValueChange={(v) => v && (addType = v as typeof addType)}>
+								<SelectTrigger class="w-36">
+									{addType === 'weekly' ? 'Weekly' : addType === 'monthly' ? 'Monthly' : 'Annual'}
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="weekly">Weekly</SelectItem>
+									<SelectItem value="monthly">Monthly</SelectItem>
+									<SelectItem value="annual">Annual</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						{#if addType === 'weekly'}
+							<div class="space-y-1.5">
+								<p class="text-xs font-medium text-[var(--color-text-secondary)]">Day</p>
+								<Select type="single" value={String(addDayOfWeek)} onValueChange={(v) => v && (addDayOfWeek = parseInt(v, 10))}>
+									<SelectTrigger class="w-32">
+										{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][addDayOfWeek]}
 									</SelectTrigger>
 									<SelectContent>
-										<SelectItem value="weekly">Weekly</SelectItem>
-										<SelectItem value="monthly">Monthly</SelectItem>
-										<SelectItem value="annual">Annual</SelectItem>
+										{#each [0,1,2,3,4,5,6] as d}
+											<SelectItem value={String(d)}>{['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d]}</SelectItem>
+										{/each}
 									</SelectContent>
 								</Select>
 							</div>
-							{#if addType === 'weekly'}
-								<div>
-									<Label>Day of week</Label>
-									<Select type="single" value={String(addDayOfWeek)} onValueChange={(v) => v && (addDayOfWeek = parseInt(v, 10))}>
-										<SelectTrigger class="w-[120px] mt-1">
-											{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][addDayOfWeek]}
-										</SelectTrigger>
-										<SelectContent>
-											{#each [0,1,2,3,4,5,6] as d}
-												<SelectItem value={String(d)}>{['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d]}</SelectItem>
-											{/each}
-										</SelectContent>
-									</Select>
-								</div>
-							{/if}
-							<div>
-								<Label>Expected change ({addCurrency})</Label>
-								<Input type="number" bind:value={addExpectedDelta} class="w-24 mt-1" placeholder="0" />
-							</div>
+						{/if}
+						<div class="space-y-1.5">
+							<label for="add-delta" class="text-xs font-medium text-[var(--color-text-secondary)]">Expected change ({addCurrency})</label>
+							<input
+								id="add-delta"
+								type="number"
+								bind:value={addExpectedDelta}
+								placeholder="0"
+								class="w-24 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+							/>
 						</div>
-						<Button.Root onclick={addOccasion}>Add</Button.Root>
 					</div>
-				{/if}
+					<button
+						onclick={addOccasion}
+						class="rounded-xl bg-[var(--color-amber)] px-5 py-2 text-sm font-semibold text-[var(--color-bg-primary)]"
+					>
+						Add
+					</button>
+				</div>
+			</div>
+		{/if}
 
-				{#if loading}
-					<p class="text-sm text-muted-foreground">Loading…</p>
-				{:else if occasions.length === 0}
-					<p class="text-sm text-muted-foreground">No occasions yet. Use &quot;Detect from history&quot; or &quot;Add occasion&quot;.</p>
-				{:else}
-					<ul class="space-y-2">
-						{#each occasions as o}
-							<li class="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-								<div class="flex items-center gap-3">
-									<Switch checked={o.isActive} onCheckedChange={() => toggleActive(o)} />
-									<div>
-										<div class="font-medium">{o.title}</div>
-										<div class="text-xs text-muted-foreground">
-											{getPatternLabel(o)} · {o.source === 'detected' ? `Detected (${o.confidence}%)` : 'User-defined'}
-											· {formatTransactionAmount(o.expectedAmountDelta, o.currency)}/occurrence
-										</div>
-									</div>
-								</div>
-								<div class="flex gap-1">
-									<Button.Root variant="ghost" size="sm" onclick={() => deleteOccasion(o.id)} title="Delete">
-										<Trash2 class="w-4 h-4 text-destructive" />
-									</Button.Root>
-								</div>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</Card.Content>
-		</Card.Root>
+		<!-- Occasions list -->
+		{#if loading}
+			<div class="space-y-2">
+				{#each [1,2,3] as _}
+					<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+				{/each}
+			</div>
+		{:else if occasions.length === 0}
+			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] p-10 text-center">
+				<CalendarDays class="mx-auto mb-3 size-8 text-[var(--color-text-tertiary)]" />
+				<p class="text-sm text-[var(--color-text-secondary)]">No occasions yet.</p>
+				<p class="text-xs text-[var(--color-text-tertiary)] mt-1">Detect from history or add your own.</p>
+			</div>
+		{:else}
+			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+				{#each occasions as o}
+					<div class="flex items-center gap-3 px-4 py-3">
+						<Switch checked={o.isActive} onCheckedChange={() => toggleActive(o)} />
+						<div class="min-w-0 flex-1">
+							<p class="text-sm font-medium text-[var(--color-text-primary)]">{o.title}</p>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								{getPatternLabel(o)} · {o.source === 'detected' ? `Detected (${o.confidence}%)` : 'User-defined'}
+								· {formatTransactionAmount(o.expectedAmountDelta, o.currency)}/occurrence
+							</p>
+						</div>
+						<button
+							onclick={() => deleteOccasion(o.id)}
+							class="shrink-0 p-1.5 text-[var(--color-warm-coral)] hover:bg-[var(--color-warm-coral)]/10 rounded-lg transition-colors"
+							title="Delete"
+						>
+							<Trash2 class="size-4" />
+						</button>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	</div>
 </PageLayout>
+
