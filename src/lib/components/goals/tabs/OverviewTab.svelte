@@ -22,6 +22,7 @@
   import { goalService, goalOpportunityService } from '$lib/core/services';
   import type { SavingsOpportunitiesResult } from '$lib/core/services/core/goal-opportunity-service';
   import type { GoalsData, Goal } from '../types';
+  import GoalTradeoffPanel from '../GoalTradeoffPanel.svelte';
 
   interface Props {
     goalsData: GoalsData | null;
@@ -209,6 +210,9 @@
         </div>
       </Card.Content>
     </Card.Root>
+
+    <!-- Goal trade-off analysis (Phase 2.3) -->
+    <GoalTradeoffPanel activeGoals={activeGoals} userCurrency={userCurrency} />
 
     <!-- Savings opportunities (Phase 2.2) -->
     {#if opportunitiesResult}

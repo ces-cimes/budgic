@@ -18,6 +18,7 @@ export { reconciliationService } from './reconciliation-service';
 export { budgetService } from './budget-service';
 export { goalService } from './goal-service';
 export { goalOpportunityService } from './goal-opportunity-service';
+export { goalTradeoffService } from './goal-tradeoff-service';
 export { userService } from './user-service';
 export { negativeAllowanceService } from './negative-allowance-service';
 export { envelopeBorrowingService } from './envelope-borrowing-service';

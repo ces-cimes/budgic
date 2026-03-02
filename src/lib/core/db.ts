@@ -1112,7 +1112,16 @@ const GoalSchema = BaseSchema.extend({
 	]),
 	priority: z.enum(['low', 'medium', 'high', 'critical']),
 	status: z.enum(['active', 'paused', 'completed', 'cancelled']).default('active'),
-	targetDate: z.string().datetime().optional(),
+	targetDate: z
+		.string()
+		.optional()
+		.transform((s) => {
+			if (!s) return undefined;
+			// Accept date-only (YYYY-MM-DD) from date inputs; normalize to full ISO for storage
+			if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T00:00:00.000Z`;
+			return s;
+		})
+		.pipe(z.string().datetime().optional()),
 	completedAt: z.string().datetime().optional(),
 	monthlyContribution: z.number().min(0).optional(),
 	isRecurring: z.boolean().default(false),
