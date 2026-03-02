@@ -376,13 +376,27 @@
     }
   }
 
-  /* Light mode glass override */
-  :root .glass {
+  /* Light mode glass override — only when .dark is not on the root */
+  :root:not(.dark) .glass {
     background: oklch(1 0 0 / 0.80);
     border-color: oklch(0 0 0 / 0.08);
     box-shadow:
       0 1px 0 oklch(1 0 0 / 0.9) inset,
       0 4px 24px oklch(0 0 0 / 0.12);
+  }
+
+  /* Dark mode: ensure glass uses dark-appropriate surface (base .glass is already dark) */
+  :root.dark .glass {
+    background: oklch(0.17 0.005 285 / 0.45);
+    border-color: oklch(1 0 0 / 0.08);
+    box-shadow:
+      0 0 0 1px oklch(1 0 0 / 0.04) inset,
+      0 1px 0 oklch(1 0 0 / 0.06) inset,
+      0 8px 32px oklch(0 0 0 / 0.4);
+  }
+
+  :root.dark .glass::before {
+    background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.12), transparent);
   }
 
   /* ── Budget progress bar (gradient fill by usage) ── */
