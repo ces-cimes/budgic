@@ -6,7 +6,7 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: oklch(0.99 0.002 85);
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
@@ -37,139 +37,149 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
-  
-  /* Warm Midnight Dark Mode Color System - Light Theme Adaptations */
-  --color-sage-green: oklch(0.678 0.12 142.5);
-  --color-golden-amber: oklch(0.678 0.12 75.31);
-  --color-warm-coral: oklch(0.65 0.18 25.0);
-  --color-warm-charcoal: oklch(0.15 0.005 285.823);
-  --color-warm-ivory: oklch(0.95 0.01 85.0);
-  
-  /* Background Layers - Light Theme */
-  --color-bg-primary: oklch(1 0 0);
-  --color-bg-secondary: oklch(0.967 0.001 286.375);
-  --color-bg-tertiary: oklch(0.92 0.004 286.32);
-  --color-bg-surface: oklch(0.95 0.002 286.32);
-  
-  /* Text Hierarchy - Light Theme */
-  --color-text-primary: oklch(0.141 0.005 285.823);
+
+  /* ── Budgic Amber (brand) ── */
+  --color-amber:          oklch(0.52 0.14 85);
+  --color-amber-muted:    oklch(0.44 0.10 85);
+  --color-amber-subtle:   oklch(0.52 0.14 85 / 0.10);
+  --color-amber-glow:     oklch(0.52 0.14 85 / 0.22);
+
+  /* ── Hero number (adapts per theme) ── */
+  --color-hero-number:    oklch(0.30 0.09 85);
+
+  /* ── Named palette ── */
+  --color-sage-green:     oklch(0.678 0.12 142.5);
+  --color-golden-amber:   oklch(0.52 0.14 85);
+  --color-warm-coral:     oklch(0.65 0.18 25.0);
+  --color-warm-charcoal:  oklch(0.15 0.005 285.823);
+  --color-warm-ivory:     oklch(0.95 0.01 85.0);
+
+  /* ── Background Layers — Light ── */
+  --color-bg-primary:     oklch(0.99 0.002 85);
+  --color-bg-secondary:   oklch(0.96 0.003 85);
+  --color-bg-tertiary:    oklch(0.93 0.004 85);
+  --color-bg-surface:     oklch(0.90 0.005 85);
+
+  /* ── Text Hierarchy — Light ── */
+  --color-text-primary:   oklch(0.141 0.005 285.823);
   --color-text-secondary: oklch(0.35 0.01 285.823);
-  --color-text-tertiary: oklch(0.55 0.016 285.938);
-  --color-text-disabled: oklch(0.7 0.02 285.823);
-  
-  /* Accent Colors - Light Theme */
-  --color-success: oklch(0.45 0.12 142.5);
-  --color-warning: oklch(0.75 0.15 85.0);
-  --color-alert: oklch(0.65 0.18 25.0);
-  --color-info: oklch(0.55 0.12 220.0);
-  
-  /* Confidence-Based Colors - Light Theme */
-  --color-high-confidence: oklch(0.45 0.12 142.5);
+  --color-text-tertiary:  oklch(0.55 0.016 285.938);
+  --color-text-disabled:  oklch(0.7 0.02 285.823);
+
+  /* ── Semantic accents — Light ── */
+  --color-success:        oklch(0.45 0.12 142.5);
+  --color-warning:        oklch(0.52 0.14 85);
+  --color-alert:          oklch(0.65 0.18 25.0);
+  --color-info:           oklch(0.55 0.12 220.0);
+
+  /* ── Confidence / spending state colors ── */
+  --color-high-confidence:        oklch(0.45 0.12 142.5);
   --color-high-confidence-accent: oklch(0.65 0.18 85.0);
-  --color-medium-confidence: oklch(0.6 0.12 85.0);
-  --color-borrowed-future: oklch(0.7 0.15 25.0);
-  --color-overspent: oklch(0.65 0.18 25.0);
-  
-  /* Daily Spending States - Light Theme */
-  --color-fresh-day: oklch(0.967 0.001 286.375);
-  --color-moderate-spending: oklch(0.92 0.004 286.32);
-  --color-high-velocity: oklch(0.65 0.18 25.0);
-  --color-cooldown: oklch(0.3 0.05 220.0);
-  
-  /* Behavioral Psychology Colors - Light Theme */
+  --color-medium-confidence:      oklch(0.6 0.12 85.0);
+  --color-borrowed-future:        oklch(0.7 0.15 25.0);
+  --color-overspent:              oklch(0.65 0.18 25.0);
+  --color-fresh-day:              oklch(0.967 0.001 286.375);
+  --color-moderate-spending:      oklch(0.92 0.004 286.32);
+  --color-high-velocity:          oklch(0.65 0.18 25.0);
+  --color-cooldown:               oklch(0.3 0.05 220.0);
   --color-positive-reinforcement: oklch(0.8 0.2 85.0);
-  --color-momentum-alert: oklch(0.65 0.18 25.0);
-  
-  /* Legacy Support - Map to new colors */
-  --bg-primary: var(--color-bg-primary);
-  --text-primary: var(--color-text-primary);
-  --color-expense: var(--color-warm-coral);
-  --color-income: var(--color-sage-green);
-  --color-savings: var(--color-info);
+  --color-momentum-alert:         oklch(0.65 0.18 25.0);
+
+  /* ── Legacy aliases ── */
+  --bg-primary:     var(--color-bg-primary);
+  --text-primary:   var(--color-text-primary);
+  --color-expense:  var(--color-warm-coral);
+  --color-income:   var(--color-sage-green);
+  --color-savings:  var(--color-info);
   --color-highlight: var(--color-text-primary);
 }
 
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
+  --background: oklch(0.10 0.006 285);
+  --foreground: oklch(0.95 0.01 85);
+  --card: oklch(0.17 0.005 285);
+  --card-foreground: oklch(0.95 0.01 85);
+  --popover: oklch(0.17 0.005 285);
+  --popover-foreground: oklch(0.95 0.01 85);
   --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
+  --primary-foreground: oklch(0.14 0.005 285);
+  --secondary: oklch(0.22 0.006 285);
+  --secondary-foreground: oklch(0.95 0.01 85);
+  --muted: oklch(0.22 0.006 285);
+  --muted-foreground: oklch(0.60 0.012 285);
+  --accent: oklch(0.22 0.006 285);
+  --accent-foreground: oklch(0.95 0.01 85);
+  --destructive: oklch(0.65 0.18 25.0);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.52 0.14 85 / 50%);
+  --chart-1: oklch(0.78 0.16 85);
+  --chart-2: oklch(0.70 0.14 145);
   --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
-  
-  /* Warm Midnight Dark Mode Color System - Dark Theme */
-  --color-sage-green: oklch(0.678 0.12 142.5);
-  --color-golden-amber: oklch(0.75 0.15 85.0);
-  --color-warm-coral: oklch(0.678 0.12 25.1);
-  --color-warm-charcoal: oklch(0.15 0.005 285.823);
-  --color-warm-ivory: oklch(0.95 0.01 85.0);
-  
-  /* Background Layers - Dark Theme */
-  --color-bg-primary: oklch(0.141 0.005 285.823);
-  --color-bg-secondary: oklch(0.21 0.006 285.885);
-  --color-bg-tertiary: oklch(0.274 0.006 286.033);
-  --color-bg-surface: oklch(0.32 0.008 286.033);
-  
-  /* Text Hierarchy - Dark Theme */
-  --color-text-primary: oklch(0.95 0.01 85.0);
+  --chart-4: oklch(0.62 0.15 260);
+  --chart-5: oklch(0.65 0.18 25);
+  --sidebar: oklch(0.13 0.005 285);
+  --sidebar-foreground: oklch(0.95 0.01 85);
+  --sidebar-primary: oklch(0.78 0.16 85);
+  --sidebar-primary-foreground: oklch(0.10 0.006 285);
+  --sidebar-accent: oklch(0.22 0.006 285);
+  --sidebar-accent-foreground: oklch(0.95 0.01 85);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.52 0.14 85 / 50%);
+
+  /* ── Budgic Amber (brand) — dark mode ── */
+  --color-amber:          oklch(0.78 0.16 85);
+  --color-amber-muted:    oklch(0.60 0.13 85);
+  --color-amber-subtle:   oklch(0.78 0.16 85 / 0.12);
+  --color-amber-glow:     oklch(0.78 0.16 85 / 0.25);
+
+  /* ── Hero number — dark mode ── */
+  --color-hero-number:    oklch(0.78 0.16 85);
+
+  /* ── Named palette — dark ── */
+  --color-sage-green:     oklch(0.70 0.14 142.5);
+  --color-golden-amber:   oklch(0.78 0.16 85);
+  --color-warm-coral:     oklch(0.65 0.18 25.0);
+  --color-warm-charcoal:  oklch(0.10 0.006 285);
+  --color-warm-ivory:     oklch(0.95 0.01 85.0);
+
+  /* ── Background Layers — Dark ── */
+  --color-bg-primary:     oklch(0.10 0.006 285);
+  --color-bg-secondary:   oklch(0.13 0.005 285);
+  --color-bg-tertiary:    oklch(0.17 0.005 285);
+  --color-bg-surface:     oklch(0.22 0.006 285);
+
+  /* ── Text Hierarchy — Dark ── */
+  --color-text-primary:   oklch(0.95 0.01 85.0);
   --color-text-secondary: oklch(0.75 0.02 85.0);
-  --color-text-tertiary: oklch(0.55 0.016 285.938);
-  --color-text-disabled: oklch(0.35 0.01 285.823);
-  
-  /* Accent Colors - Dark Theme */
-  --color-success: oklch(0.45 0.12 142.5);
-  --color-warning: oklch(0.75 0.15 85.0);
-  --color-alert: oklch(0.65 0.18 25.0);
-  --color-info: oklch(0.55 0.12 220.0);
-  
-  /* Confidence-Based Colors - Dark Theme */
-  --color-high-confidence: oklch(0.45 0.12 142.5);
-  --color-high-confidence-accent: oklch(0.65 0.18 85.0);
-  --color-medium-confidence: oklch(0.6 0.12 85.0);
-  --color-borrowed-future: oklch(0.7 0.15 25.0);
-  --color-overspent: oklch(0.65 0.18 25.0);
-  
-  /* Daily Spending States - Dark Theme */
-  --color-fresh-day: oklch(0.21 0.006 285.885);
-  --color-moderate-spending: oklch(0.18 0.005 285.823);
-  --color-high-velocity: oklch(0.65 0.18 25.0);
-  --color-cooldown: oklch(0.25 0.05 220.0);
-  
-  /* Behavioral Psychology Colors - Dark Theme */
-  --color-positive-reinforcement: oklch(0.8 0.2 85.0);
-  --color-momentum-alert: oklch(0.65 0.18 25.0);
-  
-  /* Legacy Support - Map to new colors */
-  --bg-primary: var(--color-bg-primary);
-  --text-primary: var(--color-text-primary);
-  --color-expense: var(--color-warm-coral);
-  --color-income: var(--color-sage-green);
-  --color-savings: var(--color-info);
+  --color-text-tertiary:  oklch(0.55 0.016 285.938);
+  --color-text-disabled:  oklch(0.35 0.01 285.823);
+
+  /* ── Semantic accents — Dark ── */
+  --color-success:        oklch(0.62 0.14 142.5);
+  --color-warning:        oklch(0.78 0.16 85);
+  --color-alert:          oklch(0.65 0.18 25.0);
+  --color-info:           oklch(0.62 0.15 260);
+
+  /* ── Confidence / spending state — Dark ── */
+  --color-high-confidence:        oklch(0.62 0.14 142.5);
+  --color-high-confidence-accent: oklch(0.78 0.16 85);
+  --color-medium-confidence:      oklch(0.60 0.13 85);
+  --color-borrowed-future:        oklch(0.7 0.15 25.0);
+  --color-overspent:              oklch(0.65 0.18 25.0);
+  --color-fresh-day:              oklch(0.17 0.005 285);
+  --color-moderate-spending:      oklch(0.14 0.005 285);
+  --color-high-velocity:          oklch(0.65 0.18 25.0);
+  --color-cooldown:               oklch(0.25 0.05 220.0);
+  --color-positive-reinforcement: oklch(0.78 0.16 85);
+  --color-momentum-alert:         oklch(0.65 0.18 25.0);
+
+  /* ── Legacy aliases ── */
+  --bg-primary:     var(--color-bg-primary);
+  --text-primary:   var(--color-text-primary);
+  --color-expense:  var(--color-warm-coral);
+  --color-income:   var(--color-sage-green);
+  --color-savings:  var(--color-info);
   --color-highlight: var(--color-text-primary);
 }
 
@@ -209,6 +219,11 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* ── Font families ── */
+  --font-sans:    'Plus Jakarta Sans', sans-serif;
+  --font-display: 'DM Serif Display', serif;
+  --font-mono:    'JetBrains Mono', monospace;
 }
 
 @layer base {
@@ -217,40 +232,74 @@
   }
   body {
     @apply bg-sidebar text-foreground;
-    font-family: 'Ubuntu', sans-serif;
-    /* Improve mobile touch scrolling */
+    font-family: var(--font-sans);
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
   }
 
-  .accent {
-    @apply text-[var(--accent)];
+  /* ── Font family utilities ── */
+  .font-display { font-family: var(--font-display); }
+  .font-mono    { font-family: var(--font-mono); }
+
+  /* ── Hero number: large financial figures ── */
+  .text-hero {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 8vw, 4.5rem);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--color-hero-number);
+    font-variant-numeric: tabular-nums;
   }
-  
-  .expense {
-    @apply text-[var(--color-expense)];
-  }
-  
-  .income {
-    @apply text-[var(--color-income)];
-  }
-  
-  .savings {
-    @apply text-[var(--color-savings)];
+  .text-hero-sm {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    line-height: 1;
+    letter-spacing: -0.015em;
+    color: var(--color-hero-number);
+    font-variant-numeric: tabular-nums;
   }
 
-  /* New semantic color classes */
-  .text-primary { @apply text-[var(--color-text-primary)]; }
+  /* ── Mono amount: inline transaction figures ── */
+  .text-amount {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .text-amount-sm {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  /* ── Amber brand utilities ── */
+  .text-amber   { color: var(--color-amber); }
+  .bg-amber     { background-color: var(--color-amber); }
+  .border-amber { border-color: var(--color-amber); }
+  .bg-amber-subtle { background-color: var(--color-amber-subtle); }
+  .ring-amber   { --tw-ring-color: var(--color-amber-glow); }
+
+  /* ── Semantic color shorthands ── */
+  .accent   { @apply text-[var(--accent)]; }
+  .expense  { @apply text-[var(--color-expense)]; }
+  .income   { @apply text-[var(--color-income)]; }
+  .savings  { @apply text-[var(--color-savings)]; }
+
+  /* Text hierarchy */
+  .text-primary   { @apply text-[var(--color-text-primary)]; }
   .text-secondary { @apply text-[var(--color-text-secondary)]; }
-  .text-tertiary { @apply text-[var(--color-text-tertiary)]; }
-  .text-disabled { @apply text-[var(--color-text-disabled)]; }
-  
-  .bg-primary { @apply bg-[var(--color-bg-primary)]; }
+  .text-tertiary  { @apply text-[var(--color-text-tertiary)]; }
+  .text-disabled  { @apply text-[var(--color-text-disabled)]; }
+
+  /* Background layers */
+  .bg-primary   { @apply bg-[var(--color-bg-primary)]; }
   .bg-secondary { @apply bg-[var(--color-bg-secondary)]; }
-  .bg-tertiary { @apply bg-[var(--color-bg-tertiary)]; }
-  .bg-surface { @apply bg-[var(--color-bg-surface)]; }
-  
-  .border-primary { @apply border-[var(--color-bg-surface)]; }
+  .bg-tertiary  { @apply bg-[var(--color-bg-tertiary)]; }
+  .bg-surface   { @apply bg-[var(--color-bg-surface)]; }
+
+  /* Border helpers */
+  .border-primary   { @apply border-[var(--color-bg-surface)]; }
   .border-secondary { @apply border-[var(--color-text-tertiary)]; }
 
   /* Mobile touch improvements */
@@ -308,26 +357,78 @@
 }
 
 @layer components {
+  /* ── Glass surface ── */
   .glass {
-    @apply relative overflow-hidden rounded-[20px] border border-white/20 bg-[var(--color-bg-secondary)]/80
-           backdrop-blur-[5px] shadow-[0_8px_32px_rgba(0,0,0,0.2)];
-    
-    /* Subtle inset shadows for depth */
-    box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.05),
-        inset 0 0 12px 6px rgba(255, 255, 255, 0.05);
-  
-    /* Glass edge highlights */
+    @apply relative overflow-hidden rounded-[20px];
+    background: oklch(0.17 0.005 285 / 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    box-shadow:
+      0 0 0 1px oklch(1 0 0 / 0.04) inset,
+      0 1px 0 oklch(1 0 0 / 0.07) inset,
+      0 8px 32px oklch(0 0 0 / 0.4);
+
+    /* Top edge highlight */
     &::before {
-      @apply content-[''] absolute left-0 top-0 right-0 h-px
-             bg-gradient-to-r from-transparent via-white/20 to-transparent;
+      @apply content-[''] absolute left-0 top-0 right-0 h-px;
+      background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.15), transparent);
     }
-  
-    &::after {
-      @apply content-[''] absolute left-0 top-0 w-px h-full
-             bg-gradient-to-b from-white/20 via-transparent to-white/10;
-    }
+  }
+
+  /* Light mode glass override */
+  :root .glass {
+    background: oklch(1 0 0 / 0.80);
+    border-color: oklch(0 0 0 / 0.08);
+    box-shadow:
+      0 1px 0 oklch(1 0 0 / 0.9) inset,
+      0 4px 24px oklch(0 0 0 / 0.12);
+  }
+
+  /* ── Budget progress bar (gradient fill by usage) ── */
+  .budget-progress {
+    @apply h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-bg-surface)];
+  }
+  .budget-progress-fill {
+    @apply h-full rounded-full transition-all duration-700 ease-out;
+    background: linear-gradient(
+      to right,
+      var(--color-sage-green) 0%,
+      var(--color-amber)      60%,
+      var(--color-warm-coral) 85%,
+      var(--color-warm-coral) 100%
+    );
+    background-size: 200% 100%;
+    background-position-x: calc(100% - var(--fill-pct, 0) * 1%);
+  }
+
+  /* ── Count-up number animation ── */
+  @keyframes count-up-reveal {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-count-up {
+    animation: count-up-reveal 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* ── Card entrance stagger ── */
+  @keyframes card-enter {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-card-enter {
+    animation: card-enter 250ms ease-out both;
+  }
+
+  /* ── Amber shimmer celebration ── */
+  @keyframes amber-shimmer {
+    0%   { opacity: 0.8; transform: scale(1); }
+    60%  { opacity: 0.3; transform: scale(1.5); }
+    100% { opacity: 0;   transform: scale(2); }
+  }
+  .animate-amber-shimmer::after {
+    @apply content-[''] absolute inset-0 rounded-[inherit] pointer-events-none;
+    background: radial-gradient(circle, var(--color-amber-glow) 0%, transparent 70%);
+    animation: amber-shimmer 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 }

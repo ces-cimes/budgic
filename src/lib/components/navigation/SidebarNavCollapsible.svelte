@@ -46,14 +46,14 @@
 			{#snippet child({ props })}
 				<a
 					href={defaultTabHref}
-					class="group/link flex items-center gap-3 px-3 py-2.5 rounded-l-lg transition-all duration-200 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:min-w-0
+					class="group/link flex items-center gap-3 px-3 py-2.5 rounded-l-lg transition-all duration-150 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:min-w-0
 						{isParentActive
-							? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] font-medium shadow-sm'
-							: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]/50'}"
+							? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)] font-semibold'
+							: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]'}"
 					{...props}
 				>
 					<div class="relative flex-shrink-0">
-						<IconComponent class="w-4 h-4 transition-transform duration-200 {isParentActive ? 'scale-110' : 'group-hover:scale-105'}" />
+						<IconComponent class="w-4 h-4" />
 					</div>
 					<span class="flex-1 text-sm truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
 					{#if showBadge && badgeValue !== undefined && badgeValue !== 0}
