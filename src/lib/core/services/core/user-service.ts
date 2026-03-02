@@ -50,7 +50,8 @@ class UserService {
             envelopeBorrowRequireConfirmationRepeated: prefs.envelopeBorrowRequireConfirmationRepeated ?? true,
             rolloverSurplusBehavior: (prefs.rolloverSurplusBehavior as UserPreferences['rolloverSurplusBehavior']) ?? 'rollover_next',
             rolloverSurplusHybridRatio: typeof prefs.rolloverSurplusHybridRatio === 'number' ? prefs.rolloverSurplusHybridRatio : 0.5,
-            rolloverDeficitBehavior: (prefs.rolloverDeficitBehavior as UserPreferences['rolloverDeficitBehavior']) ?? 'reduce_next_period'
+            rolloverDeficitBehavior: (prefs.rolloverDeficitBehavior as UserPreferences['rolloverDeficitBehavior']) ?? 'reduce_next_period',
+            sidebarFooterCards: Array.isArray(prefs.sidebarFooterCards) ? prefs.sidebarFooterCards : ['total_balance', 'today_allowance']
         } as UserPreferences;
     }
 
@@ -97,11 +98,12 @@ class UserService {
                 envelopeBorrowRepaymentPeriods: 2,
                 envelopeBorrowTotalLimit: undefined,
                 envelopeBorrowRequireConfirmationRepeated: true,
-                rolloverSurplusBehavior: 'rollover_next',
-                rolloverSurplusHybridRatio: 0.5,
-                rolloverDeficitBehavior: 'reduce_next_period',
-                ...updates,
-                createdAt: new Date().toISOString(),
+            rolloverSurplusBehavior: 'rollover_next',
+            rolloverSurplusHybridRatio: 0.5,
+            rolloverDeficitBehavior: 'reduce_next_period',
+            sidebarFooterCards: ['total_balance', 'today_allowance'],
+            ...updates,
+            createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 deletedAt: null
             };
@@ -439,6 +441,7 @@ class UserService {
             rolloverSurplusBehavior: 'rollover_next',
             rolloverSurplusHybridRatio: 0.5,
             rolloverDeficitBehavior: 'reduce_next_period',
+            sidebarFooterCards: ['total_balance', 'today_allowance'],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             deletedAt: null

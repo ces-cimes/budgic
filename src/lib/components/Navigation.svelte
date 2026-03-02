@@ -2,9 +2,10 @@
 	import { page } from '$app/stores';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
 	import { SidebarNavLink, SidebarNavCollapsible } from '$lib/components/navigation';
+	import { SidebarFooterCards } from '$lib/components/navigation/sidebar-footer';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
 	import { defaultTabByRoute } from '$lib/config/nav-tabs';
-	import { onMount, untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import type { NavItemConfig } from '$lib/stores/navigation-store.svelte';
 
 	// Lucide icons – single source for sidebar nav
@@ -29,8 +30,11 @@
 	$effect(() => {
 		const p = $page.url.pathname;
 		if (p === '/plan' || p === '/insights' || p === '/reports') {
-			// Use untrack so we don't subscribe to expandedByPath — avoids effect loop
-			expandedByPath = { ...untrack(() => expandedByPath), [p]: true };
+			// On navigation: only the current section stays expanded; close all others
+			expandedByPath = { [p]: true };
+		} else {
+			// Not on a collapsible route — close all collapsibles
+			expandedByPath = {};
 		}
 	});
 
@@ -188,8 +192,10 @@
 				{/if}
 			</div>
 
-			{#if bottomItems.length > 0}
-				<div class="mt-auto shrink-0 flex flex-col gap-2 pt-2">
+			<!-- Footer: info cards + bottom nav (Settings, etc.) -->
+			<div class="mt-auto shrink-0 flex flex-col gap-2 pt-2">
+				<SidebarFooterCards />
+				{#if bottomItems.length > 0}
 					<Sidebar.Separator class="group-data-[collapsible=icon]:hidden" />
 					<Sidebar.Group>
 						<Sidebar.GroupContent>
@@ -206,8 +212,8 @@
 							</Sidebar.Menu>
 						</Sidebar.GroupContent>
 					</Sidebar.Group>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</Sidebar.Content>
 	</Sidebar.Root>
 {/if}

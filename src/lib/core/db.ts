@@ -1075,7 +1075,10 @@ const UserPreferencesSchema = BaseSchema.extend({
 		.default('reduce_next_period'), // What to do with category deficit at period end
 
 	// Savings opportunity detection (Phase 2.2) – min surplus to suggest contributing to goals
-	savingsOpportunityMinSurplus: z.number().min(0).optional()
+	savingsOpportunityMinSurplus: z.number().min(0).optional(),
+
+	// Sidebar footer info cards (desktop): which cards to show and in what order
+	sidebarFooterCards: z.array(z.string()).default(['total_balance', 'today_allowance'])
 });
 
 // User Actions Schema

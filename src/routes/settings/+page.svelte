@@ -143,6 +143,7 @@
         { name: 'Display', description: 'Theme, language, and currency', icon: '🎨', href: '/settings/display' },
         { name: 'Currency', description: 'Currencies and exchange rates', icon: '💱', href: '/settings/currency' },
         { name: 'Navigation', description: 'Nav order and visibility', icon: '🧭', href: '/settings/navigation' },
+        { name: 'Sidebar', description: 'Footer info cards (balance, allowance)', icon: '📌', href: '/settings/sidebar' },
         { name: 'Notifications', description: 'Notification preferences', icon: '🔔', href: '/settings/notifications' }
       ]
     },
