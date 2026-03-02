@@ -1,5 +1,8 @@
 import type { ComponentType } from 'svelte';
 
+// Tab header visual variants (for unified TabHeader styling)
+export type TabHeaderVariant = 'pill' | 'underline';
+
 // Core tab interface types
 export interface TabConfig {
   id: string;

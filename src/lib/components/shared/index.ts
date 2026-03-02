@@ -9,4 +9,4 @@ export { default as QuickStatsCard } from './ui/QuickStatsCard.svelte';
 export { default as TimeRangeSelector } from './ui/TimeRangeSelector.svelte';
 
 // Shared types
-export type { TabConfig } from './types';
+export type { TabConfig, TabHeaderVariant } from './types';

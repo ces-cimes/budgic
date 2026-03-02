@@ -1,7 +1,7 @@
 import type { ComponentType } from 'svelte';
+import type { TabConfig } from '$lib/components/shared/types';
 
-// TabConfig is now shared - import from shared types
-export type { TabConfig } from '$lib/components/shared/types';
+export type { TabConfig };
 
 export interface Insight {
   id: string;

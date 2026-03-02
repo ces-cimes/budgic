@@ -54,8 +54,8 @@
 	}
 </script>
   
-<header
-	class="group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) flex shrink-0 flex-col border-b border-border transition-[width,height] ease-linear sticky top-0 left-0 right-0 z-10 rounded-t-2xl bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm {variant === 'with-tabs' ? 'pt-3 pb-0' : 'py-3'}"
+<div
+	class="group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) flex shrink-0 flex-col transition-[width,height] ease-linear sticky top-0 left-0 right-0 z-10 rounded-t-2xl bg-[var(--color-bg-primary)]/95 backdrop-blur-sm {variant === 'with-tabs' ? 'pt-3 pb-0' : 'py-3'}"
 >
 	<div class="flex w-full items-center gap-2 px-4">
 		{#if showBackButton}
@@ -113,4 +113,4 @@
 			{@render children?.()}
 		</div>
 	{/if}
-</header>
+</div>
