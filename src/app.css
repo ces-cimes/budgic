@@ -366,8 +366,7 @@
     border: 1px solid oklch(1 0 0 / 0.08);
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.04) inset,
-      0 1px 0 oklch(1 0 0 / 0.07) inset,
-      0 8px 32px oklch(0 0 0 / 0.4);
+      0 1px 0 oklch(1 0 0 / 0.07) inset;
 
     /* Top edge highlight */
     &::before {
@@ -380,9 +379,7 @@
   :root:not(.dark) .glass {
     background: oklch(1 0 0 / 0.80);
     border-color: oklch(0 0 0 / 0.08);
-    box-shadow:
-      0 1px 0 oklch(1 0 0 / 0.9) inset,
-      0 4px 24px oklch(0 0 0 / 0.12);
+    box-shadow: 0 1px 0 oklch(1 0 0 / 0.9) inset;
   }
 
   /* Dark mode: ensure glass uses dark-appropriate surface (base .glass is already dark) */
@@ -391,8 +388,7 @@
     border-color: oklch(1 0 0 / 0.08);
     box-shadow:
       0 0 0 1px oklch(1 0 0 / 0.04) inset,
-      0 1px 0 oklch(1 0 0 / 0.06) inset,
-      0 8px 32px oklch(0 0 0 / 0.4);
+      0 1px 0 oklch(1 0 0 / 0.06) inset;
   }
 
   :root.dark .glass::before {
