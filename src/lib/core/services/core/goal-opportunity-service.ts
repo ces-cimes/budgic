@@ -174,6 +174,7 @@ class GoalOpportunityService {
 			.equals('planned')
 			.toArray();
 		const plannedInRange = planned.filter((t) => {
+			if (!t) return false;
 			const d = t.plannedDate;
 			if (!d) return false;
 			return d >= startStr && d <= endStr;
