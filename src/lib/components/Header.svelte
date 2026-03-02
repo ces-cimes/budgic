@@ -58,10 +58,6 @@
 	class="group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) flex shrink-0 flex-col gap-2 lg:gap-2 border-b transition-[width,height] ease-linear sticky top-0 left-0 right-0 z-10 rounded-t-2xl bg-background {variant === 'with-tabs' ? 'pt-2 lg:pt-2' : 'py-2 lg:py-2'}"
 >
 	<div class="flex w-full items-center gap-2 px-4 lg:gap-2 lg:px-4">
-		{#if !sidebar.isMobile}
-			<Sidebar.Trigger class="-ml-1 size-8" />
-		{/if}
-		
 		{#if showBackButton}
 			<Button 
 				variant="ghost"
@@ -72,7 +68,7 @@
 			</Button>
 		{/if}
 
-		{#if !sidebar.isMobile || showBackButton}
+		{#if showBackButton}
 			<Separator orientation="vertical" class="mx-1 data-[orientation=vertical]:h-4" />
 		{/if}
 		

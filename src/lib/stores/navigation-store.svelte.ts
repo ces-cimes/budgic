@@ -1,4 +1,10 @@
 import { analyticsService, reconciliationService, accountService } from '$lib/core/services';
+import { planTabs, insightsTabs, reportsTabs } from '$lib/config/nav-tabs';
+
+export interface NavTabDef {
+	id: string;
+	label: string;
+}
 
 export interface NavItemConfig {
 	id: string;
@@ -12,6 +18,12 @@ export interface NavItemConfig {
 		countKey?: string;
 	};
 	children?: NavItemConfig[];
+	/** Desktop sidebar: group for sectioning (main, insights, bottom). */
+	group?: 'main' | 'insights' | 'bottom';
+	/** Desktop sidebar: optional label for the group (e.g. "Insights"). */
+	groupLabel?: string;
+	/** Desktop sidebar: tab sub-links for routes with ?tab= (plan, insights, reports). */
+	tabs?: NavTabDef[];
 	requiresAuth?: boolean;
 	hidden?: boolean;
 	visible?: boolean;
@@ -117,13 +129,14 @@ class NavigationStore {
 	 */
 	async loadItems(): Promise<void> {
 		try {
-			// New IA: 7 top-level items (Plan = Budget + Goals + Categories; Reports = Analyze; Reconciliation under Accounts)
-			const defaultItems = [
+			// New IA: 7 top-level items with groups and tab sub-links for sidebar
+			const defaultItems: NavItemConfig[] = [
 				{
 					id: 'dashboard',
 					label: 'Home',
 					path: '/',
 					icon: 'home',
+					group: 'main',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
@@ -133,6 +146,7 @@ class NavigationStore {
 					label: 'Transactions',
 					path: '/transactions',
 					icon: 'receipt',
+					group: 'main',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
@@ -142,6 +156,8 @@ class NavigationStore {
 					label: 'Plan',
 					path: '/plan',
 					icon: 'wallet',
+					group: 'main',
+					tabs: planTabs,
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
@@ -151,6 +167,7 @@ class NavigationStore {
 					label: 'Accounts',
 					path: '/accounts',
 					icon: 'credit-card',
+					group: 'main',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true,
@@ -166,6 +183,9 @@ class NavigationStore {
 					label: 'Insights',
 					path: '/insights',
 					icon: 'bell',
+					group: 'insights',
+					groupLabel: 'Insights',
+					tabs: insightsTabs,
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true,
@@ -181,6 +201,8 @@ class NavigationStore {
 					label: 'Reports',
 					path: '/reports',
 					icon: 'trending-up',
+					group: 'insights',
+					tabs: reportsTabs,
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
@@ -190,6 +212,7 @@ class NavigationStore {
 					label: 'Settings',
 					path: '/settings',
 					icon: 'settings',
+					group: 'bottom',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true

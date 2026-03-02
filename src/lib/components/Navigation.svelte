@@ -1,59 +1,66 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
-	import { Badge } from '$lib/components/ui/badge/index.ts';
+	import { SidebarNavLink, SidebarNavCollapsible } from '$lib/components/navigation';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
-	import { onMount } from 'svelte';
-	
-	// Lucide icons - dynamic import
-	import HomeIcon from '@lucide/svelte/icons/home';
-	import ReceiptIcon from '@lucide/svelte/icons/receipt';
-	import TargetIcon from '@lucide/svelte/icons/target';
-	import WalletIcon from '@lucide/svelte/icons/wallet';
-	import TrendingUpIcon from '@lucide/svelte/icons/trending-up';
-	import CalendarIcon from '@lucide/svelte/icons/calendar';
-	import BellIcon from '@lucide/svelte/icons/bell';
-	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import CreditCardIcon from '@lucide/svelte/icons/credit-card';
-	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import { defaultTabByRoute } from '$lib/config/nav-tabs';
+	import { onMount, untrack } from 'svelte';
+	import type { NavItemConfig } from '$lib/stores/navigation-store.svelte';
 
-	// Icon mapping (plan/reports use wallet and trending-up)
-	const iconMap: Record<string, any> = {
-		'home': HomeIcon,
-		'receipt': ReceiptIcon,
-		'target': TargetIcon,
-		'wallet': WalletIcon,
-		'trending-up': TrendingUpIcon,
-		'calendar': CalendarIcon,
-		'bell': BellIcon,
-		'settings': SettingsIcon,
-		'credit-card': CreditCardIcon,
-		'sparkles': SparklesIcon,
-		'plan': WalletIcon,
-		'reports': TrendingUpIcon
+	// Lucide icons – single source for sidebar nav
+	import { Home, Receipt, Target, Wallet, TrendingUp, Bell, Settings, CreditCard } from '@lucide/svelte';
+
+	const iconMap: Record<string, typeof Home> = {
+		'home': Home,
+		'receipt': Receipt,
+		'target': Target,
+		'wallet': Wallet,
+		'trending-up': TrendingUp,
+		'bell': Bell,
+		'settings': Settings,
+		'credit-card': CreditCard,
+		'plan': Wallet,
+		'reports': TrendingUp
 	};
+
+	// Which section (path) is expanded for tab sub-menus. Chevron toggles; current route auto-expands.
+	let expandedByPath = $state<Record<string, boolean>>({});
+
+	$effect(() => {
+		const p = $page.url.pathname;
+		if (p === '/plan' || p === '/insights' || p === '/reports') {
+			// Use untrack so we don't subscribe to expandedByPath — avoids effect loop
+			expandedByPath = { ...untrack(() => expandedByPath), [p]: true };
+		}
+	});
+
+	function toggleExpanded(path: string) {
+		expandedByPath = { ...expandedByPath, [path]: !expandedByPath[path] };
+	}
 
 	function isActive(path: string) {
 		const currentPath = $page.url.pathname;
-		
-		// Exact match
 		if (currentPath === path) return true;
-		
-		// Sub-route match (e.g., /insights/alerts should highlight /insights)
 		if (currentPath.startsWith(path + '/')) return true;
-		
 		return false;
 	}
-	
-	// Use sidebar context for mobile sidebar functionality
-	const sidebar = Sidebar.useSidebar();
 
-	// Get desktop items and badges from store
-	let desktopItems = $derived(navigationStore.desktopItems);
-	let badges = $derived(navigationStore.badges);
-	let loading = $derived(navigationStore.loading);
+	function isTabActive(path: string, tabId: string): boolean {
+		if ($page.url.pathname !== path) return false;
+		const param = $page.url.searchParams.get('tab');
+		const defaultTab = defaultTabByRoute[path];
+		return (param === null && tabId === defaultTab) || param === tabId;
+	}
 
-	// Helper function to get badge color class
+	function isParentActive(path: string): boolean {
+		return $page.url.pathname === path;
+	}
+
+	function defaultTabHref(path: string): string {
+		const defaultTab = defaultTabByRoute[path];
+		return defaultTab ? `${path}?tab=${defaultTab}` : path;
+	}
+
 	function getBadgeColorClass(color?: string): string {
 		switch (color) {
 			case 'success': return 'bg-[var(--color-sage-green)] text-white';
@@ -65,89 +72,142 @@
 		}
 	}
 
+	const sidebar = Sidebar.useSidebar();
+	let desktopItems = $derived(navigationStore.desktopItems);
+	let badges = $derived(navigationStore.badges);
+	let loading = $derived(navigationStore.loading);
+
+	let mainItems = $derived(desktopItems.filter((i) => i.group === 'main'));
+	let insightsItems = $derived(desktopItems.filter((i) => i.group === 'insights'));
+	let bottomItems = $derived(desktopItems.filter((i) => i.group === 'bottom'));
+
 	onMount(() => {
-		// Initialize navigation store if not already initialized
 		if (!navigationStore.initialized) {
 			navigationStore.initialize();
 		}
 	});
 </script>
 
-<!-- Desktop Sidebar -->
 {#if !sidebar.isMobile}
-	<Sidebar.Root variant="inset">
+	<Sidebar.Root variant="inset" collapsible="icon">
 		<Sidebar.Content>
 			<Sidebar.Header>
-				<div class="flex items-center gap-2 px-2 py-3">
-					<div class="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--color-sage-green)] to-[var(--color-golden-amber)]">
-						<TargetIcon class="w-5 h-5 text-white" />
+				<div class="flex items-center gap-2 px-2 py-3 w-full min-w-0 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:py-2">
+					<div class="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-[var(--color-sage-green)] to-[var(--color-golden-amber)] group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6">
+						<Target class="w-5 h-5 text-white group-data-[collapsible=icon]:w-4 group-data-[collapsible=icon]:h-4" />
 					</div>
-					<span class="text-lg font-semibold text-[var(--color-text-primary)]">Budgic</span>
+					<span class="text-lg font-semibold text-[var(--color-text-primary)] truncate group-data-[collapsible=icon]:hidden">Budgic</span>
+					<Sidebar.Trigger class="ml-auto size-8 shrink-0 group-data-[collapsible=icon]:ml-0" />
 				</div>
 			</Sidebar.Header>
-			
-			<Sidebar.Group>
-				<Sidebar.GroupContent>
-					<Sidebar.Menu>
-						{#if loading}
-							<!-- Loading skeleton -->
-							{#each Array(9) as _, i}
-								<Sidebar.MenuItem>
-									<div class="h-10 bg-[var(--color-bg-tertiary)] rounded-md animate-pulse"></div>
-								</Sidebar.MenuItem>
-							{/each}
-						{:else}
-							{#each desktopItems as item (item.id)}
-								{@const IconComponent = iconMap[item.icon || 'home'] || HomeIcon}
-								{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
-								{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
-								
-								<Sidebar.MenuItem>
-									<Sidebar.MenuButton 
-										isActive={isActive(item.path)}
-									>
-										{#snippet child({ props })}
-											<a 
-												href={item.path}
-												class="group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200
-													{isActive(item.path) 
-														? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] font-medium shadow-sm' 
-														: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)]/50'}"
-												{...props}
-											>
-												<div class="relative flex-shrink-0">
-													<IconComponent 
-														class="w-5 h-5 transition-transform duration-200 {isActive(item.path) ? 'scale-110' : 'group-hover:scale-105'}" 
-													/>
-												</div>
-												
-												<span class="flex-1 text-sm">{item.label}</span>
-												
-												{#if showBadge}
-													<Badge 
-														variant="secondary"
-														class="ml-auto h-5 min-w-5 px-1.5 text-xs font-medium {getBadgeColorClass(item.badge?.color)}"
-													>
-														{badgeValue}
-													</Badge>
-												{/if}
-											</a>
-										{/snippet}
-									</Sidebar.MenuButton>
-								</Sidebar.MenuItem>
-							{/each}
-						{/if}
-					</Sidebar.Menu>
-				</Sidebar.GroupContent>
-			</Sidebar.Group>
 
-			<Sidebar.Footer class="mt-auto">
-				<div class="px-3 py-2 text-xs text-[var(--color-text-tertiary)]">
-					v1.0.0
+			<div class="flex-1 min-h-0 overflow-auto flex flex-col gap-2">
+				<!-- Main: Home, Transactions, Plan (+ tabs), Accounts -->
+				<Sidebar.Group>
+					<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">Main</Sidebar.GroupLabel>
+					<Sidebar.GroupContent>
+						<Sidebar.Menu>
+							{#if loading}
+								{#each Array(4) as _, i}
+									<Sidebar.MenuItem>
+										<div class="h-10 bg-[var(--color-bg-tertiary)] rounded-md animate-pulse"></div>
+									</Sidebar.MenuItem>
+								{/each}
+							{:else}
+								{#each mainItems as item (item.id)}
+									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
+									{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
+									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
+									{#if item.tabs?.length}
+										<SidebarNavCollapsible
+											{item}
+											iconComponent={IconComponent}
+											tabs={item.tabs}
+											defaultTabHref={defaultTabHref(item.path)}
+											isParentActive={isParentActive(item.path)}
+											expanded={!!expandedByPath[item.path]}
+											onToggle={() => toggleExpanded(item.path)}
+											isTabActive={isTabActive}
+											showBadge={showBadge}
+											{badgeValue}
+											badgeColorClass={getBadgeColorClass(item.badge?.color)}
+										/>
+									{:else}
+										<SidebarNavLink
+											{item}
+											iconComponent={IconComponent}
+											isActive={isActive(item.path)}
+											showBadge={showBadge}
+											{badgeValue}
+											badgeColorClass={getBadgeColorClass(item.badge?.color)}
+										/>
+									{/if}
+								{/each}
+							{/if}
+						</Sidebar.Menu>
+					</Sidebar.GroupContent>
+				</Sidebar.Group>
+
+				{#if insightsItems.length > 0}
+					<Sidebar.Group>
+						<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">Insights</Sidebar.GroupLabel>
+						<Sidebar.GroupContent>
+							<Sidebar.Menu>
+								{#each insightsItems as item (item.id)}
+									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
+									{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
+									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
+									{#if item.tabs?.length}
+										<SidebarNavCollapsible
+											{item}
+											iconComponent={IconComponent}
+											tabs={item.tabs}
+											defaultTabHref={defaultTabHref(item.path)}
+											isParentActive={isParentActive(item.path)}
+											expanded={!!expandedByPath[item.path]}
+											onToggle={() => toggleExpanded(item.path)}
+											isTabActive={isTabActive}
+											showBadge={showBadge}
+											{badgeValue}
+											badgeColorClass={getBadgeColorClass(item.badge?.color)}
+										/>
+									{:else}
+										<SidebarNavLink
+											{item}
+											iconComponent={IconComponent}
+											isActive={isActive(item.path)}
+											showBadge={showBadge}
+											{badgeValue}
+											badgeColorClass={getBadgeColorClass(item.badge?.color)}
+										/>
+									{/if}
+								{/each}
+							</Sidebar.Menu>
+						</Sidebar.GroupContent>
+					</Sidebar.Group>
+				{/if}
+			</div>
+
+			{#if bottomItems.length > 0}
+				<div class="mt-auto shrink-0 flex flex-col gap-2 pt-2">
+					<Sidebar.Separator class="group-data-[collapsible=icon]:hidden" />
+					<Sidebar.Group>
+						<Sidebar.GroupContent>
+							<Sidebar.Menu>
+								{#each bottomItems as item (item.id)}
+									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
+									<SidebarNavLink
+										{item}
+										iconComponent={IconComponent}
+										isActive={isActive(item.path)}
+										variant="outline"
+									/>
+								{/each}
+							</Sidebar.Menu>
+						</Sidebar.GroupContent>
+					</Sidebar.Group>
 				</div>
-			</Sidebar.Footer>
+			{/if}
 		</Sidebar.Content>
 	</Sidebar.Root>
 {/if}
-
-<!-- Mobile navigation is now handled by the MobileNavigation component -->
