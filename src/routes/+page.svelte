@@ -241,7 +241,8 @@
 						{#if negativeAllowanceStatus?.isNegative}
 							<a
 								href="/plan?tab=allowance"
-								class="flex items-center justify-between rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3 transition-colors hover:bg-[var(--color-warm-coral)]/12"
+								class="flex items-center justify-between squircle-2xl squircle-border px-4 py-3 transition-colors hover:opacity-90"
+								style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);"
 							>
 								<span class="text-sm font-medium text-[var(--color-warm-coral)]">Allowance overspent</span>
 								<span class="text-xs text-muted-foreground">View plan →</span>
@@ -250,7 +251,7 @@
 						{#each urgentFeeRisks.slice(0, 2) as risk (risk.id)}
 							<a
 								href="/accounts/{risk.accountId}"
-								class="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:bg-[var(--color-bg-surface)]"
+								class="flex items-center justify-between squircle-2xl squircle-border bg-card px-4 py-3 transition-colors hover:bg-[var(--color-bg-surface)]"
 							>
 								<div class="min-w-0 flex-1">
 									<div class="text-sm font-medium truncate">{risk.triggerCondition}</div>
@@ -281,7 +282,7 @@
 				</div>
 
 				{#if !isLoaded}
-					<div class="rounded-2xl border border-border bg-card overflow-hidden">
+					<div class="squircle-4xl squircle-border bg-card overflow-hidden">
 						{#each Array(4) as _}
 							<div class="flex items-center gap-3 px-4 py-3.5 border-b border-border last:border-0">
 								<div class="flex-1 space-y-1.5">
@@ -293,7 +294,7 @@
 						{/each}
 					</div>
 				{:else if recentTransactions.length === 0}
-					<div class="rounded-2xl border border-border bg-card px-4 py-10 text-center">
+					<div class="squircle-4xl squircle-border bg-card px-4 py-10 text-center">
 						<p class="text-sm text-muted-foreground">Nothing yet.</p>
 						<button
 							type="button"
@@ -304,7 +305,7 @@
 						</button>
 					</div>
 				{:else}
-					<div class="rounded-2xl border border-border bg-card overflow-hidden">
+					<div class="squircle-4xl squircle-border bg-card overflow-hidden">
 						{#each groupedTransactions() as [dateLabel, txGroup], gi}
 							<!-- Date group header -->
 							<div class="px-4 py-2 bg-[var(--color-bg-secondary)] border-b border-border">

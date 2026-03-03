@@ -80,7 +80,7 @@
 	<div class="mx-auto max-w-4xl px-4 py-4 sm:px-6">
 		{#if isLoading}
 			<!-- Skeleton loading state — no spinners -->
-			<div class="mb-4 bg-[var(--color-bg-tertiary)] rounded-xl px-5 py-3.5 border border-border">
+			<div class="mb-4 squircle-2xl squircle-border squircle-fill-tertiary px-5 py-3.5">
 				<div class="grid grid-cols-3 gap-4">
 					{#each [1, 2, 3] as _}
 						<div class="flex flex-col items-center gap-1.5">
@@ -93,7 +93,7 @@
 			<div class="space-y-2">
 				{#each [1, 2, 3, 4, 5, 6, 7, 8] as i}
 					<div
-						class="flex items-center gap-3 rounded-xl bg-[var(--color-bg-tertiary)] px-4 py-3 border border-border"
+						class="flex items-center gap-3 squircle-2xl squircle-border squircle-fill-tertiary px-4 py-3"
 						style="animation-delay: {i * 40}ms"
 					>
 						<div class="size-9 shrink-0 animate-pulse rounded-full bg-[var(--color-bg-surface)]"></div>

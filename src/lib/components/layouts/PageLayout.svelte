@@ -107,7 +107,7 @@
       data-page-bottom-bar
       class="sticky mx-auto w-full z-40
         bottom-0 left-0 right-0
-        p-2 border-t border-border rounded-xl
+        p-2 border-t border-border squircle-2xl
         bg-gradient-to-b from-(--color-bg-primary)/50 to-(--color-bg-primary) backdrop-blur-sm
       "
     >

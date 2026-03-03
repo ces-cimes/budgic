@@ -127,13 +127,13 @@
 
 	<div class="mx-auto max-w-2xl px-4 py-6">
 		{#if error}
-			<div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3">
+			<div class="mb-5 squircle-2xl squircle-border px-5 py-3" style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);">
 				<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
 			</div>
 		{/if}
 
 		<form id="category-form" onsubmit={handleSubmit} class="space-y-6">
-			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+			<div class="squircle-4xl squircle-border squircle-fill-tertiary divide-y divide-border overflow-hidden">
 				<div class="px-5 py-2.5">
 					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Category details</h2>
 				</div>

@@ -34,16 +34,17 @@
 
 {#if isLoading}
 	<!-- Skeleton -->
-	<div class="rounded-2xl border border-border bg-card p-5 space-y-3">
+	<div class="squircle-4xl squircle-border bg-card p-5 space-y-3">
 		<div class="h-3 w-28 rounded bg-[var(--color-bg-surface)] animate-pulse"></div>
 		<div class="h-8 w-36 rounded bg-[var(--color-bg-surface)] animate-pulse"></div>
 		<div class="h-2 w-full rounded-full bg-[var(--color-bg-surface)] animate-pulse"></div>
 	</div>
 {:else if allowance}
 	<div
-		class="rounded-2xl border border-border bg-card p-5 space-y-4 {isOverBudget
-			? 'border-[var(--color-warm-coral)]/30'
-			: ''}"
+		class="squircle-4xl squircle-border bg-card p-5 space-y-4"
+		style={isOverBudget
+			? '--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent);'
+			: ''}
 	>
 		<!-- Header row -->
 		<div class="flex items-start justify-between gap-3">
@@ -102,7 +103,8 @@
 		<!-- Over-budget warning -->
 		{#if isOverBudget && negativeStatus?.warningMessage}
 			<div
-				class="rounded-xl border border-[var(--color-warm-coral)]/25 bg-[var(--color-warm-coral)]/8 px-3.5 py-3 space-y-2"
+				class="squircle-2xl squircle-border px-3.5 py-3 space-y-2"
+				style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 25%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);"
 			>
 				<div class="flex items-center gap-2">
 					<TrendingDown class="h-3.5 w-3.5 shrink-0 text-[var(--color-warm-coral)]" />
@@ -141,7 +143,7 @@
 	</div>
 {:else}
 	<!-- No allowance state -->
-	<div class="rounded-2xl border border-border bg-card px-5 py-6 text-center">
+	<div class="squircle-4xl squircle-border bg-card px-5 py-6 text-center">
 		<p class="text-sm text-muted-foreground">No spending plan set up yet.</p>
 		<a href="/plan" class="text-sm text-amber hover:underline mt-1 inline-block">
 			Set up your plan →

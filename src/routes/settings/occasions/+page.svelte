@@ -123,12 +123,12 @@
 
 	<div class="mx-auto max-w-2xl px-4 py-6 space-y-4">
 		{#if error}
-			<div class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3">
+			<div class="squircle-2xl squircle-border px-4 py-3" style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);">
 				<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
 			</div>
 		{/if}
 		{#if success}
-			<div class="rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-4 py-3">
+			<div class="squircle-2xl squircle-border px-4 py-3" style="--squircle-border-color: color-mix(in oklch, var(--color-sage-green) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-sage-green) 8%, transparent);">
 				<p class="text-sm text-[var(--color-sage-green)]">{success}</p>
 			</div>
 		{/if}
@@ -156,7 +156,7 @@
 		</div>
 
 		{#if showAddForm}
-			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+			<div class="squircle-4xl squircle-border squircle-fill-tertiary overflow-hidden">
 				<div class="px-5 py-2.5 border-b border-border">
 					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">New occasion</h2>
 				</div>
@@ -224,7 +224,7 @@
 		{#if loading}
 			<div class="space-y-2">
 				{#each [1,2,3] as _}
-					<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+					<div class="h-14 animate-pulse squircle-2xl bg-[var(--color-bg-tertiary)]"></div>
 				{/each}
 			</div>
 		{:else if occasions.length === 0}
@@ -234,7 +234,7 @@
 				<p class="text-xs text-[var(--color-text-tertiary)] mt-1">Detect from history or add your own.</p>
 			</div>
 		{:else}
-			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] divide-y divide-border overflow-hidden">
+			<div class="squircle-4xl squircle-border squircle-fill-tertiary divide-y divide-border overflow-hidden">
 				{#each occasions as o}
 					<div class="flex items-center gap-3 px-4 py-3">
 						<Switch checked={o.isActive} onCheckedChange={() => toggleActive(o)} />

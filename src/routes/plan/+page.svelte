@@ -206,7 +206,7 @@
 					<TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
 						<div class="space-y-5 px-4 py-5">
 							<!-- Financial summary -->
-							<div class="rounded-2xl bg-[var(--color-bg-tertiary)] border border-border p-5">
+							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
 								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Financial summary</h2>
 								<div class="grid grid-cols-2 gap-4 mb-4">
 									<div class="text-center">
@@ -243,12 +243,12 @@
 					<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
 						<div class="space-y-5 px-4 py-5">
 							{#if enhancedAllowance}
-								<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-5 space-y-4">
+								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5 space-y-4">
 									<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
 									<PlanRulesSummary />
 								</div>
 							{:else if dailyAllowance}
-								<div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-5">
+								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
 									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">Daily allowance</p>
 									<div class="text-hero-sm">{formatTransactionAmount(dailyAllowance.amount, userCurrency)}</div>
 									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{dailyAllowance.daysRemaining} days remaining</p>

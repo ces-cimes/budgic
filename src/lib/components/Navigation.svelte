@@ -196,7 +196,6 @@
 			<div class="mt-auto shrink-0 flex flex-col gap-2 pt-2">
 				<SidebarFooterCards />
 				{#if bottomItems.length > 0}
-					<Sidebar.Separator class="group-data-[collapsible=icon]:hidden" />
 					<Sidebar.Group>
 						<Sidebar.GroupContent>
 							<Sidebar.Menu>

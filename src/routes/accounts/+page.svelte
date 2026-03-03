@@ -128,7 +128,8 @@
     {#if needsReconciliationCount > 0}
       <a
         href="/accounts/reconciliation"
-        class="mb-6 flex items-center justify-between rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-3.5 transition-colors hover:bg-[var(--color-warm-coral)]/12 block"
+        class="mb-6 flex items-center justify-between squircle-2xl squircle-border px-5 py-3.5 transition-colors hover:opacity-90 block"
+		style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);"
       >
         <div class="flex items-center gap-3">
           <Scale class="size-4 shrink-0 text-[var(--color-warm-coral)]" />
@@ -159,7 +160,7 @@
         {@const typeColor = account.type === 'checking' ? 'border-l-[var(--color-amber)]' : account.type === 'savings' ? 'border-l-[var(--color-sage-green)]' : account.type === 'credit' ? 'border-l-[var(--color-info)]' : 'border-l-border'}
         <button
           type="button"
-          class="group w-full border-l-4 {typeColor} bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6 text-left transition-all hover:border-[var(--color-amber)]/30 hover:shadow-md animate-card-enter"
+          class="group w-full border-l-4 {typeColor} squircle-4xl squircle-border squircle-fill-tertiary p-6 text-left transition-all hover:shadow-md animate-card-enter"
           onclick={() => goto(`/accounts/${account.id}`)}
         >
           <div class="flex items-start justify-between gap-4">
@@ -198,7 +199,7 @@
     {#if accounts.some((acc: Account) => acc.type === 'credit')}
       <section class="mb-6">
         <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Credit utilization</h2>
-        <div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
+        <div class="squircle-4xl squircle-border squircle-fill-tertiary p-6">
           <CreditUtilizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
         </div>
       </section>
@@ -207,7 +208,7 @@
     {#if accounts.some((acc: Account) => acc.metadata?.interestRate || acc.metadata?.apr)}
       <section class="mb-6">
         <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Interest analysis</h2>
-        <div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
+        <div class="squircle-4xl squircle-border squircle-fill-tertiary p-6">
           <InterestOptimizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
         </div>
       </section>
@@ -216,7 +217,7 @@
     {#if accounts.some((acc: Account) => acc.metadata?.isEmergencyFund || acc.type === 'savings')}
       <section class="mb-6">
         <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Emergency fund</h2>
-        <div class="bg-[var(--color-bg-tertiary)] rounded-2xl border border-border p-6">
+        <div class="squircle-4xl squircle-border squircle-fill-tertiary p-6">
           <EmergencyFundVisualization showDetails={true} showRecommendations={true} />
         </div>
       </section>

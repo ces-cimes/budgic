@@ -135,7 +135,7 @@
 	<div class="mx-auto max-w-2xl px-4 py-6">
 		{#if isLoading}
 			<div class="space-y-4">
-				<div class="h-28 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+				<div class="h-28 animate-pulse squircle-4xl bg-[var(--color-bg-tertiary)]"></div>
 				<div class="h-48 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
 			</div>
 		{:else if category}

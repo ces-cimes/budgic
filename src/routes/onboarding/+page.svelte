@@ -226,7 +226,7 @@
       {#if isLoading}
         <div class="space-y-4">
           <div class="h-2 animate-pulse rounded-full bg-[var(--color-bg-tertiary)]"></div>
-          <div class="h-64 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+          <div class="h-64 animate-pulse squircle-4xl bg-[var(--color-bg-tertiary)]"></div>
         </div>
       {:else}
         <!-- Wordmark -->
@@ -246,14 +246,14 @@
         </div>
 
         <!-- Card -->
-        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] p-8">
+        <div class="squircle-4xl squircle-border squircle-fill-tertiary p-8">
           <div class="mb-6">
             <h1 class="text-xl font-semibold text-[var(--color-text-primary)]">{getStepTitle()}</h1>
             <p class="text-sm text-[var(--color-text-tertiary)] mt-1">{getStepDescription()}</p>
           </div>
 
           {#if error}
-            <div class="mb-5 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3">
+            <div class="mb-5 squircle-2xl squircle-border px-4 py-3" style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);">
               <p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
             </div>
           {/if}
@@ -262,22 +262,22 @@
           {#if currentStep === 1}
             <div class="space-y-6">
               <div class="grid grid-cols-3 gap-3">
-                <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-4 text-center">
-                  <div class="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                <div class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center">
+                  <div class="mx-auto mb-2 flex size-9 items-center justify-center squircle-xl bg-[var(--color-amber-subtle)]">
                     <BarChart2 class="size-4 text-[var(--color-amber)]" />
                   </div>
                   <p class="text-xs font-medium text-[var(--color-text-primary)]">Smart tracking</p>
                   <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Auto-categorized</p>
                 </div>
-                <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-4 text-center">
-                  <div class="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                <div class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center">
+                  <div class="mx-auto mb-2 flex size-9 items-center justify-center squircle-xl bg-[var(--color-amber-subtle)]">
                     <Target class="size-4 text-[var(--color-amber)]" />
                   </div>
                   <p class="text-xs font-medium text-[var(--color-text-primary)]">Goal setting</p>
                   <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Achieve targets</p>
                 </div>
-                <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-4 text-center">
-                  <div class="mx-auto mb-2 flex size-9 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]">
+                <div class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center">
+                  <div class="mx-auto mb-2 flex size-9 items-center justify-center squircle-xl bg-[var(--color-amber-subtle)]">
                     <Lightbulb class="size-4 text-[var(--color-amber)]" />
                   </div>
                   <p class="text-xs font-medium text-[var(--color-text-primary)]">Insights</p>
