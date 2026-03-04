@@ -13,7 +13,6 @@
     Calendar,
     Search,
     Sparkles,
-    Loader2,
     Clock,
     BarChart3,
     ArrowRight
@@ -112,11 +111,10 @@
 
     <!-- Loading State -->
     {#if isLoading || localLoading}
-      <div class="text-center py-12">
-        <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-muted rounded-full flex items-center justify-center">
-          <Loader2 class="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground animate-spin" />
-        </div>
-        <p class="text-sm text-muted-foreground">Loading predictions...</p>
+      <div class="space-y-3">
+        {#each Array(3) as _}
+          <div class="h-20 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+        {/each}
       </div>
     {:else if predictions.length === 0}
       <div class="text-center py-12">

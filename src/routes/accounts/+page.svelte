@@ -122,7 +122,7 @@
     />
   {/snippet}
 
-  <div class="mx-auto max-w-4xl px-4 py-6">
+  <div class="mx-auto max-w-4xl px-5 sm:px-6 py-6 space-y-8">
 
     <!-- Reconciliation banner (coral strip, attention-needed) -->
     {#if needsReconciliationCount > 0}
@@ -143,7 +143,7 @@
     {/if}
 
     <!-- Total balance hero -->
-    <section class="mb-10 pt-4 text-center">
+    <section class="text-center">
       <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">Total balance</p>
       <div class="text-hero animate-count-up">{formatBalance(totalBalance, userCurrency)}</div>
       {#if accounts.length > 0}
@@ -152,7 +152,7 @@
     </section>
 
     <!-- Account cards -->
-    <section class="mb-10 space-y-3">
+    <section class="space-y-3">
       {#each accounts as account}
         {@const bufferStatus = (account.type === 'checking' || account.type === 'savings') ? getBufferStatus(account) : null}
         {@const bufferAmount = (account.type === 'checking' || account.type === 'savings') ? getBufferAmount(account) : 0}
@@ -197,7 +197,7 @@
 
     <!-- Details: visualizations (secondary, collapsed feel) -->
     {#if accounts.some((acc: Account) => acc.type === 'credit')}
-      <section class="mb-6">
+      <section>
         <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Credit utilization</h2>
         <div class="squircle-4xl squircle-border squircle-fill-tertiary p-6">
           <CreditUtilizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
@@ -206,7 +206,7 @@
     {/if}
 
     {#if accounts.some((acc: Account) => acc.metadata?.interestRate || acc.metadata?.apr)}
-      <section class="mb-6">
+      <section>
         <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Interest analysis</h2>
         <div class="squircle-4xl squircle-border squircle-fill-tertiary p-6">
           <InterestOptimizationVisualization showAggregate={true} showDetails={true} showRecommendations={true} />
@@ -215,7 +215,7 @@
     {/if}
 
     {#if accounts.some((acc: Account) => acc.metadata?.isEmergencyFund || acc.type === 'savings')}
-      <section class="mb-6">
+      <section>
         <h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Emergency fund</h2>
         <div class="squircle-4xl squircle-border squircle-fill-tertiary p-6">
           <EmergencyFundVisualization showDetails={true} showRecommendations={true} />

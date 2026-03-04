@@ -72,7 +72,7 @@
 	});
 </script>
 
-<nav class="fixed bottom-0 left-0 right-0 z-50 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-between sm:justify-center bg-[var(--color-bg-secondary)]/90 backdrop-blur-xl border-t border-border rounded-t-2xl shadow-[0_-4px_24px_oklch(0_0_0/0.2)]">
+<nav class="fixed bottom-0 left-0 right-0 z-50 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-between sm:justify-center glass rounded-t-2xl border-t border-border">
 	<div class="flex w-full justify-between max-w-md mx-auto">
 		{#each visibleItems as item (item.id)}
 			{@const IconComponent = iconMap[item.icon || 'home'] || HomeIcon}

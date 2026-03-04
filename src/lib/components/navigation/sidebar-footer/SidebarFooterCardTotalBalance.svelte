@@ -23,7 +23,7 @@
 </script>
 
 <div
-	class="glass flex items-center justify-between gap-2 px-3 py-2.5 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2"
+	class="glass rounded-xl overflow-hidden flex items-center justify-between gap-2 px-3 py-2.5 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2"
 	title="Total balance"
 >
 	<div class="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">

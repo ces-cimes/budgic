@@ -261,19 +261,13 @@
 
     <!-- Empty State -->
     {#if goals.length === 0}
-    <Card class="border-border">
-      <CardContent class="flex flex-col items-center justify-center py-12 text-center">
-        <Target class="text-muted-foreground mb-4" size={48} />
-        <h3 class="text-lg font-semibold mb-2">No Goals Set</h3>
-        <p class="text-muted-foreground text-sm mb-4">
-          Set your first financial goal to start tracking your progress
-        </p>
-        <Button onclick={onSetGoal}>
-          <Plus class="mr-2" size={16} />
-          Set Your First Goal
-        </Button>
-      </CardContent>
-    </Card>
+    <div class="squircle-4xl squircle-border bg-card py-10 text-center">
+      <p class="text-sm text-muted-foreground">No goals yet.</p>
+      <p class="mt-1 text-xs text-[var(--color-text-tertiary)]">Set a goal to start tracking progress.</p>
+      <Button onclick={onSetGoal} variant="ghost" size="sm" class="mt-4 text-[var(--color-amber)] hover:underline">
+        Add a goal
+      </Button>
+    </div>
     {/if}
   {/if}
 </div>

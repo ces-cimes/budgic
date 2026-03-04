@@ -12,15 +12,11 @@
 
   const { badge, onClose, showAnimation = true }: Props = $props();
 
-  let showConfetti = $state(false);
   let isVisible = $state(false);
 
   onMount(() => {
     if (showAnimation) {
-      // Trigger confetti animation
-      showConfetti = true;
       isVisible = true;
-      
       // Auto-close after 5 seconds
       setTimeout(() => {
         if (onClose) onClose();
@@ -72,25 +68,8 @@
     aria-labelledby="celebration-title"
   >
     <div
-      class="relative bg-background rounded-lg shadow-xl max-w-md w-full p-6 border-2 {getRarityBg(badge.rarity)}"
+      class="relative animate-amber-shimmer bg-background rounded-lg shadow-xl max-w-md w-full p-6 border-2 {getRarityBg(badge.rarity)}"
     >
-      <!-- Confetti Effect -->
-      {#if showConfetti}
-        <div class="absolute inset-0 pointer-events-none overflow-hidden rounded-lg">
-          {#each Array(20) as _, i}
-            <div
-              class="absolute w-2 h-2 rounded-full {getRarityBg(badge.rarity)} opacity-75"
-              style="
-                left: {Math.random() * 100}%;
-                top: {Math.random() * 100}%;
-                animation: confetti-{i} 2s ease-out forwards;
-                animation-delay: {Math.random() * 0.5}s;
-              "
-            />
-          {/each}
-        </div>
-      {/if}
-
       <!-- Content -->
       <div class="relative z-10 text-center">
         <!-- Icon -->
@@ -135,27 +114,3 @@
     </div>
   </div>
 {/if}
-
-<style>
-  @keyframes confetti-0 {
-    0% {
-      transform: translateY(0) rotate(0deg);
-      opacity: 1;
-    }
-    100% {
-      transform: translateY(-100px) rotate(360deg);
-      opacity: 0;
-    }
-  }
-  @keyframes confetti-1 {
-    0% {
-      transform: translateY(0) rotate(0deg);
-      opacity: 1;
-    }
-    100% {
-      transform: translateY(-100px) rotate(-360deg);
-      opacity: 0;
-    }
-  }
-  /* Add more confetti animations as needed */
-</style>

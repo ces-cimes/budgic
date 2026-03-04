@@ -48,7 +48,7 @@
 </script>
 
 <div
-	class="glass flex flex-col gap-1.5 px-3 py-2.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2"
+	class="glass rounded-xl overflow-hidden flex flex-col gap-1.5 px-3 py-2.5 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2"
 	title="Today's allowance"
 >
 	<div class="flex items-center justify-between gap-2 group-data-[collapsible=icon]:justify-center">

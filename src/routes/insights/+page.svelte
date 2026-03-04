@@ -139,7 +139,7 @@
 	{/snippet}
 
 	{#snippet children()}
-		<div class="container mx-auto h-full w-full">
+		<div class="mx-auto h-full max-w-2xl w-full px-5 sm:px-6">
 			<TabContentWrapper
 				tabs={insightsTabs}
 				{activeTab}

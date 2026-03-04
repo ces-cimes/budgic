@@ -182,7 +182,7 @@
 
 		<!-- ── Balance hero ── -->
 		<section
-			class="px-5 pt-10 pb-8 animate-card-enter"
+			class="px-5 sm:px-6 pt-10 pb-8 animate-card-enter max-w-sm mx-auto"
 			style="animation-delay: 0ms"
 		>
 			<p class="text-xs tracking-widest uppercase text-muted-foreground mb-3 font-medium">
@@ -207,9 +207,9 @@
 		</section>
 
 		<!-- ── Divider ── -->
-		<div class="mx-5 h-px bg-border mb-6"></div>
+		<div class="mx-5 sm:mx-6 h-px bg-border mb-6"></div>
 
-		<div class="px-5 flex flex-col gap-6 pb-8">
+		<div class="px-5 sm:px-6 max-w-2xl mx-auto w-full flex flex-col space-y-8 pb-8">
 
 			<!-- ── Allowance ── -->
 			<section class="animate-card-enter" style="animation-delay: 60ms">

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { badgeService } from '$lib/core/services';
   import BadgeProgress from '../BadgeProgress.svelte';
-  import { Award, Filter, Loader2 } from '@lucide/svelte';
+  import { Award, Filter } from '@lucide/svelte';
   import * as Select from '$lib/components/ui/select/index.ts';
   import { Checkbox } from '$lib/components/ui/checkbox/index.ts';
   import { Button } from '$lib/components/ui/button/index.ts';
@@ -67,21 +67,15 @@
   <div class="p-2 sm:p-4 max-w-4xl mx-auto space-y-4 sm:space-y-6">
     <!-- Loading State -->
     {#if isLoading || localLoading}
-      <div class="text-center py-12">
-        <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-muted rounded-full flex items-center justify-center">
-          <Loader2 class="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground animate-spin" />
-        </div>
-        <p class="text-sm text-muted-foreground">Loading achievements...</p>
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {#each Array(6) as _}
+          <div class="h-24 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+        {/each}
       </div>
     {:else if badges.length === 0}
-      <div class="text-center py-12">
-        <div class="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 bg-muted rounded-full flex items-center justify-center">
-          <Award class="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
-        </div>
-        <h3 class="text-lg sm:text-xl font-semibold text-foreground mb-2">No achievements yet</h3>
-        <p class="text-sm text-muted-foreground mb-6 max-w-md mx-auto px-4">
-          Start using Budgic to unlock achievements! Complete goals, stay within budget, and build good financial habits.
-        </p>
+      <div class="squircle-4xl squircle-border bg-card py-10 text-center">
+        <p class="text-sm text-muted-foreground">No achievements yet.</p>
+        <p class="mt-1 text-xs text-[var(--color-text-tertiary)]">Complete goals and track spending to unlock badges.</p>
       </div>
     {:else}
       <div class="space-y-3 sm:space-y-4">

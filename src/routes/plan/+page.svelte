@@ -195,7 +195,7 @@
 	{/snippet}
 
 	{#snippet children()}
-		<div class="mx-auto h-full max-w-4xl">
+		<div class="mx-auto h-full max-w-2xl w-full px-5 sm:px-6">
 			<TabContentWrapper
 				tabs={planTabs}
 				activeTab={activeTab}

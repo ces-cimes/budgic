@@ -366,6 +366,7 @@
 
 @layer components {
   /* ── Glass surface ── */
+  /* Base glass: light-mode safe default (overridden per theme below) */
   .glass {
     @apply relative overflow-hidden rounded-[20px];
     background: oklch(0.17 0.005 285 / 0.05);
@@ -390,7 +391,7 @@
     box-shadow: 0 1px 0 oklch(1 0 0 / 0.9) inset;
   }
 
-  /* Dark mode: ensure glass uses dark-appropriate surface (base .glass is already dark) */
+  /* Dark mode glass: translucent surface at 45% — intentionally lighter than Bible's 0.85 */
   :root.dark .glass {
     background: oklch(0.17 0.005 285 / 0.45);
     border-color: oklch(1 0 0 / 0.08);

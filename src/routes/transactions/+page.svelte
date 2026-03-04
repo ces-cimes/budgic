@@ -77,7 +77,7 @@
 		/>
 	{/snippet}
 
-	<div class="mx-auto max-w-4xl px-4 py-4 sm:px-6">
+	<div class="mx-auto max-w-4xl px-5 sm:px-6 py-4">
 		{#if isLoading}
 			<!-- Skeleton loading state — no spinners -->
 			<div class="mb-4 squircle-2xl squircle-border squircle-fill-tertiary px-5 py-3.5">

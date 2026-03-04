@@ -157,11 +157,11 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 		/>
 	{/snippet}
 
-	<div class="mx-auto max-w-4xl px-4 py-6">
+	<div class="mx-auto max-w-4xl px-5 sm:px-6 py-6 space-y-8">
 		{#if account && !isLoading}
 
 			<!-- Hero: account balance -->
-			<section class="mb-10 pt-4 text-center">
+			<section class="mb-10 pt-10 text-center">
 				<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">
 					{account.type} balance
 				</p>

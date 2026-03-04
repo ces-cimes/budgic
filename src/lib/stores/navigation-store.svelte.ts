@@ -130,6 +130,7 @@ class NavigationStore {
 	async loadItems(): Promise<void> {
 		try {
 			// New IA: 7 top-level items with groups and tab sub-links for sidebar
+			// Order: first 4 = Home, Transactions, Plan, Insights (mobile bar); then Accounts, Reports, Settings (overflow)
 			const defaultItems: NavItemConfig[] = [
 				{
 					id: 'dashboard',
@@ -163,22 +164,6 @@ class NavigationStore {
 					showInDesktop: true
 				},
 				{
-					id: 'accounts',
-					label: 'Accounts',
-					path: '/accounts',
-					icon: 'credit-card',
-					group: 'main',
-					visible: true,
-					showInMobile: true,
-					showInDesktop: true,
-					badge: {
-						type: 'count' as const,
-						value: 0,
-						color: 'warning',
-						countKey: 'reconciliation'
-					}
-				},
-				{
 					id: 'insights',
 					label: 'Insights',
 					path: '/insights',
@@ -194,6 +179,22 @@ class NavigationStore {
 						value: 0,
 						color: 'info',
 						countKey: 'insights'
+					}
+				},
+				{
+					id: 'accounts',
+					label: 'Accounts',
+					path: '/accounts',
+					icon: 'credit-card',
+					group: 'main',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true,
+					badge: {
+						type: 'count' as const,
+						value: 0,
+						color: 'warning',
+						countKey: 'reconciliation'
 					}
 				},
 				{

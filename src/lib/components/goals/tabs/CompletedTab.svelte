@@ -317,17 +317,12 @@
     </div>
   {:else}
     <!-- Empty State -->
-    <Card.Root>
-      <Card.Content class="p-12 text-center">
-        <CheckCircle class="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-        <h3 class="text-xl font-semibold text-primary mb-2">No Completed Goals Yet</h3>
-        <p class="text-muted-foreground mb-6 max-w-md mx-auto">
-          Complete your first goal to see it celebrated here. Every achievement is worth recognizing!
-        </p>
-        <Button.Root onclick={() => goto('/goals?tab=active')}>
-          View Active Goals
-        </Button.Root>
-      </Card.Content>
-    </Card.Root>
+    <div class="squircle-4xl squircle-border bg-card p-12 text-center">
+      <p class="text-sm text-muted-foreground">No completed goals yet.</p>
+      <p class="mt-1 text-xs text-[var(--color-text-tertiary)]">Finish your first goal to see it here.</p>
+      <a href="/plan?tab=goals" class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline">
+        View goals
+      </a>
+    </div>
   {/if}
 </div>

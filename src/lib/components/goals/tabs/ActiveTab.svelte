@@ -351,19 +351,12 @@
     </div>
   {:else}
     <!-- Empty State -->
-    <Card.Root>
-      <Card.Content class="p-12 text-center">
-        <Target class="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-        <h3 class="text-xl font-semibold text-primary mb-2">No Active Goals</h3>
-        <p class="text-muted-foreground mb-6 max-w-md mx-auto">
-          Start your financial journey by creating your first goal. Whether it's building an emergency fund, 
-          saving for a vacation, or planning for retirement, every goal matters.
-        </p>
-        <Button.Root onclick={() => goto('/goals/add')}>
-          <Plus class="h-4 w-4 mr-2" />
-          Create Your First Goal
-        </Button.Root>
-      </Card.Content>
-    </Card.Root>
+    <div class="squircle-4xl squircle-border bg-card py-10 text-center">
+      <p class="text-sm text-muted-foreground">No active goals.</p>
+      <p class="mt-1 text-xs text-[var(--color-text-tertiary)]">Set a goal to start tracking progress.</p>
+      <a href="/goals/add" class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline">
+        Add a goal
+      </a>
+    </div>
   {/if}
 </div>
