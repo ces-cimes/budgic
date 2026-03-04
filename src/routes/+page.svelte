@@ -186,7 +186,7 @@
 			class="px-5 sm:px-6 pt-10 pb-8 animate-card-enter max-w-sm mx-auto"
 			style="animation-delay: 0ms"
 		>
-			<p class="text-xs tracking-widest uppercase text-muted-foreground mb-3 font-medium">
+			<p class="text-xs text-center tracking-widest uppercase text-muted-foreground mb-3 font-medium">
 				{username ? `Hey ${username} ·` : ''} Total balance
 			</p>
 
@@ -196,7 +196,7 @@
 				<div class="h-14 w-48 rounded-lg bg-[var(--color-bg-surface)] animate-pulse"></div>
 			{/if}
 
-			<p class="text-xs text-muted-foreground mt-3">
+			<p class="text-xs text-center text-muted-foreground mt-3">
 				{#if accounts.length > 0}
 					across {accounts.length} account{accounts.length === 1 ? '' : 's'}
 				{:else}

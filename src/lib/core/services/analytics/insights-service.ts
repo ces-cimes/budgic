@@ -9,7 +9,7 @@ import { balanceProjectionService } from './balance-projection-service';
 import { creditUtilizationService } from './credit-utilization-service';
 import { emergencyFundService } from './emergency-fund-service';
 import { getBufferStatus, getBufferAmount, getBufferDeficit } from '$lib/utils/account-metadata-utils';
-import { formatTransactionAmount } from '$lib/utils/currency-utils';
+import { formatTransactionAmount, formatAmount, formatPercentage, getUserMainCurrency } from '$lib/utils/currency-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 
 interface CrossRouteInsightData {
@@ -538,7 +538,7 @@ class InsightsService {
                     type: 'budget_exceeded',
                     severity: 'alert',
                     title: `Critical: ${account.name} Below Buffer`,
-                    message: `${account.name} is ${deficit.toFixed(2)} ${account.currency} below the recommended buffer of ${bufferAmount.toFixed(2)} ${account.currency}. Consider transferring funds to maintain your safety buffer.`,
+                    message: `${account.name} is ${formatAmount(deficit, account.currency)} below the recommended buffer of ${formatAmount(bufferAmount, account.currency)}. Consider transferring funds to maintain your safety buffer.`,
                     amount: deficit,
                     threshold: bufferAmount,
                     confidence: 100,
@@ -565,7 +565,7 @@ class InsightsService {
                     type: 'budget_exceeded',
                     severity: 'warning',
                     title: `Warning: ${account.name} Approaching Buffer`,
-                    message: `${account.name} is approaching the buffer threshold. Current balance: ${account.currentBalance.toFixed(2)} ${account.currency}, Buffer: ${bufferAmount.toFixed(2)} ${account.currency}.`,
+                    message: `${account.name} is approaching the buffer threshold. Current balance: ${formatAmount(account.currentBalance, account.currency)}, Buffer: ${formatAmount(bufferAmount, account.currency)}.`,
                     amount: account.currentBalance,
                     threshold: bufferAmount,
                     confidence: 90,
@@ -637,8 +637,8 @@ class InsightsService {
                     id: generateUUID(),
                     type: 'credit_utilization',
                     severity,
-                    title: `High Credit Utilization: ${aggregate.totalUtilization.toFixed(1)}%`,
-                    message: `Your overall credit utilization is ${aggregate.totalUtilization.toFixed(1)}%, which ${aggregate.status === 'critical' ? 'significantly' : 'may'} negatively impact your credit score. Consider paying down balances to reach optimal utilization (below 30%).`,
+                    title: `High Credit Utilization: ${formatPercentage(aggregate.totalUtilization)}`,
+                    message: `Your overall credit utilization is ${formatPercentage(aggregate.totalUtilization)}, which ${aggregate.status === 'critical' ? 'significantly' : 'may'} negatively impact your credit score. Consider paying down balances to reach optimal utilization (below 30%).`,
                     percentage: aggregate.totalUtilization,
                     threshold: 30,
                     confidence: 95,
@@ -666,8 +666,8 @@ class InsightsService {
                         id: generateUUID(),
                         type: 'credit_utilization',
                         severity: 'alert',
-                        title: `Critical: ${accountAnalysis.accountName} at ${accountAnalysis.utilization.toFixed(1)}% Utilization`,
-                        message: `${accountAnalysis.accountName} has ${accountAnalysis.utilization.toFixed(1)}% credit utilization. This significantly impacts your credit score. ${accountAnalysis.recommendedPaymentForTarget ? `Pay ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(accountAnalysis.recommendedPaymentForTarget)} to reach optimal utilization.` : 'Consider paying down the balance.'}`,
+                        title: `Critical: ${accountAnalysis.accountName} at ${formatPercentage(accountAnalysis.utilization)} Utilization`,
+                        message: `${accountAnalysis.accountName} has ${formatPercentage(accountAnalysis.utilization)} credit utilization. This significantly impacts your credit score. ${accountAnalysis.recommendedPaymentForTarget ? `Pay ${formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency)} to reach optimal utilization.` : 'Consider paying down the balance.'}`,
                         percentage: accountAnalysis.utilization,
                         threshold: 30,
                         amount: accountAnalysis.recommendedPaymentForTarget,
@@ -725,7 +725,7 @@ class InsightsService {
                     type: 'credit_utilization',
                     severity: 'success',
                     title: 'Excellent Credit Utilization',
-                    message: `Great job! Your overall credit utilization is ${aggregate.totalUtilization.toFixed(1)}%, which is optimal for maintaining a good credit score.`,
+                    message: `Great job! Your overall credit utilization is ${formatPercentage(aggregate.totalUtilization)}, which is optimal for maintaining a good credit score.`,
                     percentage: aggregate.totalUtilization,
                     threshold: 30,
                     confidence: 100,
@@ -804,7 +804,7 @@ class InsightsService {
                     type: 'emergency_fund',
                     severity: 'warning',
                     title: 'Emergency Fund Below Target',
-                    message: `Your emergency fund has ${analysis.monthsCovered.toFixed(1)} months covered, but should aim for ${analysis.factors.targetMonths} months. You're ${analysis.percentageAchieved.toFixed(0)}% of the way to your target. ${analysis.recommendedMonthlyContribution > 0 ? `Contribute ${formatTransactionAmount(analysis.recommendedMonthlyContribution, userCurrency)} monthly to reach target.` : ''}`,
+                    message: `Your emergency fund has ${analysis.monthsCovered.toFixed(1)} months covered, but should aim for ${analysis.factors.targetMonths} months. You're ${formatPercentage(analysis.percentageAchieved, { maxDecimals: 0 })} of the way to your target. ${analysis.recommendedMonthlyContribution > 0 ? `Contribute ${formatTransactionAmount(analysis.recommendedMonthlyContribution, userCurrency)} monthly to reach target.` : ''}`,
                     percentage: analysis.percentageAchieved,
                     threshold: 100,
                     amount: analysis.recommendedMonthlyContribution,
@@ -834,7 +834,7 @@ class InsightsService {
                     type: 'emergency_fund',
                     severity: 'warning',
                     title: 'Emergency Fund Partially Used',
-                    message: `Your emergency fund has been used (${analysis.partialUsage.percentageUsed.toFixed(0)}% depleted - ${formatTransactionAmount(analysis.partialUsage.amountUsed, userCurrency)}). Prioritize rebuilding to restore your financial safety net. Estimated recovery: ${analysis.partialUsage.recoveryTimeline} months.`,
+                    message: `Your emergency fund has been used (${formatPercentage(analysis.partialUsage.percentageUsed, { maxDecimals: 0 })} depleted - ${formatTransactionAmount(analysis.partialUsage.amountUsed, userCurrency)}). Prioritize rebuilding to restore your financial safety net. Estimated recovery: ${analysis.partialUsage.recoveryTimeline} months.`,
                     percentage: 100 - analysis.partialUsage.percentageUsed,
                     threshold: 100,
                     amount: analysis.partialUsage.amountUsed,
@@ -893,6 +893,7 @@ class InsightsService {
      */
     private async generateAnalyticsInsights(analyticsData: any, transactions: Transaction[]): Promise<Insight[]> {
         const insights: Insight[] = [];
+        const userCurrency = await getUserMainCurrency();
 
         // Spending pattern insights
         if (analyticsData.topCategories && analyticsData.topCategories.length > 0) {
@@ -902,7 +903,7 @@ class InsightsService {
                 type: 'spending_velocity',
                 severity: 'info',
                 title: 'Top Spending Category',
-                message: `Your highest spending category is ${topCategory.categoryName} with $${topCategory.amount.toFixed(2)}`,
+                message: `Your highest spending category is ${topCategory.categoryName} with ${formatAmount(topCategory.amount, userCurrency)}`,
                 amount: topCategory.amount,
                 percentage: topCategory.percentage,
                 confidence: 85,
@@ -928,7 +929,7 @@ class InsightsService {
                 type: 'trend',
                 severity: 'info',
                 title: 'Monthly Spending Summary',
-                message: `You spent $${analyticsData.totalSpent.toFixed(2)} this month across ${analyticsData.topCategories?.length || 0} categories`,
+                message: `You spent ${formatAmount(analyticsData.totalSpent, userCurrency)} this month across ${analyticsData.topCategories?.length || 0} categories`,
                 amount: analyticsData.totalSpent,
                 confidence: 90,
                 actionable: false,
@@ -2026,7 +2027,7 @@ class InsightsService {
                 const category = tx.categoryId ? categoryMap.get(tx.categoryId) : null;
                 anomalies.push({
                     type: 'unusual_amount',
-                    description: `Unusually large transaction: ${this.formatCurrency(amount)} in ${category?.name || 'Unknown'}`,
+                    description: `Unusually large transaction: ${formatAmount(amount, tx.currency || 'USD')} in ${category?.name || 'Unknown'}`,
                     transactionId: tx.id,
                     confidence: Math.min(100, Math.round(((amount - avgAmount) / stdDev) * 20))
                 });
@@ -2059,15 +2060,6 @@ class InsightsService {
         });
 
         return anomalies.slice(0, 10); // Limit to top 10 anomalies
-    }
-
-    private formatCurrency(amount: number): string {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        }).format(amount);
     }
 
     // ============================================================================
@@ -2115,14 +2107,8 @@ class InsightsService {
                 const account = accounts.find(a => a.id === alert.accountId);
                 if (!account) continue;
 
-                const formatAccountCurrency = (amount: number) => {
-                    return new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: account.currency,
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    }).format(amount);
-                };
+                const formatAccountCurrency = (amount: number) =>
+                    formatAmount(amount, account.currency);
 
                 insights.push(await this.createInsight({
                     type: 'prediction',

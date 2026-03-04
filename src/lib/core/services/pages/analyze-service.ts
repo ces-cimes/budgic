@@ -1,4 +1,5 @@
 import { analyticsService, transactionService, insightsService } from '$lib/core/services';
+import { formatAmount, formatPercentage, getUserMainCurrency } from '$lib/utils/currency-utils';
 import type { 
   AnalyticsData, 
   Insight, 
@@ -245,7 +246,7 @@ export class AnalyzeService {
       const reportId = `report-${Date.now()}`;
       
       // Create report HTML
-      const reportHtml = this.createReportHTML(type, transactions);
+      const reportHtml = await this.createReportHTML(type, transactions);
       
       // Create blob and URL
       const blob = new Blob([reportHtml], { type: 'text/html' });
@@ -290,18 +291,19 @@ export class AnalyzeService {
     }
   }
 
-  private createReportHTML(type: ReportType, transactions: any[]): string {
+  private async createReportHTML(type: ReportType, transactions: any[]): Promise<string> {
     const now = new Date();
+    const currency = await getUserMainCurrency();
     const totalSpending = transactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
-    
+
     const totalIncome = transactions
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
-    
+
     const categoryBreakdown = this.generateCategoryData(transactions, type === 'monthly' ? 'month' : 'year');
-    
+
     return `
 <!DOCTYPE html>
 <html>
@@ -320,7 +322,7 @@ export class AnalyzeService {
 <body>
   <h1>${type.charAt(0).toUpperCase() + type.slice(1)} Financial Report</h1>
   <p>Generated: ${now.toLocaleString()}</p>
-  
+
   <h2>Summary</h2>
   <table>
     <tr>
@@ -330,13 +332,13 @@ export class AnalyzeService {
       <th>Transactions</th>
     </tr>
     <tr>
-      <td class="amount">$${totalIncome.toFixed(2)}</td>
-      <td class="amount">$${totalSpending.toFixed(2)}</td>
-      <td class="amount">$${(totalIncome - totalSpending).toFixed(2)}</td>
+      <td class="amount">${formatAmount(totalIncome, currency)}</td>
+      <td class="amount">${formatAmount(totalSpending, currency)}</td>
+      <td class="amount">${formatAmount(totalIncome - totalSpending, currency)}</td>
       <td class="amount">${transactions.length}</td>
     </tr>
   </table>
-  
+
   <h2>Category Breakdown</h2>
   <table>
     <tr>
@@ -347,13 +349,13 @@ export class AnalyzeService {
     ${categoryBreakdown.map(cat => `
     <tr>
       <td>${cat.name}</td>
-      <td class="amount">$${cat.amount.toFixed(2)}</td>
-      <td class="amount">${cat.percentage.toFixed(1)}%</td>
+      <td class="amount">${formatAmount(cat.amount, currency)}</td>
+      <td class="amount">${formatPercentage(cat.percentage)}</td>
     </tr>
     `).join('')}
     <tr class="total">
       <td>Total</td>
-      <td class="amount">$${totalSpending.toFixed(2)}</td>
+      <td class="amount">${formatAmount(totalSpending, currency)}</td>
       <td class="amount">100%</td>
     </tr>
   </table>

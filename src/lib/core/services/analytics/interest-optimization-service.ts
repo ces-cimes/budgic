@@ -19,7 +19,7 @@ import { balanceProjectionService } from './balance-projection-service';
 import type { Account, Transaction } from '$lib/core/db';
 import { generateUUID } from '$lib/core/db';
 import { addDays, addMonths, addYears, differenceInDays, startOfDay, parseISO } from 'date-fns';
-import { formatTransactionAmount } from '$lib/utils/currency-utils';
+import { formatTransactionAmount, formatPercentage } from '$lib/utils/currency-utils';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -373,7 +373,7 @@ class InterestOptimizationService {
 					type: 'debt_paydown',
 					priority: interestCalc.interestRate > 25 ? 'urgent' : 'high',
 					title: `High Interest Debt: ${account.name}`,
-					description: `This account has a ${interestCalc.interestRate.toFixed(2)}% APR, costing you ${formatTransactionAmount(interestCalc.annualInterest, account.currency)} annually.`,
+					description: `This account has a ${formatPercentage(interestCalc.interestRate, { maxDecimals: 2 })} APR, costing you ${formatTransactionAmount(interestCalc.annualInterest, account.currency)} annually.`,
 					estimatedValue: interestCalc.annualInterest,
 					estimatedMonthlyValue: interestCalc.monthlyInterest,
 					actionable: true,
@@ -410,7 +410,7 @@ class InterestOptimizationService {
 						type: 'balance_transfer',
 						priority: annualSavings > 500 ? 'high' : 'medium',
 						title: `Balance Transfer Opportunity`,
-						description: `Transfer balance to ${bestOption.name} (${(bestOption.metadata?.apr || 0).toFixed(2)}% APR) could save ${formatTransactionAmount(annualSavings, account.currency)} annually.`,
+						description: `Transfer balance to ${bestOption.name} (${formatPercentage(bestOption.metadata?.apr || 0, { maxDecimals: 2 })} APR) could save ${formatTransactionAmount(annualSavings, account.currency)} annually.`,
 						estimatedValue: annualSavings,
 						estimatedMonthlyValue: annualSavings / 12,
 						actionable: true,
@@ -453,7 +453,7 @@ class InterestOptimizationService {
 						type: 'rate_increase',
 						priority: annualEarningsIncrease > 200 ? 'high' : 'medium',
 						title: `Higher Interest Rate Available`,
-						description: `Moving funds to ${bestOption.name} (${(bestOption.metadata?.interestRate || 0).toFixed(2)}% APY) could earn ${formatTransactionAmount(annualEarningsIncrease, account.currency)} more annually.`,
+						description: `Moving funds to ${bestOption.name} (${formatPercentage(bestOption.metadata?.interestRate || 0, { maxDecimals: 2 })} APY) could earn ${formatTransactionAmount(annualEarningsIncrease, account.currency)} more annually.`,
 						estimatedValue: annualEarningsIncrease,
 						estimatedMonthlyValue: annualEarningsIncrease / 12,
 						actionable: true,
@@ -603,7 +603,7 @@ class InterestOptimizationService {
 				type: 'paydown',
 				priority: topDebt.interestRate > 25 ? 'urgent' : 'high',
 				title: `Prioritize Paying Down High Interest Debt`,
-				description: `${topDebt.accountName} has the highest APR at ${topDebt.interestRate.toFixed(2)}%, costing ${formatTransactionAmount(topDebt.annualInterest, topDebt.currency)} annually.`,
+				description: `${topDebt.accountName} has the highest APR at ${formatPercentage(topDebt.interestRate, { maxDecimals: 2 })}, costing ${formatTransactionAmount(topDebt.annualInterest, topDebt.currency)} annually.`,
 				recommendedAction: `Focus on paying down ${topDebt.accountName} first to maximize interest savings.`,
 				estimatedAnnualValue: topDebt.annualInterest,
 				estimatedMonthlyValue: topDebt.monthlyInterest,
@@ -634,7 +634,7 @@ class InterestOptimizationService {
 						type: 'account_switch',
 						priority: potentialIncrease > 500 ? 'high' : 'medium',
 						title: `Consolidate Savings for Better Rates`,
-						description: `Moving funds to ${highestRate.accountName} (${highestRate.interestRate.toFixed(2)}% APY) could increase earnings by ${formatTransactionAmount(potentialIncrease, highestRate.currency)} annually.`,
+						description: `Moving funds to ${highestRate.accountName} (${formatPercentage(highestRate.interestRate, { maxDecimals: 2 })} APY) could increase earnings by ${formatTransactionAmount(potentialIncrease, highestRate.currency)} annually.`,
 						recommendedAction: `Consolidate savings accounts to maximize interest earnings.`,
 						estimatedAnnualValue: potentialIncrease,
 						estimatedMonthlyValue: potentialIncrease / 12,

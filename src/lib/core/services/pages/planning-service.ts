@@ -1,6 +1,7 @@
 import { accountService, userService, transactionService, budgetService, crossRouteSyncService, insightsService, rolloverService, occasionService } from '$lib/core/services';
 import type { Account } from '$lib/core/db';
 import { calculateEnhancedAllowance, calculateGlobalAllowance, getSimpleDailyAllowance, type EnhancedAllowance } from '$lib/utils/allowance-utils';
+import { formatAmount } from '$lib/utils/currency-utils';
 
 // Simplified types for planning
 export interface PlanningData {
@@ -76,10 +77,12 @@ class PlanService {
       const insights: PlanningInsight[] = [];
       
       if (netProjectedChange < 0) {
+        const account = await accountService.getAccount(accountId);
+        const currency = account?.currency || 'USD';
         insights.push({
           id: 'negative-balance',
           type: 'balance_warning',
-          message: `Projected negative balance of ${Math.abs(netProjectedChange).toFixed(2)}`,
+          message: `Projected negative balance of ${formatAmount(Math.abs(netProjectedChange), currency)}`,
           severity: 'high',
           actionable: true
         });
@@ -262,10 +265,12 @@ class PlanService {
 
       // Generate insights based on planning data
       if (planningData.netProjectedChange < 0) {
+        const account = await accountService.getAccount(accountId);
+        const currency = account?.currency || 'USD';
         insights.push({
           id: 'negative-projection',
           type: 'balance_warning',
-          message: `Projected negative balance of ${Math.abs(planningData.netProjectedChange).toFixed(2)}`,
+          message: `Projected negative balance of ${formatAmount(Math.abs(planningData.netProjectedChange), currency)}`,
           severity: 'high',
           actionable: true
         });
@@ -340,10 +345,11 @@ class PlanService {
       // Generate insights
       const insights: PlanningInsight[] = [];
       if (endingBalance < 0) {
+        const currency = account?.currency || 'USD';
         insights.push({
           id: 'negative-balance',
           type: 'balance_warning',
-          message: `Projected negative balance of ${Math.abs(endingBalance).toFixed(2)}`,
+          message: `Projected negative balance of ${formatAmount(Math.abs(endingBalance), currency)}`,
           severity: 'high',
           actionable: true
         });

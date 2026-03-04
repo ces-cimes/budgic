@@ -11,6 +11,7 @@ import type { EnvelopeBorrowing } from '$lib/core/db';
 import type { UserPreferences } from '$lib/core/db';
 import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 import { userService } from './user-service';
+import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 
 export type AllowanceCategoryKey = 'essential' | 'discretionary' | 'buffer';
 
@@ -225,7 +226,7 @@ class EnvelopeBorrowingService {
 					maxPerCategory: maxFromCategory,
 					totalOutstanding,
 					outstandingByCategory,
-					reason: `Borrowing from "${fromCategory}" would exceed ${Math.round(maxPercent * 100)}% of next period's allowance (max ${maxFromCategory.toFixed(0)})`
+					reason: `Borrowing from "${fromCategory}" would exceed ${formatPercentage(maxPercent * 100, { maxDecimals: 0 })} of next period's allowance (max ${formatAmount(maxFromCategory, preferences?.currency || 'USD')})`
 				};
 			}
 		}

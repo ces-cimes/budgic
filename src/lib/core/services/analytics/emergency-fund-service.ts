@@ -9,6 +9,7 @@ import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { userService } from '../core/user-service';
 import { exchangeRateService } from '../core/exchange-rate-service';
+import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 import type { Account, Transaction } from '$lib/core/db';
 
 /**
@@ -38,6 +39,7 @@ export type EmergencyFundStatus = 'optimal' | 'adequate' | 'low' | 'critical' | 
  * Emergency fund analysis
  */
 export interface EmergencyFundAnalysis {
+	currency: string;
 	currentBalance: number;
 	targetAmount: number;
 	percentageAchieved: number;
@@ -348,6 +350,7 @@ class EmergencyFundService {
 			);
 
 			return {
+				currency: mainCurrency,
 				currentBalance,
 				targetAmount,
 				percentageAchieved,
@@ -383,8 +386,8 @@ class EmergencyFundService {
 					type: 'contribute',
 					priority: 'urgent',
 					title: 'Urgent: Build Emergency Fund',
-					description: `Your emergency fund is ${analysis.status === 'depleted' ? 'depleted' : 'critically low'}. You have ${analysis.monthsCovered.toFixed(1)} months of expenses covered, but need ${analysis.targetAmount.toFixed(0)} for adequate protection.`,
-					recommendedAction: `Contribute ${analysis.recommendedMonthlyContribution.toFixed(0)} per month to reach your target in ${analysis.monthsToTarget} months.`,
+					description: `Your emergency fund is ${analysis.status === 'depleted' ? 'depleted' : 'critically low'}. You have ${analysis.monthsCovered.toFixed(1)} months of expenses covered, but need ${formatAmount(analysis.targetAmount, analysis.currency)} for adequate protection.`,
+					recommendedAction: `Contribute ${formatAmount(analysis.recommendedMonthlyContribution, analysis.currency)} per month to reach your target in ${analysis.monthsToTarget} months.`,
 					estimatedImpact: {
 						monthsToTarget: analysis.monthsToTarget,
 						improvement: analysis.percentageAchieved
@@ -403,7 +406,7 @@ class EmergencyFundService {
 					priority: 'high',
 					title: 'Increase Emergency Fund Contributions',
 					description: `Your emergency fund is below target. You have ${analysis.monthsCovered.toFixed(1)} months covered, but should aim for ${(analysis.factors.targetMonths).toFixed(0)} months.`,
-					recommendedAction: `Contribute ${analysis.recommendedMonthlyContribution.toFixed(0)} per month to reach your target.`,
+					recommendedAction: `Contribute ${formatAmount(analysis.recommendedMonthlyContribution, analysis.currency)} per month to reach your target.`,
 					estimatedImpact: {
 						monthsToTarget: analysis.monthsToTarget,
 						improvement: analysis.percentageAchieved
@@ -424,8 +427,8 @@ class EmergencyFundService {
 				type: 'rebuild',
 				priority: 'high',
 				title: 'Rebuild Emergency Fund',
-				description: `Your emergency fund has been used (${analysis.partialUsage.percentageUsed.toFixed(0)}% depleted). Prioritize rebuilding to restore your financial safety net.`,
-				recommendedAction: `Rebuild over ${analysis.partialUsage.recoveryTimeline} months by contributing ${(analysis.targetAmount * 0.1).toFixed(0)} per month.`,
+				description: `Your emergency fund has been used (${formatPercentage(analysis.partialUsage.percentageUsed, { maxDecimals: 0 })} depleted). Prioritize rebuilding to restore your financial safety net.`,
+				recommendedAction: `Rebuild over ${analysis.partialUsage.recoveryTimeline} months by contributing ${formatAmount(analysis.targetAmount * 0.1, analysis.currency)} per month.`,
 				estimatedImpact: {
 					monthsToTarget: analysis.partialUsage.recoveryTimeline
 				},

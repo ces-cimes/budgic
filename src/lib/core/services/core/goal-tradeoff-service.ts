@@ -7,6 +7,7 @@ import { goalService } from '$lib/core/services/core/goal-service';
 import { exchangeRateService } from './exchange-rate-service';
 import type { Goal } from '$lib/core/db';
 import type { RequiredSavingsResult } from '$lib/core/services/core/goal-service';
+import { formatAmount } from '$lib/utils/currency-utils';
 
 const PRIORITY_ORDER: Goal['priority'][] = ['critical', 'high', 'medium', 'low'];
 const PRIORITY_WEIGHT: Record<Goal['priority'], number> = {
@@ -273,7 +274,7 @@ class GoalTradeoffService {
 				impacts.push({
 					goalId: goal.id,
 					goalName: goal.name,
-					message: `Suggested monthly reduced by ${reducedInGoalCurrency.toFixed(0)} ${goal.currency}`,
+					message: `Suggested monthly reduced by ${formatAmount(reducedInGoalCurrency, goal.currency)}`,
 					reducedAmount: reducedInGoalCurrency,
 					reducedAmountInUserCurrency: reductionUser
 				});

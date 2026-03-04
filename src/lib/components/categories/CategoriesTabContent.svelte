@@ -11,11 +11,13 @@
 	import FilterBar from '$lib/components/shared/FilterBar.svelte';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import { toast } from 'svelte-sonner';
+	import { formatAmount, getUserMainCurrency } from '$lib/utils/currency-utils';
 
 	let categories = $state<Category[]>([]);
 	let transactions = $state<any[]>([]);
 	let isLoading = $state(true);
 	let error = $state('');
+	let mainCurrency = $state('USD');
 	let activeState = $state<'active' | 'inactive' | 'all'>('active');
 	let categoryType = $state<'all' | 'expense' | 'income'>('all');
 
@@ -104,12 +106,14 @@
 
 	onMount(async () => {
 		try {
-			const [categoriesData, transactionsData] = await Promise.all([
+			const [categoriesData, transactionsData, currency] = await Promise.all([
 				budgetService.getBudgetCategories(),
-				transactionService.getAllTransactions()
+				transactionService.getAllTransactions(),
+				getUserMainCurrency()
 			]);
 			categories = categoriesData;
 			transactions = transactionsData;
+			mainCurrency = currency;
 		} catch (err) {
 			error = 'Failed to load budget categories';
 			console.error(err);
@@ -130,13 +134,6 @@
 			error = 'Failed to update category status';
 			console.error(err);
 		}
-	}
-
-	function formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD'
-		}).format(amount);
 	}
 
 	function getStatusColor(remaining: number, allocated: number): string {
@@ -369,7 +366,7 @@
 											<span class="text-muted-foreground">
 												Allocated:
 												<span class="text-primary font-medium">
-													{formatCurrency(category.allocated)}
+													{formatAmount(category.allocated, mainCurrency)}
 												</span>
 											</span>
 											<span class="text-muted-foreground">·</span>
@@ -378,7 +375,7 @@
 												<span
 													class="font-medium text-[var(--color-warm-coral)]"
 												>
-													{formatCurrency(category.spent)}
+													{formatAmount(category.spent, mainCurrency)}
 												</span>
 											</span>
 											<span class="text-muted-foreground">·</span>
@@ -388,7 +385,7 @@
 													category.allocated
 												)}"
 											>
-												{formatCurrency(category.remaining)}
+												{formatAmount(category.remaining, mainCurrency)}
 											</span>
 										</div>
 									{:else}

@@ -16,6 +16,7 @@ import {
 	getAvailableCredit,
 	type CreditUtilizationStatus
 } from '$lib/utils/account-metadata-utils';
+import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 
 /**
  * Credit utilization analysis for a single account
@@ -23,6 +24,7 @@ import {
 export interface CreditUtilizationAnalysis {
 	accountId: string;
 	accountName: string;
+	currency: string;
 	utilization: number;
 	status: CreditUtilizationStatus;
 	currentDebt: number;
@@ -140,12 +142,13 @@ class CreditUtilizationService {
 		return {
 			accountId: account.id,
 			accountName: account.name,
+			currency: account.currency,
 			utilization,
 			status,
 			currentDebt,
 			creditLimit,
 			availableCredit,
-			recommendedPaymentForTarget,
+			recommendedPaymentForTarget: recommendedPaymentForTarget ?? undefined,
 			targetUtilization: 30, // Optimal utilization for credit score
 			daysUntilStatementClose,
 			daysUntilPaymentDue,
@@ -213,12 +216,12 @@ class CreditUtilizationService {
 					type: 'payment',
 					priority: 'urgent',
 					title: `Critical: High Credit Utilization on ${accountAnalysis.accountName}`,
-					description: `Your credit utilization is ${accountAnalysis.utilization.toFixed(1)}%, which significantly impacts your credit score.`,
-					accountId: accountAnalysis.accountId,
-					accountName: accountAnalysis.accountName,
-					recommendedAction: `Pay down ${accountAnalysis.recommendedPaymentForTarget ? 
-						new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(accountAnalysis.recommendedPaymentForTarget) 
-						: 'your balance'} to reach optimal utilization.`,
+				description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}, which significantly impacts your credit score.`,
+				accountId: accountAnalysis.accountId,
+				accountName: accountAnalysis.accountName,
+				recommendedAction: `Pay down ${accountAnalysis.recommendedPaymentForTarget ? 
+					formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
+					: 'your balance'} to reach optimal utilization.`,
 					estimatedImpact: {
 						utilizationImprovement: accountAnalysis.utilization - 30,
 						creditScoreImpact: 'positive',
@@ -237,12 +240,12 @@ class CreditUtilizationService {
 					type: 'payment',
 					priority: 'high',
 					title: `High Credit Utilization on ${accountAnalysis.accountName}`,
-					description: `Your credit utilization is ${accountAnalysis.utilization.toFixed(1)}%, which may negatively impact your credit score.`,
-					accountId: accountAnalysis.accountId,
-					accountName: accountAnalysis.accountName,
-					recommendedAction: `Consider paying down ${accountAnalysis.recommendedPaymentForTarget ? 
-						new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(accountAnalysis.recommendedPaymentForTarget) 
-						: 'your balance'} to improve your credit score.`,
+				description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}, which may negatively impact your credit score.`,
+				accountId: accountAnalysis.accountId,
+				accountName: accountAnalysis.accountName,
+				recommendedAction: `Consider paying down ${accountAnalysis.recommendedPaymentForTarget ? 
+					formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
+					: 'your balance'} to improve your credit score.`,
 					estimatedImpact: {
 						utilizationImprovement: accountAnalysis.utilization - 30,
 						creditScoreImpact: 'positive',
@@ -260,12 +263,12 @@ class CreditUtilizationService {
 					type: 'payment',
 					priority: 'medium',
 					title: `Moderate Credit Utilization on ${accountAnalysis.accountName}`,
-					description: `Your credit utilization is ${accountAnalysis.utilization.toFixed(1)}%. Reducing it to below 30% can improve your credit score.`,
-					accountId: accountAnalysis.accountId,
-					accountName: accountAnalysis.accountName,
-					recommendedAction: `Consider paying down ${accountAnalysis.recommendedPaymentForTarget ? 
-						new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(accountAnalysis.recommendedPaymentForTarget) 
-						: 'your balance'} to reach optimal utilization.`,
+				description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}. Reducing it to below 30% can improve your credit score.`,
+				accountId: accountAnalysis.accountId,
+				accountName: accountAnalysis.accountName,
+				recommendedAction: `Consider paying down ${accountAnalysis.recommendedPaymentForTarget ? 
+					formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
+					: 'your balance'} to reach optimal utilization.`,
 					estimatedImpact: {
 						utilizationImprovement: accountAnalysis.utilization - 30,
 						creditScoreImpact: 'positive',
@@ -290,9 +293,9 @@ class CreditUtilizationService {
 						description: `Your statement closes in ${accountAnalysis.daysUntilStatementClose} day(s). Paying down your balance now will improve the utilization reported to credit bureaus.`,
 						accountId: accountAnalysis.accountId,
 						accountName: accountAnalysis.accountName,
-						recommendedAction: `Make a payment of ${accountAnalysis.recommendedPaymentForTarget ? 
-							new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(accountAnalysis.recommendedPaymentForTarget) 
-							: 'at least the minimum'} before the statement closes.`,
+					recommendedAction: `Make a payment of ${accountAnalysis.recommendedPaymentForTarget ? 
+						formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
+						: 'at least the minimum'} before the statement closes.`,
 						estimatedImpact: {
 							utilizationImprovement: accountAnalysis.utilization - 30,
 							creditScoreImpact: 'positive'
@@ -314,7 +317,7 @@ class CreditUtilizationService {
 				type: 'redistribution',
 				priority: 'high',
 				title: 'High Overall Credit Utilization',
-				description: `Your overall credit utilization across all accounts is ${aggregate.totalUtilization.toFixed(1)}%, which may negatively impact your credit score.`,
+				description: `Your overall credit utilization across all accounts is ${formatPercentage(aggregate.totalUtilization)}, which may negatively impact your credit score.`,
 				recommendedAction: 'Consider paying down balances on accounts with highest utilization first, or redistributing debt across accounts.',
 				estimatedImpact: {
 					utilizationImprovement: aggregate.totalUtilization - 30,
@@ -384,8 +387,9 @@ class CreditUtilizationService {
 			if (remainingPayment <= 0) break;
 			if (account.utilization <= targetUtilization) continue;
 
-			const paymentNeeded = getRecommendedPaymentForTargetUtilization(account, targetUtilization);
-			if (paymentNeeded === null || paymentNeeded <= 0) continue;
+			const targetDebt = (account.creditLimit * targetUtilization) / 100;
+			const paymentNeeded = account.currentDebt - targetDebt;
+			if (paymentNeeded <= 0) continue;
 
 			const paymentAmount = Math.min(remainingPayment, paymentNeeded);
 			const newDebt = account.currentDebt - paymentAmount;

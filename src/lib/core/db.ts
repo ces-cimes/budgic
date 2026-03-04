@@ -89,7 +89,8 @@ export const CurrencyUtils = {
 	},
 
 	/**
-	 * Format amount according to currency rules
+	 * Format amount for DB-layer use. For user-facing copy (Design Bible §10), prefer
+	 * formatAmount/formatCurrencyAmount from currency-utils.ts (locale grouping, minus for negatives).
 	 */
 	formatAmount(amount: number | undefined | null, currency: string): string {
 		if (amount === undefined || amount === null || isNaN(amount)) {

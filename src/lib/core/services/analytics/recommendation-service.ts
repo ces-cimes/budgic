@@ -8,6 +8,7 @@ import { budgetService } from '../core/budget-service';
 import { goalService } from '../core/goal-service';
 import { analyticsService } from './analytics-service';
 import { userService } from '../core/user-service';
+import { formatAmount, formatPercentage, getUserMainCurrency } from '$lib/utils/currency-utils';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -102,6 +103,7 @@ class RecommendationService {
 	 */
 	private async generateBudgetRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
+		const userCurrency = await getUserMainCurrency();
 
 		// Check for categories over budget
 		context.budgetStatus.categories.forEach(cat => {
@@ -114,7 +116,7 @@ class RecommendationService {
 					type: 'budget',
 					priority: percentage > 20 ? 'urgent' : percentage > 10 ? 'high' : 'medium',
 					title: 'Budget Exceeded',
-					description: `You've exceeded your budget by ${this.formatCurrency(overage)} (${Math.round(percentage)}%)`,
+					description: `You've exceeded your budget by ${formatAmount(overage, userCurrency)} (${formatPercentage(percentage, { maxDecimals: 0 })})`,
 					actionable: true,
 					actionText: 'Review Budget',
 					actionUrl: '/plan',
@@ -130,7 +132,7 @@ class RecommendationService {
 					type: 'budget',
 					priority: 'low',
 					title: 'Budget Surplus Available',
-					description: `You have ${this.formatCurrency(cat.remaining)} remaining in this category`,
+					description: `You have ${formatAmount(cat.remaining, userCurrency)} remaining in this category`,
 					actionable: true,
 					actionText: 'Adjust Budget',
 					actionUrl: '/plan',
@@ -536,14 +538,6 @@ class RecommendationService {
 		}
 	}
 
-	private formatCurrency(amount: number): string {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency: 'USD',
-			minimumFractionDigits: 2,
-			maximumFractionDigits: 2
-		}).format(amount);
-	}
 }
 
 export const recommendationService = new RecommendationService();

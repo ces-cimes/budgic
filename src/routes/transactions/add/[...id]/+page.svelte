@@ -44,7 +44,7 @@
 		FLEXIBILITY_TIERS,
 		suggestFlexibilityTierWithConstraint
 	} from '$lib/utils/flexibility-tier-utils';
-	import { getCurrencyInfo } from '$lib/utils/currency-utils';
+	import { getCurrencyInfo, formatAmount } from '$lib/utils/currency-utils';
 	import { dateUtils } from '$lib/utils/date-utils';
 
 	let accounts = $state<Account[]>([]);
@@ -701,11 +701,11 @@
 							<Select.Item value="">
 								{status === 'planned' && transactionType !== 'transfer' ? 'No account (optional)' : 'Select an account'}
 							</Select.Item>
-							{#each accounts as account}
-								<Select.Item value={account.id}>
-									{account.name} (${account.currentBalance.toFixed(2)})
-								</Select.Item>
-							{/each}
+						{#each accounts as account}
+							<Select.Item value={account.id}>
+								{account.name} ({formatAmount(account.currentBalance, account.currency)})
+							</Select.Item>
+						{/each}
 						</Select.Content>
 					</Select.Root>
 				</div>
@@ -790,9 +790,9 @@
 							</Select.Trigger>
 							<Select.Content>
 								<Select.Item value="">Select destination account</Select.Item>
-								{#each accounts as account}
-									<Select.Item value={account.id}>{account.name} (${account.currentBalance.toFixed(2)})</Select.Item>
-								{/each}
+							{#each accounts as account}
+								<Select.Item value={account.id}>{account.name} ({formatAmount(account.currentBalance, account.currency)})</Select.Item>
+							{/each}
 							</Select.Content>
 						</Select.Root>
 					</div>
@@ -942,7 +942,7 @@
 						{transaction.description || 'Untitled'}
 						{#if transaction.amount !== undefined}
 							<br />
-							<strong>Amount:</strong> ${Math.abs(transaction.amount).toFixed(2)}
+							<strong>Amount:</strong> {formatAmount(Math.abs(transaction.amount), transaction.currency || 'USD')}
 						{/if}
 					{/if}
 				</Dialog.Description>

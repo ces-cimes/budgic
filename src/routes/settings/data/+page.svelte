@@ -16,6 +16,7 @@
     type DetectedSchema
   } from '$lib/core/services/import-export';
   import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
+  import { formatPercentage } from '$lib/utils/currency-utils';
 
   // State
   let isLoading = $state(true);
@@ -445,7 +446,7 @@
             <div class="rounded-xl bg-[var(--color-bg-surface)] p-4 space-y-2">
               <div class="flex items-center justify-between">
                 <p class="text-xs font-medium text-[var(--color-text-primary)]">{mmProgress.step}</p>
-                <p class="text-xs text-[var(--color-text-tertiary)]">{mmProgress.percentage}%</p>
+                <p class="text-xs text-[var(--color-text-tertiary)]">{formatPercentage(mmProgress.percentage, { maxDecimals: 0 })}</p>
               </div>
               <div class="budget-progress">
                 <div class="budget-progress-fill" style="width: {mmProgress.percentage}%"></div>

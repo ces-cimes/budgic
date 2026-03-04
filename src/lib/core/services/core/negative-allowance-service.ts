@@ -9,6 +9,7 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { NegativeAllowanceEvent } from '$lib/core/db';
 import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+import { formatAmount } from '$lib/utils/currency-utils';
 
 /** User-configurable handling when allowance goes negative */
 export type NegativeAllowanceHandling =
@@ -120,7 +121,7 @@ class NegativeAllowanceService {
 				? `You have no spending allowance for this period (zero balance or no data). ${
 						shouldBlock ? 'Confirm to proceed, or add funds first.' : 'Consider adding funds or reviewing your budget.'
 					}`
-				: `You're over your spending allowance by ${this.formatAmount(primary.currency, totalOver)} this period. ${
+				: `You're over your spending allowance by ${formatAmount(totalOver, primary.currency)} this period. ${
 						shouldBlock ? 'Confirm to proceed, or adjust your spending.' : 'Review your budget and consider reducing future spending.'
 					}`;
 		}
@@ -257,7 +258,7 @@ class NegativeAllowanceService {
 		suggestions.push({
 			id: 'reduce-future',
 			title: 'Reduce future spending',
-			description: `Spend ${this.formatAmount(currency, overBy)} less over the rest of the period to get back on track.`,
+			description: `Spend ${formatAmount(overBy, currency)} less over the rest of the period to get back on track.`,
 			actionType: 'reduce_spending',
 			priority: 'high',
 			estimatedImpact: overBy,
@@ -283,18 +284,6 @@ class NegativeAllowanceService {
 		return suggestions;
 	}
 
-	private formatAmount(currency: string, amount: number): string {
-		try {
-			return new Intl.NumberFormat(undefined, {
-				style: 'currency',
-				currency,
-				minimumFractionDigits: 0,
-				maximumFractionDigits: 2
-			}).format(amount);
-		} catch {
-			return `${currency} ${amount.toFixed(2)}`;
-		}
-	}
 }
 
 export const negativeAllowanceService = new NegativeAllowanceService();
