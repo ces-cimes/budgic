@@ -149,7 +149,7 @@
   <!-- Header -->
   <div class="flex items-center justify-between">
     <div>
-      <h2 class="text-primary text-lg font-semibold">Financial Goals</h2>
+      <h2 class="text-primary text-lg font-semibold">Goals</h2>
       <div class="text-muted-foreground text-sm">
         Track your progress towards financial milestones
       </div>

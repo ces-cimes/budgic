@@ -406,7 +406,7 @@
 			<Card>
 				<CardContent class="py-8 pt-6 text-center">
 					<TrendingUp class="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-					<h3 class="mb-2 text-lg font-semibold">No accounts found</h3>
+					<p class="text-sm text-muted-foreground">Nothing here yet.</p>
 					<p class="text-muted-foreground">
 						{#if searchTerm || selectedAccountFilter !== 'all' || selectedHealthFilter !== 'all' || showOnlyWithDiscrepancies}
 							Try adjusting your filters to see more results.

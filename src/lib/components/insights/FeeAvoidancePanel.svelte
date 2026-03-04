@@ -171,7 +171,7 @@
 			case 'medium':
 				return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
 			case 'low':
-				return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+				return 'bg-[var(--color-info)]/10 text-[var(--color-info)] border-[var(--color-info)]/20';
 		}
 	}
 
@@ -328,7 +328,7 @@
 												? 'text-red-500'
 												: risk.likelihood === 'medium'
 													? 'text-yellow-500'
-													: 'text-blue-500'}"
+													: 'text-[var(--color-info)]'}"
 										/>
 									</div>
 									<div class="min-w-0 flex-1 space-y-2">

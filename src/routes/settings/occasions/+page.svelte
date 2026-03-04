@@ -224,7 +224,7 @@
 		{#if loading}
 			<div class="space-y-2">
 				{#each [1,2,3] as _}
-					<div class="h-14 animate-pulse squircle-2xl bg-[var(--color-bg-tertiary)]"></div>
+					<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
 				{/each}
 			</div>
 		{:else if occasions.length === 0}

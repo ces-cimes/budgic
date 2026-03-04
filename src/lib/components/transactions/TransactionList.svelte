@@ -876,7 +876,7 @@
 						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Income</div>
 					</div>
 					<div>
-						<div class="text-amount {summaryStats.expenses === 0 ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-warm-coral)]'}">{formatAmountWithSign(summaryStats.expenses)}</div>
+						<div class="text-amount {summaryStats.expenses === 0 ? 'text-[var(--color-text-tertiary)]' : 'text-foreground'}">{formatAmountWithSign(summaryStats.expenses)}</div>
 						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Expenses</div>
 					</div>
 					<div>

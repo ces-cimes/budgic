@@ -72,14 +72,14 @@
 
   function getProgressColor(progress: number) {
     if (progress >= 100) return 'text-green-500';
-    if (progress >= 75) return 'text-blue-500';
+    if (progress >= 75) return 'text-[var(--color-amber)]';
     if (progress >= 50) return 'text-yellow-500';
     return 'text-red-500';
   }
 
   function getProgressBgColor(progress: number) {
     if (progress >= 100) return 'bg-green-500';
-    if (progress >= 75) return 'bg-blue-500';
+    if (progress >= 75) return 'bg-[var(--color-amber)]';
     if (progress >= 50) return 'bg-yellow-500';
     return 'bg-red-500';
   }
@@ -135,9 +135,9 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground">Active Goals</p>
-              <p class="text-2xl font-bold text-blue-500">{goalsData.activeGoals}</p>
+              <p class="text-2xl font-bold text-[var(--color-amber)]">{goalsData.activeGoals}</p>
             </div>
-            <TrendingUp class="h-8 w-8 text-blue-500" />
+            <TrendingUp class="h-8 w-8 text-[var(--color-amber)]" />
           </div>
         </Card.Content>
       </Card.Root>

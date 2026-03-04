@@ -99,7 +99,7 @@
 	// Get frequency badge color
 	function getFrequencyColor(frequency: RecurringPattern['frequency']): string {
 		const colorMap: Record<string, string> = {
-			daily: 'bg-blue-500/10 text-blue-500',
+			daily: 'bg-[var(--color-info)]/10 text-[var(--color-info)]',
 			weekly: 'bg-green-500/10 text-green-500',
 			biweekly: 'bg-purple-500/10 text-purple-500',
 			monthly: 'bg-orange-500/10 text-orange-500',
@@ -122,7 +122,7 @@
 		const colorMap: Record<string, string> = {
 			high: 'bg-red-500/10 text-red-500 border-red-500/20',
 			medium: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-			low: 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+			low: 'bg-[var(--color-info)]/10 text-[var(--color-info)] border-[var(--color-info)]/20'
 		};
 		return colorMap[severity] || 'bg-gray-500/10 text-gray-500';
 	}

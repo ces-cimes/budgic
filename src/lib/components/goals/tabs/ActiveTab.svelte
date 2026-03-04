@@ -73,14 +73,14 @@
 
   function getProgressColor(progress: number) {
     if (progress >= 100) return 'text-green-500';
-    if (progress >= 75) return 'text-blue-500';
+    if (progress >= 75) return 'text-[var(--color-amber)]';
     if (progress >= 50) return 'text-yellow-500';
     return 'text-red-500';
   }
 
   function getProgressBgColor(progress: number) {
     if (progress >= 100) return 'bg-green-500';
-    if (progress >= 75) return 'bg-blue-500';
+    if (progress >= 75) return 'bg-[var(--color-amber)]';
     if (progress >= 50) return 'bg-yellow-500';
     return 'bg-red-500';
   }

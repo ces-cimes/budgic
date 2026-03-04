@@ -8,7 +8,7 @@ export const formSchema = z.object({
   initialBalance: z.string().refine((val) => {
     const num = parseFloat(val);
     return !isNaN(num) && isFinite(num);
-  }, 'Please enter a valid number'),
+  }, 'Enter a valid number'),
   currency: z.string().min(1, 'Please select a currency')
 });
 

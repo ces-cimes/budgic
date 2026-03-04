@@ -47,7 +47,7 @@
         analyticsEnabled,
         backupEnabled
       });
-      success = 'Security settings saved successfully';
+      success = 'Saved';
     } catch (err) {
       error = 'Failed to save security settings';
       console.error('Error saving preferences:', err);

@@ -124,7 +124,7 @@
 	function getBalanceColor(balance: number, bufferAmount: number): string {
 		if (balance < bufferAmount * 0.5) return 'stroke-red-500 fill-red-500/20';
 		if (balance < bufferAmount) return 'stroke-yellow-500 fill-yellow-500/20';
-		if (balance < bufferAmount * 1.5) return 'stroke-blue-500 fill-blue-500/20';
+		if (balance < bufferAmount * 1.5) return 'stroke-[var(--color-amber)] fill-[var(--color-amber)]/20';
 		return 'stroke-green-500 fill-green-500/20';
 	}
 </script>
@@ -293,7 +293,7 @@
 						<!-- Legend -->
 						<div class="flex items-center gap-4 text-xs">
 							<div class="flex items-center gap-2">
-								<div class="w-4 h-0.5 bg-blue-500"></div>
+								<div class="w-4 h-0.5 bg-[var(--color-amber)]"></div>
 								<span class="text-muted-foreground">Projected Balance</span>
 							</div>
 							<div class="flex items-center gap-2">

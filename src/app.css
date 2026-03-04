@@ -244,7 +244,7 @@
   /* ── Hero number: large financial figures ── */
   .text-hero {
     font-family: var(--font-display);
-    font-size: clamp(2.5rem, 8vw, 4.5rem);
+    font-size: clamp(3.5rem, 8vw, 4.5rem);
     line-height: 1;
     letter-spacing: -0.02em;
     color: var(--color-hero-number);
@@ -353,6 +353,14 @@
   @keyframes tooltipFadeIn {
     from { opacity: 0; transform: translateY(-5px) translateX(-50%); }
     to { opacity: 1; transform: translateY(0) translateX(-50%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

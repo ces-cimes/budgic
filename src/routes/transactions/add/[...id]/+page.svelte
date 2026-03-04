@@ -445,10 +445,10 @@
 				throw new Error('Please select an account');
 			}
 			if (!description.trim()) {
-				throw new Error('Please enter a description');
+				throw new Error('Enter a description');
 			}
 			if (amount === 0) {
-				throw new Error('Please enter a valid amount (cannot be zero)');
+				throw new Error('Enter an amount');
 			}
 			if (transactionType === 'transfer' && !toAccountId) {
 				throw new Error('Please select a destination account for transfers');

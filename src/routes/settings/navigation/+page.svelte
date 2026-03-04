@@ -86,7 +86,7 @@
 		// Save to database
 		try {
 			await navigationStore.updateItemOrder(draggedItem.id, targetIndex);
-			toast.success('Navigation order updated successfully');
+			toast.success('Order saved');
 		} catch (error) {
 			toast.error('Failed to update navigation order');
 			console.error(error);
@@ -102,7 +102,7 @@
 		try {
 			await navigationStore.updateItemVisibility(itemId, { [field]: value });
 			await loadItems();
-			toast.success('Visibility updated successfully');
+			toast.success('Saved');
 		} catch (error) {
 			toast.error('Failed to update visibility');
 			console.error(error);
@@ -120,7 +120,7 @@
 		try {
 			await navigationStore.resetToDefaults();
 			await loadItems();
-			toast.success('Navigation reset to defaults successfully');
+			toast.success('Reset to defaults');
 		} catch (error) {
 			toast.error('Failed to reset navigation');
 			console.error(error);

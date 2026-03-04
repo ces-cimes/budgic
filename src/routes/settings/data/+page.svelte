@@ -100,7 +100,7 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      success = 'Data exported successfully';
+      success = 'Saved';
     } catch (err) {
       error = 'Failed to export data';
       console.error('Error exporting data:', err);
@@ -140,7 +140,7 @@
         await userService.updateUserPreferences(data.userPreferences[0]);
       }
       
-      success = 'Data imported successfully';
+      success = 'Saved';
     } catch (err) {
       error = 'Failed to import data: ' + (err instanceof Error ? err.message : 'Unknown error');
       console.error('Error importing data:', err);
@@ -266,7 +266,7 @@
         db.userPreferences.clear()
       ]);
       
-      success = 'All data cleared successfully';
+      success = 'Cleared';
       // Redirect to onboarding
       setTimeout(() => {
         goto('/onboarding');

@@ -214,7 +214,7 @@ class BadgeService {
 					badgeId: goalBadge.badgeId,
 					type: 'goal_milestone',
 					title: `${goalBadge.count} Goals Completed`,
-					description: `Successfully completed ${goalBadge.count} financial goals`,
+					description: `Completed ${goalBadge.count} goals`,
 					badgeType: 'milestone_reached',
 					rarity: goalBadge.rarity,
 					category: 'growth',
@@ -536,9 +536,9 @@ class BadgeService {
 			{ badgeId: 'budget_perfect_month', type: 'budget_badge', title: 'Perfect Month', description: 'Stayed within budget for all categories in a month', badgeType: 'achievement', rarity: 'rare', category: 'survival' },
 			// Goal badges
 			{ badgeId: 'goal_first_completion', type: 'goal_milestone', title: 'First Goal Achieved', description: 'Completed your first financial goal', badgeType: 'milestone_reached', rarity: 'common', category: 'growth' },
-			{ badgeId: 'goal_completion_5', type: 'goal_milestone', title: '5 Goals Completed', description: 'Successfully completed 5 financial goals', badgeType: 'milestone_reached', rarity: 'uncommon', category: 'growth' },
-			{ badgeId: 'goal_completion_10', type: 'goal_milestone', title: '10 Goals Completed', description: 'Successfully completed 10 financial goals', badgeType: 'milestone_reached', rarity: 'rare', category: 'growth' },
-			{ badgeId: 'goal_completion_25', type: 'goal_milestone', title: '25 Goals Completed', description: 'Successfully completed 25 financial goals', badgeType: 'milestone_reached', rarity: 'epic', category: 'growth' },
+			{ badgeId: 'goal_completion_5', type: 'goal_milestone', title: '5 Goals Completed', description: 'Completed 5 goals', badgeType: 'milestone_reached', rarity: 'uncommon', category: 'growth' },
+			{ badgeId: 'goal_completion_10', type: 'goal_milestone', title: '10 Goals Completed', description: 'Completed 10 goals', badgeType: 'milestone_reached', rarity: 'rare', category: 'growth' },
+			{ badgeId: 'goal_completion_25', type: 'goal_milestone', title: '25 Goals Completed', description: 'Completed 25 goals', badgeType: 'milestone_reached', rarity: 'epic', category: 'growth' },
 			{ badgeId: 'goal_emergency_fund', type: 'goal_milestone', title: 'Emergency Fund Complete', description: 'Built your emergency fund', badgeType: 'milestone_reached', rarity: 'rare', category: 'security' },
 			// Behavioral badges
 			{ badgeId: 'behavioral_logging_streak_7', type: 'behavioral_badge', title: '7 Day Logging Streak', description: 'Logged transactions for 7 consecutive days', badgeType: 'streak', rarity: 'common', category: 'system' },

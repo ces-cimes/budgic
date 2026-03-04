@@ -54,7 +54,7 @@
         username,
         userMaturityLevel
       });
-      success = 'Profile settings saved successfully';
+      success = 'Saved';
     } catch (err) {
       error = 'Failed to save profile settings';
       console.error('Error saving preferences:', err);

@@ -342,7 +342,7 @@
 			<div class="max-h-96 space-y-2 overflow-y-auto">
 				{#if filteredTransactions.length === 0}
 					<div class="text-muted-foreground py-8 text-center text-sm">
-						{searchQuery ? 'No transactions found' : 'No available transactions'}
+						{searchQuery ? 'No matches.' : 'Nothing here yet.'}
 					</div>
 				{:else}
 					{#each filteredTransactions as transaction}

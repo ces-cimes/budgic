@@ -70,7 +70,7 @@
 			case 'success': return 'bg-[var(--color-sage-green)] text-white';
 			case 'warning': return 'bg-[var(--color-golden-amber)] text-[var(--color-warm-charcoal)]';
 			case 'danger': return 'bg-[var(--color-warm-coral)] text-white';
-			case 'info': return 'bg-blue-500 text-white';
+			case 'info': return 'bg-[var(--color-info)] text-white';
 			case 'primary':
 			default: return 'bg-primary text-primary-foreground';
 		}

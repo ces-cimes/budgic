@@ -34,14 +34,14 @@
 
 {#if isLoading}
 	<!-- Skeleton -->
-	<div class="squircle-4xl squircle-border bg-card p-5 space-y-3">
+	<div class="squircle-4xl squircle-border bg-card shadow-sm p-6 space-y-3">
 		<div class="h-3 w-28 rounded bg-[var(--color-bg-surface)] animate-pulse"></div>
 		<div class="h-8 w-36 rounded bg-[var(--color-bg-surface)] animate-pulse"></div>
 		<div class="h-2 w-full rounded-full bg-[var(--color-bg-surface)] animate-pulse"></div>
 	</div>
 {:else if allowance}
 	<div
-		class="squircle-4xl squircle-border bg-card p-5 space-y-4"
+		class="squircle-4xl squircle-border bg-card shadow-sm p-6 space-y-4"
 		style={isOverBudget
 			? '--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent);'
 			: ''}
@@ -55,10 +55,7 @@
 				<!-- Daily amount — hero number -->
 				<div class="text-hero-sm {isOverBudget ? 'text-[var(--color-warm-coral)]' : ''}">
 					{formatTransactionAmount(allowance.total.dailySafe, allowance.total.currency)}
-					<span
-						class="font-sans text-sm font-normal text-muted-foreground ml-1"
-						style="font-family: var(--font-sans); font-size: 0.8rem;"
-					>
+					<span class="text-xs text-muted-foreground ml-1">
 						/ day
 					</span>
 				</div>

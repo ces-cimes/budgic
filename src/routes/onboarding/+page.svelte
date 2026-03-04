@@ -199,7 +199,7 @@
     switch (currentStep) {
       case 1: return 'Welcome to Budgic';
       case 2: return 'Personal Information';
-      case 3: return 'Financial Goals';
+      case 3: return 'Goals';
       case 4: return 'Experience Level';
       default: return '';
     }
@@ -226,7 +226,7 @@
       {#if isLoading}
         <div class="space-y-4">
           <div class="h-2 animate-pulse rounded-full bg-[var(--color-bg-tertiary)]"></div>
-          <div class="h-64 animate-pulse squircle-4xl bg-[var(--color-bg-tertiary)]"></div>
+          <div class="h-64 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
         </div>
       {:else}
         <!-- Wordmark -->
@@ -342,7 +342,7 @@
             </div>
           {/if}
 
-          <!-- Step 3: Financial Goals -->
+          <!-- Step 3: Goals -->
           {#if currentStep === 3}
             <div class="space-y-2">
               <p class="text-xs text-[var(--color-text-tertiary)] mb-3">Select all that apply</p>

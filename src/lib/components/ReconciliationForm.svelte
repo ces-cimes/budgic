@@ -34,7 +34,7 @@
 	// Form validation schema
 	const ReconciliationFormSchema = z.object({
 		accountId: z.string().min(1, 'Please select an account'),
-		statementBalance: z.number().finite('Please enter a valid statement balance'),
+		statementBalance: z.number().finite('Enter a valid statement balance'),
 		tolerance: z.number().positive().default(0.01),
 		includePendingTransactions: z.boolean().default(false),
 		autoResolveSmallDiscrepancies: z.boolean().default(true),

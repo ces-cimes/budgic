@@ -160,7 +160,7 @@
         {@const typeColor = account.type === 'checking' ? 'border-l-[var(--color-amber)]' : account.type === 'savings' ? 'border-l-[var(--color-sage-green)]' : account.type === 'credit' ? 'border-l-[var(--color-info)]' : 'border-l-border'}
         <button
           type="button"
-          class="group w-full border-l-4 {typeColor} squircle-4xl squircle-border squircle-fill-tertiary p-6 text-left transition-all hover:shadow-md animate-card-enter"
+          class="group w-full border-l-4 {typeColor} squircle-4xl squircle-border squircle-fill-tertiary p-6 text-left transition-all shadow-sm hover:shadow-md animate-card-enter"
           onclick={() => goto(`/accounts/${account.id}`)}
         >
           <div class="flex items-start justify-between gap-4">

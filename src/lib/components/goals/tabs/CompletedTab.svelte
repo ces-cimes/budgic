@@ -177,11 +177,11 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground">Avg. Time</p>
-              <p class="text-2xl font-bold text-blue-500">
+              <p class="text-2xl font-bold text-[var(--color-amber)]">
                 {getAverageCompletionTime() ? `${getAverageCompletionTime()} days` : 'N/A'}
               </p>
             </div>
-            <Clock class="h-8 w-8 text-blue-500" />
+            <Clock class="h-8 w-8 text-[var(--color-amber)]" />
           </div>
         </Card.Content>
       </Card.Root>
@@ -302,10 +302,11 @@
 
               <!-- Achievement Badge -->
               <div class="flex justify-center pt-4">
-                <div class="flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 rounded-full">
-                  <Award class="h-5 w-5 text-green-600" />
-                  <span class="text-sm font-medium text-green-700 dark:text-green-300">
-                    Goal Achieved Successfully!
+                <div class="flex items-center gap-2 px-4 py-2 rounded-full"
+                  style="background: color-mix(in oklch, var(--color-sage-green) 12%, transparent);">
+                  <Award class="h-5 w-5 text-[var(--color-sage-green)]" />
+                  <span class="text-sm font-medium text-[var(--color-sage-green)]">
+                    Goal achieved
                   </span>
                 </div>
               </div>

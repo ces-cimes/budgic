@@ -196,7 +196,7 @@
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				{#if isLoadingStats}
 					{#each [1, 2, 3, 4] as _}
-						<div class="h-16 animate-pulse squircle-2xl bg-[var(--color-bg-tertiary)]"></div>
+						<div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
 					{/each}
 				{:else if statsError}
 					<div class="col-span-full squircle-2xl squircle-border px-4 py-3" style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);">

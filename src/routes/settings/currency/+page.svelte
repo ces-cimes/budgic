@@ -337,7 +337,7 @@
 			
 			editedConfigs.delete(currencyCode);
 			editingCurrency = null;
-			toast.success(`Settings for ${currencyCode} saved successfully`);
+			toast.success(`${currencyCode} saved`);
 			showConfigDrawer = false;
 			configCurrency = null;
 		} catch (err) {
@@ -406,7 +406,7 @@
 		if (mainCurrency === oldMainCurrency) {
 			// No change, just save preference
 			await userService.updateUserPreferences({ currency: mainCurrency });
-			toast.success('Main currency updated successfully');
+			toast.success('Main currency updated');
 			return;
 		}
 
@@ -593,7 +593,7 @@
 			await loadExchangeRates();
 			editedRates.delete(rateId);
 			editingRate = null;
-			toast.success('Exchange rate updated successfully');
+			toast.success('Rate updated');
 		} catch (err) {
 			const errorMsg = `Failed to save exchange rate: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			error = errorMsg;
@@ -622,7 +622,7 @@
 			await loadExchangeRates();
 			showAddRateForm = false;
 			newRate = { fromCurrency: mainCurrency, toCurrency: 'EUR', rate: 1 };
-			toast.success('Exchange rate added successfully');
+			toast.success('Rate added');
 		} catch (err) {
 			const errorMsg = `Failed to add exchange rate: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			error = errorMsg;
@@ -906,7 +906,7 @@
 			});
 			
 			await loadData();
-			toast.success(`Currency ${currency.code} deleted successfully`);
+			toast.success(`${currency.code} removed`);
 		} catch (err) {
 			const errorMsg = `Failed to delete currency: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			error = errorMsg;

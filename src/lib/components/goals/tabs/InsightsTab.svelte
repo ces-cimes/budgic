@@ -42,11 +42,11 @@
   function getInsightColor(type: string) {
     switch (type) {
       case 'achievement': return 'text-green-500';
-      case 'milestone': return 'text-blue-500';
+      case 'milestone': return 'text-[var(--color-info)]';
       case 'recommendation': return 'text-yellow-500';
       case 'warning': return 'text-red-500';
       case 'celebration': return 'text-purple-500';
-      case 'optimization': return 'text-blue-500';
+      case 'optimization': return 'text-[var(--color-info)]';
       default: return 'text-primary';
     }
   }
@@ -381,7 +381,7 @@
             <div class="text-sm text-muted-foreground">Completed</div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-blue-500">{goalsData.activeGoals}</div>
+            <div class="text-2xl font-bold text-[var(--color-info)]">{goalsData.activeGoals}</div>
             <div class="text-sm text-muted-foreground">Active</div>
           </div>
           <div class="text-center">

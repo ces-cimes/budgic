@@ -87,7 +87,7 @@
         language,
         currency
       });
-      success = 'Display settings saved successfully';
+      success = 'Saved';
     } catch (err) {
       error = 'Failed to save display settings';
       console.error('Error saving preferences:', err);

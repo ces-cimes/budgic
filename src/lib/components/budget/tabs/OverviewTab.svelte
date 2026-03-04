@@ -75,7 +75,7 @@
   <!-- Enhanced Allowance Card -->
   {#if enhancedAllowance}
     <div class="bg-card rounded-xl p-6 shadow-sm border border-border space-y-4">
-      <h2 class="text-xl font-semibold text-primary">Spending Allowance</h2>
+      <h2 class="text-xl font-semibold text-primary">Safe to spend</h2>
       <AllowanceVisualization
         allowance={enhancedAllowance}
         showDetails={true}
