@@ -15,6 +15,7 @@
 	import Fab from '$lib/components/Fab.svelte';
 	import { Plus, Shield, TrendingUp, TrendingDown } from '@lucide/svelte';
 	import AllowanceSummary from '$lib/components/AllowanceSummary.svelte';
+	import CountUpHero from '$lib/components/CountUpHero.svelte';
 	import {
 		planService,
 		userService as userServiceImport,
@@ -190,9 +191,7 @@
 			</p>
 
 			{#if isLoaded}
-				<div class="text-hero animate-count-up" style="animation-delay: 80ms">
-					{formatBalance(totalBalance)}
-				</div>
+				<CountUpHero value={totalBalance} format={(n) => formatBalance(n)} ready={isLoaded} delay={80} />
 			{:else}
 				<div class="h-14 w-48 rounded-lg bg-[var(--color-bg-surface)] animate-pulse"></div>
 			{/if}

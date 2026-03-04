@@ -13,7 +13,7 @@
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { formatAmount, sortCurrencies, sortInactiveCurrencies } from '$lib/utils/currency-utils';
 	import type { CurrencyConfiguration, Currency, ExchangeRate } from '$lib/core/db';
-	import { RefreshCw, Save, Edit2, Trash2, Plus, Eye, Settings, GripVertical, AlertCircle, CheckCircle2, Info } from '@lucide/svelte';
+	import { RefreshCw, Save, Edit2, Trash2, Plus, Eye, Settings, GripVertical, AlertCircle, CheckCircle2, Info, BarChart2 } from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { toast } from 'svelte-sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
@@ -1482,7 +1482,7 @@
 
 					{#if exchangeRates.length === 0}
 						<div class="text-center py-12 space-y-4">
-							<div class="text-6xl mb-4">📊</div>
+							<BarChart2 class="h-16 w-16 text-[var(--color-text-tertiary)] mb-4 mx-auto" />
 							<h3 class="text-lg font-semibold text-primary">No exchange rates yet</h3>
 							<p class="text-muted-foreground max-w-md mx-auto">
 								Exchange rates are needed for accurate multi-currency calculations. Update from API or add rates manually.

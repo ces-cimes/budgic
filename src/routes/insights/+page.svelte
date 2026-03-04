@@ -123,6 +123,7 @@
 	{#snippet topBar()}
 		<Header
 			title="Insights"
+			description="What's happening now"
 			variant="with-tabs"
 			buttonProps={[
 				{

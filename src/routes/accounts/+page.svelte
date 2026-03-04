@@ -13,6 +13,7 @@
   import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp, Scale } from '@lucide/svelte';
   import type { Account } from '$lib/core/db';
   import { reconciliationService } from '$lib/core/services';
+  import CountUpHero from '$lib/components/CountUpHero.svelte';
   import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
   import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
   import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
@@ -145,7 +146,7 @@
     <!-- Total balance hero -->
     <section class="text-center">
       <p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">Total balance</p>
-      <div class="text-hero animate-count-up">{formatBalance(totalBalance, userCurrency)}</div>
+      <CountUpHero value={totalBalance} format={(n) => formatBalance(n, userCurrency)} />
       {#if accounts.length > 0}
         <p class="mt-2 text-xs text-[var(--color-text-tertiary)]">across {accounts.length} account{accounts.length === 1 ? '' : 's'}</p>
       {/if}
@@ -158,15 +159,16 @@
         {@const bufferAmount = (account.type === 'checking' || account.type === 'savings') ? getBufferAmount(account) : 0}
         {@const StatusIcon = bufferStatus ? getBufferStatusIcon(bufferStatus) : null}
         {@const typeColor = account.type === 'checking' ? 'border-l-[var(--color-amber)]' : account.type === 'savings' ? 'border-l-[var(--color-sage-green)]' : account.type === 'credit' ? 'border-l-[var(--color-info)]' : 'border-l-border'}
+        {@const AccountIcon = accountIcons[account.type as keyof typeof accountIcons] || Wallet}
         <button
           type="button"
-          class="group w-full border-l-4 {typeColor} squircle-4xl squircle-border squircle-fill-tertiary p-6 text-left transition-all shadow-sm hover:shadow-md animate-card-enter"
+          class="group w-full border-l-4 {typeColor} rounded-2xl border border-tertiary p-6 text-left transition-all shadow-sm hover:shadow-md animate-card-enter"
           onclick={() => goto(`/accounts/${account.id}`)}
         >
           <div class="flex items-start justify-between gap-4">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2 mb-1">
-                <svelte:component this={accountIcons[account.type as keyof typeof accountIcons] || Wallet} class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
+                <AccountIcon class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
                 <h3 class="font-semibold text-[var(--color-text-primary)] truncate">{account.name}</h3>
                 {#if StatusIcon && bufferAmount > 0 && bufferStatus}
                   <StatusIcon class="size-3.5 shrink-0 {getBufferStatusColor(bufferStatus)}" />

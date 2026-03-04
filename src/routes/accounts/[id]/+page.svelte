@@ -12,6 +12,7 @@
 import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
 import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
+import CountUpHero from '$lib/components/CountUpHero.svelte';
 import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
 import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
@@ -159,13 +160,13 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 
 	<div class="mx-auto max-w-4xl px-5 sm:px-6 py-6 space-y-8">
 		{#if account && !isLoading}
-
+		{@const currency = account.currency}
 			<!-- Hero: account balance -->
 			<section class="mb-10 pt-10 text-center">
 				<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">
 					{account.type} balance
 				</p>
-				<div class="text-hero animate-count-up">{formatBalance(account.currentBalance, account.currency)}</div>
+				<CountUpHero value={account.currentBalance} format={(n) => formatBalance(n, currency)} />
 				{#if account.initialBalance !== account.currentBalance}
 					<p class="mt-2 text-xs text-[var(--color-text-tertiary)]">
 						Started at {formatBalance(account.initialBalance, account.currency)}

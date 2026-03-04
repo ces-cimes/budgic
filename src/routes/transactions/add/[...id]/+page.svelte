@@ -613,7 +613,7 @@
 						class="flex items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--color-bg-surface)]"
 						aria-label="Change currency"
 					>
-						<span class="font-display text-2xl text-[var(--color-text-secondary)]">{currencySymbol()}</span>
+						<span class="currency-symbol font-display text-2xl text-[var(--color-text-secondary)]">{currencySymbol()}</span>
 						<ChevronDown class="size-3.5 text-[var(--color-text-tertiary)]" />
 					</button>
 					<input

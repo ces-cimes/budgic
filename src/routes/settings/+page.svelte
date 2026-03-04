@@ -102,7 +102,7 @@
     
     try {
       await clearAllData();
-      devActionMessage = 'All data cleared successfully';
+      devActionMessage = 'Cleared';
     } catch (error) {
       console.error('Error clearing all data:', error);
       devActionMessage = 'Error clearing data: ' + (error instanceof Error ? error.message : 'Unknown error');
@@ -120,7 +120,7 @@
     
     try {
       await populateSampleData();
-      devActionMessage = 'Sample data populated successfully';
+      devActionMessage = 'Sample data loaded';
     } catch (error) {
       console.error('Error populating sample data:', error);
       devActionMessage = 'Error populating sample data: ' + (error instanceof Error ? error.message : 'Unknown error');

@@ -259,6 +259,12 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* ── Currency symbol at hero scale (0.85em) ── */
+  .currency-symbol {
+    font-size: 0.85em;
+    vertical-align: baseline;
+  }
+
   /* ── Mono amount: inline transaction figures ── */
   .text-amount {
     font-family: var(--font-mono);

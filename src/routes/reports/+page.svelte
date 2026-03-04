@@ -197,7 +197,7 @@
 
 <PageLayout>
   {#snippet topBar()}
-    <Header title="Reports" variant="with-tabs">
+    <Header title="Reports" description="What happened" variant="with-tabs">
       <TabHeader
         tabs={reportTabs}
         activeTab={activeTab}
