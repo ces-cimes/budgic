@@ -1,4 +1,4 @@
-import { formatCurrencyWithLocale, formatCurrencyForLocale } from '$lib/utils/currency-utils';
+import { formatCurrencyWithLocale, formatCurrencyForLocale, formatAmount } from '$lib/utils/currency-utils';
 import { getLocale } from '$lib/paraglide/runtime';
 
 /**
@@ -100,10 +100,10 @@ export function useCurrencyFormatting() {
         },
 
         /**
-         * Format zero amount using localized message
+         * Format zero amount for the given currency (Design Bible: use user currency, not hardcoded USD).
          */
         formatZero: (currency: string): string => {
-            return '$0.00';
+            return formatAmount(0, currency);
         },
 
         /**

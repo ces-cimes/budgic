@@ -4,7 +4,7 @@
 	import { budgetService, transactionService, userService } from '$lib/core/services';
 	import type { Category, Transaction } from '$lib/core/db';
 	import { page } from '$app/stores';
-	import { formatAmount } from '$lib/utils/currency-utils';
+	import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 
@@ -177,7 +177,7 @@
 					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Budget utilization</h2>
 					<div class="flex items-center justify-between mb-2">
 						<span class="text-sm text-[var(--color-text-secondary)]">Used</span>
-						<span class="text-sm font-medium text-[var(--color-text-primary)]">{spendingPercentage.toFixed(1)}%</span>
+						<span class="text-sm font-medium text-[var(--color-text-primary)]">{formatPercentage(spendingPercentage)}</span>
 					</div>
 					<div class="budget-progress">
 						<div

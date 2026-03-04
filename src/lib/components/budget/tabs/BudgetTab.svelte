@@ -16,7 +16,7 @@
     BarChart3,
     ExternalLink
   } from '@lucide/svelte';
-  import { formatAmount } from '$lib/utils/currency-utils';
+  import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
   import { goto } from '$app/navigation';
   import { budgetService, transactionService } from '$lib/core/services';
   import type { BudgetTabProps, PlanningData } from '../types.js';
@@ -251,7 +251,7 @@
           <div class="space-y-2">
             <div class="flex items-center justify-between text-sm">
               <span class="text-muted-foreground">Overall Budget Usage</span>
-              <span class="font-medium">{((getTotalSpent() / getTotalAllocated()) * 100).toFixed(1)}%</span>
+              <span class="font-medium">{formatPercentage((getTotalSpent() / getTotalAllocated()) * 100)}</span>
             </div>
             <Progress value={(getTotalSpent() / getTotalAllocated()) * 100} class="h-2" />
           </div>
@@ -291,7 +291,7 @@
               <div class="space-y-2">
                 <div class="flex items-center justify-between text-sm">
                   <span class="text-muted-foreground">Spending Progress</span>
-                  <span class="font-medium {getStatusColor(category)}">{spendingPercentage.toFixed(1)}%</span>
+                  <span class="font-medium {getStatusColor(category)}">{formatPercentage(spendingPercentage)}</span>
                 </div>
                 <Progress value={spendingPercentage} class="h-2" />
                 <div class="flex items-center justify-between text-sm">

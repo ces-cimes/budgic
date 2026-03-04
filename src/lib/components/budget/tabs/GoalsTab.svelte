@@ -13,7 +13,7 @@
     CheckCircle,
     Clock
   } from '@lucide/svelte';
-  import { formatAmount } from '$lib/utils/currency-utils';
+  import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
   import type { GoalsTabProps, FinancialGoal } from '../types.js';
   import { goalService } from '$lib/core/services';
   import { onMount } from 'svelte';
@@ -208,7 +208,7 @@
           <div class="space-y-2">
             <div class="flex items-center justify-between text-sm">
               <span class="text-muted-foreground">Progress</span>
-              <span class="font-medium">{progressPercentage.toFixed(1)}%</span>
+              <span class="font-medium">{formatPercentage(progressPercentage)}</span>
             </div>
             <Progress value={progressPercentage} class="h-2" />
             <div class="flex items-center justify-between text-sm">

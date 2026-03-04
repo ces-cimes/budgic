@@ -16,7 +16,7 @@
     AlertCircle,
     CheckCircle
   } from '@lucide/svelte';
-  import { formatAmount } from '$lib/utils/currency-utils';
+  import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
   import { goalService } from '$lib/core/services';
   import type { Goal } from '../types';
 
@@ -216,7 +216,7 @@
                   <div class="flex justify-between text-sm">
                     <span class="text-muted-foreground">0%</span>
                     <span class="font-semibold {getProgressColor((goal.currentAmount / goal.targetAmount) * 100)}">
-                      {((goal.currentAmount / goal.targetAmount) * 100).toFixed(1)}%
+                      {formatPercentage((goal.currentAmount / goal.targetAmount) * 100)}
                     </span>
                     <span class="text-muted-foreground">100%</span>
                   </div>

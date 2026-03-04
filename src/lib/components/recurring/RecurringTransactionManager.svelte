@@ -3,7 +3,7 @@
 	import { recurringTransactionIntelligenceService } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
 	import type { RecurringPattern, RecurringPrediction, RecurringConflict } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
 	import { transactionService } from '$lib/core/services';
-	import { formatAmount } from '$lib/utils/currency-utils';
+	import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import { format, parseISO } from 'date-fns';
 	import * as Card from '$lib/components/ui/card';
 	import * as Tabs from '$lib/components/ui/tabs';
@@ -451,7 +451,7 @@
 							</div>
 							<div class="flex justify-between items-center gap-2">
 								<span class="text-muted-foreground">Amount Variability:</span>
-								<span>{selectedPattern.amountVariability.toFixed(1)}%</span>
+								<span>{formatPercentage(selectedPattern.amountVariability)}</span>
 							</div>
 						</div>
 					</div>
@@ -504,11 +504,11 @@
 								</div>
 								<div class="flex justify-between items-center gap-2">
 									<span class="text-muted-foreground">Rate:</span>
-									<span>{(selectedPattern.trend.rate * 100).toFixed(2)}% per period</span>
+									<span>{formatPercentage(selectedPattern.trend.rate * 100, { maxDecimals: 2 })} per period</span>
 								</div>
 								<div class="flex justify-between items-center gap-2">
 									<span class="text-muted-foreground">Confidence:</span>
-									<span>{selectedPattern.trend.confidence.toFixed(0)}%</span>
+									<span>{formatPercentage(selectedPattern.trend.confidence, { maxDecimals: 0 })}</span>
 								</div>
 							</div>
 						</div>
@@ -545,7 +545,7 @@
 								</div>
 								<div class="flex justify-between items-center gap-2 mt-2">
 									<span class="text-muted-foreground">Confidence:</span>
-									<span>{selectedPattern.categoryConfidence.toFixed(0)}%</span>
+									<span>{formatPercentage(selectedPattern.categoryConfidence, { maxDecimals: 0 })}</span>
 								</div>
 							</div>
 						</div>

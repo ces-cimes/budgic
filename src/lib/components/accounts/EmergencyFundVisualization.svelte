@@ -4,7 +4,7 @@
 		EmergencyFundRecommendation
 	} from '$lib/core/services/analytics/emergency-fund-service';
 	import { emergencyFundService } from '$lib/core/services/analytics/emergency-fund-service';
-	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatTransactionAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import {
 		AlertCircle,
 		CheckCircle2,
@@ -140,7 +140,7 @@
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-sm">
 						<span class="text-muted-foreground">Progress to Target</span>
-						<span class="font-medium">{analysis.percentageAchieved.toFixed(1)}%</span>
+						<span class="font-medium">{formatPercentage(analysis.percentageAchieved)}</span>
 					</div>
 					<Progress value={analysis.percentageAchieved} max={100} class="h-3" />
 					<div class="flex justify-between text-xs text-muted-foreground">
@@ -214,7 +214,7 @@
 							<AlertTriangle class="w-5 h-5 text-warning mt-0.5" />
 							<div class="flex-1">
 								<div class="text-sm font-medium text-warning">
-									Emergency Fund Used ({analysis.partialUsage.percentageUsed.toFixed(0)}%)
+									Emergency Fund Used ({formatPercentage(analysis.partialUsage.percentageUsed, { maxDecimals: 0 })})
 								</div>
 								<div class="text-xs text-muted-foreground mt-1">
 									{formatTransactionAmount(analysis.partialUsage.amountUsed, userCurrency)} used.

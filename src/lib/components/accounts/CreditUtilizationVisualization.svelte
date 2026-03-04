@@ -10,7 +10,7 @@
 		getCreditUtilizationStatus,
 		type CreditUtilizationStatus
 	} from '$lib/utils/account-metadata-utils';
-	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatTransactionAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp, CreditCard, Info } from '@lucide/svelte';
 	import { Progress } from '$lib/components/ui/progress';
 	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
@@ -144,7 +144,7 @@
 			<!-- Utilization Percentage -->
 			<div class="text-center space-y-2">
 				<div class="text-4xl font-bold {getUtilizationColor(accountAnalysis.utilization)}">
-					{accountAnalysis.utilization.toFixed(1)}%
+					{formatPercentage(accountAnalysis.utilization)}
 				</div>
 				{#if accountAnalysis.status}
 					{@const config = statusConfig[accountAnalysis.status]}
@@ -247,7 +247,7 @@
 												Pay {formatTransactionAmount(accountAnalysis.recommendedPaymentForTarget, account.currency)} to reach optimal utilization
 											</div>
 											<div class="text-xs text-muted-foreground mt-1">
-												This will reduce your utilization from {accountAnalysis.utilization.toFixed(1)}% to 30%, which is optimal for your credit score.
+												This will reduce your utilization from {formatPercentage(accountAnalysis.utilization)} to 30%, which is optimal for your credit score.
 											</div>
 										</div>
 									</div>
@@ -294,7 +294,7 @@
 			<!-- Aggregate Utilization -->
 			<div class="text-center space-y-2">
 				<div class="text-4xl font-bold {getUtilizationColor(aggregateAnalysis.totalUtilization)}">
-					{aggregateAnalysis.totalUtilization.toFixed(1)}%
+					{formatPercentage(aggregateAnalysis.totalUtilization)}
 				</div>
 				{#if aggregateAnalysis.status}
 					{@const config = statusConfig[aggregateAnalysis.status]}
@@ -371,7 +371,7 @@
 													? 'outline'
 													: 'default'}
 										>
-											{accountAnalysis.utilization.toFixed(1)}%
+											{formatPercentage(accountAnalysis.utilization)}
 										</Badge>
 									</div>
 									<div class="text-xs text-muted-foreground">

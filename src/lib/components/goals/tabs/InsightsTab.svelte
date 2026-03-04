@@ -15,7 +15,7 @@
     X,
     ArrowRight
   } from '@lucide/svelte';
-  import { formatAmount } from '$lib/utils/currency-utils';
+  import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
   import type { GoalInsight, GoalsData } from '../types';
 
   interface Props {
@@ -385,7 +385,7 @@
             <div class="text-sm text-muted-foreground">Active</div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-primary">{goalsData.overallProgress.toFixed(1)}%</div>
+            <div class="text-2xl font-bold text-primary">{formatPercentage(goalsData.overallProgress)}</div>
             <div class="text-sm text-muted-foreground">Overall Progress</div>
           </div>
         </div>

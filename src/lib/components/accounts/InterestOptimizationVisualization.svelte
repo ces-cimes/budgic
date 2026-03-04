@@ -6,7 +6,7 @@
 		InterestCalculation
 	} from '$lib/core/services/analytics/interest-optimization-service';
 	import { interestOptimizationService } from '$lib/core/services/analytics/interest-optimization-service';
-	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatTransactionAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import {
 		TrendingUp,
 		TrendingDown,
@@ -104,7 +104,7 @@
 			</CardTitle>
 			<CardDescription>
 				{accountAnalysis.currentInterest.isEarning ? 'Earning' : 'Costing'} interest at{' '}
-				{accountAnalysis.currentInterest.interestRate.toFixed(2)}% APY
+				{formatPercentage(accountAnalysis.currentInterest.interestRate, { maxDecimals: 2 })} APY
 			</CardDescription>
 		</CardHeader>
 		<CardContent class="space-y-4">
@@ -115,7 +115,7 @@
 						? 'text-success'
 						: 'text-destructive'}"
 				>
-					{accountAnalysis.currentInterest.interestRate.toFixed(2)}%
+					{formatPercentage(accountAnalysis.currentInterest.interestRate, { maxDecimals: 2 })}
 				</div>
 				<div class="flex items-center justify-center gap-2">
 					{#if accountAnalysis.currentInterest.isEarning}
@@ -425,7 +425,7 @@
 										<div class="flex items-center justify-between mb-2">
 											<div class="font-medium">{savings.accountName}</div>
 											<Badge variant="default" class="bg-success/10 text-success border-success/50">
-												{savings.interestRate.toFixed(2)}%
+												{formatPercentage(savings.interestRate, { maxDecimals: 2 })}
 											</Badge>
 										</div>
 										<div class="text-xs text-muted-foreground">
@@ -443,7 +443,7 @@
 										<div class="flex items-center justify-between mb-2">
 											<div class="font-medium">{debt.accountName}</div>
 											<Badge variant="destructive">
-												{debt.interestRate.toFixed(2)}%
+												{formatPercentage(debt.interestRate, { maxDecimals: 2 })}
 											</Badge>
 										</div>
 										<div class="text-xs text-muted-foreground">

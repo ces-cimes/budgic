@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { OptimizationResult, OptimizedPlan, TransactionMovement, PlanImprovement } from '$lib/core/services/analytics/optimization-service';
-	import { formatCurrencyAmount } from '$lib/utils/currency-utils';
-	import { formatMainCurrencyAmount } from '$lib/utils/currency-utils';
+	import { formatCurrencyAmount, formatMainCurrencyAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import { format, differenceInDays, parseISO } from 'date-fns';
 	import { userService, learningAdaptationService } from '$lib/core/services';
 	import * as Card from '$lib/components/ui/card';
@@ -213,7 +212,7 @@
 								{result.improvement >= 0 ? '+' : ''}{formatScore(result.improvement)}
 							</div>
 							<div class="text-xs text-muted-foreground">
-								({improvementPercentage().toFixed(1)}% better)
+								({formatPercentage(improvementPercentage())} better)
 							</div>
 							{#if Math.abs(result.improvement) >= 1_000}
 								<div class="text-xs text-muted-foreground/70">Raw: {result.improvement >= 0 ? '+' : ''}{result.improvement.toFixed(0)}</div>
@@ -225,7 +224,7 @@
 						<div class="space-y-2">
 							<div class="flex justify-between text-sm">
 								<span>Score Improvement</span>
-								<span>{improvementPercentage().toFixed(1)}%</span>
+								<span>{formatPercentage(improvementPercentage())}</span>
 							</div>
 							<Progress value={Math.min(100, Math.max(0, improvementPercentage()))} />
 						</div>

@@ -1,3 +1,5 @@
+import { formatPercentage as formatPercentageWithOptions } from '$lib/utils/currency-utils';
+
 /**
  * Format number with short notation (K, M, B)
  */
@@ -22,10 +24,11 @@ export function formatCurrencyAmount(amount: number, decimalPlaces: number = 2):
 }
 
 /**
- * Format percentage with proper decimal places
+ * Format percentage with proper decimal places. Trims trailing zeros (Design Bible: 72% not 72.0%).
+ * Delegates to currency-utils.formatPercentage for consistent behavior.
  */
 export function formatPercentage(value: number, decimalPlaces: number = 1): string {
-    return `${value.toFixed(decimalPlaces)}%`;
+    return formatPercentageWithOptions(value, { maxDecimals: decimalPlaces });
 }
 
 /**

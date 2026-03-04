@@ -2,7 +2,7 @@
   import type { CategoriesTabProps } from '../types.js';
   import * as Card from '$lib/components/ui/card/index.ts';
   import { PieChart, TrendingUp } from '@lucide/svelte';
-  import { formatMainCurrencyAmount } from '$lib/utils/currency-utils';
+  import { formatMainCurrencyAmount, formatPercentage } from '$lib/utils/currency-utils';
 
   interface Props extends CategoriesTabProps {
     children?: any;
@@ -42,7 +42,7 @@
           </div>
           <div class="text-right">
             <div class="text-sm font-semibold text-primary">{formatAmount(category.amount)}</div>
-            <div class="text-xs text-muted-foreground">{category.percentage.toFixed(1)}%</div>
+            <div class="text-xs text-muted-foreground">{formatPercentage(category.percentage)}</div>
           </div>
         </div>
       {/each}
@@ -60,7 +60,7 @@
             <span class="text-sm font-medium text-primary">{category.name}</span>
           </div>
           <div class="text-sm {category.trend?.isPositive ? 'text-green-500' : 'text-red-500'}">
-            {category.trend?.isPositive ? '+' : ''}{category.trend?.value.toFixed(1)}%
+            {category.trend?.isPositive ? '+' : ''}{category.trend ? (category.trend.isPositive ? '+' : '') + formatPercentage(category.trend.value) : ''}
           </div>
         </div>
       {/each}

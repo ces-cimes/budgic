@@ -18,7 +18,7 @@
     ExternalLink,
     Sparkles
   } from '@lucide/svelte';
-  import { formatAmount } from '$lib/utils/currency-utils';
+  import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
   import { goalService, goalOpportunityService } from '$lib/core/services';
   import type { SavingsOpportunitiesResult } from '$lib/core/services/core/goal-opportunity-service';
   import type { GoalsData, Goal } from '../types';
@@ -159,7 +159,7 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm font-medium text-muted-foreground">Overall Progress</p>
-              <p class="text-2xl font-bold text-green-500">{goalsData.overallProgress.toFixed(1)}%</p>
+              <p class="text-2xl font-bold text-green-500">{formatPercentage(goalsData.overallProgress)}</p>
             </div>
             <CheckCircle class="h-8 w-8 text-green-500" />
           </div>
@@ -313,7 +313,7 @@
               
               <div class="text-right">
                 <div class="text-lg font-semibold {getProgressColor((goal.currentAmount / goal.targetAmount) * 100)}">
-                  {((goal.currentAmount / goal.targetAmount) * 100).toFixed(1)}%
+                  {formatPercentage((goal.currentAmount / goal.targetAmount) * 100)}
                 </div>
                 {#if goal.targetDate}
                   {@const daysLeft = getDaysUntilTarget(goal.targetDate)}

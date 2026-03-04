@@ -1,6 +1,21 @@
 import type { Currency, CurrencyInfo } from '$lib/core/db';
 import { CURRENCY_REGISTRY } from '$lib/core/db';
 
+/** Default locale for number grouping (thousands separators). Design Bible: "Large numbers: $12,432 not $12432". */
+const DEFAULT_NUMBER_LOCALE = 'en-US';
+
+/**
+ * Format a number with locale-aware thousands separators (no currency symbol).
+ * Used by currency formatters to comply with Design Bible: "always use locale separators".
+ */
+function formatNumberWithGrouping(value: number, decimalPlaces: number, locale: string = DEFAULT_NUMBER_LOCALE): string {
+    return new Intl.NumberFormat(locale, {
+        minimumFractionDigits: decimalPlaces,
+        maximumFractionDigits: decimalPlaces,
+        useGrouping: true
+    }).format(value);
+}
+
 /**
  * Validate currency code format
  */
@@ -60,15 +75,23 @@ export function getCurrencyInfo(code: string | null): CurrencyInfo | null {
  */
 export function formatAmount(amount: number | undefined | null, currencyCode: string): string {
     if (amount === undefined || amount === null || isNaN(amount)) {
-        return '0.00';
+        const currencyInfo = getCurrencyInfo(currencyCode);
+        const decimals = currencyInfo?.decimalPlaces ?? 2;
+        const formattedZero = formatNumberWithGrouping(0, decimals);
+        if (currencyInfo) {
+            const symbol = currencyInfo.symbol;
+            const placement = currencyInfo.placement || 'before';
+            return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
+        }
+        return formattedZero;
     }
 
     const currencyInfo = getCurrencyInfo(currencyCode);
     if (!currencyInfo) {
-        return amount.toFixed(2);
+        return formatNumberWithGrouping(amount, 2);
     }
 
-    const formattedAmount = amount.toFixed(currencyInfo.decimalPlaces);
+    const formattedAmount = formatNumberWithGrouping(amount, currencyInfo.decimalPlaces);
     const symbol = currencyInfo.symbol;
     const placement = currencyInfo.placement || 'before';
 
@@ -86,22 +109,22 @@ export function formatTransactionAmount(amount: number | undefined | null, curre
         // Format zero with the provided currency, not hardcoded USD
         const currencyInfo = getCurrencyInfo(currencyCode);
         if (currencyInfo) {
-            const formattedZero = (0).toFixed(currencyInfo.decimalPlaces);
+            const formattedZero = formatNumberWithGrouping(0, currencyInfo.decimalPlaces);
             const symbol = currencyInfo.symbol;
             const placement = currencyInfo.placement || 'before';
             return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
         }
-        return '0.00'; // Fallback if currency not found
+        return formatNumberWithGrouping(0, 2);
     }
 
     const currencyInfo = getCurrencyInfo(currencyCode);
     if (!currencyInfo) {
         const sign = showSign && amount !== 0 ? (amount > 0 ? '+' : '') : '';
-        return `${sign}${amount.toFixed(2)}`;
+        return `${sign}${formatNumberWithGrouping(amount, 2)}`;
     }
 
     const absAmount = Math.abs(amount);
-    const formattedAmount = absAmount.toFixed(currencyInfo.decimalPlaces);
+    const formattedAmount = formatNumberWithGrouping(absAmount, currencyInfo.decimalPlaces);
     const symbol = currencyInfo.symbol;
     const placement = currencyInfo.placement || 'before';
     const sign = showSign && amount !== 0 ? (amount > 0 ? '+' : '-') : '';
@@ -122,22 +145,22 @@ export function formatTransferAmount(amount: number | undefined | null, currency
         // Format zero with the provided currency, not hardcoded USD
         const currencyInfo = getCurrencyInfo(currencyCode);
         if (currencyInfo) {
-            const formattedZero = (0).toFixed(currencyInfo.decimalPlaces);
+            const formattedZero = formatNumberWithGrouping(0, currencyInfo.decimalPlaces);
             const symbol = currencyInfo.symbol;
             const placement = currencyInfo.placement || 'before';
             return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
         }
-        return '0.00'; // Fallback if currency not found
+        return formatNumberWithGrouping(0, 2);
     }
 
     const currencyInfo = getCurrencyInfo(currencyCode);
     if (!currencyInfo) {
         const sign = amount !== 0 ? (amount > 0 ? '' : '-') : '';
-        return `${sign}${amount.toFixed(2)}`;
+        return `${sign}${formatNumberWithGrouping(amount, 2)}`;
     }
 
     const absAmount = Math.abs(amount);
-    const formattedAmount = absAmount.toFixed(currencyInfo.decimalPlaces);
+    const formattedAmount = formatNumberWithGrouping(absAmount, currencyInfo.decimalPlaces);
     const symbol = currencyInfo.symbol;
     const placement = currencyInfo.placement || 'before';
     const sign = amount !== 0 ? (amount > 0 ? '' : '-') : '';
@@ -163,7 +186,7 @@ export interface FormatOptions {
     customSign?: string;
     /** Whether to use compact notation (e.g., 1K, 1M) */
     compact?: boolean;
-    /** Whether to use parentheses for negative amounts (accounting style) */
+    /** Whether to use parentheses for negative amounts (accounting style). Design Bible: user-facing copy uses minus sign only, not parentheses. */
     accountingStyle?: boolean;
 }
 
@@ -199,7 +222,7 @@ export function formatCurrencyAmount(
     if (compact && absAmount >= 1000) {
         formattedAmount = formatCompactAmount(absAmount, currencyInfo.decimalPlaces);
     } else {
-        formattedAmount = absAmount.toFixed(currencyInfo.decimalPlaces);
+        formattedAmount = formatNumberWithGrouping(absAmount, currencyInfo.decimalPlaces);
     }
 
     const symbol = currencyInfo.symbol;
@@ -292,7 +315,7 @@ function formatBasicAmount(
     if (compact && absAmount >= 1000) {
         formattedAmount = formatCompactAmount(absAmount, 2);
     } else {
-        formattedAmount = absAmount.toFixed(2);
+        formattedAmount = formatNumberWithGrouping(absAmount, 2);
     }
 
     let sign = '';
@@ -310,28 +333,39 @@ function formatBasicAmount(
 }
 
 /**
- * Format large amounts in compact notation (1K, 1M, 1B, etc.)
- * Uses Paraglide messages for localized suffixes
+ * Format large amounts in compact notation (1K, 1M, 1B, etc.) with locale grouping where applicable.
  */
 function formatCompactAmount(amount: number, decimalPlaces: number): string {
     if (amount >= 1e12) {
-        const compactAmount = (amount / 1e12).toFixed(decimalPlaces);
-        return `${compactAmount}T`;
+        const n = amount / 1e12;
+        return `${formatNumberWithGrouping(n, decimalPlaces)}T`;
     }
     if (amount >= 1e9) {
-        const compactAmount = (amount / 1e9).toFixed(decimalPlaces);
-        return `${compactAmount}B`;
+        const n = amount / 1e9;
+        return `${formatNumberWithGrouping(n, decimalPlaces)}B`;
     }
     if (amount >= 1e6) {
-        const compactAmount = (amount / 1e6).toFixed(decimalPlaces);
-        return `${compactAmount}M`;
+        const n = amount / 1e6;
+        return `${formatNumberWithGrouping(n, decimalPlaces)}M`;
     }
     if (amount >= 1e3) {
-        const compactAmount = (amount / 1e3).toFixed(decimalPlaces);
-        return `${compactAmount}K`;
+        const n = amount / 1e3;
+        return `${formatNumberWithGrouping(n, decimalPlaces)}K`;
     }
 
-    return amount.toFixed(decimalPlaces);
+    return formatNumberWithGrouping(amount, decimalPlaces);
+}
+
+/**
+ * Format a percentage for user-facing copy. Trims trailing zeros (e.g. 72% not 72.0%; 72.3% when needed).
+ * Design Bible §10: "72% not 72.0% — trim insignificant decimals".
+ */
+export function formatPercentage(value: number, options?: { maxDecimals?: number }): string {
+    const maxDecimals = options?.maxDecimals ?? 1;
+    const rounded = Number((Math.round(value * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals)).toFixed(maxDecimals));
+    const str = rounded.toFixed(maxDecimals);
+    const trimmed = str.replace(/\.?0+$/, '');
+    return `${trimmed}%`;
 }
 
 /**
