@@ -35,6 +35,7 @@
 		LabelWithTooltip
 	} from '$lib/components/forms';
 	import { DependencyManager, DependencyGraphVisualization } from '$lib/components/transactions';
+	import { dependencyTrackingService } from '$lib/core/services/core/dependency-tracking-service';
 	import type { DirectionalConstraint, FlexibilityTier, CurrencyInfo } from '$lib/core/db';
 	import { PRIORITY_LEVELS, suggestPriority } from '$lib/utils/priority-utils';
 	import {
@@ -126,6 +127,7 @@
 	// UI state
 	let showDeleteDialog = $state(false);
 	let isDeleting = $state(false);
+	let dependentCount = $state(0);
 	let showAllowanceBlockDialog = $state(false);
 	let pendingTransactionData = $state<Record<string, unknown> | null>(null);
 	let pendingIsEdit = $state(false);
@@ -349,9 +351,25 @@
 	// Computed properties
 	let isEditMode = $derived(!!transaction);
 	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
+
+	function triggerSave() {
+		(document.getElementById('transaction-form') as HTMLFormElement | null)?.requestSubmit();
+	}
 	let submitButtonText = $derived(
 		isLoading ? (isEditMode ? 'Updating...' : 'Creating...') : isEditMode ? 'Update' : 'Create'
 	);
+
+	// Load dependent count when in edit mode (for delete dialog warning)
+	$effect(() => {
+		const tx = transaction;
+		if (!tx?.id) {
+			dependentCount = 0;
+			return;
+		}
+		dependencyTrackingService.getDependents(tx.id).then((deps) => {
+			dependentCount = deps.length;
+		});
+	});
 
 	// Auto-suggest priority, constraint, and flexibility tier when category or type changes
 	// Only suggest once when category/type is first set, not on every change
@@ -599,6 +617,16 @@
 			showBackButton={true}
 			backButtonLink="/transactions"
 			backButtonLabel="Back to transactions"
+			buttonProps={[
+				{
+					text: submitButtonText,
+					onclick: triggerSave,
+					variant: 'default',
+					size: 'sm',
+					className: 'md:hidden',
+					disabled: isLoading || isDeleting
+				}
+			]}
 		/>
 	{/snippet}
 
@@ -915,10 +943,14 @@
 	{#snippet bottomBar()}
 		<div class="mx-auto flex max-w-2xl items-center justify-between bg-[var(--color-bg-secondary)]/90 backdrop-blur-sm px-4">
 			{#if isEditMode}
-				<Button.Root type="button" variant="destructive" onclick={() => (showDeleteDialog = true)} disabled={isLoading || isDeleting} class="flex items-center gap-2">
-					<Trash2 size={16} />
+				<button
+					type="button"
+					class="text-sm text-[var(--color-warm-coral)] hover:underline disabled:opacity-50 disabled:no-underline"
+					onclick={() => (showDeleteDialog = true)}
+					disabled={isLoading || isDeleting}
+				>
 					Delete
-				</Button.Root>
+				</button>
 			{:else}
 				<div></div>
 			{/if}
@@ -940,6 +972,11 @@
 				<Dialog.Title>Delete Transaction</Dialog.Title>
 				<Dialog.Description>
 					Are you sure you want to delete this transaction? This action cannot be undone.
+					{#if dependentCount > 0}
+						<br />
+						<br />
+						<strong class="text-[var(--color-warm-coral)]">{dependentCount} transaction{dependentCount === 1 ? '' : 's'} depend{dependentCount === 1 ? 's' : ''} on this one.</strong> Deleting may affect their scheduling or validity.
+					{/if}
 					{#if transaction}
 						<br />
 						<br />

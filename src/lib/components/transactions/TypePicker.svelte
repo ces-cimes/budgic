@@ -29,11 +29,11 @@
 	}
 </script>
 
-<div class="grid gap-2 p-4" role="group" aria-label="Choose transaction type">
+<div class="grid gap-2" role="group" aria-label="Choose transaction type">
 	<!-- Row 1 (top): Transfer - full width -->
 	<button
 		type="button"
-		class="squircle-2xl squircle-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[4].borderClass}"
+		class="rounded-xl border-2 border-dotted border-[var(--color-text-tertiary)] bg-card px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[4].borderClass}"
 		onclick={() => handleSelect(options[4].type, options[4].status)}
 	>
 		<span class="text-sm font-medium">{options[4].label}</span>
@@ -42,14 +42,14 @@
 	<div class="grid grid-cols-2 gap-2">
 		<button
 			type="button"
-			class="squircle-2xl squircle-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[2].borderClass}"
+			class="rounded-xl border-2 border-dashed border-[var(--color-warm-coral)] bg-card px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[2].borderClass}"
 			onclick={() => handleSelect(options[2].type, options[2].status)}
 		>
 			<span class="text-sm font-medium">{options[2].label}</span>
 		</button>
 		<button
 			type="button"
-			class="squircle-2xl squircle-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[3].borderClass}"
+			class="rounded-xl border-2 border-dashed border-[var(--color-sage-green)] bg-card px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[3].borderClass}"
 			onclick={() => handleSelect(options[3].type, options[3].status)}
 		>
 			<span class="text-sm font-medium">{options[3].label}</span>
@@ -59,14 +59,14 @@
 	<div class="grid grid-cols-2 gap-2">
 		<button
 			type="button"
-			class="squircle-2xl squircle-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[0].borderClass}"
+			class="rounded-xl border-2 border-solid border-[var(--color-warm-coral)] bg-card px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[0].borderClass}"
 			onclick={() => handleSelect(options[0].type, options[0].status)}
 		>
 			<span class="text-sm font-medium">{options[0].label}</span>
 		</button>
 		<button
 			type="button"
-			class="squircle-2xl squircle-border bg-card px-4 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[1].borderClass}"
+			class="rounded-xl border-2 border-solid border-[var(--color-sage-green)] bg-card px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] {options[1].borderClass}"
 			onclick={() => handleSelect(options[1].type, options[1].status)}
 		>
 			<span class="text-sm font-medium">{options[1].label}</span>

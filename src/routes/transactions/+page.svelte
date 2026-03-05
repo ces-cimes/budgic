@@ -7,8 +7,9 @@
 	import { db } from '$lib/core/db';
 	import TransactionList from '$lib/components/transactions/TransactionList.svelte';
 	import Header from '$lib/components/Header.svelte';
-	import Fab from '$lib/components/Fab.svelte';
 	import { PageLayout } from '$lib/components/layouts';
+	import * as Popover from '$lib/components/ui/popover/index.ts';
+	import { TypePicker } from '$lib/components/transactions';
 	import type { Transaction, Account, Category } from '$lib/core/db';
 
 	const { data } = $props<{ data: any }>();
@@ -18,6 +19,12 @@
 	let budgetCategories = $state<Record<string, Category>>({});
 	let userCurrency = $state<string | null>(null);
 	let isLoading = $state(true);
+	let headerAddPopoverOpen = $state(false);
+
+	function handleHeaderAddTypeSelect(type: Transaction['type'], status: Transaction['status']) {
+		headerAddPopoverOpen = false;
+		goto(`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
+	}
 
 	onMount(async () => {
 		try {
@@ -64,18 +71,26 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<Header 
-			title="Transactions"
-			buttonProps={[
-				{
-					text: "Add transaction",
-					onclick: () => openTypePicker(),
-					size: "sm",
-					className: "hidden sm:flex",
-					icon: Plus
-				}
-			]}
-		/>
+		<Header title="Transactions">
+			{#snippet rightSlot()}
+				<!-- Desktop: Popover anchored to button. Trigger hidden on mobile (FAB opens Dialog there). -->
+				<Popover.Root bind:open={headerAddPopoverOpen}>
+					<Popover.Trigger
+						class="hidden sm:flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground border-0 bg-transparent cursor-pointer"
+						aria-label="Add transaction"
+					>
+						<Plus class="h-4 w-4" />
+						<span>Add transaction</span>
+					</Popover.Trigger>
+					<Popover.Content class="w-[min(calc(100vw-2rem),20rem)] p-0" align="end" side="bottom" sideOffset={6}>
+						<div class="p-2">
+							<p class="px-2 pb-2 text-xs font-medium text-muted-foreground">Choose type</p>
+							<TypePicker onSelect={handleHeaderAddTypeSelect} />
+						</div>
+					</Popover.Content>
+				</Popover.Root>
+			{/snippet}
+		</Header>
 	{/snippet}
 
 	<div class="mx-auto max-w-4xl px-5 sm:px-6 py-4">

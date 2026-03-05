@@ -864,10 +864,13 @@
 		/>
 	{/if}
 
-	<!-- Compact Summary Stats -->
+	<!-- Summary bar: period, totals, entry count (UX_SPEC §3.3) -->
 	{#if showSummary}
 		<section class="mb-4">
 			<div class="bg-[var(--color-bg-tertiary)] rounded-xl px-5 py-3.5 border border-border">
+				<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
+					{formatMonth(filters.currentMonth)} · {filteredTransactions().length} {filteredTransactions().length === 1 ? 'entry' : 'entries'}
+				</div>
 				<div class="grid grid-cols-3 gap-4 text-center">
 					<div>
 						<div class="text-amount {summaryStats.income === 0 ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-sage-green)]'}">

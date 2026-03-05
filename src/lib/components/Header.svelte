@@ -23,6 +23,8 @@
 		title?: string;
 		description?: string;
 		buttonProps?: ButtonConfig[];
+		/** Optional slot for custom right-side content (e.g. Popover); when set, renders instead of buttonProps in the actions area */
+		rightSlot?: any;
 		children?: any;
 		variant?: 'default' | 'with-tabs';
 		showBackButton?: boolean;
@@ -34,6 +36,7 @@
 		title = '',
 		description = '',
 		buttonProps = [],
+		rightSlot = null,
 		children = null,
 		variant = 'default',
 		showBackButton = false,
@@ -83,7 +86,9 @@
 				<NotificationButton />
 			{/if}
 
-			{#if buttonProps.length > 0}
+			{#if rightSlot}
+				{@render rightSlot()}
+			{:else if buttonProps.length > 0}
 				{#each buttonProps as buttonConfig}
 					<Button
 						onclick={buttonConfig.onclick}

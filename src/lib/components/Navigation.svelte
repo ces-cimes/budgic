@@ -10,7 +10,11 @@
 	import type { NavItemConfig } from '$lib/stores/navigation-store.svelte';
 
 	// Lucide icons – single source for sidebar nav
-	import { Home, Receipt, Target, Wallet, TrendingUp, Bell, Settings, CreditCard } from '@lucide/svelte';
+	import { Home, Receipt, Target, Wallet, TrendingUp, Bell, Settings, CreditCard, Plus } from '@lucide/svelte';
+	import { goto } from '$app/navigation';
+	import * as Popover from '$lib/components/ui/popover/index.ts';
+	import { TypePicker } from '$lib/components/transactions';
+	import type { Transaction } from '$lib/core/db';
 
 	const iconMap: Record<string, typeof Home> = {
 		'home': Home,
@@ -39,8 +43,15 @@
 		}
 	});
 
+	let slotBPopoverOpen = $state(false);
+
 	function toggleExpanded(path: string) {
 		expandedByPath = { ...expandedByPath, [path]: !expandedByPath[path] };
+	}
+
+	function handleSlotBTypeSelect(type: Transaction['type'], status: Transaction['status']) {
+		slotBPopoverOpen = false;
+		goto(`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
 	}
 
 	function isActive(path: string) {
@@ -193,9 +204,35 @@
 				{/if}
 			</div>
 
-			<!-- Footer: info cards + bottom nav (Alerts panel, Settings) -->
+			<!-- Footer: Slot A (widgets), Slot B (quick-add), then Alerts + Settings -->
 			<div class="mt-auto shrink-0 flex flex-col gap-2 pt-2">
 				<SidebarFooterCards />
+				<!-- Slot B: quick-add → Popover type picker (desktop; sidebar is desktop-only) -->
+				<Sidebar.Group>
+					<Sidebar.GroupContent>
+						<Sidebar.Menu>
+							<Sidebar.MenuItem>
+								<Popover.Root bind:open={slotBPopoverOpen}>
+									<Popover.Trigger
+										class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-150
+											text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]
+											group-data-[collapsible=icon]:justify-center border border-transparent outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
+										aria-label="Add transaction"
+									>
+										<Plus class="h-4 w-4 shrink-0" />
+										<span class="text-sm truncate group-data-[collapsible=icon]:hidden">Add transaction</span>
+									</Popover.Trigger>
+									<Popover.Content class="w-[min(calc(100vw-2rem),20rem)] p-0" align="start" side="right" sideOffset={8}>
+										<div class="p-2">
+											<p class="px-2 pb-2 text-xs font-medium text-muted-foreground">Choose type</p>
+											<TypePicker onSelect={handleSlotBTypeSelect} />
+										</div>
+									</Popover.Content>
+								</Popover.Root>
+							</Sidebar.MenuItem>
+						</Sidebar.Menu>
+					</Sidebar.GroupContent>
+				</Sidebar.Group>
 				{#if bottomItems.length > 0}
 					<Sidebar.Group>
 						<Sidebar.GroupContent>

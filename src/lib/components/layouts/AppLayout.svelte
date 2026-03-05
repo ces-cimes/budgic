@@ -5,7 +5,8 @@
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 	import { goto } from '$app/navigation';
 	import { typePickerOpen, closeTypePicker } from '$lib/stores/type-picker-store.svelte';
-	import * as Sheet from '$lib/components/ui/sheet/index.ts';
+	import * as Dialog from '$lib/components/ui/dialog/index.ts';
+	import * as Popover from '$lib/components/ui/popover/index.ts';
 	import { TypePicker } from '$lib/components/transactions';
 	import Fab from '$lib/components/Fab.svelte';
 	import { Plus } from '@lucide/svelte';
@@ -18,9 +19,11 @@
 	const { children }: Props = $props();
 
 	let isMobile = new IsMobile();
+	let fabPopoverOpen = $state(false);
 
 	function handleTypeSelect(type: Transaction['type'], status: Transaction['status']) {
 		closeTypePicker();
+		fabPopoverOpen = false;
 		goto(`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
 	}
 </script>
@@ -41,33 +44,51 @@
 		{@render children()}
 	</main>
 
-	<!-- Global FAB: opens type picker first, then form (UX_SPEC §2.4) -->
-	<Fab
-		position="bottom-right"
-		size="md"
-		variant="default"
-		onclick={() => typePickerOpen.set(true)}
-	>
-		{#snippet children()}
-			<Plus />
-		{/snippet}
-	</Fab>
-
-	<!-- Type picker sheet (mobile bottom sheet, thumb-optimised layout per UX_SPEC §2.4) -->
-	<Sheet.Root
+	<!-- Type picker Dialog: used on mobile for FAB, and when openTypePicker() is called (e.g. list empty state, Home CTA) -->
+	<Dialog.Root
 		open={$typePickerOpen}
 		onOpenChange={(o) => {
 			typePickerOpen.set(!!o);
 		}}
 	>
-		<Sheet.Content side="bottom" class="max-h-[70vh] rounded-t-2xl pb-safe">
-			<Sheet.Header>
-				<Sheet.Title>Add transaction</Sheet.Title>
-				<Sheet.Description>Choose type</Sheet.Description>
-			</Sheet.Header>
+		<Dialog.Content class="max-h-[85vh] overflow-y-auto sm:max-w-sm" showCloseButton={true}>
+			<Dialog.Header>
+				<Dialog.Title>Add transaction</Dialog.Title>
+				<Dialog.Description>Choose type</Dialog.Description>
+			</Dialog.Header>
 			<TypePicker onSelect={handleTypeSelect} />
-		</Sheet.Content>
-	</Sheet.Root>
+		</Dialog.Content>
+	</Dialog.Root>
+
+	<!-- Global FAB: mobile = opens Dialog; desktop = Popover anchored to FAB -->
+	{#if isMobile.current}
+		<Fab
+			position="bottom-right"
+			size="md"
+			variant="default"
+			onclick={() => typePickerOpen.set(true)}
+		>
+			{#snippet children()}
+				<Plus />
+			{/snippet}
+		</Fab>
+	{:else}
+		<!-- Desktop: Popover anchored to FAB -->
+		<Popover.Root bind:open={fabPopoverOpen}>
+			<Popover.Trigger
+				class="fixed bottom-4 right-4 z-50 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-border bg-primary text-primary-foreground shadow-lg transition-all hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
+				aria-label="Add transaction"
+			>
+				<Plus class="h-5 w-5" />
+			</Popover.Trigger>
+			<Popover.Content class="w-[min(calc(100vw-2rem),20rem)] p-0" align="end" side="top" sideOffset={8}>
+				<div class="p-2">
+					<p class="text-xs font-medium text-muted-foreground px-2 pb-2">Choose type</p>
+					<TypePicker onSelect={handleTypeSelect} />
+				</div>
+			</Popover.Content>
+		</Popover.Root>
+	{/if}
 
 	<!-- Mobile Navigation (bottom bar) -->
 	{#if isMobile.current}
