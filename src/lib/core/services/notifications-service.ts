@@ -1,14 +1,16 @@
 import { insightsService } from './analytics/insights-service';
+import { getPanelAlerts, getBadgeVariant } from '$lib/utils/alert-tiers';
 import type { Insight } from '$lib/core/db';
 import { toast } from 'svelte-sonner';
 
 /**
  * Notifications Service
- * Manages notification state and unread tracking for the mobile notification button
+ * Manages alert state for the bell panel. Panel shows Critical + High only; badge count = unread Critical + High.
  */
 class NotificationsService {
-	private _unreadCount: number = 0;
-	private _unreadInsights: Insight[] = [];
+	private _panelUnreadCount: number = 0;
+	private _panelUnreadInsights: Insight[] = [];
+	private _earlierAlerts: Insight[] = [];
 	private _lastUpdate = 0;
 	private _updateInterval: ReturnType<typeof setInterval> | null = null;
 	private readonly UPDATE_FREQUENCY = 30 * 1000; // 30 seconds
@@ -17,16 +19,28 @@ class NotificationsService {
 		return Promise.resolve();
 	}
 
+	/** Unread count for badge: Critical + High only */
 	get unreadCount() {
-		return this._unreadCount;
+		return this._panelUnreadCount;
 	}
 
+	/** Panel list: Critical + High only (for bell panel) */
 	get unreadInsights() {
-		return this._unreadInsights;
+		return this._panelUnreadInsights;
 	}
 
 	get hasUnread() {
-		return this._unreadCount > 0;
+		return this._panelUnreadCount > 0;
+	}
+
+	/** "Earlier (read)" section */
+	get earlierAlerts() {
+		return this._earlierAlerts;
+	}
+
+	/** Badge variant: 'destructive' (red) if any Critical, else 'warning' (amber) */
+	get badgeVariant(): 'destructive' | 'warning' | null {
+		return getBadgeVariant(this._panelUnreadInsights);
 	}
 
 	/**
@@ -38,36 +52,32 @@ class NotificationsService {
 	}
 
 	/**
-	 * Refresh unread count and insights
+	 * Refresh panel alerts (Critical + High only) and earlier alerts
 	 */
 	async refresh(): Promise<void> {
 		try {
-			console.log('🔄 Refreshing notifications...');
-			const [count, insights] = await Promise.all([
-				insightsService.getUnreadCount(),
-				insightsService.getUnreadInsights()
+			const [allUnread, earlier] = await Promise.all([
+				insightsService.getUnreadInsights(),
+				insightsService.getEarlierInsights()
 			]);
 
-			const previousCount = this._unreadCount;
-			console.log(`📊 Previous count: ${previousCount}, New count: ${count}`);
-			
-			this._unreadCount = count;
-			this._unreadInsights = insights;
+			const panelInsights = getPanelAlerts(allUnread);
+			const previousCount = this._panelUnreadCount;
+
+			this._panelUnreadInsights = panelInsights;
+			this._panelUnreadCount = panelInsights.length;
+			this._earlierAlerts = earlier;
 			this._lastUpdate = Date.now();
 
-			// Show toast notifications for new insights (only if count increased)
-			if (count > previousCount) {
-				const newCount = count - previousCount;
-				console.log(`🆕 Found ${newCount} new insight(s), showing toasts...`);
-				const newInsights = insights.slice(0, newCount);
-				newInsights.forEach(insight => {
+			// Toast for new panel-tier alerts only (count increased)
+			if (panelInsights.length > previousCount) {
+				const newCount = panelInsights.length - previousCount;
+				panelInsights.slice(0, newCount).forEach((insight) => {
 					this.showToastNotification(insight);
 				});
-			} else if (count === 0 && previousCount === 0) {
-				console.log('🔔 No insights found');
 			}
 		} catch (error) {
-			console.error('❌ Error refreshing notifications:', error);
+			console.error('Error refreshing notifications:', error);
 		}
 	}
 
@@ -77,14 +87,26 @@ class NotificationsService {
 	async markAsRead(insightId: string): Promise<void> {
 		try {
 			await insightsService.markAsRead(insightId);
-			// Update local state immediately
-			this._unreadInsights = this._unreadInsights.filter(i => i.id !== insightId);
-			this._unreadCount = this._unreadCount - 1;
-			
-			// Refresh to ensure consistency
+			this._panelUnreadInsights = this._panelUnreadInsights.filter((i) => i.id !== insightId);
+			this._panelUnreadCount = this._panelUnreadCount - 1;
 			await this.refresh();
 		} catch (error) {
 			console.error('Error marking insight as read:', error);
+			throw error;
+		}
+	}
+
+	/**
+	 * Dismiss an insight (soft delete). Used when user taps dismiss on a card.
+	 */
+	async dismiss(insightId: string): Promise<void> {
+		try {
+			await insightsService.dismissInsight(insightId);
+			this._panelUnreadInsights = this._panelUnreadInsights.filter((i) => i.id !== insightId);
+			this._panelUnreadCount = this._panelUnreadCount - 1;
+			await this.refresh();
+		} catch (error) {
+			console.error('Error dismissing insight:', error);
 			throw error;
 		}
 	}
@@ -117,15 +139,16 @@ class NotificationsService {
 	}
 
 	/**
-	 * Mark all insights as read
+	 * Mark all panel alerts (Critical + High) as read. Used by "Mark all read" in Alerts panel.
 	 */
 	async markAllAsRead(): Promise<void> {
 		try {
-			await insightsService.markAllAsRead();
-			this._unreadInsights = [];
-			this._unreadCount = 0;
+			await insightsService.markPanelAlertsAsRead();
+			this._panelUnreadInsights = [];
+			this._panelUnreadCount = 0;
+			await this.refresh();
 		} catch (error) {
-			console.error('Error marking all insights as read:', error);
+			console.error('Error marking panel alerts as read:', error);
 			throw error;
 		}
 	}

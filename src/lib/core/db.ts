@@ -2884,6 +2884,44 @@ export class BudgicDB extends Dexie {
 		await Promise.all(updates);
 	}
 
+	/**
+	 * Get "Earlier (read)" insights: read or dismissed, for panel collapsed section.
+	 * Excludes prediction type. Sorted by readAt/dismissedAt desc, limit 30.
+	 */
+	async getEarlierInsights(limit = 30): Promise<Insight[]> {
+		const all = await this.insights
+			.filter(
+				(insight) =>
+					(insight.readAt != null || insight.dismissedAt != null) &&
+					insight.type !== 'prediction'
+			)
+			.toArray();
+		const sorted = all.sort((a, b) => {
+			const dateA = a.dismissedAt || a.readAt || a.updatedAt || '';
+			const dateB = b.dismissedAt || b.readAt || b.updatedAt || '';
+			return dateB.localeCompare(dateA);
+		});
+		return sorted.slice(0, limit);
+	}
+
+	/**
+	 * Mark only panel-tier insights (Critical + High: severity alert, warning) as read.
+	 */
+	async markPanelInsightsAsRead(): Promise<void> {
+		const unread = await this.getUnreadInsights();
+		const panel = unread.filter(
+			(i) => i.severity === 'alert' || i.severity === 'warning'
+		);
+		await Promise.all(
+			panel.map((insight) =>
+				this.insights.update(insight.id, {
+					readAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString()
+				})
+			)
+		);
+	}
+
 	// ============================================================================
 	// SOFT DELETE METHODS
 	// ============================================================================

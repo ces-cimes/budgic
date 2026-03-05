@@ -126,6 +126,20 @@ class InsightsService {
     }
 
     /**
+     * Mark only panel-tier insights (Critical + High) as read. Used by Alerts panel "Mark all read".
+     */
+    async markPanelAlertsAsRead(): Promise<void> {
+        await db.markPanelInsightsAsRead();
+    }
+
+    /**
+     * Get "Earlier (read)" insights for alerts panel collapsed section
+     */
+    async getEarlierInsights(limit = 30): Promise<Insight[]> {
+        return await db.getEarlierInsights(limit);
+    }
+
+    /**
      * Get unread alerts count (severity === 'alert')
      */
     async getUnreadAlertsCount(): Promise<number> {

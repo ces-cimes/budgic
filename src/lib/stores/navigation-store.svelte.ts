@@ -1,4 +1,4 @@
-import { analyticsService, reconciliationService, accountService } from '$lib/core/services';
+import { analyticsService, reconciliationService, accountService, notificationsService } from '$lib/core/services';
 import { planTabs, insightsTabs, reportsTabs } from '$lib/config/nav-tabs';
 
 export interface NavTabDef {
@@ -304,6 +304,14 @@ class NavigationStore {
 			// For now, set a simple badge count
 			// This can be enhanced later with actual insights
 			this.setBadge('insights', 0);
+
+			// Alerts badge: unread Critical + High only (panel count)
+			try {
+				await notificationsService.refresh();
+				this.setBadge('alerts', notificationsService.unreadCount);
+			} catch {
+				this.setBadge('alerts', 0);
+			}
 
 			// Update reconciliation badge - count accounts needing reconciliation
 			try {

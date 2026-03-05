@@ -1,27 +1,28 @@
 <script lang="ts">
-	import { swipe } from '$lib/actions/swipe';
-	import { AlertCircle, CheckCircle, ChevronDown, ChevronUp, Info, TrendingUp } from '@lucide/svelte';
+	import { swipe, type SwipeDirection } from '$lib/actions/swipe';
+	import { goto } from '$app/navigation';
+	import { AlertCircle, CheckCircle, ChevronDown, ChevronUp, Info, TrendingUp, X } from '@lucide/svelte';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import { Button } from '$lib/components/ui/button';
 	import type { Insight } from '$lib/core/db';
-	
+
 	interface Props {
 		insight: Insight;
 		onDismiss?: (insight: Insight) => void;
 		onClick?: (insight: Insight) => void;
 	}
-	
-	const { 
-		insight,
-		onDismiss,
-		onClick
-	}: Props = $props();
-	
+
+	const { insight, onDismiss, onClick }: Props = $props();
+
 	let isExpanded = $state(false);
 	let swipeOffset = $state(0);
 	let isDismissing = $state(false);
 	let isSwiping = $state(false);
+	let dismissConfirmOpen = $state(false);
 	let containerElement: HTMLElement;
-	
-	const SWIPE_THRESHOLD = 80; // Visual feedback threshold
+
+	const SWIPE_THRESHOLD = 80;
+	const isCritical = $derived(insight.severity === 'alert');
 	
 	function handleSwipeStart() {
 		isSwiping = true;
@@ -36,7 +37,7 @@
 		}
 	}
 	
-	function handleSwipeEnd(direction: 'left' | 'right' | null) {
+	function handleSwipeEnd(direction: SwipeDirection | null) {
 		if (direction === 'left') {
 			// Animate out and dismiss
 			isDismissing = true;
@@ -68,6 +69,31 @@
 	function toggleExpanded(e: MouseEvent) {
 		e.stopPropagation();
 		isExpanded = !isExpanded;
+	}
+
+	function handleDismissClick(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		if (isCritical) {
+			dismissConfirmOpen = true;
+		} else {
+			onDismiss?.(insight);
+		}
+	}
+
+	function handleConfirmDismiss() {
+		dismissConfirmOpen = false;
+		onDismiss?.(insight);
+	}
+
+	function handleCtaClick(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		if (insight.actionUrl) {
+			goto(insight.actionUrl);
+		} else {
+			onClick?.(insight);
+		}
 	}
 	
 	function getSeverityColor(severity: Insight['severity']) {
@@ -113,9 +139,9 @@
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
 	
-	const Icon = getSeverityIcon(insight.severity);
-	const iconColor = getSeverityColor(insight.severity);
-	const relativeTime = getRelativeTime(insight.createdAt);
+	const Icon = $derived(getSeverityIcon(insight.severity));
+	const iconColor = $derived(getSeverityColor(insight.severity));
+	const relativeTime = $derived(getRelativeTime(insight.createdAt));
 </script>
 
 <div class="relative select-none overflow-hidden rounded-lg">
@@ -151,16 +177,12 @@
 				}
 			}}
 		>
-			<!-- Header -->
+			<!-- Header: icon + content + dismiss -->
 			<div class="px-4 py-3 flex items-start gap-3">
-				<!-- Icon -->
 				<div class="mt-0.5 shrink-0">
 					<Icon class="w-5 h-5 {iconColor}" />
 				</div>
-				
-				<!-- Content -->
 				<div class="flex-1 min-w-0">
-					<!-- Title and Time -->
 					<div class="flex items-start justify-between gap-2 mb-1">
 						<h4 class="text-sm font-semibold leading-tight text-primary flex-1">
 							{insight.title}
@@ -168,14 +190,20 @@
 						<span class="text-xs text-muted-foreground shrink-0">
 							{relativeTime}
 						</span>
+						{#if onDismiss}
+							<button
+								type="button"
+								class="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+								aria-label="Dismiss"
+								onclick={handleDismissClick}
+							>
+								<X class="w-4 h-4" />
+							</button>
+						{/if}
 					</div>
-					
-					<!-- Description -->
 					<p class="text-xs text-muted-foreground leading-relaxed {isExpanded ? '' : 'line-clamp-2'}">
 						{insight.message}
 					</p>
-					
-					<!-- Expand/Collapse Button -->
 					{#if insight.message.length > 80}
 						<button
 							class="mt-1 flex items-center gap-1 text-xs text-primary/70 hover:text-primary transition-colors"
@@ -190,8 +218,37 @@
 							{/if}
 						</button>
 					{/if}
+					{#if insight.actionUrl}
+						<Button
+							variant="outline"
+							size="sm"
+							class="mt-2 w-full sm:w-auto"
+							onclick={handleCtaClick}
+						>
+							{insight.actionText || 'Take action'}
+							<span class="ml-1">→</span>
+						</Button>
+					{/if}
 				</div>
 			</div>
 		</div>
+
+		<!-- Critical: dismiss confirmation -->
+		<AlertDialog.Root bind:open={dismissConfirmOpen}>
+			<AlertDialog.Content>
+				<AlertDialog.Header>
+					<AlertDialog.Title>Dismiss this alert?</AlertDialog.Title>
+					<AlertDialog.Description>
+						This alert will reappear if the risk persists.
+					</AlertDialog.Description>
+				</AlertDialog.Header>
+				<AlertDialog.Footer>
+					<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+					<AlertDialog.Action onclick={handleConfirmDismiss}>
+						Dismiss
+					</AlertDialog.Action>
+				</AlertDialog.Footer>
+			</AlertDialog.Content>
+		</AlertDialog.Root>
 	</div>
 </div>

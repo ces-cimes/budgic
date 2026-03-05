@@ -8,6 +8,7 @@
   import { AppLayout } from '$lib/components/layouts';
   import { Toaster } from '$lib/components/ui/sonner';
   import AchievementNotificationManager from '$lib/components/insights/AchievementNotificationManager.svelte';
+  import AlertsPanel from '$lib/components/AlertsPanel.svelte';
 
   let { children } = $props();
 
@@ -58,6 +59,8 @@
 <AppLayout>
   {@render children?.()}
 </AppLayout>
+
+<AlertsPanel />
 
 <Toaster 
   position="top-center" 
