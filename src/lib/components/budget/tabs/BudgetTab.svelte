@@ -21,6 +21,7 @@
   import { budgetService, transactionService } from '$lib/core/services';
   import type { BudgetTabProps, PlanningData } from '../types.js';
   import type { Category } from '$lib/core/db';
+  import CategoriesTabContent from '$lib/components/categories/CategoriesTabContent.svelte';
 
   const { 
     userCurrency, 
@@ -215,7 +216,7 @@
         <p class="text-muted-foreground mb-4">
           Create budget categories to start tracking your spending
         </p>
-        <Button onclick={() => goto('/plan?tab=budget')}>
+        <Button onclick={() => document.getElementById('budget-categories-section')?.scrollIntoView({ behavior: 'smooth' })}>
           <Plus class="mr-2" size={14} />
           Create Category
         </Button>
@@ -332,7 +333,7 @@
               <!-- No Budget Set -->
               <div class="text-center py-4">
                 <div class="text-muted-foreground text-sm mb-2">No budget allocated</div>
-                <Button variant="outline" size="sm" onclick={() => goto('/plan?tab=categories')}>
+                <Button variant="outline" size="sm" onclick={() => document.getElementById('budget-categories-section')?.scrollIntoView({ behavior: 'smooth' })}>
                   Set Budget
                 </Button>
               </div>
@@ -350,21 +351,27 @@
     </CardHeader>
     <CardContent>
       <div class="grid grid-cols-2 gap-3">
-        <Button variant="outline" onclick={() => goto('/plan?tab=budget')} class="h-auto p-4">
+        <Button variant="outline" onclick={() => document.getElementById('budget-categories-section')?.scrollIntoView({ behavior: 'smooth' })} class="h-auto p-4">
           <div class="text-center">
             <Plus class="mx-auto mb-2" size={20} />
             <div class="font-medium">Add Category</div>
             <div class="text-muted-foreground text-xs">Create new budget category</div>
           </div>
         </Button>
-        <Button variant="outline" onclick={() => goto('/plan?tab=categories')} class="h-auto p-4">
+        <Button variant="outline" onclick={() => document.getElementById('budget-categories-section')?.scrollIntoView({ behavior: 'smooth' })} class="h-auto p-4">
           <div class="text-center">
             <DollarSign class="mx-auto mb-2" size={20} />
-            <div class="font-medium">Manage Budget</div>
-            <div class="text-muted-foreground text-xs">View all categories</div>
+            <div class="font-medium">Manage Categories</div>
+            <div class="text-muted-foreground text-xs">View and edit all categories</div>
           </div>
         </Button>
       </div>
     </CardContent>
   </Card>
+
+  <!-- Manage categories (reused from Plan; add/edit via sheet or inline) -->
+  <section id="budget-categories-section" class="scroll-mt-4">
+    <h3 class="text-lg font-semibold mb-3">Manage Categories</h3>
+    <CategoriesTabContent />
+  </section>
 </div>

@@ -28,8 +28,10 @@
 
 	const pct = $derived(usagePct());
 
-	// Progress bar fill width — capped at 100%
+	// Progress bar: normal fill capped at 100%; overspent = red overflow beyond 100%
 	const fillWidth = $derived(Math.min(pct, 100));
+	const isOverspent = $derived(pct > 100);
+	const overflowPct = $derived(isOverspent ? Math.min(pct - 100, 50) : 0);
 </script>
 
 {#if isLoading}
@@ -42,7 +44,7 @@
 {:else if allowance}
 	<div
 		class="squircle-4xl squircle-border bg-card shadow-sm p-6 space-y-4"
-		style={isOverBudget
+		style={isOverBudget || isOverspent
 			? '--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent);'
 			: ''}
 	>
@@ -53,7 +55,7 @@
 					Safe to spend
 				</p>
 				<!-- Daily amount — hero number -->
-				<div class="text-hero-sm {isOverBudget ? 'text-[var(--color-warm-coral)]' : ''}">
+				<div class="text-hero-sm {isOverBudget || isOverspent ? 'text-[var(--color-warm-coral)]' : ''}">
 					{formatTransactionAmount(allowance.total.dailySafe, allowance.total.currency)}
 					<span class="text-xs text-muted-foreground ml-1">
 						/ day
@@ -79,13 +81,19 @@
 			</div>
 		</div>
 
-		<!-- Progress bar -->
+		<!-- Progress bar (overspent: red overflow + red stroke per UX_SPEC 3.1.1) -->
 		<div class="space-y-1.5">
-			<div class="budget-progress">
+			<div
+				class="budget-progress {isOverspent ? 'budget-progress-overspent' : ''}"
+				style={isOverspent ? '--overflow-pct: ' + overflowPct : ''}
+			>
 				<div
 					class="budget-progress-fill"
 					style="width: {fillWidth}%; --fill-pct: {fillWidth};"
 				></div>
+				{#if isOverspent}
+					<div class="budget-progress-overflow" style="width: {overflowPct}%;"></div>
+				{/if}
 			</div>
 			<div class="flex justify-between text-[10px] text-muted-foreground">
 				<span>

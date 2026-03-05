@@ -62,7 +62,6 @@
 	// Derive active tab from URL so tab highlight is correct on first paint and when navigating with ?tab=
 	const activeTab = $derived.by(() => {
 		const tabParam = new URLSearchParams($page.url.search).get('tab');
-		if (tabParam === 'categories') return 'budget';
 		if (tabParam && planTabs.some((t) => t.id === tabParam)) return tabParam;
 		return 'allowance';
 	});

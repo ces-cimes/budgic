@@ -412,10 +412,18 @@
 
   /* ── Budget progress bar (gradient fill by usage) ── */
   .budget-progress {
-    @apply h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-bg-surface)];
+    @apply h-1.5 w-full rounded-full bg-[var(--color-bg-surface)];
+    display: flex;
+    overflow: hidden;
+  }
+  .budget-progress-overspent {
+    overflow: visible;
+    outline: 2px solid var(--color-warm-coral);
+    outline-offset: -1px;
   }
   .budget-progress-fill {
-    @apply h-full rounded-full transition-all duration-700 ease-out;
+    @apply h-full transition-all duration-700 ease-out flex-shrink-0;
+    border-radius: 9999px;
     background: linear-gradient(
       to right,
       var(--color-sage-green) 0%,
@@ -425,6 +433,17 @@
     );
     background-size: 200% 100%;
     background-position-x: calc(100% - var(--fill-pct, 0) * 1%);
+  }
+  .budget-progress-overspent .budget-progress-fill {
+    border-radius: 9999px 0 0 9999px;
+    flex-shrink: 0;
+  }
+  .budget-progress-overflow {
+    flex-shrink: 0;
+    height: 100%;
+    border-radius: 0 9999px 9999px 0;
+    background: var(--color-warm-coral);
+    min-width: 4px;
   }
 
   /* ── Count-up number animation ── */

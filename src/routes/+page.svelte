@@ -5,7 +5,8 @@
 		accountService,
 		transactionService,
 		userService,
-		feeAvoidanceService
+		feeAvoidanceService,
+		goalsService
 	} from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import * as Button from '$lib/components/ui/button/index.ts';
@@ -39,6 +40,9 @@
 	let recoverySuggestions = $state<RecoverySuggestion[]>([]);
 	let urgentFeeRisks = $state<FeeRisk[]>([]);
 	let isLoaded = $state(false);
+	let activeGoals = $state<any[]>([]);
+	let thisWeekSpent = $state<number>(0);
+	let thisWeekPlanned = $state<number | null>(null);
 
 	onMount(async () => {
 		try {
@@ -55,7 +59,7 @@
 
 			accounts = accountsData;
 			totalBalance = balanceData;
-			recentTransactions = transactionsData.filter((t: any) => t && !t.deletedAt).slice(0, 6);
+			recentTransactions = transactionsData.filter((t: any) => t && !t.deletedAt).slice(0, 8);
 			budgetCategories = categoriesData.reduce(
 				(acc: Record<string, any>, category: any) => {
 					acc[category.id] = category;
@@ -66,6 +70,7 @@
 
 			await loadGlobalAllowance();
 			await loadUrgentFeeRisks();
+			await loadGoalsAndThisWeek();
 		} catch (error) {
 			console.error('Error loading dashboard data:', error);
 		} finally {
@@ -128,6 +133,35 @@
 		}
 	}
 
+	async function loadGoalsAndThisWeek() {
+		try {
+			const goalsData = await goalsService.getGoalsData();
+			activeGoals = (goalsData.activeGoals || []).slice(0, 3);
+
+			const allTx = await transactionService.getAllTransactions();
+			const now = new Date();
+			const weekStart = new Date(now);
+			weekStart.setDate(now.getDate() - now.getDay());
+			weekStart.setHours(0, 0, 0, 0);
+			const weekEnd = new Date(weekStart);
+			weekEnd.setDate(weekStart.getDate() + 7);
+
+			const weekTransactions = allTx.filter((t: any) => {
+				if (!t || t.deletedAt) return false;
+				const d = new Date(t.clearedDate || t.plannedDate || t.createdAt);
+				return d >= weekStart && d < weekEnd && t.type === 'expense' && t.status === 'cleared';
+			});
+			thisWeekSpent = weekTransactions.reduce((sum: number, t: any) => sum + Math.abs(t.amount || 0), 0);
+
+			const allowance = await planService.getEnhancedAllowance();
+			if (allowance?.total?.monthly) {
+				thisWeekPlanned = (allowance.total.monthly / 30) * 7;
+			}
+		} catch (error) {
+			console.error('Error loading goals or weekly data:', error);
+		}
+	}
+
 	const currencyFormat = useCurrencyFormatting();
 
 	function formatBalance(amount: number) {
@@ -181,7 +215,7 @@
 <PageLayout>
 	<div class="flex flex-col min-h-full">
 
-		<!-- ── Balance hero ── -->
+		<!-- ── Balance hero (tap → /accounts) ── -->
 		<section
 			class="px-5 sm:px-6 pt-10 pb-8 animate-card-enter max-w-sm mx-auto"
 			style="animation-delay: 0ms"
@@ -190,19 +224,28 @@
 				{username ? `Hey ${username} ·` : ''} Total balance
 			</p>
 
-			{#if isLoaded}
-				<CountUpHero value={totalBalance} format={(n) => formatBalance(n)} ready={isLoaded} delay={80} />
-			{:else}
-				<div class="h-14 w-48 rounded-lg bg-[var(--color-bg-surface)] animate-pulse"></div>
-			{/if}
-
-			<p class="text-xs text-center text-muted-foreground mt-3">
-				{#if accounts.length > 0}
-					across {accounts.length} account{accounts.length === 1 ? '' : 's'}
+			<button
+				type="button"
+				class="block w-full text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] rounded-lg"
+				onclick={() => goto('/accounts')}
+			>
+				{#if isLoaded}
+					<CountUpHero value={totalBalance} format={(n) => formatBalance(n)} ready={isLoaded} delay={80} />
 				{:else}
-					no accounts yet
+					<div class="h-14 w-48 rounded-lg bg-[var(--color-bg-surface)] animate-pulse mx-auto"></div>
 				{/if}
-			</p>
+			</button>
+
+			<a
+				href="/accounts"
+				class="block text-xs text-center text-muted-foreground mt-3 hover:text-[var(--color-text-primary)] transition-colors"
+			>
+				{#if accounts.length > 0}
+					↑ {accounts.length} account{accounts.length === 1 ? '' : 's'}
+				{:else}
+					Add your first account
+				{/if}
+			</a>
 		</section>
 
 		<!-- ── Divider ── -->
@@ -210,14 +253,16 @@
 
 		<div class="px-5 sm:px-6 max-w-2xl mx-auto w-full flex flex-col space-y-8 pb-8">
 
-			<!-- ── Allowance ── -->
+			<!-- ── Allowance (tap → /plan?tab=allowance) ── -->
 			<section class="animate-card-enter" style="animation-delay: 60ms">
-				<AllowanceSummary
-					allowance={globalAllowance}
-					isLoading={isLoadingAllowance}
-					negativeStatus={negativeAllowanceStatus}
-					recoverySuggestions={recoverySuggestions}
-				/>
+				<a href="/plan?tab=allowance" class="block focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] rounded-2xl">
+					<AllowanceSummary
+						allowance={globalAllowance}
+						isLoading={isLoadingAllowance}
+						negativeStatus={negativeAllowanceStatus}
+						recoverySuggestions={recoverySuggestions}
+					/>
+				</a>
 			</section>
 
 			<!-- ── Urgent alerts ── -->
@@ -231,7 +276,7 @@
 						<button
 							type="button"
 							class="text-xs text-muted-foreground hover:text-[var(--color-text-primary)] transition-colors"
-							onclick={() => goto('/insights')}
+							onclick={() => window.dispatchEvent(new CustomEvent('open-alerts-panel'))}
 						>
 							All alerts →
 						</button>
@@ -265,19 +310,53 @@
 				</section>
 			{/if}
 
+			<!-- ── This week ── -->
+			<section class="animate-card-enter" style="animation-delay: 140ms">
+				<h2 class="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+					This week
+				</h2>
+				<div class="squircle-4xl squircle-border bg-card px-4 py-4">
+					<div class="flex items-center justify-between gap-3">
+						<div>
+							<p class="text-sm font-medium">
+								{formatTransactionAmount(thisWeekSpent, userCurrency)} spent
+							</p>
+							{#if thisWeekPlanned != null}
+								<p class="text-xs text-muted-foreground mt-0.5">
+									{thisWeekSpent <= thisWeekPlanned
+										? 'On track'
+										: 'Over your weekly plan'}
+								</p>
+							{:else}
+								<p class="text-xs text-muted-foreground mt-0.5">
+									Set a plan to compare
+								</p>
+							{/if}
+						</div>
+						{#if thisWeekPlanned != null && thisWeekPlanned > 0}
+							<div class="flex-1 max-w-24 h-2 rounded-full bg-[var(--color-bg-surface)] overflow-hidden">
+								<div
+									class="h-full rounded-full transition-all {thisWeekSpent > thisWeekPlanned ? 'bg-[var(--color-warm-coral)]' : 'bg-[var(--color-sage-green)]'}"
+									style="width: {Math.min(100, (thisWeekSpent / thisWeekPlanned) * 100)}%"
+								></div>
+							</div>
+						{/if}
+					</div>
+				</div>
+			</section>
+
 			<!-- ── Recent transactions ── -->
 			<section class="animate-card-enter" style="animation-delay: 180ms">
 				<div class="mb-3 flex items-center justify-between">
 					<h2 class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
 						Recent
 					</h2>
-					<button
-						type="button"
+					<a
+						href="/transactions"
 						class="text-xs text-muted-foreground hover:text-[var(--color-text-primary)] transition-colors"
-						onclick={() => goto('/transactions')}
 					>
-						All transactions →
-					</button>
+						View all →
+					</a>
 				</div>
 
 				{#if !isLoaded}
@@ -345,6 +424,44 @@
 					</div>
 				{/if}
 			</section>
+
+			<!-- ── Goals snapshot (hide if no active goals) ── -->
+			{#if activeGoals.length > 0}
+				<section class="animate-card-enter" style="animation-delay: 220ms">
+					<div class="mb-3 flex items-center justify-between">
+						<h2 class="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+							Goals
+						</h2>
+						<a
+							href="/plan?tab=goals"
+							class="text-xs text-muted-foreground hover:text-[var(--color-text-primary)] transition-colors"
+						>
+							View all →
+						</a>
+					</div>
+					<div class="space-y-2">
+						{#each activeGoals as goal (goal.id)}
+							<a
+								href="/plan?tab=goals"
+								class="flex items-center gap-3 squircle-2xl squircle-border bg-card px-4 py-3 transition-colors hover:bg-[var(--color-bg-surface)]"
+							>
+								<div class="min-w-0 flex-1">
+									<p class="text-sm font-medium truncate">{goal.name || 'Goal'}</p>
+									<div class="mt-1 h-1.5 w-full rounded-full bg-[var(--color-bg-surface)] overflow-hidden">
+										<div
+											class="h-full rounded-full bg-[var(--color-amber)] transition-all"
+											style="width: {goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0}%"
+										></div>
+									</div>
+								</div>
+								<span class="text-xs text-muted-foreground shrink-0">
+									{goal.targetAmount > 0 ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0}%
+								</span>
+							</a>
+						{/each}
+					</div>
+				</section>
+			{/if}
 
 		</div>
 	</div>
