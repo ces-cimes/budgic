@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import {
@@ -317,20 +318,24 @@
 				}
 			} else {
 				// Default values for new transaction
+				// Pre-fill type/status from URL when opened from FAB type picker (UX_SPEC §2.4)
+				const url = get(page).url;
+				const typeParam = url.searchParams.get('type') as Transaction['type'] | null;
+				const statusParam = url.searchParams.get('status') as Transaction['status'] | null;
+				const validTypes: Transaction['type'][] = ['expense', 'income', 'transfer', 'adjustment'];
+				const validStatuses: Transaction['status'][] = ['cleared', 'planned', 'pending'];
+				if (typeParam && validTypes.includes(typeParam)) transactionType = typeParam;
+				if (statusParam && validStatuses.includes(statusParam)) status = statusParam;
+
 				// Don't default account - let user select it themselves
-				// This gives users more control, especially for planned transactions
 				if (accounts.length > 0) {
-					// Set transfer fee account and currency defaults (needed for transfer fees)
 					transferFeeAccountId = accounts[0].id;
 					if (accounts[0].currency) {
 						currency = accounts[0].currency;
 					} else if (!currency && currencies.length > 0) {
 						currency = currencies[0].code;
 					}
-					// Note: selectedAccount is intentionally left empty - user must select it
-					// Validation will catch missing accounts for cleared/pending/transfer transactions
 				}
-				// Set default dates in local timezone for datetime-local input
 				const now = new Date();
 				clearedDate = dateUtils.toLocalDateTimeInput(now.toISOString());
 				plannedDate = dateUtils.toLocalDateTimeInput(now.toISOString());

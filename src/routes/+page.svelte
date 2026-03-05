@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { openTypePicker } from '$lib/stores/type-picker-store.svelte';
 	import {
 		accountService,
 		transactionService,
@@ -13,10 +14,10 @@
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
 	import { PageLayout } from '$lib/components/layouts';
-	import Fab from '$lib/components/Fab.svelte';
-	import { Plus, Shield, TrendingUp, TrendingDown } from '@lucide/svelte';
+	import { Shield } from '@lucide/svelte';
 	import AllowanceSummary from '$lib/components/AllowanceSummary.svelte';
 	import CountUpHero from '$lib/components/CountUpHero.svelte';
+	import FirstRunChecklist from '$lib/components/FirstRunChecklist.svelte';
 	import {
 		planService,
 		userService as userServiceImport,
@@ -43,12 +44,15 @@
 	let activeGoals = $state<any[]>([]);
 	let thisWeekSpent = $state<number>(0);
 	let thisWeekPlanned = $state<number | null>(null);
+	let firstRunChecklistComplete = $state(false);
 
 	onMount(async () => {
 		try {
 			const preferences = await userService.getUserPreferences();
 			userCurrency = preferences?.currency || 'USD';
 			username = preferences?.username || '';
+			firstRunChecklistComplete = (preferences as { firstRunChecklistComplete?: boolean })
+				?.firstRunChecklistComplete ?? false;
 
 			const [accountsData, balanceData, transactionsData, categoriesData] = await Promise.all([
 				accountService.getAccounts(),
@@ -76,6 +80,24 @@
 		} finally {
 			isLoaded = true;
 		}
+	});
+
+	// First-run checklist: mark complete when all 3 steps done, then hide permanently (UX_SPEC §8)
+	const hasBudgetCategory = $derived(
+		Object.values(budgetCategories).some((c: { budgetAmount?: number }) => (c?.budgetAmount ?? 0) > 0)
+	);
+	$effect(() => {
+		if (
+			!isLoaded ||
+			firstRunChecklistComplete ||
+			accounts.length === 0 ||
+			recentTransactions.length === 0 ||
+			!hasBudgetCategory
+		)
+			return;
+		userService.updateUserPreferences({ firstRunChecklistComplete: true }).then(() => {
+			firstRunChecklistComplete = true;
+		});
 	});
 
 	async function loadGlobalAllowance() {
@@ -377,7 +399,7 @@
 						<button
 							type="button"
 							class="mt-1 text-sm text-amber hover:underline"
-							onclick={() => goto('/transactions/add')}
+							onclick={() => openTypePicker()}
 						>
 							Add your first transaction
 						</button>
@@ -425,6 +447,15 @@
 				{/if}
 			</section>
 
+			<!-- ── First-run checklist (hide when all 3 steps complete, UX_SPEC §8) ── -->
+			{#if !firstRunChecklistComplete}
+				<FirstRunChecklist
+					hasAccount={accounts.length > 0}
+					hasTransaction={recentTransactions.length > 0}
+					hasBudgetCategory={hasBudgetCategory}
+				/>
+			{/if}
+
 			<!-- ── Goals snapshot (hide if no active goals) ── -->
 			{#if activeGoals.length > 0}
 				<section class="animate-card-enter" style="animation-delay: 220ms">
@@ -465,15 +496,4 @@
 
 		</div>
 	</div>
-
-	<Fab
-		position="bottom-right"
-		size="md"
-		variant="default"
-		onclick={() => goto('/transactions/add')}
-	>
-		{#snippet children()}
-			<Plus />
-		{/snippet}
-	</Fab>
 </PageLayout>

@@ -1038,6 +1038,8 @@ const UserPreferencesSchema = BaseSchema.extend({
 	// User Maturity and Onboarding
 	userMaturityLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).default('beginner'),
 	onboardingCompleted: z.boolean().default(false),
+	/** Home first-run checklist (3 steps) — hide permanently when true */
+	firstRunChecklistComplete: z.boolean().default(false),
 
 	// Feature Flags
 	enableAdvancedFeatures: z.boolean().default(false),

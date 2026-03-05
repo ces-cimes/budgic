@@ -51,7 +51,8 @@ class UserService {
             rolloverSurplusBehavior: (prefs.rolloverSurplusBehavior as UserPreferences['rolloverSurplusBehavior']) ?? 'rollover_next',
             rolloverSurplusHybridRatio: typeof prefs.rolloverSurplusHybridRatio === 'number' ? prefs.rolloverSurplusHybridRatio : 0.5,
             rolloverDeficitBehavior: (prefs.rolloverDeficitBehavior as UserPreferences['rolloverDeficitBehavior']) ?? 'reduce_next_period',
-            sidebarFooterCards: Array.isArray(prefs.sidebarFooterCards) ? prefs.sidebarFooterCards : ['total_balance', 'today_allowance']
+            sidebarFooterCards: Array.isArray(prefs.sidebarFooterCards) ? prefs.sidebarFooterCards : ['total_balance', 'today_allowance'],
+            firstRunChecklistComplete: prefs.firstRunChecklistComplete ?? false
         } as UserPreferences;
     }
 
@@ -81,10 +82,11 @@ class UserService {
                 theme: 'dark',
                 language: 'en',
                 currency: updates.currency || detectedCurrency,
-                userMaturityLevel: 'beginner',
-                onboardingCompleted: false,
-                enableAdvancedFeatures: false,
-                enablePredictiveAnalytics: true,
+            userMaturityLevel: 'beginner',
+            onboardingCompleted: false,
+            firstRunChecklistComplete: false,
+            enableAdvancedFeatures: false,
+            enablePredictiveAnalytics: true,
                 analyticsEnabled: true,
                 backupEnabled: true,
                 emergencyFundTargetMonths: 6,
@@ -423,6 +425,7 @@ class UserService {
             currency: detectedCurrency,
             userMaturityLevel: 'beginner',
             onboardingCompleted: false,
+            firstRunChecklistComplete: false,
             enableAdvancedFeatures: false,
             enablePredictiveAnalytics: true,
             analyticsEnabled: true,

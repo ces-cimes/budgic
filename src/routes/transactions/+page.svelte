@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import { openTypePicker } from '$lib/stores/type-picker-store.svelte';
 	import { onMount } from 'svelte';
 	import { transactionService, userService, accountService } from '$lib/core/services';
 	import { db } from '$lib/core/db';
@@ -68,7 +69,7 @@
 			buttonProps={[
 				{
 					text: "Add transaction",
-					onclick: () => goto('/transactions/add'),
+					onclick: () => openTypePicker(),
 					size: "sm",
 					className: "hidden sm:flex",
 					icon: Plus
@@ -112,7 +113,7 @@
 				categories={budgetCategories}
 				{userCurrency}
 				onTransactionClick={handleTransactionClick}
-				onAddTransaction={() => goto('/transactions/add')}
+				onAddTransaction={() => openTypePicker()}
 				enableFilters={true}
 				enableSearch={true}
 				enableBasicToggles={true}
@@ -124,15 +125,4 @@
 			/>
 		{/if}
 	</div>
-
-	<Fab
-		position="bottom-right"
-		size="md"
-		variant="default"
-		onclick={() => goto('/transactions/add')}
-	>
-		{#snippet children()}
-			<Plus />
-		{/snippet}
-	</Fab>
 </PageLayout>

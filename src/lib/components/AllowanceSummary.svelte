@@ -14,10 +14,11 @@
 	const { allowance, isLoading = false, negativeStatus = null, recoverySuggestions = [] }: Props =
 		$props();
 
-	const usagePct = $derived(() => {
+	// Raw percentage (can exceed 100 for overspend); display cap at 100 for non-overflow fill
+	const rawPct = $derived(() => {
 		if (!allowance) return 0;
 		if (allowance.total.monthly === 0) return allowance.total.spentSoFar > 0 ? 100 : 0;
-		return Math.min(100, (allowance.total.spentSoFar / allowance.total.monthly) * 100);
+		return (allowance.total.spentSoFar / allowance.total.monthly) * 100;
 	});
 
 	const isOverBudget = $derived(
@@ -26,9 +27,9 @@
 				negativeStatus.handlingMode === 'block_with_warning')
 	);
 
-	const pct = $derived(usagePct());
+	const pct = $derived(rawPct());
 
-	// Progress bar: normal fill capped at 100%; overspent = red overflow beyond 100%
+	// Progress bar: normal fill capped at 100%; overspent = red overflow beyond 100% (UX_SPEC 3.1.1)
 	const fillWidth = $derived(Math.min(pct, 100));
 	const isOverspent = $derived(pct > 100);
 	const overflowPct = $derived(isOverspent ? Math.min(pct - 100, 50) : 0);
