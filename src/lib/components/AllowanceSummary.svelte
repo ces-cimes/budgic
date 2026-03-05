@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import type { NegativeAllowanceStatus, RecoverySuggestion } from '$lib/core/services/core/negative-allowance-service';
-	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatAmount } from '$lib/utils/currency-utils';
 	import { TrendingUp, TrendingDown, Lightbulb } from '@lucide/svelte';
 
 	interface Props {
@@ -57,7 +57,7 @@
 				</p>
 				<!-- Daily amount — hero number -->
 				<div class="text-hero-sm {isOverBudget || isOverspent ? 'text-[var(--color-warm-coral)]' : ''}">
-					{formatTransactionAmount(allowance.total.dailySafe, allowance.total.currency)}
+					{formatAmount(allowance.total.dailySafe, allowance.total.currency)}
 					<span class="text-xs text-muted-foreground ml-1">
 						/ day
 					</span>
@@ -74,7 +74,7 @@
 							? 'text-[var(--color-amber)]'
 							: 'text-[var(--color-sage-green)]'}"
 				>
-					{formatTransactionAmount(allowance.total.remaining, allowance.total.currency)}
+					{formatAmount(allowance.total.remaining, allowance.total.currency)}
 				</div>
 				<p class="text-[10px] text-muted-foreground mt-0.5">
 					{allowance.total.daysRemaining}d left
@@ -98,10 +98,10 @@
 			</div>
 			<div class="flex justify-between text-[10px] text-muted-foreground">
 				<span>
-					{formatTransactionAmount(allowance.total.spentSoFar, allowance.total.currency)} spent
+					{formatAmount(allowance.total.spentSoFar, allowance.total.currency)} spent
 				</span>
 				<span>
-					{formatTransactionAmount(allowance.total.monthly, allowance.total.currency)} budget
+					{formatAmount(allowance.total.monthly, allowance.total.currency)} budget
 				</span>
 			</div>
 		</div>
@@ -141,7 +141,7 @@
 				<div class="text-center">
 					<p class="text-[10px] text-muted-foreground mb-0.5">{col.label}</p>
 					<p class="text-amount text-xs font-medium">
-						{formatTransactionAmount(col.value, col.currency)}
+						{formatAmount(col.value, col.currency)}
 					</p>
 				</div>
 			{/each}

@@ -11,7 +11,7 @@
 	} from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import * as Button from '$lib/components/ui/button/index.ts';
-	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
 	import { PageLayout } from '$lib/components/layouts';
 	import { Shield } from '@lucide/svelte';
@@ -274,6 +274,14 @@
 		<div class="mx-5 sm:mx-6 h-px bg-border mb-6"></div>
 
 		<div class="px-5 sm:px-6 max-w-2xl mx-auto w-full flex flex-col space-y-8 pb-8">
+			<!-- ── First-run checklist (hide when all 3 steps complete, UX_SPEC §8) ── -->
+			{#if !firstRunChecklistComplete}
+				<FirstRunChecklist
+					hasAccount={accounts.length > 0}
+					hasTransaction={recentTransactions.length > 0}
+					hasBudgetCategory={hasBudgetCategory}
+				/>
+			{/if}
 
 			<!-- ── Allowance (tap → /plan?tab=allowance) ── -->
 			<section class="animate-card-enter" style="animation-delay: 60ms">
@@ -324,7 +332,7 @@
 									<div class="text-xs text-muted-foreground">{risk.accountName}</div>
 								</div>
 								<div class="text-amount ml-3 text-[var(--color-warm-coral)] shrink-0">
-									{formatTransactionAmount(risk.estimatedAmount, userCurrency)}
+									{formatAmount(risk.estimatedAmount, userCurrency)}
 								</div>
 							</a>
 						{/each}
@@ -341,7 +349,7 @@
 					<div class="flex items-center justify-between gap-3">
 						<div>
 							<p class="text-sm font-medium">
-								{formatTransactionAmount(thisWeekSpent, userCurrency)} spent
+								{formatAmount(thisWeekSpent, userCurrency)} spent
 							</p>
 							{#if thisWeekPlanned != null}
 								<p class="text-xs text-muted-foreground mt-0.5">
@@ -446,15 +454,6 @@
 					</div>
 				{/if}
 			</section>
-
-			<!-- ── First-run checklist (hide when all 3 steps complete, UX_SPEC §8) ── -->
-			{#if !firstRunChecklistComplete}
-				<FirstRunChecklist
-					hasAccount={accounts.length > 0}
-					hasTransaction={recentTransactions.length > 0}
-					hasBudgetCategory={hasBudgetCategory}
-				/>
-			{/if}
 
 			<!-- ── Goals snapshot (hide if no active goals) ── -->
 			{#if activeGoals.length > 0}
