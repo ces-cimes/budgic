@@ -276,7 +276,7 @@
           <Card.Title>Active Goals</Card.Title>
           <Card.Description>Your current financial goals</Card.Description>
         </div>
-        <Button.Root size="sm" onclick={() => goto('/goals/add')}>
+        <Button.Root size="sm" onclick={() => goto('/plan?tab=goals')}>
           <Plus class="h-4 w-4 mr-2" />
           Add Goal
         </Button.Root>
@@ -340,7 +340,7 @@
           <Target class="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 class="text-lg font-semibold text-primary mb-2">No Active Goals</h3>
           <p class="text-muted-foreground mb-4">Start by creating your first financial goal</p>
-          <Button.Root onclick={() => goto('/goals/add')}>
+          <Button.Root onclick={() => goto('/plan?tab=goals')}>
             <Plus class="h-4 w-4 mr-2" />
             Create Goal
           </Button.Root>
@@ -400,7 +400,7 @@
         <Button.Root 
           variant="outline" 
           size="sm" 
-          onclick={() => goto('/budget?tab=budget')}
+          onclick={() => goto('/plan?tab=budget')}
         >
           <BarChart3 class="h-4 w-4 mr-2" />
           View Budget Impact
@@ -422,7 +422,7 @@
           <Button.Root 
             variant="ghost" 
             size="sm"
-            onclick={() => goto('/budget?tab=budget')}
+            onclick={() => goto('/plan?tab=budget')}
           >
             <ExternalLink class="h-4 w-4" />
           </Button.Root>
@@ -434,7 +434,7 @@
             variant="link" 
             size="sm" 
             class="p-0 h-auto text-blue-600"
-            onclick={() => goto('/budget?tab=budget')}
+            onclick={() => goto('/plan?tab=budget')}
           >
             View detailed budget analysis
           </Button.Root>

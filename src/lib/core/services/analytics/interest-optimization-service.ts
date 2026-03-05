@@ -807,7 +807,7 @@ class InterestOptimizationService {
 				amount: aggregate.optimizationPotential,
 				actionable: true,
 				actionText: 'View Recommendations',
-				actionUrl: '/optimization',
+				actionUrl: '/insights?tab=optimize',
 				metadata: {
 					optimizationPotential: aggregate.optimizationPotential
 				}

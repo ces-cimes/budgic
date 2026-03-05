@@ -215,7 +215,7 @@
         <p class="text-muted-foreground mb-4">
           Create budget categories to start tracking your spending
         </p>
-        <Button onclick={() => goto('/categories/add')}>
+        <Button onclick={() => goto('/plan?tab=budget')}>
           <Plus class="mr-2" size={14} />
           Create Category
         </Button>
@@ -350,7 +350,7 @@
     </CardHeader>
     <CardContent>
       <div class="grid grid-cols-2 gap-3">
-        <Button variant="outline" onclick={() => goto('/categories/add')} class="h-auto p-4">
+        <Button variant="outline" onclick={() => goto('/plan?tab=budget')} class="h-auto p-4">
           <div class="text-center">
             <Plus class="mx-auto mb-2" size={20} />
             <div class="font-medium">Add Category</div>

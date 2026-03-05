@@ -40,7 +40,7 @@
     { id: 'trends', label: 'Trends', icon: TrendingUp },
     { id: 'categories', label: 'Categories', icon: PieChart },
     { id: 'compare', label: 'Compare', icon: GitCompare },
-    { id: 'reports', label: 'Reports', icon: FileText }
+    { id: 'saved', label: 'Saved', icon: FileText }
   ];
 
   let activeTab = $state('overview');
@@ -98,7 +98,8 @@
 
   $effect(() => {
     const urlParams = new URLSearchParams($page.url.search);
-    const tabParam = urlParams.get('tab');
+    let tabParam = urlParams.get('tab');
+    if (tabParam === 'reports') tabParam = 'saved';
     if (tabParam && reportTabs.some(tab => tab.id === tabParam)) {
       activeTab = tabParam;
     }
@@ -253,7 +254,7 @@
           />
         </TabContent>
         
-        <TabContent tabId="reports" isActive={activeTab === 'reports'} tabs={reportTabs}>
+        <TabContent tabId="saved" isActive={activeTab === 'saved'} tabs={reportTabs}>
           <ReportsTab
             recentReports={recentReports}
             onGenerateReport={handleGenerateReport}

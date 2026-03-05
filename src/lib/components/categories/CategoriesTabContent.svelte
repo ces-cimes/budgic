@@ -261,7 +261,7 @@
 <div class="space-y-4">
 	<div class="flex items-center justify-between">
 		<h2 class="text-primary text-lg font-semibold">Spending categories</h2>
-		<Button size="sm" onclick={() => goto('/categories/add')}>
+		<Button size="sm" onclick={() => goto('/plan?tab=budget')}>
 			<Plus class="mr-2 h-4 w-4" />
 			Add category
 		</Button>
@@ -316,7 +316,7 @@
 					<div class="mb-4 text-sm">
 						Try adjusting your filters or add a new category
 					</div>
-					<Button onclick={() => goto('/categories/add')}>
+					<Button onclick={() => goto('/plan?tab=budget')}>
 						Create your first category
 					</Button>
 				</div>
@@ -407,7 +407,7 @@
 									<Button
 										variant="outline"
 										size="sm"
-										onclick={() => goto(`/categories/${category.id}`)}
+										onclick={() => goto(`/plan?tab=budget`)}
 									>
 										View
 									</Button>

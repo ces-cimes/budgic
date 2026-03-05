@@ -10,7 +10,6 @@
 		BarChart3,
 		DollarSign,
 		Target,
-		FolderTree,
 		Plus,
 		TrendingUp,
 		TrendingDown,
@@ -32,8 +31,6 @@
 	} from '$lib/components/budget';
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import PlanRulesSummary from '$lib/components/budget/PlanRulesSummary.svelte';
-	import CategoriesTabContent from '$lib/components/categories/CategoriesTabContent.svelte';
-
 	import {
 		OverviewTab as GoalsOverviewTab,
 		ActiveTab as GoalsActiveTab,
@@ -51,10 +48,9 @@
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 
 	const planTabs: TabConfig[] = [
-		{ id: 'budget', label: 'Budget', icon: BarChart3 },
 		{ id: 'allowance', label: 'Allowance', icon: DollarSign },
-		{ id: 'goals', label: 'Goals', icon: Target },
-		{ id: 'categories', label: 'Categories', icon: FolderTree }
+		{ id: 'budget', label: 'Budget', icon: BarChart3 },
+		{ id: 'goals', label: 'Goals', icon: Target }
 	];
 
 	const goalsSubTabs: TabConfig[] = [
@@ -63,7 +59,13 @@
 		{ id: 'completed', label: 'Completed', icon: Target }
 	];
 
-	let activeTab = $state('budget');
+	// Derive active tab from URL so tab highlight is correct on first paint and when navigating with ?tab=
+	const activeTab = $derived.by(() => {
+		const tabParam = new URLSearchParams($page.url.search).get('tab');
+		if (tabParam === 'categories') return 'budget';
+		if (tabParam && planTabs.some((t) => t.id === tabParam)) return tabParam;
+		return 'allowance';
+	});
 	let goalsSubTab = $state('overview');
 	let isLoading = $state(true);
 	let userCurrency = $state<string>('USD');
@@ -106,8 +108,6 @@
 
 	$effect(() => {
 		const urlParams = new URLSearchParams($page.url.search);
-		const tabParam = urlParams.get('tab');
-		if (tabParam && planTabs.some((t) => t.id === tabParam)) activeTab = tabParam;
 		const goalsParam = urlParams.get('goalsTab');
 		if (goalsParam && goalsSubTabs.some((t) => t.id === goalsParam)) goalsSubTab = goalsParam;
 	});
@@ -157,7 +157,6 @@
 	}
 
 	function handleTabChange(tabId: string) {
-		activeTab = tabId;
 		const url = new URL($page.url);
 		url.searchParams.set('tab', tabId);
 		url.searchParams.delete('goalsTab');
@@ -187,7 +186,8 @@
 			title="Plan"
 			variant="with-tabs"
 			buttonProps={[
-				{ text: 'Add goal', onclick: () => goto('/goals/add'), size: 'sm', icon: Plus }
+				{ text: 'Settings', onclick: () => goto('/settings/plan'), size: 'sm', icon: Settings },
+				{ text: 'Add goal', onclick: () => goto('/plan?tab=goals'), size: 'sm', icon: Plus }
 			]}
 		>
 			<TabHeader tabs={planTabs} activeTab={activeTab} onTabChange={handleTabChange} />
@@ -203,6 +203,32 @@
 				class="flex-1"
 			>
 				{#snippet children()}
+					<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
+						<div class="space-y-5 px-4 py-5">
+							{#if enhancedAllowance}
+								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5 space-y-4">
+									<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
+									<PlanRulesSummary />
+								</div>
+							{:else if dailyAllowance}
+								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
+									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">Daily allowance</p>
+									<div class="text-hero-sm">{formatTransactionAmount(dailyAllowance.amount, userCurrency)}</div>
+									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{dailyAllowance.daysRemaining} days remaining</p>
+								</div>
+							{:else}
+								<div class="flex flex-col items-center py-12 text-center">
+									<p class="text-sm text-[var(--color-text-secondary)]">No allowance data yet.</p>
+									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">Add accounts and budget categories to see your safe-to-spend.</p>
+								</div>
+							{/if}
+							<Button variant="ghost" size="sm" onclick={() => goto('/settings/plan')} class="text-[var(--color-text-tertiary)]">
+								<Settings class="mr-2 size-3.5" />
+								Budget & allowance settings
+							</Button>
+						</div>
+					</TabContent>
+
 					<TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
 						<div class="space-y-5 px-4 py-5">
 							<!-- Financial summary -->
@@ -235,36 +261,10 @@
 									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-1">Net projected</p>
 								</div>
 							</div>
-							<BudgetTab userCurrency={userCurrency} selectedAccountId={selectedAccountId} planningData={planningData} onSetGoal={() => goto('/goals/add')} />
+							<BudgetTab userCurrency={userCurrency} selectedAccountId={selectedAccountId} planningData={planningData} onSetGoal={() => goto('/plan?tab=goals')} />
 							<PlanRulesSummary />
 						</div>
-					</TabContent>
-
-					<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
-						<div class="space-y-5 px-4 py-5">
-							{#if enhancedAllowance}
-								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5 space-y-4">
-									<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
-									<PlanRulesSummary />
-								</div>
-							{:else if dailyAllowance}
-								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
-									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">Daily allowance</p>
-									<div class="text-hero-sm">{formatTransactionAmount(dailyAllowance.amount, userCurrency)}</div>
-									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{dailyAllowance.daysRemaining} days remaining</p>
-								</div>
-							{:else}
-								<div class="flex flex-col items-center py-12 text-center">
-									<p class="text-sm text-[var(--color-text-secondary)]">No allowance data yet.</p>
-									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">Add accounts and budget categories to see your safe-to-spend.</p>
-								</div>
-							{/if}
-							<Button variant="ghost" size="sm" onclick={() => goto('/settings/plan')} class="text-[var(--color-text-tertiary)]">
-								<Settings class="mr-2 size-3.5" />
-								Budget & allowance settings
-							</Button>
-						</div>
-					</TabContent>
+					</TabContent>	
 
 					<TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
 						<div class="px-4 py-5">
@@ -283,7 +283,7 @@
 									</button>
 								{/each}
 								<div class="ml-auto">
-									<Button variant="ghost" size="sm" onclick={() => goto('/goals/add')} class="text-[var(--color-amber)] gap-1.5">
+									<Button variant="ghost" size="sm" onclick={() => goto('/plan?tab=goals')} class="text-[var(--color-amber)] gap-1.5">
 										<Plus class="size-3.5" />
 										Add goal
 									</Button>
@@ -299,11 +299,6 @@
 						</div>
 					</TabContent>
 
-					<TabContent tabId="categories" isActive={activeTab === 'categories'} tabs={planTabs}>
-						<div class="px-4 py-5">
-							<CategoriesTabContent />
-						</div>
-					</TabContent>
 				{/snippet}
 			</TabContentWrapper>
 		</div>

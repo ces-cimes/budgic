@@ -163,7 +163,7 @@ class RecommendationService {
 				description: `You're making transactions frequently. Consider reviewing your spending habits.`,
 				actionable: true,
 				actionText: 'View Spending Analysis',
-				actionUrl: '/analyze',
+				actionUrl: '/insights?tab=optimize',
 				confidence: 75,
 				estimatedImpact: 'medium',
 				metadata: {
@@ -404,7 +404,7 @@ class RecommendationService {
 					description: `Your spending in ${cat.categoryName} is increasing and represents ${Math.round(cat.percentageOfTotal)}% of your total spending.`,
 					actionable: true,
 					actionText: 'Review Category',
-					actionUrl: '/analyze',
+					actionUrl: '/insights?tab=optimize',
 					confidence: 75,
 					estimatedImpact: 'medium',
 					metadata: { categoryId: cat.categoryId, categoryName: cat.categoryName },

@@ -18,8 +18,10 @@ export interface NavItemConfig {
 		countKey?: string;
 	};
 	children?: NavItemConfig[];
-	/** Desktop sidebar: group for sectioning (main, insights, bottom). */
-	group?: 'main' | 'insights' | 'bottom';
+	/** Desktop sidebar: group for sectioning (main, more, bottom). */
+	group?: 'main' | 'more' | 'bottom';
+	/** If true, clicking this item opens a panel instead of navigating (e.g. Alerts). */
+	opensPanel?: boolean;
 	/** Desktop sidebar: optional label for the group (e.g. "Insights"). */
 	groupLabel?: string;
 	/** Desktop sidebar: tab sub-links for routes with ?tab= (plan, insights, reports). */
@@ -129,8 +131,7 @@ class NavigationStore {
 	 */
 	async loadItems(): Promise<void> {
 		try {
-			// New IA: 7 top-level items with groups and tab sub-links for sidebar
-			// Order: first 4 = Home, Transactions, Plan, Insights (mobile bar); then Accounts, Reports, Settings (overflow)
+			// New IA: first 4 = Home, Trans, Plan, Insights (mobile bar); Accounts, Reports, Settings in More; Alerts in bottom (panel)
 			const defaultItems: NavItemConfig[] = [
 				{
 					id: 'dashboard',
@@ -168,8 +169,7 @@ class NavigationStore {
 					label: 'Insights',
 					path: '/insights',
 					icon: 'bell',
-					group: 'insights',
-					groupLabel: 'Insights',
+					group: 'main',
 					tabs: insightsTabs,
 					visible: true,
 					showInMobile: true,
@@ -186,7 +186,7 @@ class NavigationStore {
 					label: 'Accounts',
 					path: '/accounts',
 					icon: 'credit-card',
-					group: 'main',
+					group: 'more',
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true,
@@ -202,7 +202,7 @@ class NavigationStore {
 					label: 'Reports',
 					path: '/reports',
 					icon: 'trending-up',
-					group: 'insights',
+					group: 'more',
 					tabs: reportsTabs,
 					visible: true,
 					showInMobile: true,
@@ -217,6 +217,23 @@ class NavigationStore {
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true
+				},
+				{
+					id: 'alerts',
+					label: 'Alerts',
+					path: '#',
+					icon: 'bell',
+					group: 'bottom',
+					opensPanel: true,
+					visible: true,
+					showInMobile: false,
+					showInDesktop: true,
+					badge: {
+						type: 'count' as const,
+						value: 0,
+						color: 'danger',
+						countKey: 'alerts'
+					}
 				}
 			];
 

@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
 	import { SidebarNavLink, SidebarNavCollapsible } from '$lib/components/navigation';
+	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { SidebarFooterCards } from '$lib/components/navigation/sidebar-footer';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
 	import { defaultTabByRoute } from '$lib/config/nav-tabs';
@@ -82,7 +83,7 @@
 	let loading = $derived(navigationStore.loading);
 
 	let mainItems = $derived(desktopItems.filter((i) => i.group === 'main'));
-	let insightsItems = $derived(desktopItems.filter((i) => i.group === 'insights'));
+	let moreItems = $derived(desktopItems.filter((i) => i.group === 'more'));
 	let bottomItems = $derived(desktopItems.filter((i) => i.group === 'bottom'));
 
 	onMount(() => {
@@ -106,7 +107,7 @@
 			</Sidebar.Header>
 
 			<div class="flex-1 min-h-0 overflow-auto flex flex-col gap-2">
-				<!-- Main: Home, Transactions, Plan (+ tabs), Accounts -->
+				<!-- Main: Home, Transactions, Plan (+ tabs), Insights (+ tabs) -->
 				<Sidebar.Group>
 					<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">Main</Sidebar.GroupLabel>
 					<Sidebar.GroupContent>
@@ -152,12 +153,12 @@
 					</Sidebar.GroupContent>
 				</Sidebar.Group>
 
-				{#if insightsItems.length > 0}
+				{#if moreItems.length > 0}
 					<Sidebar.Group>
-						<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">Insights</Sidebar.GroupLabel>
+						<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">More</Sidebar.GroupLabel>
 						<Sidebar.GroupContent>
 							<Sidebar.Menu>
-								{#each insightsItems as item (item.id)}
+								{#each moreItems as item (item.id)}
 									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
 									{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
 									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
@@ -192,7 +193,7 @@
 				{/if}
 			</div>
 
-			<!-- Footer: info cards + bottom nav (Settings, etc.) -->
+			<!-- Footer: info cards + bottom nav (Alerts panel, Settings) -->
 			<div class="mt-auto shrink-0 flex flex-col gap-2 pt-2">
 				<SidebarFooterCards />
 				{#if bottomItems.length > 0}
@@ -201,12 +202,51 @@
 							<Sidebar.Menu>
 								{#each bottomItems as item (item.id)}
 									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
-									<SidebarNavLink
-										{item}
-										iconComponent={IconComponent}
-										isActive={isActive(item.path)}
-										variant="outline"
-									/>
+									{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
+									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
+									{#if item.opensPanel}
+										<Sidebar.MenuItem>
+											<Sidebar.MenuButton
+												variant="outline"
+												isActive={false}
+												tooltipContent={item.label}
+												tooltipContentProps={{ class: 'rounded-lg' }}
+												onclick={() => window.dispatchEvent(new CustomEvent('open-alerts-panel'))}
+											>
+												{#snippet child({ props })}
+													<button
+														type="button"
+														class="group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 w-full group-data-[collapsible=icon]:justify-center
+															text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]"
+														{...props}
+													>
+														<div class="relative flex-shrink-0">
+															<IconComponent class="w-4 h-4" />
+														</div>
+														<span class="flex-1 text-sm truncate text-left group-data-[collapsible=icon]:hidden">{item.label}</span>
+														{#if showBadge && badgeValue !== undefined && badgeValue !== 0}
+															<Badge
+																variant="secondary"
+																class="ml-auto h-5 min-w-5 px-1.5 text-xs font-medium group-data-[collapsible=icon]:hidden {getBadgeColorClass(item.badge?.color)}"
+															>
+																{badgeValue}
+															</Badge>
+														{/if}
+													</button>
+												{/snippet}
+											</Sidebar.MenuButton>
+										</Sidebar.MenuItem>
+									{:else}
+										<SidebarNavLink
+											{item}
+											iconComponent={IconComponent}
+											isActive={isActive(item.path)}
+											variant="outline"
+											showBadge={showBadge}
+											{badgeValue}
+											badgeColorClass={getBadgeColorClass(item.badge?.color)}
+										/>
+									{/if}
 								{/each}
 							</Sidebar.Menu>
 						</Sidebar.GroupContent>

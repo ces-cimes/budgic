@@ -4,14 +4,13 @@
 	import { page } from '$app/stores';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import { AlertCircle, TrendingUp, Award, RefreshCw, Shield, Zap } from '@lucide/svelte';
+	import { TrendingUp, Award, RefreshCw, Zap } from '@lucide/svelte';
 
 	// Shared components
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
 
 	// Insights-specific components
 	import {
-		OverviewTab,
 		PatternsTab,
 		PredictionsTab,
 		BadgesTab
@@ -24,17 +23,15 @@
 	// Services
 	import { insightsService } from '$lib/core/services';
 
-	// Tab configuration (5 tabs per proposal: Alerts | Savings | Patterns | Optimize | Badges)
+	// Tab configuration: Patterns | Optimize | Badges (Alerts → bell panel; Savings merged into Optimize)
 	const insightsTabs: TabConfig[] = [
-		{ id: 'alerts', label: 'Alerts', icon: AlertCircle },
-		{ id: 'savings', label: 'Savings', icon: Shield },
 		{ id: 'patterns', label: 'Patterns', icon: TrendingUp },
 		{ id: 'optimize', label: 'Optimize', icon: Zap },
 		{ id: 'badges', label: 'Badges', icon: Award }
 	];
 
-	// State (default to alerts; support legacy ?tab=overview via effect)
-	let activeTab = $state('alerts');
+	// State (default to patterns; support legacy URL params via effect)
+	let activeTab = $state('patterns');
 	let isLoading = $state(true);
 	let insights = $state<any[]>([]);
 	let error = $state<string | null>(null);
@@ -61,7 +58,8 @@
 	$effect(() => {
 		const urlParams = new URLSearchParams($page.url.search);
 		let tabParam = urlParams.get('tab');
-		if (tabParam === 'overview') tabParam = 'alerts';
+		if (tabParam === 'overview' || tabParam === 'alerts') tabParam = 'patterns';
+		if (tabParam === 'savings') tabParam = 'optimize';
 		if (['recurring', 'predictions', 'learning'].includes(tabParam ?? '')) tabParam = 'patterns';
 		if (tabParam && insightsTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
@@ -148,20 +146,6 @@
 				class="flex-1"
 			>
 				{#snippet children()}
-					<TabContent tabId="alerts" isActive={activeTab === 'alerts'} tabs={insightsTabs}>
-						<OverviewTab {insights} {isLoading} />
-					</TabContent>
-
-					<TabContent tabId="savings" isActive={activeTab === 'savings'} tabs={insightsTabs}>
-						<div class="p-2 sm:p-4">
-							<FeeAvoidancePanel
-								showAllAccounts={true}
-								initialMaxRisks={20}
-								onRecommendationApplied={handleRefresh}
-							/>
-						</div>
-					</TabContent>
-
 					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
 						<div class="space-y-8 px-4 py-5">
 							<section>
@@ -184,7 +168,20 @@
 					</TabContent>
 
 					<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
-						<OptimizeTab />
+						<div class="space-y-6 px-4 py-5">
+							<section>
+								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Fee avoidance</h2>
+								<FeeAvoidancePanel
+									showAllAccounts={true}
+									initialMaxRisks={20}
+									onRecommendationApplied={handleRefresh}
+								/>
+							</section>
+							<section>
+								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Optimize</h2>
+								<OptimizeTab />
+							</section>
+						</div>
 					</TabContent>
 
 					<TabContent tabId="badges" isActive={activeTab === 'badges'} tabs={insightsTabs}>

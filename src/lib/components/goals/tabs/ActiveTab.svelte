@@ -150,7 +150,7 @@
       <h2 class="text-2xl font-bold text-primary">Active Goals</h2>
       <p class="text-muted-foreground">Manage your current financial goals</p>
     </div>
-    <Button.Root onclick={() => goto('/goals/add')}>
+    <Button.Root onclick={() => goto('/plan?tab=goals')}>
       <Plus class="h-4 w-4 mr-2" />
       Add Goal
     </Button.Root>
@@ -354,7 +354,7 @@
     <div class="squircle-4xl squircle-border bg-card py-10 text-center">
       <p class="text-sm text-muted-foreground">No active goals.</p>
       <p class="mt-1 text-xs text-[var(--color-text-tertiary)]">Set a goal to start tracking progress.</p>
-      <a href="/goals/add" class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline">
+      <a href="/plan?tab=goals" class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline">
         Add a goal
       </a>
     </div>

@@ -353,7 +353,7 @@
         <p class="text-muted-foreground mb-6 max-w-md mx-auto">
           As you work on your goals, we'll generate personalized insights and recommendations to help you succeed.
         </p>
-        <Button.Root onclick={() => goto('/goals?tab=active')}>
+        <Button.Root onclick={() => goto('/plan?tab=goals')}>
           View Active Goals
         </Button.Root>
       </Card.Content>

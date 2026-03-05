@@ -9,15 +9,12 @@ export interface NavTabDef {
 }
 
 export const planTabs: NavTabDef[] = [
-	{ id: 'budget', label: 'Budget' },
 	{ id: 'allowance', label: 'Allowance' },
-	{ id: 'goals', label: 'Goals' },
-	{ id: 'categories', label: 'Categories' }
+	{ id: 'budget', label: 'Budget' },
+	{ id: 'goals', label: 'Goals' }
 ];
 
 export const insightsTabs: NavTabDef[] = [
-	{ id: 'alerts', label: 'Alerts' },
-	{ id: 'savings', label: 'Savings' },
 	{ id: 'patterns', label: 'Patterns' },
 	{ id: 'optimize', label: 'Optimize' },
 	{ id: 'badges', label: 'Badges' }
@@ -28,11 +25,11 @@ export const reportsTabs: NavTabDef[] = [
 	{ id: 'trends', label: 'Trends' },
 	{ id: 'categories', label: 'Categories' },
 	{ id: 'compare', label: 'Compare' },
-	{ id: 'reports', label: 'Reports' }
+	{ id: 'saved', label: 'Saved' }
 ];
 
 export const defaultTabByRoute: Record<string, string> = {
-	'/plan': 'budget',
-	'/insights': 'alerts',
+	'/plan': 'allowance',
+	'/insights': 'patterns',
 	'/reports': 'overview'
 };
