@@ -63,12 +63,6 @@
 		alertsPanelStore.closePanel();
 	}
 
-	async function handleMarkAsReadFromViewport(insight: Insight) {
-		await notificationsService.markAsRead(insight.id);
-		await refreshData();
-		window.dispatchEvent(new CustomEvent('alerts-updated'));
-	}
-
 	async function handleMarkAllRead() {
 		await notificationsService.markAllAsRead();
 		await refreshData();
@@ -156,7 +150,6 @@
 								{insight}
 								onClick={handleInsightClick}
 								onDismiss={handleDismiss}
-								onMarkAsRead={handleMarkAsReadFromViewport}
 							/>
 						{/each}
 					</div>
@@ -172,7 +165,6 @@
 								{insight}
 								onClick={handleInsightClick}
 								onDismiss={handleDismiss}
-								onMarkAsRead={handleMarkAsReadFromViewport}
 							/>
 						{/each}
 					</div>

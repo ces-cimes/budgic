@@ -93,10 +93,11 @@
 	function handleCtaClick(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
-		if (insight.actionUrl) {
+		// Use parent handler when provided so alert is marked read and panel can close/navigate
+		if (onClick) {
+			onClick(insight);
+		} else if (insight.actionUrl) {
 			goto(insight.actionUrl);
-		} else {
-			onClick?.(insight);
 		}
 	}
 	
