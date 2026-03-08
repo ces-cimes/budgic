@@ -44,9 +44,18 @@ class NotificationsService {
 	}
 
 	/**
-	 * Initialize the service and start polling for updates
+	 * Initialize the service and start polling for updates.
+	 * Phase 5: Populate fee-risk and negative-allowance alerts into the unified store first.
 	 */
 	async initialize(): Promise<void> {
+		try {
+			const { refreshFeeAndNegativeAllowanceInsights } = await import(
+				'$lib/core/services/alerts-aggregation-service'
+			);
+			await refreshFeeAndNegativeAllowanceInsights();
+		} catch (e) {
+			console.error('Error refreshing alert sources:', e);
+		}
 		await this.refresh();
 		this.startPolling();
 	}

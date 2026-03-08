@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
+  import { periodStore } from '$lib/stores/period-store';
   import { PageLayout } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
   import { 
@@ -79,6 +80,7 @@
   });
 
   onMount(async () => {
+    periodStore.initFromUrl($page.url.search);
     try {
       const preferences = await userService.getUserPreferences();
       userCurrency = preferences?.currency || 'USD';

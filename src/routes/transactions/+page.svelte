@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { openTypePicker } from '$lib/stores/type-picker-store.svelte';
+	import { periodStore } from '$lib/stores/period-store';
 	import { onMount } from 'svelte';
 	import { transactionService, userService, accountService } from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import TransactionList from '$lib/components/transactions/TransactionList.svelte';
+	import type { FilterState } from '$lib/components/transactions/TransactionList.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import * as Popover from '$lib/components/ui/popover/index.ts';
@@ -21,12 +24,34 @@
 	let isLoading = $state(true);
 	let headerAddPopoverOpen = $state(false);
 
+	// Phase 5: shared period state — sync with Reports; URL ?month=YYYY-MM
+	let transactionFilters = $state<FilterState>({
+		searchQuery: '',
+		showPendingOnly: false,
+		dateFilterEnabled: true,
+		groupingMode: 'smart',
+		currentMonth: new Date()
+	});
+
+	function onFiltersChange(newFilters: FilterState) {
+		transactionFilters = newFilters;
+		const d = newFilters.currentMonth;
+		const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+		if (periodStore.month !== ym) {
+			periodStore.month = ym;
+			const url = periodStore.applyToUrl($page.url.pathname, $page.url.search);
+			goto(url, { replaceState: true, noScroll: true });
+		}
+	}
+
 	function handleHeaderAddTypeSelect(type: Transaction['type'], status: Transaction['status']) {
 		headerAddPopoverOpen = false;
 		goto(`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
 	}
 
 	onMount(async () => {
+		periodStore.initFromUrl($page.url.search);
+		transactionFilters = { ...transactionFilters, currentMonth: periodStore.monthDate };
 		try {
 			// Load user currency preference first
 			const preferences = await userService.getUserPreferences();
@@ -127,6 +152,8 @@
 				{accounts}
 				categories={budgetCategories}
 				{userCurrency}
+				filters={transactionFilters}
+				onFiltersChange={onFiltersChange}
 				onTransactionClick={handleTransactionClick}
 				onAddTransaction={() => openTypePicker()}
 				enableFilters={true}

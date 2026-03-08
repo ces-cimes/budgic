@@ -155,6 +155,15 @@ class InsightsService {
     }
 
     /**
+     * Get Critical tier alerts for Home "Needs attention" block (UX_SPEC Phase 5).
+     * Returns up to `limit` unread insights with severity === 'alert'. Low tier never included.
+     */
+    async getCriticalAlertsForHome(limit = 3): Promise<Insight[]> {
+        const critical = await this.getUnreadBySeverity('alert');
+        return critical.slice(0, limit);
+    }
+
+    /**
      * Create a new insight
      */
     async createInsight(data: {

@@ -21,10 +21,10 @@
 	import OptimizeTab from '$lib/components/insights/OptimizeTab.svelte';
 
 	// Services
-	import { insightsService } from '$lib/core/services';
+	import { insightsService, userService } from '$lib/core/services';
 
 	// Tab configuration: Patterns | Optimize | Badges (Alerts → bell panel; Savings merged into Optimize)
-	const insightsTabs: TabConfig[] = [
+	const allInsightsTabs: TabConfig[] = [
 		{ id: 'patterns', label: 'Patterns', icon: TrendingUp },
 		{ id: 'optimize', label: 'Optimize', icon: Zap },
 		{ id: 'badges', label: 'Badges', icon: Award }
@@ -35,20 +35,32 @@
 	let isLoading = $state(true);
 	let insights = $state<any[]>([]);
 	let error = $state<string | null>(null);
+	/** Phase 5: Optimize tab hidden for Beginner maturity */
+	let maturityLevel = $state<'beginner' | 'intermediate' | 'advanced' | 'expert'>('beginner');
+
+	// Visible tabs: hide Optimize for beginner (UX_SPEC Phase 5)
+	const insightsTabs = $derived(
+		maturityLevel === 'beginner'
+			? allInsightsTabs.filter((t) => t.id !== 'optimize')
+			: allInsightsTabs
+	);
 
 	// Derived values
 	const insightsCount = $derived(() => insights.filter((i) => i.isActive).length);
 
 	onMount(async () => {
 		try {
+			const prefs = await userService.getUserPreferences();
+			const level = (prefs as { userMaturityLevel?: string })?.userMaturityLevel ?? 'beginner';
+			maturityLevel = level as 'beginner' | 'intermediate' | 'advanced' | 'expert';
 			// Load insights data
 			await loadInsightsData();
 
 			// Start auto-updates
 			insightsService.startAutoUpdates();
-		} catch (error) {
-			console.error('Error loading insights data:', error);
-			error = error instanceof Error ? error.message : 'Failed to load insights data';
+		} catch (err) {
+			console.error('Error loading insights data:', err);
+			error = err instanceof Error ? err.message : 'Failed to load insights data';
 		} finally {
 			isLoading = false;
 		}
@@ -61,6 +73,8 @@
 		if (tabParam === 'overview' || tabParam === 'alerts') tabParam = 'patterns';
 		if (tabParam === 'savings') tabParam = 'optimize';
 		if (['recurring', 'predictions', 'learning'].includes(tabParam ?? '')) tabParam = 'patterns';
+		// If beginner and URL asks for optimize, show patterns instead
+		if (maturityLevel === 'beginner' && tabParam === 'optimize') tabParam = 'patterns';
 		if (tabParam && insightsTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
 		}

@@ -6,8 +6,8 @@
 		accountService,
 		transactionService,
 		userService,
-		feeAvoidanceService,
-		goalsService
+		goalsService,
+		insightsService
 	} from '$lib/core/services';
 	import { db } from '$lib/core/db';
 	import * as Button from '$lib/components/ui/button/index.ts';
@@ -25,7 +25,7 @@
 	} from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import type { NegativeAllowanceStatus, RecoverySuggestion } from '$lib/core/services/core/negative-allowance-service';
-	import type { FeeRisk } from '$lib/core/services/analytics/fee-avoidance-service';
+	import type { Insight } from '$lib/core/db';
 
 	const { data } = $props<{ data: any }>();
 
@@ -39,7 +39,8 @@
 	let isLoadingAllowance = $state(false);
 	let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
 	let recoverySuggestions = $state<RecoverySuggestion[]>([]);
-	let urgentFeeRisks = $state<FeeRisk[]>([]);
+	/** Critical tier alerts for "Needs attention" (Phase 5: unified alerts, 2–3 max) */
+	let criticalAlerts = $state<Insight[]>([]);
 	let isLoaded = $state(false);
 	let activeGoals = $state<any[]>([]);
 	let thisWeekSpent = $state<number>(0);
@@ -73,7 +74,7 @@
 			);
 
 			await loadGlobalAllowance();
-			await loadUrgentFeeRisks();
+			criticalAlerts = await insightsService.getCriticalAlertsForHome(3);
 			await loadGoalsAndThisWeek();
 		} catch (error) {
 			console.error('Error loading dashboard data:', error);
@@ -138,20 +139,6 @@
 			console.error('Error loading global allowance:', error);
 		} finally {
 			isLoadingAllowance = false;
-		}
-	}
-
-	async function loadUrgentFeeRisks() {
-		try {
-			const allRisks = await feeAvoidanceService.detectFeeRisks({
-				daysAhead: 30,
-				minConfidence: 75
-			});
-			urgentFeeRisks = allRisks
-				.filter((r) => r.likelihood === 'imminent' || r.likelihood === 'high')
-				.slice(0, 3);
-		} catch (error) {
-			console.error('Error loading fee risks:', error);
 		}
 	}
 
@@ -295,8 +282,8 @@
 				</a>
 			</section>
 
-			<!-- ── Urgent alerts ── -->
-			{#if urgentFeeRisks.length > 0 || negativeAllowanceStatus?.isNegative}
+			<!-- ── Needs attention: Critical tier only, 2–3 max (Phase 5 unified alerts) ── -->
+			{#if criticalAlerts.length > 0}
 				<section class="animate-card-enter" style="animation-delay: 120ms">
 					<div class="mb-3 flex items-center justify-between">
 						<h2 class="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
@@ -312,28 +299,19 @@
 						</button>
 					</div>
 					<div class="space-y-2">
-						{#if negativeAllowanceStatus?.isNegative}
+						{#each criticalAlerts as alert (alert.id)}
 							<a
-								href="/plan?tab=allowance"
+								href={alert.actionUrl || '#'}
 								class="flex items-center justify-between squircle-2xl squircle-border px-4 py-3 transition-colors hover:opacity-90"
 								style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);"
 							>
-								<span class="text-sm font-medium text-[var(--color-warm-coral)]">Allowance overspent</span>
-								<span class="text-xs text-muted-foreground">View plan →</span>
-							</a>
-						{/if}
-						{#each urgentFeeRisks.slice(0, 2) as risk (risk.id)}
-							<a
-								href="/accounts/{risk.accountId}"
-								class="flex items-center justify-between squircle-2xl squircle-border bg-card px-4 py-3 transition-colors hover:bg-[var(--color-bg-surface)]"
-							>
 								<div class="min-w-0 flex-1">
-									<div class="text-sm font-medium truncate">{risk.triggerCondition}</div>
-									<div class="text-xs text-muted-foreground">{risk.accountName}</div>
+									<div class="text-sm font-medium text-[var(--color-warm-coral)] truncate">{alert.title}</div>
+									<div class="text-xs text-muted-foreground truncate">{alert.message}</div>
 								</div>
-								<div class="text-amount ml-3 text-[var(--color-warm-coral)] shrink-0">
-									{formatAmount(risk.estimatedAmount, userCurrency)}
-								</div>
+								{#if alert.actionUrl}
+									<span class="text-xs text-muted-foreground shrink-0 ml-2">View →</span>
+								{/if}
 							</a>
 						{/each}
 					</div>
