@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import * as Card from '$lib/components/ui/card/index.ts';
   import * as Button from '$lib/components/ui/button/index.ts';
@@ -17,8 +18,10 @@
     CheckCircle
   } from '@lucide/svelte';
   import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
-  import { goalService } from '$lib/core/services';
+  import { goalService, insightsService } from '$lib/core/services';
   import type { Goal } from '../types';
+  import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
+  import type { Insight } from '$lib/core/db';
 
   interface Props {
     activeGoals: Goal[];
@@ -27,6 +30,40 @@
   }
 
   let { activeGoals, userCurrency, onGoalAction }: Props = $props();
+
+  /** Low-tier (success/info) insights for inline badges on goal cards. Key = goalId. */
+  let inlineInsightsByGoal = $state<Map<string, Insight[]>>(new Map());
+
+  onMount(async () => {
+    try {
+      const lowTier = await insightsService.getLowTierInlineInsights();
+      const byGoal = new Map<string, Insight[]>();
+      for (const i of lowTier) {
+        if (i.goalId) {
+          const list = byGoal.get(i.goalId) ?? [];
+          list.push(i);
+          byGoal.set(i.goalId, list);
+        }
+      }
+      inlineInsightsByGoal = byGoal;
+    } catch {
+      // Non-blocking
+    }
+  });
+
+  async function dismissInlineAlert(insightId: string) {
+    await insightsService.dismissInsight(insightId);
+    const next = await insightsService.getLowTierInlineInsights();
+    const byGoal = new Map<string, Insight[]>();
+    for (const i of next) {
+      if (i.goalId) {
+        const list = byGoal.get(i.goalId) ?? [];
+        list.push(i);
+        byGoal.set(i.goalId, list);
+      }
+    }
+    inlineInsightsByGoal = byGoal;
+  }
 
   function getCategoryIcon(category: string) {
     const icons: Record<string, string> = {
@@ -169,11 +206,18 @@
                 <div class="flex items-center space-x-4">
                   <div class="text-3xl">{getCategoryIcon(goal.category)}</div>
                   <div>
-                    <div class="flex items-center gap-2 mb-1">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 class="text-lg font-semibold text-primary">{goal.name}</h3>
                       <Badge class={getPriorityColor(goal.priority)}>
                         {goal.priority}
                       </Badge>
+                      {#if (inlineInsightsByGoal.get(goal.id)?.length ?? 0) > 0}
+                        <InlineAlertBadge
+                          insights={inlineInsightsByGoal.get(goal.id)!}
+                          onDismiss={dismissInlineAlert}
+                          label="at risk"
+                        />
+                      {/if}
                     </div>
                     {#if goal.description}
                       <p class="text-sm text-muted-foreground">{goal.description}</p>

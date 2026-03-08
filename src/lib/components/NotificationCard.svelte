@@ -10,9 +10,11 @@
 		insight: Insight;
 		onDismiss?: (insight: Insight) => void;
 		onClick?: (insight: Insight) => void;
+		/** When provided, card will auto-mark as read after 1s in viewport (IntersectionObserver). */
+		onMarkAsRead?: (insight: Insight) => void;
 	}
 
-	const { insight, onDismiss, onClick }: Props = $props();
+	const { insight, onDismiss, onClick, onMarkAsRead }: Props = $props();
 
 	let isExpanded = $state(false);
 	let swipeOffset = $state(0);
@@ -20,6 +22,8 @@
 	let isSwiping = $state(false);
 	let dismissConfirmOpen = $state(false);
 	let containerElement: HTMLElement;
+	let cardRootElement: HTMLElement | undefined;
+	let hasFiredMarkAsRead = $state(false);
 
 	const SWIPE_THRESHOLD = 80;
 	const isCritical = $derived(insight.severity === 'alert');
@@ -142,9 +146,44 @@
 	const Icon = $derived(getSeverityIcon(insight.severity));
 	const iconColor = $derived(getSeverityColor(insight.severity));
 	const relativeTime = $derived(getRelativeTime(insight.createdAt));
+
+	// Auto-mark as read after 1s in viewport (IntersectionObserver). Badge updates in real time.
+	$effect(() => {
+		const el = cardRootElement;
+		const callback = onMarkAsRead;
+		if (!el || !callback || hasFiredMarkAsRead) return;
+
+		let timeoutId: ReturnType<typeof setTimeout> | null = null;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				const entry = entries[0];
+				if (!entry || !callback) return;
+				if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+					timeoutId = setTimeout(() => {
+						timeoutId = null;
+						hasFiredMarkAsRead = true;
+						callback(insight);
+						observer.disconnect();
+					}, 1000);
+				} else {
+					if (timeoutId) {
+						clearTimeout(timeoutId);
+						timeoutId = null;
+					}
+				}
+			},
+			{ threshold: 0.5, rootMargin: '0px' }
+		);
+		observer.observe(el);
+
+		return () => {
+			if (timeoutId) clearTimeout(timeoutId);
+			observer.disconnect();
+		};
+	});
 </script>
 
-<div class="relative select-none overflow-hidden rounded-lg">
+<div bind:this={cardRootElement} class="relative select-none overflow-hidden rounded-lg">
 	<!-- Swipe indicator background (stays in place behind the card) -->
 	<div class="absolute inset-0 pointer-events-none z-0" style="background: oklch(from var(--destructive) l c h / 0.2);">
 		<div class="flex items-center justify-end h-full px-6 transition-opacity duration-150 ease-out" style="opacity: {Math.abs(swipeOffset) > SWIPE_THRESHOLD ? 1 : 0};">

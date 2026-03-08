@@ -2830,6 +2830,21 @@ export class BudgicDB extends Dexie {
 			.toArray();
 	}
 
+	/**
+	 * Get low-tier (success/info) insights for inline display on Budget/Goals. Never shown in bell panel.
+	 */
+	async getLowTierInlineInsights(): Promise<Insight[]> {
+		return await this.insights
+			.filter(
+				(insight) =>
+					insight.isActive &&
+					!insight.dismissedAt &&
+					(insight.severity === 'success' || insight.severity === 'info') &&
+					(insight.categoryId != null || insight.goalId != null)
+			)
+			.toArray();
+	}
+
 	async getUnreadInsights(): Promise<Insight[]> {
 		return await this.insights
 			.filter(

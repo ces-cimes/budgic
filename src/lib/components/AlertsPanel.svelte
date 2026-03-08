@@ -54,12 +54,19 @@
 	async function handleInsightClick(insight: Insight) {
 		await notificationsService.markAsRead(insight.id);
 		await refreshData();
+		window.dispatchEvent(new CustomEvent('alerts-updated'));
 		if (insight.actionUrl) {
 			await goto(insight.actionUrl);
 		} else {
 			await goto('/insights');
 		}
 		alertsPanelStore.closePanel();
+	}
+
+	async function handleMarkAsReadFromViewport(insight: Insight) {
+		await notificationsService.markAsRead(insight.id);
+		await refreshData();
+		window.dispatchEvent(new CustomEvent('alerts-updated'));
 	}
 
 	async function handleMarkAllRead() {
@@ -149,6 +156,7 @@
 								{insight}
 								onClick={handleInsightClick}
 								onDismiss={handleDismiss}
+								onMarkAsRead={handleMarkAsReadFromViewport}
 							/>
 						{/each}
 					</div>
@@ -164,6 +172,7 @@
 								{insight}
 								onClick={handleInsightClick}
 								onDismiss={handleDismiss}
+								onMarkAsRead={handleMarkAsReadFromViewport}
 							/>
 						{/each}
 					</div>

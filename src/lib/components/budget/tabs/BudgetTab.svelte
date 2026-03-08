@@ -18,10 +18,12 @@
   } from '@lucide/svelte';
   import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
   import { goto } from '$app/navigation';
-  import { budgetService, transactionService } from '$lib/core/services';
+  import { budgetService, transactionService, insightsService } from '$lib/core/services';
   import type { BudgetTabProps, PlanningData } from '../types.js';
   import type { Category } from '$lib/core/db';
   import CategoriesTabContent from '$lib/components/categories/CategoriesTabContent.svelte';
+  import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
+  import type { Insight } from '$lib/core/db';
 
   const { 
     userCurrency, 
@@ -34,8 +36,10 @@
   let budgetCategories = $state<any[]>([]);
   let isLoading = $state(true);
   let error = $state<string | null>(null);
+  /** Low-tier (success/info) insights for inline badges on category rows. Key = categoryId. */
+  let inlineInsightsByCategory = $state<Map<string, Insight[]>>(new Map());
 
-  // Load real budget data
+  // Load real budget data and inline alerts
   onMount(async () => {
     try {
       isLoading = true;
@@ -76,7 +80,36 @@
     } finally {
       isLoading = false;
     }
+
+    try {
+      const lowTier = await insightsService.getLowTierInlineInsights();
+      const byCategory = new Map<string, Insight[]>();
+      for (const i of lowTier) {
+        if (i.categoryId) {
+          const list = byCategory.get(i.categoryId) ?? [];
+          list.push(i);
+          byCategory.set(i.categoryId, list);
+        }
+      }
+      inlineInsightsByCategory = byCategory;
+    } catch {
+      // Non-blocking
+    }
   });
+
+  async function dismissInlineAlert(insightId: string) {
+    await insightsService.dismissInsight(insightId);
+    const next = await insightsService.getLowTierInlineInsights();
+    const byCategory = new Map<string, Insight[]>();
+    for (const i of next) {
+      if (i.categoryId) {
+        const list = byCategory.get(i.categoryId) ?? [];
+        list.push(i);
+        byCategory.set(i.categoryId, list);
+      }
+    }
+    inlineInsightsByCategory = byCategory;
+  }
 
   function getCategoryColor(tier: Category['waterfallTier']): string {
     switch (tier) {
@@ -271,12 +304,19 @@
         <Card class="border-border {category.borderColor}">
           <CardHeader class="pb-3">
             <div class="flex items-start justify-between">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <CategoryIcon size={16} class={category.color} />
                 <CardTitle class="text-lg">{category.name}</CardTitle>
                 <Badge variant="outline" class="text-xs">
                   {category.waterfallTier}
                 </Badge>
+                {#if (inlineInsightsByCategory.get(category.id)?.length ?? 0) > 0}
+                  <InlineAlertBadge
+                    insights={inlineInsightsByCategory.get(category.id)!}
+                    onDismiss={dismissInlineAlert}
+                    label="rising"
+                  />
+                {/if}
               </div>
               {#if category.allocated > 0}
                 <Badge variant={getStatusBadgeVariant(category)} class="text-xs">

@@ -140,6 +140,13 @@ class InsightsService {
     }
 
     /**
+     * Get low-tier (success/info) insights for inline display on Budget/Goals. Never in bell panel.
+     */
+    async getLowTierInlineInsights(): Promise<Insight[]> {
+        return await db.getLowTierInlineInsights();
+    }
+
+    /**
      * Get unread alerts count (severity === 'alert')
      */
     async getUnreadAlertsCount(): Promise<number> {
@@ -304,7 +311,7 @@ class InsightsService {
                         message: `${predictionCount} new financial prediction${predictionCount !== 1 ? 's' : ''} available. Check the Insights page to view them.`,
                         actionable: true,
                         actionText: 'View Predictions',
-                        actionUrl: '/insights?tab=predictions',
+                        actionUrl: '/insights?tab=patterns',
                         isActive: true,
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString(),

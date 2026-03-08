@@ -15,7 +15,10 @@
 		updateInterval = setInterval(() => {
 			refreshData();
 		}, 30 * 1000);
+		const onAlertsUpdated = () => refreshData();
+		window.addEventListener('alerts-updated', onAlertsUpdated);
 		return () => {
+			window.removeEventListener('alerts-updated', onAlertsUpdated);
 			notificationsService.stopPolling();
 			if (updateInterval) clearInterval(updateInterval);
 		};
