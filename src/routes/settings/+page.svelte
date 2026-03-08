@@ -9,7 +9,7 @@
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
   import {
-    User, Shield, Palette, DollarSign, Navigation, Layout, Bell,
+    User, Shield, Palette, DollarSign, Navigation, Bell,
     SlidersHorizontal, Database, ChevronRight
   } from '@lucide/svelte';
 
@@ -142,8 +142,7 @@
       items: [
         { name: 'Display', description: 'Theme, language, locale', Icon: Palette, href: '/settings/display' },
         { name: 'Currency', description: 'Currencies and exchange rates', Icon: DollarSign, href: '/settings/currency' },
-        { name: 'Navigation', description: 'Nav order and visibility', Icon: Navigation, href: '/settings/navigation' },
-        { name: 'Sidebar', description: 'Footer info cards (balance, allowance)', Icon: Layout, href: '/settings/sidebar' },
+        { name: 'Navigation', description: 'Nav order, visibility, and widget rotation', Icon: Navigation, href: '/settings/navigation' },
         { name: 'Notifications', description: 'Notification preferences', Icon: Bell, href: '/settings/notifications' }
       ]
     },

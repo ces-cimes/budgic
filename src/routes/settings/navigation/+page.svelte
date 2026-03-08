@@ -1,6 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
+	import { userService } from '$lib/core/services';
+	import {
+		SIDEBAR_FOOTER_CARDS,
+		SIDEBAR_FOOTER_CARD_IDS,
+		DEFAULT_SIDEBAR_FOOTER_CARDS,
+		type SidebarFooterCardId
+	} from '$lib/config/sidebar-footer-cards';
 	import { Switch } from '$lib/components/ui/switch/index.ts';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
@@ -26,9 +33,17 @@
 	let loading = $state(true);
 	let saving = $state(false);
 
-	// Drag and drop state
+	// Drag and drop state (nav items)
 	let draggedItem = $state<any | null>(null);
 	let dragOverIndex = $state<number | null>(null);
+
+	// Widget rotation (formerly sidebar page)
+	let widgetLoading = $state(true);
+	let widgetSaving = $state(false);
+	let widgetError = $state<string | null>(null);
+	let enabledWidgetIds = $state<SidebarFooterCardId[]>([]);
+	let widgetDraggedId = $state<SidebarFooterCardId | null>(null);
+	let widgetDragOverIndex = $state<number | null>(null);
 
 	async function loadItems() {
 		loading = true;
@@ -129,8 +144,95 @@
 		}
 	}
 
+	// --- Widget rotation (Slot A) ---
+	async function loadWidgets() {
+		widgetLoading = true;
+		widgetError = null;
+		try {
+			const prefs = await userService.getUserPreferences();
+			const raw = prefs?.sidebarFooterCards;
+			if (Array.isArray(raw) && raw.length > 0) {
+				const valid = raw.filter((id): id is SidebarFooterCardId =>
+					SIDEBAR_FOOTER_CARD_IDS.includes(id as SidebarFooterCardId)
+				);
+				enabledWidgetIds = valid.filter((id, i, arr) => arr.indexOf(id) === i);
+			} else {
+				enabledWidgetIds = [...DEFAULT_SIDEBAR_FOOTER_CARDS];
+			}
+		} catch (err) {
+			widgetError = 'Failed to load widget settings';
+			console.error(err);
+		} finally {
+			widgetLoading = false;
+		}
+	}
+
+	function setWidgetEnabled(id: SidebarFooterCardId, checked: boolean) {
+		if (checked) {
+			if (enabledWidgetIds.includes(id)) return;
+			enabledWidgetIds = [...enabledWidgetIds, id];
+		} else {
+			enabledWidgetIds = enabledWidgetIds.filter((x) => x !== id);
+		}
+		saveWidgetOrder();
+	}
+
+	async function saveWidgetOrder() {
+		if (widgetSaving) return;
+		widgetSaving = true;
+		widgetError = null;
+		try {
+			await userService.updateUserPreferences({ sidebarFooterCards: enabledWidgetIds });
+			toast.success('Widget order saved');
+		} catch (err) {
+			widgetError = 'Failed to save';
+			toast.error('Failed to save widget settings');
+			console.error(err);
+		} finally {
+			widgetSaving = false;
+		}
+	}
+
+	function widgetDragStart(_e: DragEvent, id: SidebarFooterCardId) {
+		widgetDraggedId = id;
+	}
+
+	function widgetDragOver(e: DragEvent, index: number) {
+		e.preventDefault();
+		widgetDragOverIndex = index;
+	}
+
+	function widgetDragEnd() {
+		widgetDraggedId = null;
+		widgetDragOverIndex = null;
+	}
+
+	async function widgetDrop(e: DragEvent, targetIndex: number) {
+		e.preventDefault();
+		if (widgetDraggedId == null) return;
+		const fromIndex = enabledWidgetIds.indexOf(widgetDraggedId);
+		if (fromIndex === targetIndex) {
+			widgetDraggedId = null;
+			widgetDragOverIndex = null;
+			return;
+		}
+		const next = [...enabledWidgetIds];
+		const [removed] = next.splice(fromIndex, 1);
+		next.splice(targetIndex, 0, removed);
+		enabledWidgetIds = next;
+		widgetDraggedId = null;
+		widgetDragOverIndex = null;
+		await saveWidgetOrder();
+	}
+
+	function resetWidgetsToDefaults() {
+		enabledWidgetIds = [...DEFAULT_SIDEBAR_FOOTER_CARDS];
+		saveWidgetOrder();
+	}
+
 	onMount(() => {
 		loadItems();
+		loadWidgets();
 	});
 </script>
 
@@ -212,6 +314,77 @@
 			>
 				Reset to defaults
 			</button>
+
+			<!-- Section 2: Widget rotation (Slot A in desktop sidebar) -->
+			<div class="pt-8 border-t border-border mt-8">
+				<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3 px-1">Widget rotation</h2>
+				<p class="text-xs text-[var(--color-text-tertiary)] mb-4 px-1">Choose which widgets appear in the desktop sidebar and their order. The first enabled widget is the default.</p>
+				{#if widgetError}
+					<div class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3 mb-4">
+						<p class="text-sm text-[var(--color-warm-coral)]">{widgetError}</p>
+					</div>
+				{/if}
+				{#if widgetLoading}
+					<div class="space-y-2">
+						{#each [1,2,3] as _}
+							<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+						{/each}
+					</div>
+				{:else}
+					<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+						<div class="divide-y divide-border">
+							{#each enabledWidgetIds as id, index (`enabled-${id}`)}
+								{@const meta = SIDEBAR_FOOTER_CARDS[id]}
+								<div
+									class="flex items-center gap-3 px-4 py-3 cursor-move transition-colors {widgetDragOverIndex === index && widgetDraggedId ? 'bg-[var(--color-amber-subtle)]' : 'hover:bg-[var(--color-bg-surface)]'}"
+									draggable="true"
+									ondragstart={(e) => widgetDragStart(e, id)}
+									ondragover={(e) => widgetDragOver(e, index)}
+									ondrop={(e) => widgetDrop(e, index)}
+									ondragend={widgetDragEnd}
+									role="listitem"
+								>
+									<GripVertical class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
+									<div class="min-w-0 flex-1">
+										<p class="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</p>
+										<p class="text-xs text-[var(--color-text-tertiary)]">{meta.description}</p>
+									</div>
+									<Switch
+										checked={true}
+										onCheckedChange={(c) => setWidgetEnabled(id, !c)}
+										disabled={widgetSaving}
+										aria-label="Hide {meta.label} from sidebar"
+									/>
+								</div>
+							{/each}
+							{#each SIDEBAR_FOOTER_CARD_IDS.filter((id) => !enabledWidgetIds.includes(id)) as id (`disabled-${id}`)}
+								{@const meta = SIDEBAR_FOOTER_CARDS[id]}
+								<div class="flex items-center gap-3 px-4 py-3 opacity-50" role="listitem">
+									<span class="size-4 shrink-0"></span>
+									<div class="min-w-0 flex-1">
+										<p class="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</p>
+										<p class="text-xs text-[var(--color-text-tertiary)]">{meta.description}</p>
+									</div>
+									<Switch
+										checked={false}
+										onCheckedChange={(c) => setWidgetEnabled(id, c)}
+										disabled={widgetSaving}
+										aria-label="Show {meta.label} in sidebar"
+									/>
+								</div>
+							{/each}
+						</div>
+					</div>
+					<button
+						type="button"
+						onclick={resetWidgetsToDefaults}
+						disabled={widgetSaving}
+						class="mt-4 rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+					>
+						Reset widgets to defaults
+					</button>
+				{/if}
+			</div>
 		{/if}
 	</div>
 </PageLayout>
