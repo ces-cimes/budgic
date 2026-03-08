@@ -9,7 +9,7 @@
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
   import {
-    User, Shield, Palette, DollarSign, Navigation, Bell,
+    User, Palette, DollarSign, Navigation, Bell,
     SlidersHorizontal, Database, ChevronRight
   } from '@lucide/svelte';
 
@@ -133,8 +133,7 @@
     {
       title: 'Personal',
       items: [
-        { name: 'Profile', description: 'Name, avatar, personal info', Icon: User, href: '/settings/profile' },
-        { name: 'Security & privacy', description: 'PIN, biometric, privacy toggles', Icon: Shield, href: '/settings/security' }
+        { name: 'Profile', description: 'Name, experience level, privacy & data', Icon: User, href: '/settings/profile' }
       ]
     },
     {

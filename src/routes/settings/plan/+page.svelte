@@ -1,16 +1,19 @@
 <script lang="ts">
-  import { goto } from '$app/navigation';
-  import { userService } from '$lib/core/services/index.ts';
+  import { userService, occasionService } from '$lib/core/services/index.ts';
   import type { NegativeAllowanceHandling } from '$lib/core/services/core/negative-allowance-service';
+  import type { Occasion } from '$lib/core/db';
   import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger
   } from '$lib/components/ui/select/index.ts';
+  import { Switch } from '$lib/components/ui/switch/index.ts';
   import { onMount } from 'svelte';
   import Header from '$lib/components/Header.svelte';
   import { PageLayout } from '$lib/components/layouts';
+  import { formatTransactionAmount } from '$lib/utils/currency-utils';
+  import { CalendarDays, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 
   const NEGATIVE_ALLOWANCE_LABELS: Record<NegativeAllowanceHandling, string> = {
     block_with_warning: 'Block with warning – alert and require override',
@@ -30,6 +33,19 @@
   let rolloverSurplusHybridRatio = $state(50);
   let rolloverDeficitBehavior = $state<'reduce_next_period' | 'borrow_from_other' | 'one_time_exception'>('reduce_next_period');
   let savingsOpportunityMinSurplus = $state<string>('');
+
+  // Occasions (merged from /settings/occasions)
+  let occasions = $state<Occasion[]>([]);
+  let occasionsLoading = $state(false);
+  let occasionsDetecting = $state(false);
+  let occasionsError = $state<string | null>(null);
+  let occasionsSuccess = $state<string | null>(null);
+  let showAddOccasionForm = $state(false);
+  let addOccasionTitle = $state('');
+  let addOccasionType = $state<'weekly' | 'monthly' | 'annual'>('weekly');
+  let addOccasionDayOfWeek = $state(5);
+  let addOccasionExpectedDelta = $state(0);
+  let addOccasionCurrency = $state('USD');
 
   onMount(async () => {
     try {
@@ -53,7 +69,93 @@
     } finally {
       isLoading = false;
     }
+    loadOccasions();
   });
+
+  async function loadOccasions() {
+    occasionsLoading = true;
+    try {
+      occasions = await occasionService.getOccasions(undefined, { includeInactive: true });
+    } catch (e) {
+      occasionsError = e instanceof Error ? e.message : 'Failed to load occasions';
+    } finally {
+      occasionsLoading = false;
+    }
+  }
+
+  async function detectOccasionsFromHistory() {
+    occasionsDetecting = true;
+    occasionsError = null;
+    occasionsSuccess = null;
+    try {
+      const created = await occasionService.detectOccasionsFromTransactions(undefined, {
+        daysLookback: 180,
+        minConfidence: 65
+      });
+      await loadOccasions();
+      occasionsSuccess =
+        created.length > 0
+          ? `Detected ${created.length} occasion(s) from your transaction history.`
+          : 'No new occasions detected. Try again with more transaction history.';
+    } catch (e) {
+      occasionsError = e instanceof Error ? e.message : 'Detection failed';
+    } finally {
+      occasionsDetecting = false;
+    }
+  }
+
+  async function addOccasionSubmit() {
+    if (!addOccasionTitle.trim()) return;
+    occasionsError = null;
+    try {
+      let pattern: string;
+      if (addOccasionType === 'weekly') {
+        pattern = JSON.stringify({ type: 'weekly', dayOfWeek: addOccasionDayOfWeek });
+      } else if (addOccasionType === 'monthly') {
+        pattern = JSON.stringify({ type: 'monthly', weekOfMonth: 1, dayOfWeek: addOccasionDayOfWeek });
+      } else {
+        pattern = JSON.stringify({ type: 'annual', month: 12, dayOfMonth: 25 });
+      }
+      await occasionService.createOccasion({
+        title: addOccasionTitle.trim(),
+        occasionType: addOccasionType,
+        pattern,
+        expectedAmountDelta: addOccasionExpectedDelta,
+        currency: addOccasionCurrency,
+        source: 'user_defined'
+      });
+      showAddOccasionForm = false;
+      addOccasionTitle = '';
+      addOccasionExpectedDelta = 0;
+      await loadOccasions();
+      occasionsSuccess = 'Occasion added.';
+    } catch (e) {
+      occasionsError = e instanceof Error ? e.message : 'Failed to add';
+    }
+  }
+
+  async function toggleOccasionActive(o: Occasion) {
+    await occasionService.updateOccasion(o.id, { isActive: !o.isActive });
+    await loadOccasions();
+  }
+
+  async function deleteOccasion(id: string) {
+    await occasionService.deleteOccasion(id);
+    await loadOccasions();
+  }
+
+  function getOccasionPatternLabel(o: Occasion): string {
+    try {
+      const p = JSON.parse(o.pattern);
+      if (p.type === 'weekly' && p.dayOfWeek != null) {
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        return days[p.dayOfWeek];
+      }
+      if (p.type === 'monthly') return 'Monthly';
+      if (p.type === 'annual') return `Annual (${p.month}/${p.dayOfMonth ?? 1})`;
+    } catch {}
+    return o.occasionType;
+  }
 
   async function save() {
     if (isSaving) return;
@@ -218,19 +320,140 @@
           </div>
         </div>
 
-        <!-- Occasions link -->
-        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] px-5 py-4 flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-[var(--color-text-primary)]">Occasions</p>
-            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Recurring spending events that adjust your allowance</p>
+        <!-- Occasions (merged from /settings/occasions) -->
+        <div id="occasions" class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+          <div class="px-5 py-3 border-b border-border">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Occasions</h2>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">Recurring spending events adjust your allowance so you can plan ahead.</p>
           </div>
-          <button
-            type="button"
-            onclick={() => goto('/settings/occasions')}
-            class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)]"
-          >
-            Manage
-          </button>
+          <div class="px-5 py-4 space-y-4">
+            {#if occasionsError}
+              <div class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3">
+                <p class="text-sm text-[var(--color-warm-coral)]">{occasionsError}</p>
+              </div>
+            {/if}
+            {#if occasionsSuccess}
+              <div class="rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-4 py-3">
+                <p class="text-sm text-[var(--color-sage-green)]">{occasionsSuccess}</p>
+              </div>
+            {/if}
+            <div class="flex gap-2">
+              <button
+                type="button"
+                onclick={detectOccasionsFromHistory}
+                disabled={occasionsDetecting}
+                class="flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+              >
+                <RefreshCw class="size-3.5" />
+                {occasionsDetecting ? 'Detecting…' : 'Detect from history'}
+              </button>
+              <button
+                type="button"
+                onclick={() => (showAddOccasionForm = !showAddOccasionForm)}
+                class="flex items-center gap-1.5 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] px-4 py-2 text-sm font-medium text-[var(--color-amber)] transition-colors"
+              >
+                <Plus class="size-3.5" />
+                Add occasion
+              </button>
+            </div>
+            {#if showAddOccasionForm}
+              <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] overflow-hidden">
+                <div class="px-4 py-2.5 border-b border-border">
+                  <h3 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">New occasion</h3>
+                </div>
+                <div class="px-4 py-4 space-y-4">
+                  <div class="space-y-1.5">
+                    <label for="add-occasion-title" class="text-sm font-medium text-[var(--color-text-primary)]">Title</label>
+                    <input
+                      id="add-occasion-title"
+                      bind:value={addOccasionTitle}
+                      placeholder="e.g. Friday nights"
+                      class="w-full max-w-xs rounded-xl border border-border bg-[var(--color-bg-tertiary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+                    />
+                  </div>
+                  <div class="flex flex-wrap gap-3">
+                    <div class="space-y-1.5">
+                      <p class="text-xs font-medium text-[var(--color-text-secondary)]">Type</p>
+                      <Select type="single" value={addOccasionType} onValueChange={(v) => v && (addOccasionType = v as typeof addOccasionType)}>
+                        <SelectTrigger class="w-36">
+                          {addOccasionType === 'weekly' ? 'Weekly' : addOccasionType === 'monthly' ? 'Monthly' : 'Annual'}
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="annual">Annual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {#if addOccasionType === 'weekly'}
+                      <div class="space-y-1.5">
+                        <p class="text-xs font-medium text-[var(--color-text-secondary)]">Day</p>
+                        <Select type="single" value={String(addOccasionDayOfWeek)} onValueChange={(v) => v && (addOccasionDayOfWeek = parseInt(v, 10))}>
+                          <SelectTrigger class="w-32">
+                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][addOccasionDayOfWeek]}
+                          </SelectTrigger>
+                          <SelectContent>
+                            {#each [0, 1, 2, 3, 4, 5, 6] as d}
+                              <SelectItem value={String(d)}>{['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]}</SelectItem>
+                            {/each}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    {/if}
+                    <div class="space-y-1.5">
+                      <label for="add-occasion-delta" class="text-xs font-medium text-[var(--color-text-secondary)]">Expected change ({addOccasionCurrency})</label>
+                      <input
+                        id="add-occasion-delta"
+                        type="number"
+                        bind:value={addOccasionExpectedDelta}
+                        placeholder="0"
+                        class="w-24 rounded-xl border border-border bg-[var(--color-bg-tertiary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+                      />
+                    </div>
+                  </div>
+                  <button type="button" onclick={addOccasionSubmit} class="rounded-xl bg-[var(--color-amber)] px-5 py-2 text-sm font-semibold text-[var(--color-bg-primary)]">
+                    Add
+                  </button>
+                </div>
+              </div>
+            {/if}
+            {#if occasionsLoading}
+              <div class="space-y-2">
+                {#each [1, 2, 3] as _}
+                  <div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-surface)]"></div>
+                {/each}
+              </div>
+            {:else if occasions.length === 0}
+              <div class="rounded-xl border border-border bg-[var(--color-bg-surface)] p-8 text-center">
+                <CalendarDays class="mx-auto mb-3 size-8 text-[var(--color-text-tertiary)]" />
+                <p class="text-sm text-[var(--color-text-secondary)]">No occasions yet.</p>
+                <p class="text-xs text-[var(--color-text-tertiary)] mt-1">Detect from history or add your own.</p>
+              </div>
+            {:else}
+              <div class="divide-y divide-border rounded-xl border border-border bg-[var(--color-bg-surface)] overflow-hidden">
+                {#each occasions as o}
+                  <div class="flex items-center gap-3 px-4 py-3">
+                    <Switch checked={o.isActive} onCheckedChange={() => toggleOccasionActive(o)} />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-[var(--color-text-primary)]">{o.title}</p>
+                      <p class="text-xs text-[var(--color-text-tertiary)]">
+                        {getOccasionPatternLabel(o)} · {o.source === 'detected' ? `Detected (${o.confidence}%)` : 'User-defined'}
+                        · {formatTransactionAmount(o.expectedAmountDelta, o.currency)}/occurrence
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onclick={() => deleteOccasion(o.id)}
+                      class="shrink-0 p-1.5 text-[var(--color-warm-coral)] hover:bg-[var(--color-warm-coral)]/10 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 class="size-4" />
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
         </div>
       </div>
     {/if}

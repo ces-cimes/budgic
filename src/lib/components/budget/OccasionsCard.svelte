@@ -50,7 +50,7 @@
 	});
 
 	function openManage() {
-		goto('/settings/occasions');
+		goto('/settings/plan#occasions');
 	}
 </script>
 
