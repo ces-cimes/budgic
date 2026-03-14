@@ -24,13 +24,13 @@
 		{#snippet child({ props })}
 			<a
 				href={item.path}
-				class="group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group-data-[collapsible=icon]:justify-center
+				class="group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:min-w-0
 					{isActive
 						? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)] font-semibold'
 						: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]'}"
 				{...props}
 			>
-				<div class="relative flex-shrink-0">
+				<div class="relative flex-shrink-0 flex items-center justify-center">
 					<IconComponent class="w-4 h-4" />
 				</div>
 				<span class="flex-1 text-sm truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
