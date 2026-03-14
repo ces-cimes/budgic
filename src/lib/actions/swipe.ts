@@ -31,6 +31,8 @@ export function swipe(
 	let currentY = 0;
 	let isSwiping = false;
 	let swipeStarted = false;
+	// Once vertical scroll intent is detected, this gesture is scroll-only — don't start horizontal swipe
+	let verticalLocked = false;
 
 	const handleStart = (e: Event) => {
 		// Don't interfere with drag and drop - check if the target is draggable or inside a draggable element
@@ -52,6 +54,7 @@ export function swipe(
 			currentY = startY;
 			isSwiping = false;
 			swipeStarted = false;
+			verticalLocked = false;
 		} else if (typeof MouseEvent !== 'undefined' && e instanceof MouseEvent) {
 			startX = e.clientX;
 			startY = e.clientY;
@@ -59,6 +62,7 @@ export function swipe(
 			currentY = startY;
 			isSwiping = false;
 			swipeStarted = false;
+			verticalLocked = false;
 		}
 	};
 
@@ -87,15 +91,22 @@ export function swipe(
 		const deltaX = clientX - startX;
 		const deltaY = clientY - startY;
 
-		// Detect swipe based on axis
+		// Axis lock: first gesture to dominate (past threshold) wins — horizontal = card swipe, vertical = panel scroll.
+		const lockThreshold = 8;
+		const horizontalDominates = axis === 'horizontal' && Math.abs(deltaX) > Math.abs(deltaY);
+		const verticalDominates = axis === 'horizontal' && Math.abs(deltaY) > Math.abs(deltaX);
+
+		// If user clearly started scrolling vertically, lock this gesture to scroll — don't start horizontal swipe even if they then move horizontally.
+		if (!verticalLocked && verticalDominates && Math.abs(deltaY) >= lockThreshold) {
+			verticalLocked = true;
+		}
+
 		if (!isSwiping) {
-			if (axis === 'horizontal' && Math.abs(deltaX) > 10) {
-				if (Math.abs(deltaX) > Math.abs(deltaY)) {
-					isSwiping = true;
-					if (!swipeStarted) {
-						swipeStarted = true;
-						options.onSwipeStart?.();
-					}
+			if (axis === 'horizontal' && Math.abs(deltaX) > 10 && horizontalDominates && !verticalLocked) {
+				isSwiping = true;
+				if (!swipeStarted) {
+					swipeStarted = true;
+					options.onSwipeStart?.();
 				}
 			} else if (axis === 'vertical' && Math.abs(deltaY) > 10) {
 				if (Math.abs(deltaY) > Math.abs(deltaX)) {
@@ -108,13 +119,17 @@ export function swipe(
 			}
 		}
 
-		if (isSwiping) {
+		// Prevent panel scroll only when we've committed to horizontal swipe (never when verticalLocked).
+		const shouldLockScroll = isSwiping || (axis === 'horizontal' && horizontalDominates && !verticalLocked && Math.abs(deltaX) >= lockThreshold);
+		if (shouldLockScroll) {
 			e.preventDefault();
-			e.stopPropagation(); // Prevent drawer from closing
-			currentX = clientX;
-			currentY = clientY;
-			const distance = axis === 'horizontal' ? deltaX : deltaY;
-			options.onSwipeMove?.(distance);
+			if (isSwiping) {
+				e.stopPropagation(); // Prevent drawer from closing
+				currentX = clientX;
+				currentY = clientY;
+				const distance = axis === 'horizontal' ? deltaX : deltaY;
+				options.onSwipeMove?.(distance);
+			}
 		}
 	};
 
@@ -167,6 +182,7 @@ export function swipe(
 		currentY = 0;
 		isSwiping = false;
 		swipeStarted = false;
+		verticalLocked = false;
 	};
 
 	node.addEventListener('mousedown', handleStart);

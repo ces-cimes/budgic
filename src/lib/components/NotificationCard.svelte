@@ -27,33 +27,39 @@
 
 	const SWIPE_THRESHOLD = 80;
 	const isCritical = $derived(insight.severity === 'alert');
-	
+
+	function getMaxSwipeTravel() {
+		return containerElement?.offsetWidth ?? 400;
+	}
+
 	function handleSwipeStart() {
 		isSwiping = true;
 	}
-	
+
 	function handleSwipeMove(distance: number) {
-		// If we've already swiped past threshold, allow movement in any direction
-		// Otherwise, only allow left swipe and show visual feedback after threshold
-		if (Math.abs(swipeOffset) > SWIPE_THRESHOLD || (distance < 0 && Math.abs(distance) > SWIPE_THRESHOLD)) {
-			// Restrict to only left swipe direction (prevent swiping right from rest position)
-			swipeOffset = Math.min(distance, 0);
-		}
+		// Always follow the finger so canceling (dragging back) works; clamp to max travel
+		const maxTravel = getMaxSwipeTravel();
+		swipeOffset = Math.max(-maxTravel, Math.min(maxTravel, distance));
 	}
-	
+
 	function handleSwipeEnd(direction: SwipeDirection | null) {
 		if (direction === 'left') {
-			// Animate out and dismiss
 			isDismissing = true;
-			swipeOffset = -containerElement?.offsetWidth || -400;
+			swipeOffset = -getMaxSwipeTravel();
+			setTimeout(() => {
+				onDismiss?.(insight);
+				isSwiping = false;
+			}, 300);
+		} else if (direction === 'right') {
+			isDismissing = true;
+			swipeOffset = getMaxSwipeTravel();
 			setTimeout(() => {
 				onDismiss?.(insight);
 				isSwiping = false;
 			}, 300);
 		} else {
-			// Snap back
+			// Snap back to center (release before threshold or canceled)
 			swipeOffset = 0;
-			// Small delay to prevent drawer closing
 			setTimeout(() => {
 				isSwiping = false;
 			}, 100);
@@ -184,10 +190,21 @@
 	});
 </script>
 
-<div bind:this={cardRootElement} class="relative select-none overflow-hidden rounded-lg">
-	<!-- Swipe indicator background (stays in place behind the card) -->
-	<div class="absolute inset-0 pointer-events-none z-0" style="background: oklch(from var(--destructive) l c h / 0.2);">
-		<div class="flex items-center justify-end h-full px-6 transition-opacity duration-150 ease-out" style="opacity: {Math.abs(swipeOffset) > SWIPE_THRESHOLD ? 1 : 0};">
+<div bind:this={cardRootElement} class="relative select-none">
+	<!-- Swipe indicator backgrounds: left when swiping right, right when swiping left -->
+	<div class="absolute inset-0 pointer-events-none z-0 flex">
+		<!-- Left side (visible when card is swiped right) -->
+		<div
+			class="flex items-center justify-start h-full px-6 transition-opacity duration-150 ease-out"
+			style="opacity: {swipeOffset > SWIPE_THRESHOLD ? 1 : 0};"
+		>
+			<div class="text-destructive font-semibold text-sm">Swipe to dismiss</div>
+		</div>
+		<!-- Right side (visible when card is swiped left) -->
+		<div
+			class="flex flex-1 items-center justify-end h-full px-6 transition-opacity duration-150 ease-out"
+			style="opacity: {swipeOffset < -SWIPE_THRESHOLD ? 1 : 0};"
+		>
 			<div class="text-destructive font-semibold text-sm">Swipe to dismiss</div>
 		</div>
 	</div>
@@ -207,8 +224,8 @@
 		<div
 			role="button"
 			tabindex="0"
-			class="relative w-full text-left bg-secondary border border-border rounded-lg overflow-hidden cursor-pointer transition-all duration-100 ease-out active:bg-accent active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-			style="-webkit-tap-highlight-color: transparent; opacity: {Math.max(0.5, Math.min(1, 1 + swipeOffset / 600))};"
+			class="relative w-full text-left bg-secondary squircle-border squircle-fill-surface squircle-2xl overflow-hidden cursor-pointer transition-all duration-100 ease-out active:bg-accent active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+			style="-webkit-tap-highlight-color: transparent; opacity: {Math.max(0.5, Math.min(1, 1 - Math.abs(swipeOffset) / 600))};"
 			onclick={handleClick}
 			onkeydown={(e) => {
 				if (e.key === 'Enter' || e.key === ' ') {

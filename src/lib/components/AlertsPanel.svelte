@@ -128,7 +128,7 @@
 			{/if}
 		</Drawer.Header>
 
-		<div class="px-4 overflow-y-auto flex-1 min-h-0 pb-6">
+		<div class="px-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 pb-6">
 			{#if isLoading}
 				<div class="flex items-center justify-center py-8 text-muted-foreground text-sm">
 					Loading...
