@@ -36,14 +36,15 @@ export async function refreshFeeAndNegativeAllowanceInsights(): Promise<void> {
 				| 'borrow_from_other_categories'
 		);
 
-		const unread = await insightsService.getUnreadInsights();
-
-		// Negative allowance: single Critical insight when isNegative
-		const existingNegative = unread.find(
-			(i) => i.type === 'budget_exceeded' && i.title === NEGATIVE_ALLOWANCE_INSIGHT_TITLE
+		// Negative allowance: single Critical insight when isNegative.
+		// Only create if no such insight exists at all (read or dismissed) — don't recreate after user dismissed.
+		const anyNegativeInsights = await insightsService.getInsightsByTypeAndTitle(
+			'budget_exceeded',
+			NEGATIVE_ALLOWANCE_INSIGHT_TITLE
 		);
+		const existingUnreadNegative = anyNegativeInsights.find((i) => !i.readAt && !i.dismissedAt && i.isActive);
 		if (negativeStatus.isNegative) {
-			if (!existingNegative) {
+			if (anyNegativeInsights.length === 0) {
 				await insightsService.createInsight({
 					type: 'budget_exceeded',
 					severity: 'alert',
@@ -54,15 +55,17 @@ export async function refreshFeeAndNegativeAllowanceInsights(): Promise<void> {
 					actionUrl: '/plan?tab=allowance'
 				});
 			}
-		} else if (existingNegative) {
-			await insightsService.markAsRead(existingNegative.id);
+		} else if (existingUnreadNegative) {
+			await insightsService.markAsRead(existingUnreadNegative.id);
 		}
 
-		// Fee risks: one insight per account (Critical/High by likelihood)
+		// Fee risks: one insight per account (Critical/High by likelihood).
+		// Only create if no insight exists for this account (read or dismissed) — don't recreate after user dismissed.
+		const allFeeInsights = await insightsService.getInsightsByTypeIncludingDismissed('savings_opportunity');
 		const existingFeeByAccount = new Set(
-			unread
-				.filter((i) => i.type === 'savings_opportunity' && i.actionUrl?.startsWith('/accounts/'))
-				.map((i) => i.actionUrl?.replace('/accounts/', '') ?? '')
+			allFeeInsights
+				.filter((i) => i.actionUrl?.startsWith('/accounts/'))
+				.map((i) => (i.actionUrl ?? '').replace(/^\/accounts\//, '').split(/[/?]/)[0])
 				.filter(Boolean)
 		);
 		for (const risk of feeRisks.slice(0, 5)) {

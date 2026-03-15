@@ -353,10 +353,11 @@ class NavigationStore {
 	}
 
 	/**
-	 * Set a badge value
+	 * Set a badge value. Reassigns the map so Svelte 5 $state reactivity picks up changes.
 	 */
 	setBadge(key: string, value: number | boolean | string): void {
 		this._badges.set(key, value);
+		this._badges = new Map(this._badges);
 	}
 
 	/**

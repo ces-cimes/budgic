@@ -2822,6 +2822,25 @@ export class BudgicDB extends Dexie {
 			.toArray();
 	}
 
+	/**
+	 * Find any insight with this type and title (including read/dismissed).
+	 * Used by alerts aggregation to avoid recreating the same logical alert after user dismissed/read it.
+	 */
+	async getInsightsByTypeAndTitle(type: Insight['type'], title: string): Promise<Insight[]> {
+		return await this.insights
+			.where('type')
+			.equals(type)
+			.filter((insight) => insight.title === title)
+			.toArray();
+	}
+
+	/**
+	 * Get all insights of this type including dismissed/read (for existence checks in aggregation).
+	 */
+	async getInsightsByTypeIncludingDismissed(type: Insight['type']): Promise<Insight[]> {
+		return await this.insights.where('type').equals(type).toArray();
+	}
+
 	async getInsightsBySeverity(severity: Insight['severity']): Promise<Insight[]> {
 		return await this.insights
 			.where('severity')

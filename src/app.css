@@ -476,6 +476,17 @@
     animation: amber-shimmer 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
+  /* ── Alert badge: attention-grabbing bump when count updates ── */
+  @keyframes alert-badge-bump {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.35); }
+    70%  { transform: scale(0.95); }
+    100% { transform: scale(1); }
+  }
+  .animate-alert-badge-bump {
+    animation: alert-badge-bump 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
   /* ── Squircle corners (superellipse clip-path), see https://jrabausch.github.io/squircle/ ── */
   /* Drop-in for rounded-*: squircle-none | sm | (default) | md | lg | xl | 2xl | 3xl | 4xl. Set background on the element (e.g. bg-primary, bg-card). */
   /* Regenerate polygons: node scripts/squircle-clip-path.js <radius> 14 (script outputs reversed/convex fill). */

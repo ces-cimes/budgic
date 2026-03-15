@@ -1,7 +1,6 @@
 import { insightsService } from './analytics/insights-service';
 import { getPanelAlerts, getBadgeVariant } from '$lib/utils/alert-tiers';
 import type { Insight } from '$lib/core/db';
-import { toast } from 'svelte-sonner';
 
 /**
  * Notifications Service
@@ -71,20 +70,11 @@ class NotificationsService {
 			]);
 
 			const panelInsights = getPanelAlerts(allUnread);
-			const previousCount = this._panelUnreadCount;
 
 			this._panelUnreadInsights = panelInsights;
 			this._panelUnreadCount = panelInsights.length;
 			this._earlierAlerts = earlier;
 			this._lastUpdate = Date.now();
-
-			// Toast for new panel-tier alerts only (count increased)
-			if (panelInsights.length > previousCount) {
-				const newCount = panelInsights.length - previousCount;
-				panelInsights.slice(0, newCount).forEach((insight) => {
-					this.showToastNotification(insight);
-				});
-			}
 		} catch (error) {
 			console.error('Error refreshing notifications:', error);
 		}
@@ -117,33 +107,6 @@ class NotificationsService {
 		} catch (error) {
 			console.error('Error dismissing insight:', error);
 			throw error;
-		}
-	}
-
-	/**
-	 * Show a toast notification for a new insight
-	 */
-	showToastNotification(insight: Insight): void {
-		const message = `${this.getSeverityEmoji(insight.severity)} ${insight.title}`;
-		
-    	console.log(message);
-
-		toast(message, {
-			description: insight.message,
-			duration: 5000
-		});
-	}
-
-	private getSeverityEmoji(severity: Insight['severity']): string {
-		switch (severity) {
-			case 'alert':
-				return '🚨';
-			case 'warning':
-				return '⚠️';
-			case 'success':
-				return '✅';
-			default:
-				return 'ℹ️';
 		}
 	}
 

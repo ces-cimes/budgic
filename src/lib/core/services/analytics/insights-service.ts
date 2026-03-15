@@ -63,6 +63,21 @@ class InsightsService {
     }
 
     /**
+     * Find any insight with this type and title (including read/dismissed).
+     * Use when deciding whether to create an alert so we don't recreate after user dismissed/read.
+     */
+    async getInsightsByTypeAndTitle(type: Insight['type'], title: string): Promise<Insight[]> {
+        return await db.getInsightsByTypeAndTitle(type, title);
+    }
+
+    /**
+     * Get all insights of this type including dismissed/read (for existence checks in aggregation).
+     */
+    async getInsightsByTypeIncludingDismissed(type: Insight['type']): Promise<Insight[]> {
+        return await db.getInsightsByTypeIncludingDismissed(type);
+    }
+
+    /**
      * Get insights by severity
      */
     async getInsightsBySeverity(severity: Insight['severity']): Promise<Insight[]> {

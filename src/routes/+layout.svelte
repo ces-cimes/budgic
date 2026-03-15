@@ -22,11 +22,10 @@
     // Start cross-route sync service
     crossRouteSyncService.start();
 
-    // Initialize notifications service
-    notificationsService.initialize();
-
-    // Initialize navigation store
-    navigationStore.initialize();
+    // Initialize notifications first so alerts DB state is ready before nav badges read it
+    notificationsService.initialize().then(() => {
+      navigationStore.initialize();
+    });
 
     // Start exchange rate service auto-updates
     exchangeRateService.startAutoUpdates();

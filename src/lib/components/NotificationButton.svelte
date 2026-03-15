@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import Bell from '@lucide/svelte/icons/bell';
 	import { Button } from '$lib/components/ui/button';
-	import { Badge } from '$lib/components/ui/badge';
+	import AlertBadge from '$lib/components/AlertBadge.svelte';
 
 	let unreadCount = $state(0);
 	let badgeVariant = $state<'destructive' | 'warning' | null>(null);
@@ -33,22 +33,22 @@
 	function openPanel() {
 		alertsPanelStore.openPanel();
 	}
+
+	const variant = $derived((badgeVariant === 'warning' ? 'warning' : 'destructive') as 'destructive' | 'warning');
 </script>
 
 <Button
 	variant="ghost"
 	size="square"
-	class="relative"
+	class="relative overflow-visible"
 	onclick={openPanel}
 	aria-label="Alerts"
 >
 	<Bell size={20} />
-	{#if unreadCount > 0}
-		<Badge
-			variant={badgeVariant === 'warning' ? 'secondary' : 'destructive'}
-			class="absolute -top-1 -right-1 h-5 min-w-5 px-1 flex items-center justify-center text-xs {badgeVariant === 'warning' ? 'bg-amber-500 text-white hover:bg-amber-600' : ''}"
-		>
-			{unreadCount > 99 ? '99+' : unreadCount}
-		</Badge>
-	{/if}
+	<AlertBadge
+		count={unreadCount}
+		variant={variant}
+		compact={true}
+		class="absolute -top-1 -right-1"
+	/>
 </Button>

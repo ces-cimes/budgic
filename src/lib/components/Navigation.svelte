@@ -3,6 +3,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
 	import { SidebarNavLink, SidebarNavCollapsible } from '$lib/components/navigation';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
+	import AlertBadge from '$lib/components/AlertBadge.svelte';
 	import { SidebarFooterCards } from '$lib/components/navigation/sidebar-footer';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
 	import { defaultTabByRoute } from '$lib/config/nav-tabs';
@@ -101,6 +102,9 @@
 		if (!navigationStore.initialized) {
 			navigationStore.initialize();
 		}
+		const onAlertsUpdated = () => navigationStore.updateBadges();
+		window.addEventListener('alerts-updated', onAlertsUpdated);
+		return () => window.removeEventListener('alerts-updated', onAlertsUpdated);
 	});
 </script>
 
@@ -261,14 +265,12 @@
 															<IconComponent class="w-4 h-4" />
 														</div>
 														<span class="flex-1 text-sm truncate text-left group-data-[collapsible=icon]:hidden">{item.label}</span>
-														{#if showBadge && badgeValue !== undefined && badgeValue !== 0}
-															<Badge
-																variant="secondary"
-																class="ml-auto h-5 min-w-5 px-1.5 text-xs font-medium group-data-[collapsible=icon]:hidden {getBadgeColorClass(item.badge?.color)}"
-															>
-																{badgeValue}
-															</Badge>
-														{/if}
+														<div class="ml-auto shrink-0 overflow-visible">
+															<AlertBadge
+																count={typeof badgeValue === 'number' ? badgeValue : 0}
+																variant="destructive"
+															/>
+														</div>
 													</button>
 												{/snippet}
 											</Sidebar.MenuButton>
