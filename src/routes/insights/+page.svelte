@@ -10,14 +10,9 @@
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
 
 	// Insights-specific components
-	import {
-		PatternsTab,
-		PredictionsTab,
-		BadgesTab
-	} from '$lib/components/insights/tabs';
+	import { BadgesTab } from '$lib/components/insights/tabs';
+	import PatternsTabContent from '$lib/components/insights/PatternsTabContent.svelte';
 	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
-	import RecurringTransactionManager from '$lib/components/recurring/RecurringTransactionManager.svelte';
-	import LearningAdaptationPanel from '$lib/components/insights/LearningAdaptationPanel.svelte';
 	import OptimizeTab from '$lib/components/insights/OptimizeTab.svelte';
 
 	// Services
@@ -35,6 +30,7 @@
 	let isLoading = $state(true);
 	let insights = $state<any[]>([]);
 	let error = $state<string | null>(null);
+	let userCurrency = $state<string>('USD');
 	/** Phase 5: Optimize tab hidden for Beginner maturity */
 	let maturityLevel = $state<'beginner' | 'intermediate' | 'advanced' | 'expert'>('beginner');
 
@@ -51,6 +47,7 @@
 	onMount(async () => {
 		try {
 			const prefs = await userService.getUserPreferences();
+			userCurrency = prefs?.currency ?? 'USD';
 			const level = (prefs as { userMaturityLevel?: string })?.userMaturityLevel ?? 'beginner';
 			maturityLevel = level as 'beginner' | 'intermediate' | 'advanced' | 'expert';
 			// Load insights data
@@ -161,24 +158,7 @@
 			>
 				{#snippet children()}
 					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
-						<div class="space-y-8 px-4 py-5">
-							<section>
-								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Behavioral patterns</h2>
-								<PatternsTab {isLoading} />
-							</section>
-							<section>
-								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Recurring</h2>
-								<RecurringTransactionManager />
-							</section>
-							<section>
-								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Predictions</h2>
-								<PredictionsTab {isLoading} />
-							</section>
-							<section>
-								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Learning</h2>
-								<LearningAdaptationPanel />
-							</section>
-						</div>
+						<PatternsTabContent {isLoading} {userCurrency} />
 					</TabContent>
 
 					<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>

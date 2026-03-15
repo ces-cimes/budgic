@@ -62,14 +62,20 @@
 		}));
 
 		const balances = points.map(p => p.balance);
-		const minBalance = Math.min(...balances, 0);
-		const maxBalance = Math.max(...balances, selectedProjection.startBalance * 1.1);
+		const bufferLine = selectedProjection.projections[0]?.bufferAmount ?? 0;
+		// Scale Y-axis from actual data range + buffer so the balance line is visible (not squashed by startBalance)
+		const dataMin = balances.length ? Math.min(...balances, 0) : 0;
+		const dataMax = balances.length ? Math.max(...balances, bufferLine) : Math.max(bufferLine, selectedProjection.startBalance);
+		const range = Math.max(dataMax - dataMin, 1);
+		const padding = range * 0.1;
+		const minBalance = dataMin - padding;
+		const maxBalance = dataMax + padding;
 
 		return {
 			points,
 			minBalance,
 			maxBalance,
-			bufferLine: selectedProjection.projections[0]?.bufferAmount || 0
+			bufferLine
 		};
 	});
 
@@ -260,15 +266,17 @@
 									opacity="0.6"
 								/>
 								
-								<!-- Balance line -->
-								<polyline
-									points={chartData.points.map((p: { balance: number }, i: number) => 
-										`${(i / (chartData.points.length - 1)) * 800},${200 - ((p.balance - chartData.minBalance) / (chartData.maxBalance - chartData.minBalance)) * 200}`
-									).join(' ')}
-									fill="none"
-									stroke="rgb(59, 130, 246)"
-									stroke-width="2"
-								/>
+								<!-- Balance line (amber to match legend) -->
+								{#if chartData.points.length > 1 && (chartData.maxBalance - chartData.minBalance) > 0}
+									<polyline
+										points={chartData.points.map((p: { balance: number }, i: number) => 
+											`${(i / (chartData.points.length - 1)) * 800},${200 - ((p.balance - chartData.minBalance) / (chartData.maxBalance - chartData.minBalance)) * 200}`
+										).join(' ')}
+										fill="none"
+										stroke="var(--color-amber)"
+										stroke-width="2"
+									/>
+								{/if}
 								
 								<!-- Low balance areas -->
 								{#each chartData.points as point, i (i)}

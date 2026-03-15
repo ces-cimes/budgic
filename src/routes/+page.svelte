@@ -173,6 +173,14 @@
 
 	const currencyFormat = useCurrencyFormatting();
 
+	/** Time-aware greeting per UX_SPEC §3.1 (Good morning / afternoon / evening) */
+	function timeGreeting(): string {
+		const hour = new Date().getHours();
+		if (hour < 12) return 'Good morning';
+		if (hour < 18) return 'Good afternoon';
+		return 'Good evening';
+	}
+
 	function formatBalance(amount: number) {
 		return currencyFormat.formatBalance(amount, userCurrency);
 	}
@@ -230,7 +238,7 @@
 			style="animation-delay: 0ms"
 		>
 			<p class="text-xs text-center tracking-widest uppercase text-muted-foreground mb-3 font-medium">
-				{username ? `Hey ${username} ·` : ''} Total balance
+				{timeGreeting()}{username ? `, ${username}` : ''}
 			</p>
 
 			<button

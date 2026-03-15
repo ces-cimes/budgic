@@ -476,6 +476,23 @@ class TransactionService {
         }
     }
 
+    /**
+     * Get planned transactions whose plannedDate falls within the range (inclusive).
+     * Used for Plan Allowance week view projected spending.
+     */
+    async getPlannedTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
+        try {
+            const arr = await db.transactions
+                .where('[plannedDate+status]')
+                .between([startDate, 'planned'], [endDate, 'planned'], true, true)
+                .toArray();
+            return arr.filter((t): t is Transaction => t != null && !t.deletedAt);
+        } catch (error) {
+            console.error('[TransactionService] Error in getPlannedTransactionsByDateRange:', error);
+            return [];
+        }
+    }
+
     // ============================================================================
     // TRANSACTION GROUP MANAGEMENT (formerly split transactions)
     // ============================================================================

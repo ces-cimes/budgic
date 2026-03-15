@@ -31,6 +31,8 @@
 	} from '$lib/components/budget';
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import PlanRulesSummary from '$lib/components/budget/PlanRulesSummary.svelte';
+	import AllowanceWeekView from '$lib/components/plan/AllowanceWeekView.svelte';
+	import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 	import {
 		OverviewTab as GoalsOverviewTab,
 		ActiveTab as GoalsActiveTab,
@@ -207,7 +209,14 @@
 							{#if enhancedAllowance}
 								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5 space-y-4">
 									<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
+									<!-- Week view: 7 mini bars Mon–Sun (UX_SPEC §3.2) -->
+									<AllowanceWeekView allowance={enhancedAllowance} currency={userCurrency} />
 									<PlanRulesSummary />
+								</div>
+								<!-- 30-day cash flow chart (UX_SPEC §3.2) -->
+								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
+									<h3 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">30-day cash flow</h3>
+									<BalanceProjectionChart daysAhead={30} showDetails={false} />
 								</div>
 							{:else if dailyAllowance}
 								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
