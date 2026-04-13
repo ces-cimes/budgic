@@ -4,6 +4,7 @@
   import * as Select from '$lib/components/ui/select/index.ts';
   import { PageLayout } from '$lib/components/layouts';
   import { userService } from '$lib/core/services';
+  import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { db, type UserPreferences, type Currency } from '$lib/core/db';
   import { BarChart2, Target, Lightbulb } from '@lucide/svelte';
 
@@ -129,7 +130,8 @@
       
       // Save user preferences
       await userService.updateUserPreferences(userPreferences);
-      
+      await navigationStore.refresh();
+
       // Track onboarding completion
       await userService.trackUserAction({
         action: 'onboarding_completed',
@@ -174,7 +176,8 @@
       
       // Save user preferences
       await userService.updateUserPreferences(userPreferences);
-      
+      await navigationStore.refresh();
+
       // Track onboarding skip
       await userService.trackUserAction({
         action: 'onboarding_skipped',

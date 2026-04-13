@@ -1,103 +1,144 @@
 <script lang="ts">
-  import * as Tabs from '$lib/components/ui/tabs/index.ts';
-  import type { TabConfig, TabHeaderVariant } from '../types.js';
+	import * as Tabs from '$lib/components/ui/tabs/index.ts';
+	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
+	import type { TabConfig, TabHeaderVariant } from '../types.js';
 
-  interface Props {
-    tabs: TabConfig[];
-    activeTab: string;
-    onTabChange: (tabId: string) => void;
-    /** Visual style: pill (default) or underline */
-    variant?: TabHeaderVariant;
-    className?: string;
-  }
+	interface Props {
+		tabs: TabConfig[];
+		activeTab: string;
+		onTabChange: (tabId: string) => void;
+		/** Visual style: pill (default) or underline */
+		variant?: TabHeaderVariant;
+		className?: string;
+		/** When true, pill row stays visible on desktop (default: pills hide on desktop — sidebar has tab links). */
+		alwaysShow?: boolean;
+	}
 
-  const { tabs, activeTab, onTabChange, variant = 'pill', className = '' }: Props = $props();
+	const {
+		tabs,
+		activeTab,
+		onTabChange,
+		variant = 'pill',
+		className = '',
+		alwaysShow = false
+	}: Props = $props();
 
-  let tabContainer: HTMLDivElement;
+	const sidebar = Sidebar.useSidebar();
 
-  function handleWheelScroll(event: WheelEvent) {
-    // Prevent default vertical scrolling
-    event.preventDefault();
-    
-    // Convert vertical scroll to horizontal scroll with reduced sensitivity
-    if (tabContainer) {
-      tabContainer.scrollLeft += event.deltaY * 0.5;
-    }
-  }
+	/** Underline variant always shows; pill hides on desktop unless forced. */
+	const showTabRow = $derived(
+		variant === 'underline' || alwaysShow || sidebar.isMobile
+	);
 
-  function scrollActiveTabIntoView() {
-    if (tabContainer) {
-      // Try multiple selectors to find the active tab
-      let activeTabElement = tabContainer.querySelector(`[data-state="active"]`) as HTMLElement;
-      
-      // Fallback: find by value attribute
-      if (!activeTabElement) {
-        activeTabElement = tabContainer.querySelector(`[value="${activeTab}"]`) as HTMLElement;
-      }
-      
-      // Fallback: find by tab ID in the trigger
-      if (!activeTabElement) {
-        activeTabElement = tabContainer.querySelector(`[data-value="${activeTab}"]`) as HTMLElement;
-      }
-      
-      if (activeTabElement) {
-        // Use requestAnimationFrame to ensure DOM is updated
-        requestAnimationFrame(() => {
-          activeTabElement.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center'
-          });
-        });
-      }
-    }
-  }
+	const nTabs = $derived(tabs.length);
+	/** Full-width equal segments when a modest number of tabs; more → horizontal scroll with min widths. */
+	const useEqualWidthPills = $derived(variant === 'pill' && nTabs > 0 && nTabs <= 4);
 
-  // Auto-scroll active tab into view when activeTab changes
-  $effect(() => {
-    // Make this reactive to activeTab changes
-    activeTab; // This makes the effect reactive to activeTab
-    setTimeout(() => {
-      scrollActiveTabIntoView();
-    }, 50);
-  });
+	let tabContainer = $state<HTMLDivElement | undefined>(undefined);
+
+	/**
+	 * Inline `border-radius` beats `tabs-trigger`'s `rounded-md` and avoids overlap-scale killing small radii
+	 * (do not pair astronomical px with tiny px on the same edge — see MDN “overlapping radii”).
+	 *
+	 * Use **uniform lengths only** (`lh`, `rem`, `var(--radius-sm)`): any **percentage** in `border-radius`
+	 * resolves horizontal vs vertical radii against **width vs height**, so wide pills get **oval** corners.
+	 * Likewise avoid `cqh`/`cqi` mixes that min different bases into one radius.
+	 *
+	 * End cap ≈ half pill height: `0.5 * (1lh + 0.5rem)` matches `py-1` (0.25rem × 2) + line box.
+	 * Soft ceiling only for extreme `lh`; avoid a low `min()` that flattens stadium ends.
+	 * Order: top-left, top-right, bottom-right, bottom-left.
+	 */
+	function pillRadiusStyle(index: number, total: number): string {
+		const sm = 'var(--radius-sm)';
+		const cap =
+			'max(var(--radius-sm), min(1.75rem, calc(0.5 * (1lh + 0.5rem) - 0.5px)))';
+		if (total <= 1) return `border-radius: ${cap};`;
+		if (index === 0) return `border-radius: ${cap} ${sm} ${sm} ${cap};`;
+		if (index === total - 1) return `border-radius: ${sm} ${cap} ${cap} ${sm};`;
+		return `border-radius: ${sm};`;
+	}
+
+	function handleWheelScroll(event: WheelEvent) {
+		event.preventDefault();
+		if (tabContainer) {
+			tabContainer.scrollLeft += event.deltaY * 0.5;
+		}
+	}
+
+	function scrollActiveTabIntoView() {
+		if (tabContainer) {
+			let activeTabElement = tabContainer.querySelector(`[data-state="active"]`) as HTMLElement;
+			if (!activeTabElement) {
+				activeTabElement = tabContainer.querySelector(`[value="${activeTab}"]`) as HTMLElement;
+			}
+			if (!activeTabElement) {
+				activeTabElement = tabContainer.querySelector(`[data-value="${activeTab}"]`) as HTMLElement;
+			}
+			if (activeTabElement) {
+				requestAnimationFrame(() => {
+					activeTabElement.scrollIntoView({
+						behavior: 'smooth',
+						block: 'nearest',
+						inline: 'center'
+					});
+				});
+			}
+		}
+	}
+
+	$effect(() => {
+		activeTab;
+		setTimeout(() => {
+			scrollActiveTabIntoView();
+		}, 50);
+	});
 </script>
 
-<Tabs.Root value={activeTab} onValueChange={onTabChange} class="w-full">
-  <div 
-    bind:this={tabContainer}
-    class="overflow-x-auto scrollbar-hide mx-2 glass rounded-full {variant === 'pill' ? 'p-1' : ''} {className}"
-    style="scrollbar-width: none; -ms-overflow-style: none;"
-    onwheel={handleWheelScroll}
-  >
-    <Tabs.List
-      class={variant === 'pill'
-        ? 'inline-flex items-center gap-1 bg-transparent p-0 h-auto rounded-none'
-        : 'w-full justify-start bg-transparent p-0 h-auto rounded-none'}
-    >
-      {#each tabs as tab (tab.id)}
-        <Tabs.Trigger
-          value={tab.id}
-          class={variant === 'pill'
-            ? 'flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] data-[state=active]:bg-[var(--color-amber-subtle)] data-[state=active]:text-[var(--color-amber)] data-[state=active]:shadow-none border-0 bg-transparent'
-            : 'flex items-center gap-2 px-4 py-2 border-x-0 border-t-0 border-b-2 border-transparent rounded-none bg-transparent hover:bg-secondary/20 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none whitespace-nowrap transition-all'}
-        >
-          {#if tab.icon}
-            <tab.icon class={variant === 'pill' ? 'size-3.5' : 'w-4 h-4'} />
-          {/if}
-          {tab.label}
-        </Tabs.Trigger>
-      {/each}
-    </Tabs.List>
-  </div>
-</Tabs.Root>
+{#if variant === 'pill' && !showTabRow}
+	<!-- Desktop: tab switching lives in the sidebar; skip duplicate header pills. -->
+{:else}
+	<Tabs.Root value={activeTab} onValueChange={onTabChange} class="w-full min-w-0 max-w-full">
+		<div
+			bind:this={tabContainer}
+			class="scrollbar-hide box-border w-full min-w-0 max-w-full overflow-x-auto overflow-y-visible glass {variant === 'pill'
+				? 'rounded-full p-1'
+				: ''} {className}"
+			style="scrollbar-width: none; -ms-overflow-style: none;"
+			onwheel={handleWheelScroll}
+		>
+			<Tabs.List
+				class={variant === 'pill'
+					? useEqualWidthPills
+						? 'flex h-auto w-full min-w-0 max-w-full items-stretch gap-0.5 bg-transparent p-0 rounded-none'
+						: 'inline-flex h-auto max-w-none items-stretch gap-0.5 bg-transparent p-0 rounded-none'
+					: 'h-auto w-full justify-start rounded-none bg-transparent p-0'}
+			>
+				{#each tabs as tab, i (tab.id)}
+					<Tabs.Trigger
+						value={tab.id}
+						style={variant === 'pill' ? pillRadiusStyle(i, nTabs) : undefined}
+						class={variant === 'pill'
+							? `flex !h-auto min-h-0 min-w-0 items-center justify-center gap-1.5 overflow-visible border-0 bg-transparent px-2 py-1 text-xs font-medium leading-normal text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-text-primary)] data-[state=active]:bg-[var(--color-amber-subtle)] data-[state=active]:text-[var(--color-amber)] data-[state=active]:shadow-none ${useEqualWidthPills ? 'flex-1' : 'min-w-[4.25rem] shrink-0'}`
+							: 'flex items-center gap-2 rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-4 py-2 whitespace-nowrap transition-all hover:bg-secondary/20 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'}
+					>
+						{#if tab.icon}
+							<tab.icon class={variant === 'pill' ? 'size-3.5 shrink-0' : 'h-4 w-4 shrink-0'} />
+						{/if}
+						<span class={variant === 'pill' ? 'min-w-0 shrink whitespace-nowrap' : ''}>{tab.label}</span>
+					</Tabs.Trigger>
+				{/each}
+			</Tabs.List>
+		</div>
+	</Tabs.Root>
+{/if}
 
 <style>
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
+	.scrollbar-hide {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+	.scrollbar-hide::-webkit-scrollbar {
+		display: none;
+	}
+
 </style>

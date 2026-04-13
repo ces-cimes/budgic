@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  /**
+   * Swipe carousel: slider width and translateX are derived from `tabs.length`.
+   * Each route must render exactly one TabContent panel per entry in `tabs` (same order).
+   */
   import type { TabConfig } from '../types.js';
 
   interface Props {
@@ -18,7 +21,10 @@
   let isDragging = $state(false);
   let dragStartX = $state(0);
   let currentDragX = $state(0);
-  let activeTabIndex = $derived(tabs.findIndex(tab => tab.id === activeTab));
+  let activeTabIndex = $derived.by(() => {
+    const i = tabs.findIndex((tab) => tab.id === activeTab);
+    return i >= 0 ? i : 0;
+  });
 
   // Touch tracking for compatibility
   let touchStartX = $state(0);
@@ -31,12 +37,9 @@
   
   // Update transform when activeTab or swipeProgress changes
   $effect(() => {
-    // Calculate base offset as percentage of viewport (divide by number of tabs)
-    const baseOffset = (-activeTabIndex * 100) / tabs.length;
-    
-    // Calculate swipe offset as percentage of viewport (divide by number of tabs)
-    const swipeOffset = (swipeProgress * 100) / tabs.length;
-    
+    const len = Math.max(tabs.length, 1);
+    const baseOffset = (-activeTabIndex * 100) / len;
+    const swipeOffset = (swipeProgress * 100) / len;
     contentTransform = `translateX(${baseOffset + swipeOffset}%)`;
   });
 
@@ -123,7 +126,7 @@
   <div 
     class="tab-slider flex transition-transform duration-200 ease-out h-full"
     class:transition-none={isDragging}
-    style="transform: {contentTransform}; width: {tabs.length * 100}%"
+    style="transform: {contentTransform}; width: {Math.max(tabs.length, 1) * 100}%"
   >
     {@render children()}
   </div>

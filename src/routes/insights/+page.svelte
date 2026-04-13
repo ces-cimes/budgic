@@ -135,6 +135,7 @@
 			title="Insights"
 			description="What's happening now"
 			variant="with-tabs"
+			tabRowMobileOnly
 			buttonProps={[
 				{
 					onclick: handleRefresh,
@@ -162,22 +163,24 @@
 						<PatternsTabContent {isLoading} {userCurrency} insightTypeFilter={insightTypeFilter ?? undefined} />
 					</TabContent>
 
-					<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
-						<div class="space-y-6 px-4 py-5">
-							<section>
-								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Fee avoidance</h2>
-								<FeeAvoidancePanel
-									showAllAccounts={true}
-									initialMaxRisks={20}
-									onRecommendationApplied={handleRefresh}
-								/>
-							</section>
-							<section>
-								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Optimize</h2>
-								<OptimizeTab />
-							</section>
-						</div>
-					</TabContent>
+					{#if insightsTabs.some((t) => t.id === 'optimize')}
+						<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
+							<div class="space-y-6 px-4 py-5">
+								<section>
+									<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Fee avoidance</h2>
+									<FeeAvoidancePanel
+										showAllAccounts={true}
+										initialMaxRisks={20}
+										onRecommendationApplied={handleRefresh}
+									/>
+								</section>
+								<section>
+									<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Optimize</h2>
+									<OptimizeTab />
+								</section>
+							</div>
+						</TabContent>
+					{/if}
 
 					<TabContent tabId="badges" isActive={activeTab === 'badges'} tabs={insightsTabs}>
 						<BadgesTab {isLoading} />

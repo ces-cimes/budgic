@@ -186,6 +186,7 @@
 		<Header
 			title="Plan"
 			variant="with-tabs"
+			tabRowMobileOnly
 			buttonProps={[
 				{ text: 'Settings', onclick: () => goto('/settings/plan'), size: 'sm', icon: Settings },
 				{ text: 'Add goal', onclick: () => goto('/plan?tab=goals'), size: 'sm', icon: Plus }

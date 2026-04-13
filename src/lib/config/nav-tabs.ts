@@ -33,3 +33,14 @@ export const defaultTabByRoute: Record<string, string> = {
 	'/insights': 'patterns',
 	'/reports': 'overview'
 };
+
+/** Sidebar / nav: hide Optimize for beginner (matches Insights route TabHeader). */
+export function insightsNavTabsForMaturity(
+	maturity: string | undefined | null
+): NavTabDef[] {
+	const level = typeof maturity === 'string' ? maturity.trim().toLowerCase() : '';
+	if (level === 'beginner' || level === '') {
+		return insightsTabs.filter((t) => t.id !== 'optimize');
+	}
+	return insightsTabs;
+}

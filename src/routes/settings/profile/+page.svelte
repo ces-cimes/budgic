@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   import { userService } from '$lib/core/services';
+  import { navigationStore } from '$lib/stores/navigation-store.svelte';
   import { PageLayout } from '$lib/components/layouts';
   import Header from '$lib/components/Header.svelte';
   import { Switch } from '$lib/components/ui/switch/index.ts';
@@ -63,6 +64,7 @@
         analyticsEnabled,
         backupEnabled
       });
+      await navigationStore.refresh();
       success = 'Saved';
     } catch (err) {
       error = 'Failed to save profile settings';

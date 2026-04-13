@@ -27,6 +27,8 @@
 		rightSlot?: any;
 		children?: any;
 		variant?: 'default' | 'with-tabs';
+		/** With `with-tabs`: only render the tab row on mobile (desktop uses sidebar). Avoids empty gap when TabHeader self-hides. */
+		tabRowMobileOnly?: boolean;
 		showBackButton?: boolean;
 		backButtonLink?: string;
 		backButtonLabel?: string;
@@ -39,6 +41,7 @@
 		rightSlot = null,
 		children = null,
 		variant = 'default',
+		tabRowMobileOnly = false,
 		showBackButton = false,
 		backButtonLink = '',
 		backButtonLabel = 'Back'
@@ -46,6 +49,8 @@
 
 	// Use sidebar context to access isMobile state
 	const sidebar = Sidebar.useSidebar();
+
+	const showTabRow = $derived(!tabRowMobileOnly || sidebar.isMobile);
 
 	function handleBackClick() {
 		if (backButtonLink) {
@@ -58,7 +63,7 @@
 </script>
   
 <div
-	class="group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) flex shrink-0 flex-col transition-[width,height] ease-linear sticky top-0 left-0 right-0 z-10 rounded-t-2xl bg-[var(--color-bg-primary)]/95 backdrop-blur-sm {variant === 'with-tabs' ? 'pt-3 pb-0' : 'py-3'}"
+	class="group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height) flex shrink-0 flex-col transition-[width,height] ease-linear sticky top-0 left-0 right-0 z-10 rounded-t-2xl bg-[var(--color-bg-primary)]/95 backdrop-blur-sm {variant === 'with-tabs' && showTabRow ? 'pt-3 pb-0' : 'py-3'}"
 >
 	<div class="flex w-full items-center gap-2 px-4">
 		{#if showBackButton}
@@ -113,8 +118,8 @@
 		</div>
 	</div>
 
-	{#if children}
-		<div class="{variant === 'with-tabs' ? 'mt-1' : 'mt-1 px-4'}">
+	{#if children && showTabRow}
+		<div class="mt-1 min-w-0 px-4">
 			{@render children?.()}
 		</div>
 	{/if}

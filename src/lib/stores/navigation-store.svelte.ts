@@ -1,5 +1,11 @@
-import { analyticsService, reconciliationService, accountService, notificationsService } from '$lib/core/services';
-import { planTabs, insightsTabs, reportsTabs } from '$lib/config/nav-tabs';
+import {
+	analyticsService,
+	reconciliationService,
+	accountService,
+	notificationsService,
+	userService
+} from '$lib/core/services';
+import { planTabs, insightsNavTabsForMaturity, reportsTabs } from '$lib/config/nav-tabs';
 
 export interface NavTabDef {
 	id: string;
@@ -138,6 +144,17 @@ class NavigationStore {
 	 */
 	async loadItems(): Promise<void> {
 		try {
+			let insightsNavTabs = insightsNavTabsForMaturity('beginner');
+			try {
+				const prefs = await userService.getUserPreferences();
+				const level =
+					(prefs as { userMaturityLevel?: string } | null | undefined)?.userMaturityLevel ??
+					'beginner';
+				insightsNavTabs = insightsNavTabsForMaturity(level);
+			} catch {
+				// Keep beginner-filtered tabs (conservative; matches default route behavior)
+			}
+
 			// New IA: first 4 = Home, Trans, Plan, Insights (mobile bar); Accounts, Reports, Settings in More; Alerts in bottom (panel)
 			const defaultItems: NavItemConfig[] = [
 				{
@@ -177,7 +194,7 @@ class NavigationStore {
 					path: '/insights',
 					icon: 'bell',
 					group: 'main',
-					tabs: insightsTabs,
+					tabs: insightsNavTabs,
 					visible: true,
 					showInMobile: true,
 					showInDesktop: true,
