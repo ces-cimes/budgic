@@ -1,14 +1,11 @@
 <script lang="ts">
-    interface Props {
-        message?: string;
-        size?: 'sm' | 'md' | 'lg';
-    }
+	interface Props {
+		message?: string;
+		size?: 'sm' | 'md' | 'lg';
+	}
 
-    let {
-        message = 'Loading...',
-        size = 'md'
-    }: Props = $props();
-	
+	let { message = 'Loading...', size = 'md' }: Props = $props();
+
 	const sizeClasses = {
 		sm: 'h-6 w-6',
 		md: 'h-8 w-8',
@@ -16,7 +13,9 @@
 	};
 </script>
 
-<div class="text-center py-8">
-	<div class="animate-spin rounded-full {sizeClasses[size]} border-b-2 border-text-secondary mx-auto"></div>
+<div class="py-8 text-center">
+	<div
+		class="animate-spin rounded-full {sizeClasses[size]} border-text-secondary mx-auto border-b-2"
+	></div>
 	<p class="text-text-secondary mt-2">{message}</p>
-</div> 
+</div>

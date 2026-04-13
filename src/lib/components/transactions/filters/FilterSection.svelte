@@ -10,9 +10,9 @@
 
 <div class="space-y-3">
 	<div>
-		<h4 class="text-sm font-semibold text-primary">{title}</h4>
+		<h4 class="text-primary text-sm font-semibold">{title}</h4>
 		{#if description}
-			<p class="text-xs text-muted-foreground mt-1">{description}</p>
+			<p class="text-muted-foreground mt-1 text-xs">{description}</p>
 		{/if}
 	</div>
 	<div class="space-y-2">

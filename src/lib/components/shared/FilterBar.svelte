@@ -59,15 +59,11 @@
 	}: Props = $props();
 
 	let showMobileFilters = $state(false);
-	let localSelectValue = $state(selectValue);
-	let localToggleValue = $state(toggleValue);
+	let localSelectValue = $state('');
+	let localToggleValue = $state('');
 
-	// Sync local values with props
-	$effect(() => {
+	$effect.pre(() => {
 		localSelectValue = selectValue;
-	});
-
-	$effect(() => {
 		localToggleValue = toggleValue;
 	});
 
@@ -86,15 +82,16 @@
 
 <div class="bg-background mb-4 {sticky ? 'sticky top-0 z-10' : ''} {className}">
 	<!-- Desktop Layout -->
-	<div class="hidden md:flex items-center gap-3">
+	<div class="hidden items-center gap-3 md:flex">
 		<!-- Primary Filter Controls -->
-		<div class="flex items-center gap-3 flex-1">
+		<div class="flex flex-1 items-center gap-3">
 			<!-- Category Select -->
-			<div class="min-w-0 flex-1 max-w-xs">
+			<div class="max-w-xs min-w-0 flex-1">
 				<Select.Root type="single" value={localSelectValue} onValueChange={handleSelectChange}>
 					<Select.Trigger class="w-full">
 						<span class="truncate">
-							{selectOptions.find(opt => opt.value === localSelectValue)?.label || selectPlaceholder}
+							{selectOptions.find((opt) => opt.value === localSelectValue)?.label ||
+								selectPlaceholder}
 						</span>
 					</Select.Trigger>
 					<Select.Content>
@@ -103,7 +100,7 @@
 								<div class="flex flex-col">
 									<span>{option.label}</span>
 									{#if option.description}
-										<span class="text-xs text-muted-foreground">{option.description}</span>
+										<span class="text-muted-foreground text-xs">{option.description}</span>
 									{/if}
 								</div>
 							</Select.Item>
@@ -114,7 +111,12 @@
 
 			<!-- Toggle Group -->
 			<div class="flex-shrink-0">
-				<ToggleGroup.Root type="single" variant="outline" value={localToggleValue} onValueChange={handleToggleChange}>
+				<ToggleGroup.Root
+					type="single"
+					variant="outline"
+					value={localToggleValue}
+					onValueChange={handleToggleChange}
+				>
 					{#each toggleOptions as option}
 						<ToggleGroup.Item value={option.value} size="sm" class="min-w-0">
 							{#if option.icon}
@@ -131,7 +133,7 @@
 
 		<!-- Badges (Desktop) -->
 		{#if showBadges && badges.length > 0}
-			<div class="flex items-center gap-2 flex-shrink-0">
+			<div class="flex flex-shrink-0 items-center gap-2">
 				{#each badges as badge}
 					<Badge variant={badge.variant || 'secondary'} class="text-xs">
 						{badge.label}: {badge.count}
@@ -146,13 +148,14 @@
 		<!-- Mobile Filter Trigger -->
 		<div class="flex items-center justify-between gap-2">
 			<!-- Quick Filter Display -->
-			<div class="flex items-center gap-2 min-w-0 flex-1">
+			<div class="flex min-w-0 flex-1 items-center gap-2">
 				<div class="min-w-0 flex-1">
-					<div class="text-sm font-medium truncate">
-						{selectOptions.find(opt => opt.value === localSelectValue)?.label || selectPlaceholder}
+					<div class="truncate text-sm font-medium">
+						{selectOptions.find((opt) => opt.value === localSelectValue)?.label ||
+							selectPlaceholder}
 					</div>
-					<div class="text-xs text-muted-foreground">
-						{toggleOptions.find(opt => opt.value === localToggleValue)?.label}
+					<div class="text-muted-foreground text-xs">
+						{toggleOptions.find((opt) => opt.value === localToggleValue)?.label}
 					</div>
 				</div>
 			</div>
@@ -161,7 +164,7 @@
 			<Button
 				variant="outline"
 				size="sm"
-				onclick={() => showMobileFilters = true}
+				onclick={() => (showMobileFilters = true)}
 				class="flex-shrink-0"
 			>
 				<Filter size={16} class="mr-1" />
@@ -195,7 +198,8 @@
 						<Select.Root type="single" value={localSelectValue} onValueChange={handleSelectChange}>
 							<Select.Trigger class="w-full">
 								<span class="truncate">
-									{selectOptions.find(opt => opt.value === localSelectValue)?.label || selectPlaceholder}
+									{selectOptions.find((opt) => opt.value === localSelectValue)?.label ||
+										selectPlaceholder}
 								</span>
 							</Select.Trigger>
 							<Select.Content>
@@ -204,7 +208,7 @@
 										<div class="flex flex-col">
 											<span>{option.label}</span>
 											{#if option.description}
-												<span class="text-xs text-muted-foreground">{option.description}</span>
+												<span class="text-muted-foreground text-xs">{option.description}</span>
 											{/if}
 										</div>
 									</Select.Item>
@@ -216,13 +220,19 @@
 					<!-- Toggle Options -->
 					<div class="space-y-2">
 						<label for="mobile-status-toggle" class="text-sm font-medium">Status</label>
-						<ToggleGroup.Root type="single" variant="outline" value={localToggleValue} onValueChange={handleToggleChange} class="w-full">
+						<ToggleGroup.Root
+							type="single"
+							variant="outline"
+							value={localToggleValue}
+							onValueChange={handleToggleChange}
+							class="w-full"
+						>
 							{#each toggleOptions as option}
 								<ToggleGroup.Item value={option.value} size="sm" class="flex-1">
-								{#if option.icon}
-									{@const IconComponent = option.icon}
-									<IconComponent size={16} class="mr-2" />
-								{/if}
+									{#if option.icon}
+										{@const IconComponent = option.icon}
+										<IconComponent size={16} class="mr-2" />
+									{/if}
 									{option.label}
 								</ToggleGroup.Item>
 							{/each}
@@ -231,11 +241,11 @@
 
 					<!-- Badge Summary -->
 					{#if showBadges && badges.length > 0}
-					<div class="space-y-2">
-						<h3 class="text-sm font-medium">Summary</h3>
+						<div class="space-y-2">
+							<h3 class="text-sm font-medium">Summary</h3>
 							<div class="grid grid-cols-2 gap-2">
 								{#each badges as badge}
-									<div class="flex items-center justify-between p-3 bg-muted rounded-lg">
+									<div class="bg-muted flex items-center justify-between rounded-lg p-3">
 										<span class="text-sm">{badge.label}</span>
 										<Badge variant={badge.variant || 'secondary'}>{badge.count}</Badge>
 									</div>
@@ -246,7 +256,7 @@
 				</div>
 
 				<Drawer.Footer class="flex gap-2">
-					<Button variant="outline" onclick={() => showMobileFilters = false} class="flex-1">
+					<Button variant="outline" onclick={() => (showMobileFilters = false)} class="flex-1">
 						Close
 					</Button>
 				</Drawer.Footer>

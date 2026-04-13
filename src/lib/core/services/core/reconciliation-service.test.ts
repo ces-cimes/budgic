@@ -3,7 +3,12 @@ import { reconciliationService } from './reconciliation-service';
 import { accountService } from './account-service';
 import { transactionService } from './transaction-service';
 import { db } from '$lib/core/db';
-import type { Account, Transaction, ReconciliationRecord, ReconciliationDiscrepancy } from '$lib/core/db';
+import type {
+	Account,
+	Transaction,
+	ReconciliationRecord,
+	ReconciliationDiscrepancy
+} from '$lib/core/db';
 
 // Mock the database
 vi.mock('$lib/core/db', async () => {
@@ -100,7 +105,7 @@ describe('ReconciliationService', () => {
 			id: 'tx-1',
 			type: 'income',
 			status: 'cleared',
-			confidence: 'high',
+			confidence: 'confirmed',
 			accountId: 'account-1',
 			amount: 500,
 			currency: 'USD',
@@ -116,7 +121,7 @@ describe('ReconciliationService', () => {
 			id: 'tx-2',
 			type: 'expense',
 			status: 'cleared',
-			confidence: 'high',
+			confidence: 'confirmed',
 			accountId: 'account-1',
 			amount: -250,
 			currency: 'USD',
@@ -132,7 +137,7 @@ describe('ReconciliationService', () => {
 			id: 'tx-3',
 			type: 'expense',
 			status: 'pending',
-			confidence: 'high',
+			confidence: 'confirmed',
 			accountId: 'account-1',
 			amount: -100,
 			currency: 'USD',
@@ -207,10 +212,9 @@ describe('ReconciliationService', () => {
 				})
 			);
 
-			expect(accountService.updateAccountMetadata).toHaveBeenCalledWith(
-				'account-1',
-				{ lastReconciledDate: expect.any(String) }
-			);
+			expect(accountService.updateAccountMetadata).toHaveBeenCalledWith('account-1', {
+				lastReconciledDate: expect.any(String)
+			});
 		});
 
 		it('should detect discrepancy and create discrepancy records', async () => {
@@ -229,11 +233,9 @@ describe('ReconciliationService', () => {
 		it('should include pending transactions when specified', async () => {
 			vi.mocked(accountService.recalculateAccountBalance).mockResolvedValue(1150); // Including pending -100
 
-			const result = await reconciliationService.performReconciliation(
-				'account-1',
-				1150,
-				{ includePendingTransactions: true }
-			);
+			const result = await reconciliationService.performReconciliation('account-1', 1150, {
+				includePendingTransactions: true
+			});
 
 			expect(result.transactionCount).toBe(3); // All transactions
 			expect(result.discrepancy).toBe(0);
@@ -411,7 +413,8 @@ describe('ReconciliationService', () => {
 				reconciledTransactionIds: ['tx-1', 'tx-2'],
 				unreconciledTransactionIds: [],
 				createdAt: '2024-01-15T10:00:00Z',
-				updatedAt: '2024-01-15T10:00:00Z'
+				updatedAt: '2024-01-15T10:00:00Z',
+				deletedAt: null
 			},
 			{
 				id: 'record-2',
@@ -426,7 +429,8 @@ describe('ReconciliationService', () => {
 				unreconciledTransactionIds: ['tx-2'],
 				resolvedAt: '2024-01-10T09:30:00Z',
 				createdAt: '2024-01-10T09:00:00Z',
-				updatedAt: '2024-01-10T09:30:00Z'
+				updatedAt: '2024-01-10T09:30:00Z',
+				deletedAt: null
 			}
 		];
 
@@ -467,13 +471,15 @@ describe('ReconciliationService', () => {
 				equals: vi.fn(() => ({
 					and: vi.fn(() => ({
 						reverse: vi.fn(() => ({
-							sortBy: vi.fn(() => Promise.resolve([
-								{
-									id: 'record-1',
-									calculatedBalance: 1200,
-									reconciledDate: '2024-01-15T10:00:00Z'
-								}
-							]))
+							sortBy: vi.fn(() =>
+								Promise.resolve([
+									{
+										id: 'record-1',
+										calculatedBalance: 1200,
+										reconciledDate: '2024-01-15T10:00:00Z'
+									}
+								])
+							)
 						}))
 					}))
 				}))
@@ -481,11 +487,13 @@ describe('ReconciliationService', () => {
 			vi.mocked(db.reconciliationDiscrepancies.where).mockReturnValue({
 				equals: vi.fn(() => ({
 					and: vi.fn(() => ({
-						toArray: vi.fn(() => Promise.resolve([
-							{ id: 'disc-1', resolvedAt: null },
-							{ id: 'disc-2', resolvedAt: null },
-							{ id: 'disc-3', resolvedAt: '2024-01-10T00:00:00Z' }
-						]))
+						toArray: vi.fn(() =>
+							Promise.resolve([
+								{ id: 'disc-1', resolvedAt: null },
+								{ id: 'disc-2', resolvedAt: null },
+								{ id: 'disc-3', resolvedAt: '2024-01-10T00:00:00Z' }
+							])
+						)
 					}))
 				}))
 			} as any);
@@ -536,9 +544,9 @@ describe('ReconciliationService', () => {
 		it('should throw error for non-existent account', async () => {
 			vi.mocked(accountService.getAccount).mockResolvedValue(null);
 
-			await expect(
-				reconciliationService.getReconciliationSummary('non-existent')
-			).rejects.toThrow('Account non-existent not found');
+			await expect(reconciliationService.getReconciliationSummary('non-existent')).rejects.toThrow(
+				'Account non-existent not found'
+			);
 		});
 	});
 
@@ -552,7 +560,9 @@ describe('ReconciliationService', () => {
 				description: 'Transaction amount incorrect',
 				suggestedAction: 'modify_transaction',
 				severity: 'medium',
-				createdAt: '2024-01-15T10:00:00Z'
+				createdAt: '2024-01-15T10:00:00Z',
+				updatedAt: '2024-01-15T10:00:00Z',
+				deletedAt: null
 			},
 			{
 				id: 'disc-2',
@@ -563,6 +573,8 @@ describe('ReconciliationService', () => {
 				suggestedAction: 'modify_transaction',
 				severity: 'high',
 				createdAt: '2024-01-14T10:00:00Z',
+				updatedAt: '2024-01-15T08:00:00Z',
+				deletedAt: null,
 				resolvedAt: '2024-01-15T08:00:00Z'
 			}
 		];
@@ -595,18 +607,17 @@ describe('ReconciliationService', () => {
 
 			await reconciliationService.resolveDiscrepancy('disc-1', 'User resolved manually');
 
-			expect(db.reconciliationDiscrepancies.update).toHaveBeenCalledWith(
-				'disc-1',
-				{ resolvedAt: expect.any(String) }
-			);
+			expect(db.reconciliationDiscrepancies.update).toHaveBeenCalledWith('disc-1', {
+				resolvedAt: expect.any(String)
+			});
 		});
 
 		it('should throw error when resolving non-existent discrepancy', async () => {
 			vi.mocked(db.reconciliationDiscrepancies.get).mockResolvedValue(undefined);
 
-			await expect(
-				reconciliationService.resolveDiscrepancy('non-existent')
-			).rejects.toThrow('Discrepancy non-existent not found');
+			await expect(reconciliationService.resolveDiscrepancy('non-existent')).rejects.toThrow(
+				'Discrepancy non-existent not found'
+			);
 		});
 	});
 
@@ -646,15 +657,13 @@ describe('ReconciliationService', () => {
 			const clearedTransaction = mockTransactions[0]; // status: 'cleared'
 			const pendingTransaction = mockTransactions[2]; // status: 'pending'
 
-			const isCleared = (reconciliationService as any).isTransactionReconciled(
-				clearedTransaction,
-				{ includePendingTransactions: false }
-			);
+			const isCleared = (reconciliationService as any).isTransactionReconciled(clearedTransaction, {
+				includePendingTransactions: false
+			});
 
-			const isPending = (reconciliationService as any).isTransactionReconciled(
-				pendingTransaction,
-				{ includePendingTransactions: false }
-			);
+			const isPending = (reconciliationService as any).isTransactionReconciled(pendingTransaction, {
+				includePendingTransactions: false
+			});
 
 			const isPendingIncluded = (reconciliationService as any).isTransactionReconciled(
 				pendingTransaction,

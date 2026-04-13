@@ -20,29 +20,35 @@
  * @returns {string} - Full polygon string for clip-path (all 4 corners)
  */
 function generateSquirclePolygon(radius, steps = 14) {
-  const n = 5; // superellipse exponent (4 = squircle)
-  const exp = 2 / n; // 0.5 for n=4
-  const r = radius;
+	const n = 5; // superellipse exponent (4 = squircle)
+	const exp = 2 / n; // 0.5 for n=4
+	const r = radius;
 
-  /** One quadrant: from (0, r) to (r, 0), θ from π/2 to 0. Reflect across chord x+y=r for convex (inner) curve. */
-  const quadrant = [];
-  for (let i = 0; i <= steps; i++) {
-    const theta = (Math.PI / 2) * (1 - i / steps);
-    const u = r * Math.pow(Math.cos(theta), exp);
-    const v = r * Math.pow(Math.sin(theta), exp);
-    quadrant.push({ x: r - v, y: r - u });
-  }
+	/** One quadrant: from (0, r) to (r, 0), θ from π/2 to 0. Reflect across chord x+y=r for convex (inner) curve. */
+	const quadrant = [];
+	for (let i = 0; i <= steps; i++) {
+		const theta = (Math.PI / 2) * (1 - i / steps);
+		const u = r * Math.pow(Math.cos(theta), exp);
+		const v = r * Math.pow(Math.sin(theta), exp);
+		quadrant.push({ x: r - v, y: r - u });
+	}
 
-  // Winding must match jrabausch generator: TL (0,r)→(r,0), TR (r,0)→(0,r), BR (0,r)→(r,0), BL (r,0)→(0,r).
-  // So TR and BL use quadrant in reverse order.
-  const topLeft = quadrant.map(({ x, y }) => `${x.toFixed(2)}px ${y.toFixed(2)}px`);
-  const topRight = [...quadrant].reverse().map(({ x, y }) => `calc(100% - ${x.toFixed(2)}px) ${y.toFixed(2)}px`);
-  const bottomRight = quadrant.map(({ x, y }) => `calc(100% - ${x.toFixed(2)}px) calc(100% - ${y.toFixed(2)}px)`);
-  const bottomLeft = [...quadrant].reverse().map(({ x, y }) => `${x.toFixed(2)}px calc(100% - ${y.toFixed(2)}px)`);
+	// Winding must match jrabausch generator: TL (0,r)→(r,0), TR (r,0)→(0,r), BR (0,r)→(r,0), BL (r,0)→(0,r).
+	// So TR and BL use quadrant in reverse order.
+	const topLeft = quadrant.map(({ x, y }) => `${x.toFixed(2)}px ${y.toFixed(2)}px`);
+	const topRight = [...quadrant]
+		.reverse()
+		.map(({ x, y }) => `calc(100% - ${x.toFixed(2)}px) ${y.toFixed(2)}px`);
+	const bottomRight = quadrant.map(
+		({ x, y }) => `calc(100% - ${x.toFixed(2)}px) calc(100% - ${y.toFixed(2)}px)`
+	);
+	const bottomLeft = [...quadrant]
+		.reverse()
+		.map(({ x, y }) => `${x.toFixed(2)}px calc(100% - ${y.toFixed(2)}px)`);
 
-  /* Clockwise winding (TL→TR→BR→BL) = interior filled = convex corners. */
-  const all = [...topLeft, ...topRight, ...bottomRight, ...bottomLeft];
-  return all.join(',');
+	/* Clockwise winding (TL→TR→BR→BL) = interior filled = convex corners. */
+	const all = [...topLeft, ...topRight, ...bottomRight, ...bottomLeft];
+	return all.join(',');
 }
 
 // CLI: output polygon for radius (default 24) and steps (default 14)

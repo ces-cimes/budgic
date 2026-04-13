@@ -34,12 +34,12 @@
 
 	<!-- Main content area with inset effect -->
 	<main
-		class="w-screen bg-(--color-bg-primary) rounded-2xl 
-			shadow-md overflow-hidden flex flex-col
-			m-1 md:m-2 
-			{isMobile.current 
-				? 'h-[calc(100svh-2*var(--spacing)-71px)] min-h-[calc(100svh-2*var(--spacing)-71px)] mb-0' 
-				: 'h-[calc(100svh-2*2*var(--spacing))] min-h-[calc(100svh-2*2*var(--spacing))] mb-[calc(2*var(--spacing))]'}"
+		class="m-1 flex w-screen
+			flex-col overflow-hidden rounded-2xl bg-(--color-bg-primary)
+			shadow-md md:m-2
+			{isMobile.current
+			? 'mb-0 h-[calc(100svh-2*var(--spacing)-71px)] min-h-[calc(100svh-2*var(--spacing)-71px)]'
+			: 'mb-[calc(2*var(--spacing))] h-[calc(100svh-2*2*var(--spacing))] min-h-[calc(100svh-2*2*var(--spacing))]'}"
 	>
 		{@render children()}
 	</main>
@@ -76,14 +76,19 @@
 		<!-- Desktop: Popover anchored to FAB -->
 		<Popover.Root bind:open={fabPopoverOpen}>
 			<Popover.Trigger
-				class="fixed bottom-4 right-4 z-50 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border border-border bg-primary text-primary-foreground shadow-lg transition-all hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
+				class="border-border bg-primary text-primary-foreground fixed right-4 bottom-4 z-50 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border shadow-lg transition-all hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
 				aria-label="Add transaction"
 			>
 				<Plus class="h-5 w-5" />
 			</Popover.Trigger>
-			<Popover.Content class="w-[min(calc(100vw-2rem),20rem)] p-0" align="end" side="top" sideOffset={8}>
+			<Popover.Content
+				class="w-[min(calc(100vw-2rem),20rem)] p-0"
+				align="end"
+				side="top"
+				sideOffset={8}
+			>
 				<div class="p-2">
-					<p class="text-xs font-medium text-muted-foreground px-2 pb-2">Choose type</p>
+					<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
 					<TypePicker onSelect={handleTypeSelect} />
 				</div>
 			</Popover.Content>

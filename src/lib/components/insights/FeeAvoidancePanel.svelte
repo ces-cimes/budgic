@@ -46,7 +46,11 @@
 	let expandedRisks = $state(new Set<string>());
 	let expandedRecommendations = $state(new Set<string>());
 	let applyingAdjustments = $state(false);
-	let maxRisksToShow = $state(initialMaxRisks);
+	let maxRisksToShow = $state(10);
+
+	$effect.pre(() => {
+		maxRisksToShow = initialMaxRisks;
+	});
 
 	// Derived state
 	let totalPotentialSavings = $derived(

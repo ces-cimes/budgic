@@ -38,9 +38,7 @@ export function getPanelUnreadCount(insights: Insight[]): number {
 }
 
 /** Badge color: red if any Critical, else amber if any High. */
-export function getBadgeVariant(
-	insights: Insight[]
-): 'destructive' | 'warning' | null {
+export function getBadgeVariant(insights: Insight[]): 'destructive' | 'warning' | null {
 	const panel = getPanelAlerts(insights);
 	if (panel.length === 0) return null;
 	const hasCritical = panel.some((i) => i.severity === 'alert');
@@ -69,9 +67,7 @@ export function panelInsightGroupKey(i: Insight): string {
  * Within each group, insights are newest-first (primary = group[0]).
  */
 export function groupPanelAlertsForDisplay(insights: Insight[]): Insight[][] {
-	const sorted = [...insights].sort((a, b) =>
-		(b.createdAt || '').localeCompare(a.createdAt || '')
-	);
+	const sorted = [...insights].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 	const byKey = new Map<string, Insight[]>();
 	for (const i of sorted) {
 		const k = panelInsightGroupKey(i);

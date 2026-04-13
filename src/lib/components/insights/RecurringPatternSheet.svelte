@@ -88,7 +88,11 @@
 	}
 
 	const panelTitle = $derived(
-		pattern ? pattern.metadata?.notes || pattern.descriptionPattern || 'Recurring pattern' : loading ? 'Loading…' : 'Recurring pattern'
+		pattern
+			? pattern.metadata?.notes || pattern.descriptionPattern || 'Recurring pattern'
+			: loading
+				? 'Loading…'
+				: 'Recurring pattern'
 	);
 </script>
 
@@ -99,18 +103,20 @@
 	description="Pattern details and linked transactions"
 >
 	{#if loading}
-		<div class="py-8 flex items-center justify-center">
-			<div class="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+		<div class="flex items-center justify-center py-8">
+			<div
+				class="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+			></div>
 		</div>
 	{:else if pattern}
 		<div class="space-y-4">
 			<div class="grid grid-cols-2 gap-3 text-sm">
 				<div class="squircle-lg squircle-border bg-muted/50 p-3">
-					<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-						<Calendar class="w-3.5 h-3.5" />
-						<span class="text-xs font-medium uppercase tracking-wider">Next</span>
+					<div class="text-muted-foreground mb-1 flex items-center gap-1.5">
+						<Calendar class="h-3.5 w-3.5" />
+						<span class="text-xs font-medium tracking-wider uppercase">Next</span>
 					</div>
-					<p class="font-medium text-foreground">
+					<p class="text-foreground font-medium">
 						{#if prediction?.nextDate}
 							{formatDate(prediction.nextDate)}
 						{:else}
@@ -119,11 +125,11 @@
 					</p>
 				</div>
 				<div class="squircle-lg squircle-border bg-muted/50 p-3">
-					<div class="flex items-center gap-1.5 text-muted-foreground mb-1">
-						<Banknote class="w-3.5 h-3.5" />
-						<span class="text-xs font-medium uppercase tracking-wider">Amount</span>
+					<div class="text-muted-foreground mb-1 flex items-center gap-1.5">
+						<Banknote class="h-3.5 w-3.5" />
+						<span class="text-xs font-medium tracking-wider uppercase">Amount</span>
 					</div>
-					<p class="font-semibold text-foreground tabular-nums text-base">
+					<p class="text-foreground text-base font-semibold tabular-nums">
 						{#if prediction != null}
 							~{formatAmount(prediction.amount, pattern.metadata?.currency || userCurrency)}
 						{:else}
@@ -132,36 +138,36 @@
 					</p>
 				</div>
 			</div>
-			<p class="text-xs text-muted-foreground">
+			<p class="text-muted-foreground text-xs">
 				Confidence: {pattern.confidence}% · {pattern.occurrences} occurrences · {pattern.frequency}
 			</p>
 
 			<div>
-				<h4 class="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-2">
+				<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
 					Linked transactions
 				</h4>
 				{#if transactions.length === 0}
-					<p class="text-sm text-muted-foreground">No transactions linked.</p>
+					<p class="text-muted-foreground text-sm">No transactions linked.</p>
 				{:else}
 					<ul class="space-y-1.5">
 						{#each transactions as tx (tx.id)}
 							<li>
 								<button
 									type="button"
-									class="w-full text-left squircle-lg squircle-border bg-card px-3 py-2.5 text-sm hover:bg-muted/50 transition-colors flex items-center justify-between gap-2"
+									class="squircle-lg squircle-border bg-card hover:bg-muted/50 flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm transition-colors"
 									onclick={() => viewTransaction(tx)}
 								>
 									<span class="truncate text-[var(--color-text-secondary)]">
 										{tx.description || 'Transaction'}
 									</span>
-									<span class="flex items-center gap-2 shrink-0">
-										<span class="font-semibold text-foreground tabular-nums">
+									<span class="flex shrink-0 items-center gap-2">
+										<span class="text-foreground font-semibold tabular-nums">
 											{formatAmount(Math.abs(tx.amount ?? 0), tx.currency || userCurrency)}
 										</span>
 										<span class="text-muted-foreground text-xs">
 											{formatDate(tx.clearedDate || tx.plannedDate || tx.createdAt || '')}
 										</span>
-										<ExternalLink class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+										<ExternalLink class="text-muted-foreground h-3.5 w-3.5 shrink-0" />
 									</span>
 								</button>
 							</li>
@@ -170,18 +176,18 @@
 				{/if}
 			</div>
 
-			<div class="border-t border-border pt-4 mt-4">
+			<div class="border-border mt-4 border-t pt-4">
 				<button
 					type="button"
-					class="text-sm text-primary hover:underline flex items-center gap-1.5"
+					class="text-primary flex items-center gap-1.5 text-sm hover:underline"
 					onclick={viewAllRecurring}
 				>
-					<ExternalLink class="w-4 h-4" />
+					<ExternalLink class="h-4 w-4" />
 					View all recurring patterns
 				</button>
 			</div>
 		</div>
 	{:else if patternId && !loading}
-		<p class="text-sm text-muted-foreground py-4">Pattern not found.</p>
+		<p class="text-muted-foreground py-4 text-sm">Pattern not found.</p>
 	{/if}
 </ResponsivePanel>

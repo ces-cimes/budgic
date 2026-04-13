@@ -43,7 +43,7 @@ function createDismissedStore() {
 		isDismissed(transactionId: string): boolean {
 			let value: Set<string>;
 			subscribe((v) => (value = v))();
-			return (value!).has(transactionId);
+			return value!.has(transactionId);
 		}
 	};
 }

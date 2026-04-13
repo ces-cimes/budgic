@@ -6,18 +6,14 @@
 		children: any;
 	}
 
-	const {
-		title = 'Advanced Options',
-		children
-	}: Props = $props();
+	const { title = 'Advanced Options', children }: Props = $props();
 </script>
 
-<div class="border-t border-border pt-6 mt-6">
+<div class="border-border mt-6 border-t pt-6">
 	<div class="mb-4">
-		<h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wide">{title}</h3>
+		<h3 class="text-muted-foreground text-sm font-medium tracking-wide uppercase">{title}</h3>
 	</div>
 	<FormFieldGrid>
 		{@render children()}
 	</FormFieldGrid>
 </div>
-

@@ -80,14 +80,14 @@ class RecommendationService {
 		const context = await this.gatherContext(days);
 
 		// Generate different types of recommendations
-		recommendations.push(...await this.generateBudgetRecommendations(context));
-		recommendations.push(...await this.generateSpendingRecommendations(context));
-		recommendations.push(...await this.generateGoalRecommendations(context));
-		recommendations.push(...await this.generateBehaviorRecommendations(context));
-		recommendations.push(...await this.generateFeatureRecommendations(context));
-		recommendations.push(...await this.generateTimingRecommendations(context));
-		recommendations.push(...await this.generateCategoryRecommendations(context));
-		recommendations.push(...await this.generateCreditUtilizationRecommendations());
+		recommendations.push(...(await this.generateBudgetRecommendations(context)));
+		recommendations.push(...(await this.generateSpendingRecommendations(context)));
+		recommendations.push(...(await this.generateGoalRecommendations(context)));
+		recommendations.push(...(await this.generateBehaviorRecommendations(context)));
+		recommendations.push(...(await this.generateFeatureRecommendations(context)));
+		recommendations.push(...(await this.generateTimingRecommendations(context)));
+		recommendations.push(...(await this.generateCategoryRecommendations(context)));
+		recommendations.push(...(await this.generateCreditUtilizationRecommendations()));
 
 		// Sort by priority and confidence
 		return recommendations.sort((a, b) => {
@@ -101,12 +101,14 @@ class RecommendationService {
 	/**
 	 * Generate budget-related recommendations
 	 */
-	private async generateBudgetRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
+	private async generateBudgetRecommendations(
+		context: RecommendationContext
+	): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
 		const userCurrency = await getUserMainCurrency();
 
 		// Check for categories over budget
-		context.budgetStatus.categories.forEach(cat => {
+		context.budgetStatus.categories.forEach((cat) => {
 			if (cat.spent > cat.budgeted) {
 				const overage = cat.spent - cat.budgeted;
 				const percentage = (overage / cat.budgeted) * 100;
@@ -150,7 +152,9 @@ class RecommendationService {
 	/**
 	 * Generate spending-related recommendations
 	 */
-	private async generateSpendingRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
+	private async generateSpendingRecommendations(
+		context: RecommendationContext
+	): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
 
 		// High spending velocity recommendation
@@ -175,7 +179,8 @@ class RecommendationService {
 		}
 
 		// Weekend vs weekday spending
-		const weekendRatio = context.spendingPatterns.timingPatterns.weekendVsWeekday.weekend /
+		const weekendRatio =
+			context.spendingPatterns.timingPatterns.weekendVsWeekday.weekend /
 			(context.spendingPatterns.timingPatterns.weekendVsWeekday.weekday || 1);
 
 		if (weekendRatio > 0.5) {
@@ -201,11 +206,13 @@ class RecommendationService {
 	/**
 	 * Generate goal-related recommendations
 	 */
-	private async generateGoalRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
+	private async generateGoalRecommendations(
+		context: RecommendationContext
+	): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
 
 		// Check for goals that need attention
-		context.goals.forEach(goal => {
+		context.goals.forEach((goal) => {
 			if (goal.status === 'active') {
 				const progress = goal.currentAmount / goal.targetAmount;
 				const timeRemaining = goal.targetDate
@@ -272,7 +279,9 @@ class RecommendationService {
 	/**
 	 * Generate behavior-related recommendations
 	 */
-	private async generateBehaviorRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
+	private async generateBehaviorRecommendations(
+		context: RecommendationContext
+	): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
 
 		// Low engagement
@@ -282,7 +291,8 @@ class RecommendationService {
 				type: 'behavior',
 				priority: 'medium',
 				title: 'Increase App Engagement',
-				description: 'Regular use of the app helps you stay on top of your finances. Try checking your budget daily.',
+				description:
+					'Regular use of the app helps you stay on top of your finances. Try checking your budget daily.',
 				actionable: true,
 				actionText: 'View Dashboard',
 				actionUrl: '/',
@@ -294,7 +304,7 @@ class RecommendationService {
 		}
 
 		// Behavior patterns
-		context.behaviorPatterns.forEach(pattern => {
+		context.behaviorPatterns.forEach((pattern) => {
 			if (pattern.actionable && pattern.recommendation) {
 				recommendations.push({
 					id: `behavior-${pattern.id}`,
@@ -317,12 +327,14 @@ class RecommendationService {
 	/**
 	 * Generate feature-related recommendations
 	 */
-	private async generateFeatureRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
+	private async generateFeatureRecommendations(
+		context: RecommendationContext
+	): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
 
 		// Underutilized features
 		const featureAdoption = await appUsageAnalyticsService.getFeatureAdoptionMetrics();
-		
+
 		if (featureAdoption.underutilizedFeatures.length > 0) {
 			const topFeature = featureAdoption.underutilizedFeatures[0];
 			recommendations.push({
@@ -346,7 +358,8 @@ class RecommendationService {
 				type: 'feature',
 				priority: 'medium',
 				title: 'Set Up Your Budget',
-				description: 'Creating a budget is the first step to financial control. Start with your essential expenses.',
+				description:
+					'Creating a budget is the first step to financial control. Start with your essential expenses.',
 				actionable: true,
 				actionText: 'Create Budget',
 				actionUrl: '/plan?tab=budget',
@@ -363,7 +376,9 @@ class RecommendationService {
 	/**
 	 * Generate timing-related recommendations
 	 */
-	private async generateTimingRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
+	private async generateTimingRecommendations(
+		context: RecommendationContext
+	): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
 
 		// Most active time recommendations
@@ -389,12 +404,14 @@ class RecommendationService {
 	/**
 	 * Generate category-related recommendations
 	 */
-	private async generateCategoryRecommendations(context: RecommendationContext): Promise<Recommendation[]> {
+	private async generateCategoryRecommendations(
+		context: RecommendationContext
+	): Promise<Recommendation[]> {
 		const recommendations: Recommendation[] = [];
 
 		// Top spending categories
 		const topCategories = context.spendingPatterns.categoryPatterns.slice(0, 3);
-		topCategories.forEach(cat => {
+		topCategories.forEach((cat) => {
 			if (cat.trend === 'increasing' && cat.percentageOfTotal > 20) {
 				recommendations.push({
 					id: `category-increasing-${cat.categoryId}`,
@@ -436,7 +453,9 @@ class RecommendationService {
 					description: creditRec.description,
 					actionable: creditRec.actionable,
 					actionText: creditRec.recommendedAction,
-					actionUrl: creditRec.accountId ? `/accounts/${creditRec.accountId}` : '/insights?tab=optimize',
+					actionUrl: creditRec.accountId
+						? `/accounts/${creditRec.accountId}`
+						: '/insights?tab=optimize',
 					confidence: creditRec.estimatedImpact.estimatedScorePoints
 						? Math.min(100, 60 + creditRec.estimatedImpact.estimatedScorePoints)
 						: 75,
@@ -456,7 +475,10 @@ class RecommendationService {
 				});
 			}
 		} catch (error) {
-			console.error('[RecommendationService] Error generating credit utilization recommendations:', error);
+			console.error(
+				'[RecommendationService] Error generating credit utilization recommendations:',
+				error
+			);
 		}
 
 		return recommendations;
@@ -470,14 +492,15 @@ class RecommendationService {
 	 * Gather all context data needed for recommendations
 	 */
 	private async gatherContext(days: number): Promise<RecommendationContext> {
-		const [userProfile, spendingPatterns, behaviorPatterns, usageMetrics, budgetData, goals] = await Promise.all([
-			this.getUserProfile(),
-			insightsService.analyzeSpendingPatternsAsync(days),
-			behavioralAnalysisService.detectAllPatterns(days),
-			appUsageAnalyticsService.getUsageMetrics(days),
-			this.getBudgetStatus(),
-			goalService.getAllGoals()
-		]);
+		const [userProfile, spendingPatterns, behaviorPatterns, usageMetrics, budgetData, goals] =
+			await Promise.all([
+				this.getUserProfile(),
+				insightsService.analyzeSpendingPatternsAsync(days),
+				behavioralAnalysisService.detectAllPatterns(days),
+				appUsageAnalyticsService.getUsageMetrics(days),
+				this.getBudgetStatus(),
+				goalService.getAllGoals()
+			]);
 
 		return {
 			userProfile,
@@ -485,7 +508,7 @@ class RecommendationService {
 			behaviorPatterns,
 			usageMetrics,
 			budgetStatus: budgetData,
-			goals: goals.filter(g => !g.deletedAt)
+			goals: goals.filter((g) => !g.deletedAt)
 		};
 	}
 
@@ -518,13 +541,13 @@ class RecommendationService {
 	}> {
 		try {
 			const budgetSummary = await budgetService.getBudgetSummary();
-			
+
 			// BudgetSummary has 'allocations' not 'categories'
 			if (!budgetSummary || !budgetSummary.allocations) {
 				return { categories: [] };
 			}
 
-			const categories = budgetSummary.allocations.map(allocation => ({
+			const categories = budgetSummary.allocations.map((allocation) => ({
 				categoryId: allocation.categoryId,
 				budgeted: allocation.allocatedAmount || 0,
 				spent: Math.abs(allocation.spentAmount || 0),
@@ -537,7 +560,6 @@ class RecommendationService {
 			return { categories: [] };
 		}
 	}
-
 }
 
 export const recommendationService = new RecommendationService();

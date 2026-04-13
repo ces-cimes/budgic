@@ -15,7 +15,13 @@
 		Target
 	} from '@lucide/svelte';
 	import { Progress } from '$lib/components/ui/progress';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardHeader,
+		CardTitle
+	} from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { ChevronDown } from '@lucide/svelte';
@@ -95,9 +101,7 @@
 		}
 	});
 
-	const currentConfig = $derived(
-		analysis ? statusConfig[analysis.status] : statusConfig.optimal
-	);
+	const currentConfig = $derived(analysis ? statusConfig[analysis.status] : statusConfig.optimal);
 
 	const CurrentIcon = $derived(currentConfig.icon);
 
@@ -110,10 +114,10 @@
 		<div class="text-muted-foreground">Loading emergency fund analysis...</div>
 	</div>
 {:else if !analysis}
-	<div class="text-center p-8">
-		<Shield class="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-		<h3 class="text-lg font-semibold text-primary mb-2">No Emergency Fund Designated</h3>
-		<p class="text-sm text-muted-foreground mb-4">
+	<div class="p-8 text-center">
+		<Shield class="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+		<h3 class="text-primary mb-2 text-lg font-semibold">No Emergency Fund Designated</h3>
+		<p class="text-muted-foreground mb-4 text-sm">
 			Designate savings accounts as emergency fund accounts to track your emergency reserves.
 		</p>
 	</div>
@@ -123,14 +127,18 @@
 		<Card class="border-2 {currentConfig.borderColor}">
 			<CardHeader>
 				<div class="flex items-center justify-between">
-				<div class="flex items-center gap-3">
-					<CurrentIcon class="w-6 h-6 {currentConfig.color}" />
+					<div class="flex items-center gap-3">
+						<CurrentIcon class="h-6 w-6 {currentConfig.color}" />
 						<div>
 							<CardTitle class="text-lg">{currentConfig.label}</CardTitle>
 							<CardDescription>{currentConfig.description}</CardDescription>
 						</div>
 					</div>
-					<Badge variant={analysis.status === 'optimal' || analysis.status === 'adequate' ? 'default' : 'destructive'}>
+					<Badge
+						variant={analysis.status === 'optimal' || analysis.status === 'adequate'
+							? 'default'
+							: 'destructive'}
+					>
 						{analysis.monthsCovered.toFixed(1)} months
 					</Badge>
 				</div>
@@ -143,7 +151,7 @@
 						<span class="font-medium">{formatPercentage(analysis.percentageAchieved)}</span>
 					</div>
 					<Progress value={analysis.percentageAchieved} max={100} class="h-3" />
-					<div class="flex justify-between text-xs text-muted-foreground">
+					<div class="text-muted-foreground flex justify-between text-xs">
 						<span>
 							Current: {formatTransactionAmount(analysis.currentBalance, userCurrency)}
 						</span>
@@ -157,19 +165,21 @@
 				{#if showDetails}
 					<div class="grid grid-cols-2 gap-4 pt-2">
 						<div class="space-y-1">
-							<div class="text-xs text-muted-foreground">Months Covered</div>
+							<div class="text-muted-foreground text-xs">Months Covered</div>
 							<div class="text-lg font-semibold">{analysis.monthsCovered.toFixed(1)}</div>
-							<div class="text-xs text-muted-foreground">
+							<div class="text-muted-foreground text-xs">
 								Target: {analysis.factors.targetMonths} months
 							</div>
 						</div>
 						<div class="space-y-1">
-							<div class="text-xs text-muted-foreground">Monthly Contribution</div>
+							<div class="text-muted-foreground text-xs">Monthly Contribution</div>
 							<div class="text-lg font-semibold">
 								{formatTransactionAmount(analysis.recommendedMonthlyContribution, userCurrency)}
 							</div>
-							<div class="text-xs text-muted-foreground">
-								{analysis.monthsToTarget > 0 ? `${analysis.monthsToTarget} months to target` : 'Target reached'}
+							<div class="text-muted-foreground text-xs">
+								{analysis.monthsToTarget > 0
+									? `${analysis.monthsToTarget} months to target`
+									: 'Target reached'}
 							</div>
 						</div>
 					</div>
@@ -177,26 +187,26 @@
 
 				<!-- Account Breakdown -->
 				{#if analysis.emergencyFundAccounts.length > 0}
-					<div class="pt-2 border-t">
+					<div class="border-t pt-2">
 						<button
-							class="flex items-center justify-between w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-							onclick={() => showAccountBreakdown = !showAccountBreakdown}
+							class="text-muted-foreground hover:text-foreground flex w-full items-center justify-between text-sm font-medium transition-colors"
+							onclick={() => (showAccountBreakdown = !showAccountBreakdown)}
 						>
 							<span>Emergency Fund Accounts ({analysis.emergencyFundAccounts.length})</span>
 							<ChevronDown
-								class="w-4 h-4 transition-transform {showAccountBreakdown ? 'rotate-180' : ''}"
+								class="h-4 w-4 transition-transform {showAccountBreakdown ? 'rotate-180' : ''}"
 							/>
 						</button>
 						{#if showAccountBreakdown}
 							<div class="mt-2 space-y-2">
 								{#each analysis.emergencyFundAccounts as account}
-									<div class="flex items-center justify-between p-2 rounded bg-muted/50">
+									<div class="bg-muted/50 flex items-center justify-between rounded p-2">
 										<span class="text-sm">{account.accountName}</span>
 										<div class="text-right">
 											<div class="text-sm font-medium">
 												{formatTransactionAmount(account.balance, userCurrency)}
 											</div>
-											<div class="text-xs text-muted-foreground">
+											<div class="text-muted-foreground text-xs">
 												{account.percentage.toFixed(1)}%
 											</div>
 										</div>
@@ -209,16 +219,18 @@
 
 				<!-- Partial Usage Warning -->
 				{#if analysis.partialUsage && analysis.partialUsage.percentageUsed > 0}
-					<div class="p-3 rounded-lg bg-warning/10 border border-warning/50">
+					<div class="bg-warning/10 border-warning/50 rounded-lg border p-3">
 						<div class="flex items-start gap-2">
-							<AlertTriangle class="w-5 h-5 text-warning mt-0.5" />
+							<AlertTriangle class="text-warning mt-0.5 h-5 w-5" />
 							<div class="flex-1">
-								<div class="text-sm font-medium text-warning">
-									Emergency Fund Used ({formatPercentage(analysis.partialUsage.percentageUsed, { maxDecimals: 0 })})
+								<div class="text-warning text-sm font-medium">
+									Emergency Fund Used ({formatPercentage(analysis.partialUsage.percentageUsed, {
+										maxDecimals: 0
+									})})
 								</div>
-								<div class="text-xs text-muted-foreground mt-1">
-									{formatTransactionAmount(analysis.partialUsage.amountUsed, userCurrency)} used.
-									Rebuild over {analysis.partialUsage.recoveryTimeline} months.
+								<div class="text-muted-foreground mt-1 text-xs">
+									{formatTransactionAmount(analysis.partialUsage.amountUsed, userCurrency)} used. Rebuild
+									over {analysis.partialUsage.recoveryTimeline} months.
 								</div>
 							</div>
 						</div>
@@ -232,17 +244,17 @@
 			<Card>
 				<CardHeader>
 					<button
-						class="flex items-center justify-between w-full"
-						onclick={() => showRecommendationsExpanded = !showRecommendationsExpanded}
+						class="flex w-full items-center justify-between"
+						onclick={() => (showRecommendationsExpanded = !showRecommendationsExpanded)}
 					>
 						<div class="flex items-center gap-2">
-							<Info class="w-5 h-5 text-info" />
+							<Info class="text-info h-5 w-5" />
 							<CardTitle class="text-base">
 								Recommendations ({recommendations.length})
 							</CardTitle>
 						</div>
 						<ChevronDown
-							class="w-4 h-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
 						/>
 					</button>
 				</CardHeader>
@@ -250,26 +262,20 @@
 					<CardContent class="space-y-3">
 						{#each recommendations as rec}
 							<div
-								class="p-3 rounded-lg border {rec.priority === 'urgent' || rec.priority === 'high'
+								class="rounded-lg border p-3 {rec.priority === 'urgent' || rec.priority === 'high'
 									? 'border-destructive/50 bg-destructive/5'
 									: rec.priority === 'medium'
 										? 'border-warning/50 bg-warning/5'
 										: 'border-muted bg-muted/50'}"
 							>
-							<div class="flex items-start gap-3">
-								{#if rec.priority === 'urgent' || rec.priority === 'high'}
-									<AlertCircle
-										class="w-5 h-5 mt-0.5 text-destructive"
-									/>
-								{:else if rec.priority === 'medium'}
-									<AlertTriangle
-										class="w-5 h-5 mt-0.5 text-warning"
-									/>
-								{:else}
-									<Info
-										class="w-5 h-5 mt-0.5 text-info"
-									/>
-								{/if}
+								<div class="flex items-start gap-3">
+									{#if rec.priority === 'urgent' || rec.priority === 'high'}
+										<AlertCircle class="text-destructive mt-0.5 h-5 w-5" />
+									{:else if rec.priority === 'medium'}
+										<AlertTriangle class="text-warning mt-0.5 h-5 w-5" />
+									{:else}
+										<Info class="text-info mt-0.5 h-5 w-5" />
+									{/if}
 									<div class="flex-1 space-y-2">
 										<div class="flex items-center gap-2">
 											<Badge
@@ -283,12 +289,12 @@
 											</Badge>
 											<span class="text-sm font-medium">{rec.title}</span>
 										</div>
-										<p class="text-sm text-muted-foreground">{rec.description}</p>
-										<div class="text-sm font-medium text-foreground">
+										<p class="text-muted-foreground text-sm">{rec.description}</p>
+										<div class="text-foreground text-sm font-medium">
 											{rec.recommendedAction}
 										</div>
 										{#if rec.estimatedImpact.monthsToTarget}
-											<div class="text-xs text-muted-foreground">
+											<div class="text-muted-foreground text-xs">
 												Estimated timeline: {rec.estimatedImpact.monthsToTarget} months
 											</div>
 										{/if}
@@ -305,8 +311,8 @@
 		{#if showDetails}
 			<Card>
 				<CardHeader>
-					<CardTitle class="text-base flex items-center gap-2">
-						<Target class="w-4 h-4" />
+					<CardTitle class="flex items-center gap-2 text-base">
+						<Target class="h-4 w-4" />
 						Calculation Details
 					</CardTitle>
 				</CardHeader>
@@ -324,13 +330,17 @@
 					<div class="flex justify-between">
 						<span class="text-muted-foreground">Income Stability:</span>
 						<span class="font-medium">
-							{analysis.factors.incomeStabilityMultiplier === 1.2 ? 'Irregular (×1.2)' : 'Stable (×1.0)'}
+							{analysis.factors.incomeStabilityMultiplier === 1.2
+								? 'Irregular (×1.2)'
+								: 'Stable (×1.0)'}
 						</span>
 					</div>
 					<div class="flex justify-between">
 						<span class="text-muted-foreground">Job Type:</span>
 						<span class="font-medium">
-							{analysis.factors.jobTypeMultiplier === 1.25 ? 'Contractor/Seasonal (×1.25)' : 'Regular (×1.0)'}
+							{analysis.factors.jobTypeMultiplier === 1.25
+								? 'Contractor/Seasonal (×1.25)'
+								: 'Regular (×1.0)'}
 						</span>
 					</div>
 					{#if analysis.factors.dependentsAdjustment > 0}

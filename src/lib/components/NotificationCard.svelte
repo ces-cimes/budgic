@@ -152,12 +152,18 @@
 	const snoozeHintOpacity = $derived(
 		swipeOffset <= HINT_LABEL_START_PX
 			? 0
-			: Math.min(1, (swipeOffset - HINT_LABEL_START_PX) / (HINT_LABEL_FULL_PX - HINT_LABEL_START_PX))
+			: Math.min(
+					1,
+					(swipeOffset - HINT_LABEL_START_PX) / (HINT_LABEL_FULL_PX - HINT_LABEL_START_PX)
+				)
 	);
 	const dismissHintOpacity = $derived(
 		swipeOffset >= -HINT_LABEL_START_PX
 			? 0
-			: Math.min(1, (-swipeOffset - HINT_LABEL_START_PX) / (HINT_LABEL_FULL_PX - HINT_LABEL_START_PX))
+			: Math.min(
+					1,
+					(-swipeOffset - HINT_LABEL_START_PX) / (HINT_LABEL_FULL_PX - HINT_LABEL_START_PX)
+				)
 	);
 
 	function getMaxSwipeTravel() {
@@ -310,9 +316,7 @@
 	const hasPrimaryAction = $derived(!!primary.actionUrl || !!onClick);
 
 	const hasExpandableContent = $derived(
-		groupSize > 1 ||
-			detailLines.length > 0 ||
-			(primary.message?.trim()?.length ?? 0) > 0
+		groupSize > 1 || detailLines.length > 0 || (primary.message?.trim()?.length ?? 0) > 0
 	);
 
 	const primaryActionLabel = $derived(
@@ -373,20 +377,24 @@
 </script>
 
 <div bind:this={cardRootElement} class="relative select-none">
-	<div class="absolute inset-0 pointer-events-none z-0 flex">
+	<div class="pointer-events-none absolute inset-0 z-0 flex">
 		<div
-			class="flex items-center justify-start h-full px-6 {isSwiping ? '' : 'transition-opacity duration-200 ease-out'}"
+			class="flex h-full items-center justify-start px-6 {isSwiping
+				? ''
+				: 'transition-opacity duration-200 ease-out'}"
 			style="opacity: {snoozeHintOpacity};"
 		>
-			<div class="text-muted-foreground font-semibold text-sm">
+			<div class="text-muted-foreground text-sm font-semibold">
 				{onSnooze ? 'Swipe to snooze' : ''}
 			</div>
 		</div>
 		<div
-			class="flex flex-1 items-center justify-end h-full px-6 {isSwiping ? '' : 'transition-opacity duration-200 ease-out'}"
+			class="flex h-full flex-1 items-center justify-end px-6 {isSwiping
+				? ''
+				: 'transition-opacity duration-200 ease-out'}"
 			style="opacity: {dismissHintOpacity};"
 		>
-			<div class="text-destructive font-semibold text-sm">
+			<div class="text-destructive text-sm font-semibold">
 				{onDismiss ? 'Swipe to dismiss' : ''}
 			</div>
 		</div>
@@ -408,26 +416,26 @@
 				: 'none'};"
 	>
 		<div
-			class="relative rounded-lg border overflow-hidden transition-colors {panelSurfaceClass}"
+			class="relative overflow-hidden rounded-lg border transition-colors {panelSurfaceClass}"
 			style="opacity: {Math.max(0.5, Math.min(1, 1 - Math.abs(swipeOffset) / 600))};"
 		>
 			<div class="flex min-w-0">
 				<button
 					type="button"
-					class="min-w-0 flex-1 text-left py-2 flex gap-2 items-start rounded-none hover:bg-black/[0.04] dark:hover:bg-white/[0.05] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring {onDismiss || hasExpandableContent
-						? 'pl-3 pr-2'
+					class="focus-visible:ring-ring flex min-w-0 flex-1 items-start gap-2 rounded-none py-2 text-left hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:outline focus-visible:ring-inset dark:hover:bg-white/[0.05] {onDismiss ||
+					hasExpandableContent
+						? 'pr-2 pl-3'
 						: 'px-3'}"
 					onclick={handlePrimaryClick}
 				>
 					<span class="mt-0.5 shrink-0" aria-hidden="true">
-						<Icon class="w-4 h-4 {iconColor}" />
+						<Icon class="h-4 w-4 {iconColor}" />
 					</span>
 					<div class="min-w-0 flex-1">
-						<div
-							class="mb-0.5 flex min-w-0 items-center justify-between gap-x-2 gap-y-0.5"
-						>
+						<div class="mb-0.5 flex min-w-0 items-center justify-between gap-x-2 gap-y-0.5">
 							<span
-								class="text-[10px] font-semibold uppercase tracking-wider {displaySeverity === 'alert'
+								class="text-[10px] font-semibold tracking-wider uppercase {displaySeverity ===
+								'alert'
 									? 'text-destructive'
 									: displaySeverity === 'warning'
 										? 'text-amber-700 dark:text-amber-400'
@@ -435,16 +443,16 @@
 							>
 								{panelSeverityLabel(displaySeverity)}
 							</span>
-							<span class="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+							<span class="text-muted-foreground shrink-0 text-[10px] tabular-nums">
 								{relativeTime}
 							</span>
 						</div>
-						<div class="font-medium text-foreground text-sm leading-snug">
+						<div class="text-foreground text-sm leading-snug font-medium">
 							{primary.title}
 						</div>
 						{#if hasPrimaryAction}
 							<span
-								class="mt-1.5 inline-flex max-w-full items-center gap-0.5 rounded border border-border bg-background/60 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-muted-foreground"
+								class="border-border bg-background/60 text-muted-foreground mt-1.5 inline-flex max-w-full items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] leading-tight font-medium"
 							>
 								<span class="truncate">{primaryActionLabel}</span>
 								<span class="shrink-0 opacity-70" aria-hidden="true">→</span>
@@ -455,28 +463,28 @@
 
 				{#if onDismiss || hasExpandableContent}
 					<div
-						class="flex w-11 shrink-0 flex-col divide-y divide-border/50 self-stretch border-l border-border/50"
+						class="divide-border/50 border-border/50 flex w-11 shrink-0 flex-col divide-y self-stretch border-l"
 					>
 						{#if onDismiss}
 							<button
 								type="button"
-								class="flex min-h-10 flex-1 items-center justify-center text-muted-foreground hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.08] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+								class="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-10 flex-1 items-center justify-center hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:outline focus-visible:ring-inset dark:hover:bg-white/[0.08]"
 								aria-label="Dismiss"
 								onclick={handleDismissClick}
 							>
-								<X class="w-4 h-4" />
+								<X class="h-4 w-4" />
 							</button>
 						{/if}
 						{#if hasExpandableContent}
 							<button
 								type="button"
-								class="flex min-h-10 flex-1 items-center justify-center text-muted-foreground hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.08] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+								class="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-10 flex-1 items-center justify-center hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:outline focus-visible:ring-inset dark:hover:bg-white/[0.08]"
 								aria-expanded={isExpanded}
 								aria-label={isExpanded ? 'Hide details' : 'Show details'}
 								onclick={handleExpandClick}
 							>
 								<ChevronDown
-									class="w-4 h-4 transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}"
+									class="h-4 w-4 transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}"
 									aria-hidden="true"
 								/>
 							</button>
@@ -486,15 +494,15 @@
 			</div>
 
 			{#if isExpanded && hasExpandableContent}
-				<div class="border-t border-border/60 px-3 pb-3 pt-2 space-y-2" role="region">
+				<div class="border-border/60 space-y-2 border-t px-3 pt-2 pb-3" role="region">
 					{#if groupSize > 1}
-						<p class="text-xs text-muted-foreground">
+						<p class="text-muted-foreground text-xs">
 							+{groupSize - 1} similar alert{groupSize - 2 === 0 ? '' : 's'}
 						</p>
 					{/if}
 					{#if detailLines.length > 0}
 						<ul
-							class="space-y-0.5 text-xs text-muted-foreground list-none pl-0"
+							class="text-muted-foreground list-none space-y-0.5 pl-0 text-xs"
 							aria-label="Details"
 						>
 							{#each detailLines as line, i (i)}
@@ -502,13 +510,13 @@
 							{/each}
 						</ul>
 					{/if}
-					<p class="text-xs text-muted-foreground leading-relaxed">
+					<p class="text-muted-foreground text-xs leading-relaxed">
 						{primary.message}
 					</p>
 					{#if groupSize > 1}
 						<button
 							type="button"
-							class="text-xs text-primary font-medium hover:underline text-left"
+							class="text-primary text-left text-xs font-medium hover:underline"
 							onclick={handleViewSimilarClick}
 						>
 							View in Insights
@@ -521,7 +529,9 @@
 		<AlertDialog.Root bind:open={dismissConfirmOpen}>
 			<AlertDialog.Content>
 				<AlertDialog.Header>
-					<AlertDialog.Title>Dismiss {groupSize > 1 ? 'these alerts' : 'this alert'}?</AlertDialog.Title>
+					<AlertDialog.Title
+						>Dismiss {groupSize > 1 ? 'these alerts' : 'this alert'}?</AlertDialog.Title
+					>
 					<AlertDialog.Description>
 						{groupSize > 1
 							? 'These alerts will reappear if the risk persists.'
@@ -532,10 +542,9 @@
 					<AlertDialog.Cancel
 						onclick={() => {
 							pendingCriticalSwipeDismiss = false;
-						}}>Cancel</AlertDialog.Cancel>
-					<AlertDialog.Action onclick={handleConfirmDismiss}>
-						Dismiss
-					</AlertDialog.Action>
+						}}>Cancel</AlertDialog.Cancel
+					>
+					<AlertDialog.Action onclick={handleConfirmDismiss}>Dismiss</AlertDialog.Action>
 				</AlertDialog.Footer>
 			</AlertDialog.Content>
 		</AlertDialog.Root>

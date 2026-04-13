@@ -16,24 +16,39 @@
 		badgeColorClass?: string;
 	}
 
-	let { item, iconComponent: IconComponent, isActive, variant = 'default', showBadge = false, badgeValue, badgeColorClass = '' }: Props = $props();
+	let {
+		item,
+		iconComponent: IconComponent,
+		isActive,
+		variant = 'default',
+		showBadge = false,
+		badgeValue,
+		badgeColorClass = ''
+	}: Props = $props();
 </script>
 
 <Sidebar.MenuItem>
-	<Sidebar.MenuButton variant={variant} isActive={isActive} tooltipContent={item.label} tooltipContentProps={{ class: 'rounded-lg' }}>
+	<Sidebar.MenuButton
+		{variant}
+		{isActive}
+		tooltipContent={item.label}
+		tooltipContentProps={{ class: 'rounded-lg' }}
+	>
 		{#snippet child({ props })}
 			<a
 				href={item.path}
-				class="group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:min-w-0
+				class="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-150 group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:justify-center
 					{isActive
-						? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)] font-semibold'
-						: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]'}"
+					? 'bg-[var(--color-amber-subtle)] font-semibold text-[var(--color-amber)]'
+					: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]'}"
 				{...props}
 			>
-				<div class="relative flex-shrink-0 flex items-center justify-center">
-					<IconComponent class="w-4 h-4" />
+				<div class="relative flex flex-shrink-0 items-center justify-center">
+					<IconComponent class="h-4 w-4" />
 				</div>
-				<span class="flex-1 text-sm truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
+				<span class="flex-1 truncate text-sm group-data-[collapsible=icon]:hidden"
+					>{item.label}</span
+				>
 				{#if showBadge && badgeValue !== undefined && badgeValue !== 0}
 					<Badge
 						variant="secondary"

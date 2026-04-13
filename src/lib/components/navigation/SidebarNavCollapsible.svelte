@@ -71,7 +71,7 @@
 	<div
 		role="group"
 		aria-label={item.label}
-		class="flex items-center w-full min-w-0 gap-0 group-data-[collapsible=icon]:w-fit group-data-[collapsible=icon]:min-w-0 relative"
+		class="relative flex w-full min-w-0 items-center gap-0 group-data-[collapsible=icon]:w-fit group-data-[collapsible=icon]:min-w-0"
 		onmouseenter={isCollapsed ? openFlyout : undefined}
 		onmouseleave={isCollapsed ? closeFlyout : undefined}
 	>
@@ -84,30 +84,41 @@
 						isActive={isParentActive}
 						tooltipContent={item.label}
 						tooltipContentProps={{ class: 'rounded-lg' }}
-						class="flex-1 min-w-0 rounded-none rounded-l-lg group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:!rounded-lg size-full justify-center"
+						class="size-full min-w-0 flex-1 justify-center rounded-none rounded-l-lg group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:!rounded-lg"
 					>
 						{#snippet child({ props })}
 							<a
 								href={defaultTabHref}
-								class="group/link flex items-center justify-center size-full rounded-lg transition-all duration-150
+								class="group/link flex size-full items-center justify-center rounded-lg transition-all duration-150
 									{isParentActive
-										? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)] font-semibold'
-										: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]'}"
+									? 'bg-[var(--color-amber-subtle)] font-semibold text-[var(--color-amber)]'
+									: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]'}"
 								{...props}
 							>
-								<IconComponent class="w-4 h-4" />
+								<IconComponent class="h-4 w-4" />
 							</a>
 						{/snippet}
 					</Sidebar.MenuButton>
 				</Popover.Trigger>
-				<Popover.Content class="w-48 p-1 rounded-lg shadow-lg border border-border bg-sidebar" side="right" align="start" sideOffset={4}>
-					<div role="navigation" aria-label="{item.label} submenu" class="py-0.5" onmouseenter={openFlyout} onmouseleave={closeFlyout}>
+				<Popover.Content
+					class="border-border bg-sidebar w-48 rounded-lg border p-1 shadow-lg"
+					side="right"
+					align="start"
+					sideOffset={4}
+				>
+					<div
+						role="navigation"
+						aria-label="{item.label} submenu"
+						class="py-0.5"
+						onmouseenter={openFlyout}
+						onmouseleave={closeFlyout}
+					>
 						{#each tabs as tab (tab.id)}
 							<a
 								href={item.path + '?tab=' + tab.id}
 								class="flex w-full items-center rounded-md px-2 py-1.5 text-sm transition-colors
 									{isTabActive(item.path, tab.id)
-									? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)] font-medium'
+									? 'bg-[var(--color-amber-subtle)] font-medium text-[var(--color-amber)]'
 									: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]'}"
 							>
 								{tab.label}
@@ -121,21 +132,23 @@
 				isActive={isParentActive}
 				tooltipContent={item.label}
 				tooltipContentProps={{ class: 'rounded-lg' }}
-				class="flex-1 min-w-0 rounded-none rounded-l-lg group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:!rounded-lg"
+				class="min-w-0 flex-1 rounded-none rounded-l-lg group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:!rounded-lg"
 			>
 				{#snippet child({ props })}
 					<a
 						href={defaultTabHref}
-						class="group/link flex items-center gap-3 px-3 py-2.5 rounded-l-lg transition-all duration-150 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg group-data-[collapsible=icon]:min-w-0
+						class="group/link flex items-center gap-3 rounded-l-lg px-3 py-2.5 transition-all duration-150 group-data-[collapsible=icon]:min-w-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg
 							{isParentActive
-								? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)] font-semibold'
-								: 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]'}"
+							? 'bg-[var(--color-amber-subtle)] font-semibold text-[var(--color-amber)]'
+							: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]'}"
 						{...props}
 					>
 						<div class="relative flex-shrink-0">
-							<IconComponent class="w-4 h-4" />
+							<IconComponent class="h-4 w-4" />
 						</div>
-						<span class="flex-1 text-sm truncate group-data-[collapsible=icon]:hidden">{item.label}</span>
+						<span class="flex-1 truncate text-sm group-data-[collapsible=icon]:hidden"
+							>{item.label}</span
+						>
 						{#if showBadge && badgeValue !== undefined && badgeValue !== 0}
 							<Badge
 								variant="secondary"
@@ -150,12 +163,12 @@
 		{/if}
 		<button
 			type="button"
-			class="shrink-0 p-2 rounded-r-lg border-l text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]/50 hover:text-[var(--color-text-primary)] group-data-[collapsible=icon]:hidden"
+			class="shrink-0 rounded-r-lg border-l p-2 text-[var(--color-text-secondary)] group-data-[collapsible=icon]:hidden hover:bg-[var(--color-bg-tertiary)]/50 hover:text-[var(--color-text-primary)]"
 			onclick={onToggle}
 			aria-expanded={expanded}
 			aria-label={expanded ? 'Collapse' : 'Expand'}
 		>
-			<ChevronDown class="w-4 h-4 transition-transform {expanded ? 'rotate-0' : '-rotate-90'}" />
+			<ChevronDown class="h-4 w-4 transition-transform {expanded ? 'rotate-0' : '-rotate-90'}" />
 		</button>
 	</div>
 	{#if expanded}

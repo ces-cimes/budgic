@@ -73,11 +73,7 @@ async function toUserCurrency(
 	userCurrency: string
 ): Promise<number> {
 	if (goalCurrency === userCurrency) return amount;
-	const converted = await exchangeRateService.convertAmount(
-		amount,
-		goalCurrency,
-		userCurrency
-	);
+	const converted = await exchangeRateService.convertAmount(amount, goalCurrency, userCurrency);
 	return converted ?? amount;
 }
 
@@ -116,12 +112,8 @@ class GoalTradeoffService {
 			const requiredMonthly =
 				req.isTimeBound && req.requiredMonthly != null
 					? req.requiredMonthly
-					: req.suggestedMonthly ?? 0;
-			const requiredInUser = await toUserCurrency(
-				requiredMonthly,
-				goal.currency,
-				userCurrency
-			);
+					: (req.suggestedMonthly ?? 0);
+			const requiredInUser = await toUserCurrency(requiredMonthly, goal.currency, userCurrency);
 			items.push({
 				goalId: goal.id,
 				goalName: goal.name,
@@ -138,9 +130,7 @@ class GoalTradeoffService {
 		}
 
 		// Sort by priority (critical first)
-		items.sort(
-			(a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority)
-		);
+		items.sort((a, b) => getPriorityRank(b.priority) - getPriorityRank(a.priority));
 
 		let remaining = totalMonthlyAvailableInUserCurrency;
 
@@ -166,8 +156,14 @@ class GoalTradeoffService {
 		let totalShortfall = 0;
 		let totalSurplus = 0;
 		for (const item of items) {
-			const shortfall = Math.max(0, item.requiredMonthlyInUserCurrency - item.allocatedInUserCurrency);
-			const surplus = Math.max(0, item.allocatedInUserCurrency - item.requiredMonthlyInUserCurrency);
+			const shortfall = Math.max(
+				0,
+				item.requiredMonthlyInUserCurrency - item.allocatedInUserCurrency
+			);
+			const surplus = Math.max(
+				0,
+				item.allocatedInUserCurrency - item.requiredMonthlyInUserCurrency
+			);
 			totalShortfall += shortfall;
 			totalSurplus += surplus;
 			allocations.push({
@@ -249,11 +245,11 @@ class GoalTradeoffService {
 				const reductionInGoalCurrency =
 					goal.currency === userCurrency
 						? reductionUser
-						: (await exchangeRateService.convertAmount(
+						: ((await exchangeRateService.convertAmount(
 								reductionUser,
 								userCurrency,
 								goal.currency
-							)) ?? reductionUser;
+							)) ?? reductionUser);
 				const delayMonths = reductionInGoalCurrency / req.requiredMonthly;
 				impacts.push({
 					goalId: goal.id,
@@ -266,11 +262,11 @@ class GoalTradeoffService {
 				const reducedInGoalCurrency =
 					goal.currency === userCurrency
 						? reductionUser
-						: (await exchangeRateService.convertAmount(
+						: ((await exchangeRateService.convertAmount(
 								reductionUser,
 								userCurrency,
 								goal.currency
-							)) ?? reductionUser;
+							)) ?? reductionUser);
 				impacts.push({
 					goalId: goal.id,
 					goalName: goal.name,
@@ -303,7 +299,7 @@ class GoalTradeoffService {
 			const monthly =
 				req.isTimeBound && req.requiredMonthly != null
 					? req.requiredMonthly
-					: req.suggestedMonthly ?? 0;
+					: (req.suggestedMonthly ?? 0);
 			total += await toUserCurrency(monthly, goal.currency, userCurrency);
 		}
 		return total;

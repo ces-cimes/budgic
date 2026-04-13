@@ -14,7 +14,13 @@
 	const { hasAccount, hasTransaction, hasBudgetCategory }: Props = $props();
 
 	const steps = $derived([
-		{ id: 1, done: hasAccount, label: 'Add your first account', href: '/accounts', cta: 'Add account' },
+		{
+			id: 1,
+			done: hasAccount,
+			label: 'Add your first account',
+			href: '/accounts',
+			cta: 'Add account'
+		},
 		{
 			id: 2,
 			done: hasTransaction,
@@ -37,14 +43,14 @@
 	style="animation-delay: 200ms"
 	aria-label="First-run checklist"
 >
-	<h2 class="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-3">
+	<h2 class="text-muted-foreground mb-3 text-xs font-semibold tracking-widest uppercase">
 		Get started
 	</h2>
 	<ul class="space-y-2">
 		{#each steps as step (step.id)}
 			<li>
 				{#if step.done}
-					<div class="flex items-center gap-2 py-1.5 text-muted-foreground">
+					<div class="text-muted-foreground flex items-center gap-2 py-1.5">
 						<span
 							class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-sage-green)] text-[10px] text-white"
 							aria-hidden="true"
@@ -56,10 +62,10 @@
 				{:else}
 					<a
 						href={step.href}
-						class="flex items-center justify-between gap-2 py-1.5 rounded-lg transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
+						class="flex items-center justify-between gap-2 rounded-lg py-1.5 transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
 					>
 						<span class="text-sm text-[var(--color-text-primary)]">{step.label}</span>
-						<span class="text-xs font-medium text-[var(--color-amber)] shrink-0">{step.cta} →</span>
+						<span class="shrink-0 text-xs font-medium text-[var(--color-amber)]">{step.cta} →</span>
 					</a>
 				{/if}
 			</li>

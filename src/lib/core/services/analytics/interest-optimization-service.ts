@@ -1,9 +1,9 @@
 /**
  * Interest Optimization Service
- * 
+ *
  * Provides interest calculation, optimization recommendations, and alerts
  * to help users maximize interest earnings and minimize interest costs.
- * 
+ *
  * Features:
  * - Interest calculation engine (compound interest, daily/monthly/annual)
  * - Interest optimization recommendations
@@ -35,17 +35,17 @@ export interface InterestCalculation {
 	currentBalance: number;
 	interestRate: number; // Annual percentage rate
 	compoundingFrequency: 'daily' | 'monthly' | 'quarterly' | 'annually';
-	
+
 	// Calculated values
 	dailyInterest: number;
 	monthlyInterest: number;
 	annualInterest: number;
-	
+
 	// Projected values
 	projected30Days: number;
 	projected90Days: number;
 	projected1Year: number;
-	
+
 	// Cost/earnings
 	isEarning: boolean; // true for savings (earning), false for credit/loans (costing)
 	currency: string;
@@ -69,7 +69,12 @@ export interface InterestOptimizationAnalysis {
  */
 export interface InterestOpportunity {
 	id: string;
-	type: 'balance_transfer' | 'rate_increase' | 'balance_optimization' | 'debt_paydown' | 'savings_deposit';
+	type:
+		| 'balance_transfer'
+		| 'rate_increase'
+		| 'balance_optimization'
+		| 'debt_paydown'
+		| 'savings_deposit';
 	priority: 'low' | 'medium' | 'high' | 'urgent';
 	title: string;
 	description: string;
@@ -132,7 +137,7 @@ export interface InterestRateHistory {
 
 /**
  * Calculate compound interest
- * 
+ *
  * @param principal - Initial balance
  * @param rate - Annual interest rate (as decimal, e.g., 0.05 for 5%)
  * @param time - Time period in years
@@ -145,16 +150,21 @@ function calculateCompoundInterest(
 	time: number,
 	compoundingFrequency: 'daily' | 'monthly' | 'quarterly' | 'annually' = 'daily'
 ): number {
-	const n = compoundingFrequency === 'daily' ? 365 :
-		compoundingFrequency === 'monthly' ? 12 :
-		compoundingFrequency === 'quarterly' ? 4 : 1;
-	
+	const n =
+		compoundingFrequency === 'daily'
+			? 365
+			: compoundingFrequency === 'monthly'
+				? 12
+				: compoundingFrequency === 'quarterly'
+					? 4
+					: 1;
+
 	return principal * Math.pow(1 + rate / n, n * time);
 }
 
 /**
  * Calculate interest for a period
- * 
+ *
  * @param balance - Current balance
  * @param rate - Annual interest rate (as percentage, e.g., 5 for 5%)
  * @param days - Number of days
@@ -168,7 +178,7 @@ function calculateInterestForPeriod(
 	compoundingFrequency: 'daily' | 'monthly' | 'quarterly' | 'annually' = 'daily'
 ): number {
 	if (balance === 0 || rate === 0) return 0;
-	
+
 	const rateDecimal = rate / 100;
 	const years = days / 365;
 	const finalAmount = calculateCompoundInterest(balance, rateDecimal, years, compoundingFrequency);
@@ -180,7 +190,7 @@ function calculateInterestForPeriod(
  */
 function calculateDailyInterest(balance: number, annualRate: number): number {
 	if (balance === 0 || annualRate === 0) return 0;
-	return (balance * annualRate / 100) / 365;
+	return (balance * annualRate) / 100 / 365;
 }
 
 /**
@@ -188,7 +198,7 @@ function calculateDailyInterest(balance: number, annualRate: number): number {
  */
 function calculateMonthlyInterest(balance: number, annualRate: number): number {
 	if (balance === 0 || annualRate === 0) return 0;
-	return (balance * annualRate / 100) / 12;
+	return (balance * annualRate) / 100 / 12;
 }
 
 /**
@@ -196,7 +206,7 @@ function calculateMonthlyInterest(balance: number, annualRate: number): number {
  */
 function calculateAnnualInterest(balance: number, annualRate: number): number {
 	if (balance === 0 || annualRate === 0) return 0;
-	return balance * annualRate / 100;
+	return (balance * annualRate) / 100;
 }
 
 // ============================================================================
@@ -245,9 +255,24 @@ class InterestOptimizationService {
 		const annualInterest = calculateAnnualInterest(currentBalance, interestRate);
 
 		// Projected values
-		const projected30Days = calculateInterestForPeriod(currentBalance, interestRate, 30, compoundingFrequency);
-		const projected90Days = calculateInterestForPeriod(currentBalance, interestRate, 90, compoundingFrequency);
-		const projected1Year = calculateInterestForPeriod(currentBalance, interestRate, 365, compoundingFrequency);
+		const projected30Days = calculateInterestForPeriod(
+			currentBalance,
+			interestRate,
+			30,
+			compoundingFrequency
+		);
+		const projected90Days = calculateInterestForPeriod(
+			currentBalance,
+			interestRate,
+			90,
+			compoundingFrequency
+		);
+		const projected1Year = calculateInterestForPeriod(
+			currentBalance,
+			interestRate,
+			365,
+			compoundingFrequency
+		);
 
 		return {
 			accountId: account.id,
@@ -275,7 +300,11 @@ class InterestOptimizationService {
 		if (!interestCalc) return null;
 
 		const opportunities = await this.findOpportunities(accountId, interestCalc);
-		const recommendations = await this.generateRecommendations(accountId, interestCalc, opportunities);
+		const recommendations = await this.generateRecommendations(
+			accountId,
+			interestCalc,
+			opportunities
+		);
 
 		// Calculate projected savings/earnings
 		let projectedSavings: number | undefined;
@@ -284,12 +313,12 @@ class InterestOptimizationService {
 		if (!interestCalc.isEarning) {
 			// For debt accounts, calculate potential savings from paydown
 			projectedSavings = recommendations
-				.filter(r => r.type === 'paydown')
+				.filter((r) => r.type === 'paydown')
 				.reduce((sum, r) => sum + r.estimatedAnnualValue, 0);
 		} else {
 			// For savings accounts, calculate potential earnings from deposits
 			projectedEarnings = recommendations
-				.filter(r => r.type === 'deposit')
+				.filter((r) => r.type === 'deposit')
 				.reduce((sum, r) => sum + r.estimatedAnnualValue, 0);
 		}
 
@@ -334,7 +363,10 @@ class InterestOptimizationService {
 		}
 
 		// Generate aggregate recommendations
-		const recommendations = await this.generateAggregateRecommendations(savingsAccounts, debtAccounts);
+		const recommendations = await this.generateAggregateRecommendations(
+			savingsAccounts,
+			debtAccounts
+		);
 
 		// Calculate optimization potential
 		const optimizationPotential = recommendations.reduce(
@@ -389,7 +421,7 @@ class InterestOptimizationService {
 
 			// Balance transfer opportunity (if other accounts have lower rates)
 			const allAccounts = await accountService.getAccounts();
-			const lowerRateAccounts = allAccounts.filter(acc => {
+			const lowerRateAccounts = allAccounts.filter((acc) => {
 				if (acc.id === accountId || acc.type !== 'credit') return false;
 				const otherRate = acc.metadata?.apr || 0;
 				return otherRate > 0 && otherRate < interestCalc.interestRate;
@@ -404,7 +436,8 @@ class InterestOptimizationService {
 				const savingsRate = interestCalc.interestRate - (bestOption.metadata?.apr || 0);
 				const annualSavings = (interestCalc.currentBalance * savingsRate) / 100;
 
-				if (annualSavings > 100) { // Only suggest if savings > $100/year
+				if (annualSavings > 100) {
+					// Only suggest if savings > $100/year
 					opportunities.push({
 						id: generateUUID(),
 						type: 'balance_transfer',
@@ -432,7 +465,7 @@ class InterestOptimizationService {
 		if (interestCalc.isEarning && interestCalc.interestRate > 0) {
 			// Low interest rate opportunity (could move to higher rate account)
 			const allAccounts = await accountService.getAccounts();
-			const higherRateAccounts = allAccounts.filter(acc => {
+			const higherRateAccounts = allAccounts.filter((acc) => {
 				if (acc.id === accountId || acc.type !== 'savings') return false;
 				const otherRate = acc.metadata?.interestRate || 0;
 				return otherRate > interestCalc.interestRate;
@@ -447,7 +480,8 @@ class InterestOptimizationService {
 				const rateIncrease = (bestOption.metadata?.interestRate || 0) - interestCalc.interestRate;
 				const annualEarningsIncrease = (interestCalc.currentBalance * rateIncrease) / 100;
 
-				if (annualEarningsIncrease > 50) { // Only suggest if increase > $50/year
+				if (annualEarningsIncrease > 50) {
+					// Only suggest if increase > $50/year
 					opportunities.push({
 						id: generateUUID(),
 						type: 'rate_increase',
@@ -621,10 +655,15 @@ class InterestOptimizationService {
 		if (savingsAccounts.length > 1) {
 			const sortedSavings = [...savingsAccounts].sort((a, b) => b.interestRate - a.interestRate);
 			const highestRate = sortedSavings[0];
-			const lowerRateAccounts = sortedSavings.filter(s => s.interestRate < highestRate.interestRate);
+			const lowerRateAccounts = sortedSavings.filter(
+				(s) => s.interestRate < highestRate.interestRate
+			);
 
 			if (lowerRateAccounts.length > 0) {
-				const totalLowerRateBalance = lowerRateAccounts.reduce((sum, acc) => sum + acc.currentBalance, 0);
+				const totalLowerRateBalance = lowerRateAccounts.reduce(
+					(sum, acc) => sum + acc.currentBalance,
+					0
+				);
 				const rateDiff = highestRate.interestRate - lowerRateAccounts[0].interestRate;
 				const potentialIncrease = (totalLowerRateBalance * rateDiff) / 100;
 
@@ -655,7 +694,7 @@ class InterestOptimizationService {
 
 	/**
 	 * Optimize balance distribution for maximum interest benefit
-	 * 
+	 *
 	 * This algorithm suggests optimal balance distribution across accounts
 	 * to maximize earnings and minimize costs.
 	 */
@@ -695,8 +734,10 @@ class InterestOptimizationService {
 
 		// Prioritize debt paydown if requested or if high interest debt exists
 		if (options.prioritizeDebtPaydown !== false && aggregate.debtAccounts.length > 0) {
-			const sortedDebt = [...aggregate.debtAccounts].sort((a, b) => b.interestRate - a.interestRate);
-			
+			const sortedDebt = [...aggregate.debtAccounts].sort(
+				(a, b) => b.interestRate - a.interestRate
+			);
+
 			for (const debt of sortedDebt) {
 				if (remainingFunds <= 0) break;
 				if (options.targetAccounts && !options.targetAccounts.includes(debt.accountId)) continue;
@@ -721,8 +762,14 @@ class InterestOptimizationService {
 		}
 
 		// Then maximize savings if requested
-		if (options.maximizeSavings !== false && remainingFunds > 0 && aggregate.savingsAccounts.length > 0) {
-			const sortedSavings = [...aggregate.savingsAccounts].sort((a, b) => b.interestRate - a.interestRate);
+		if (
+			options.maximizeSavings !== false &&
+			remainingFunds > 0 &&
+			aggregate.savingsAccounts.length > 0
+		) {
+			const sortedSavings = [...aggregate.savingsAccounts].sort(
+				(a, b) => b.interestRate - a.interestRate
+			);
 			const bestSavings = sortedSavings[0];
 
 			if (options.targetAccounts && options.targetAccounts.includes(bestSavings.accountId)) {
@@ -740,7 +787,10 @@ class InterestOptimizationService {
 			}
 		}
 
-		const totalEstimatedValue = recommendations.reduce((sum, rec) => sum + rec.estimatedAnnualValue, 0);
+		const totalEstimatedValue = recommendations.reduce(
+			(sum, rec) => sum + rec.estimatedAnnualValue,
+			0
+		);
 
 		return {
 			recommendations,

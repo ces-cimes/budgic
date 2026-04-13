@@ -12,11 +12,13 @@
 
 	let { filters, categories, onFiltersChange }: Props = $props();
 
-	const categoryList = $derived(Object.values(categories).filter(c => c && !c.deletedAt));
-	
+	const categoryList = $derived(Object.values(categories).filter((c) => c && !c.deletedAt));
+
 	const categoryTypeValue = $derived(filters.categoryType || '');
-	
-	const waterfallTiers: Array<{ value: FilterState['waterfallTier'][number]; label: string }> = [
+
+	type WaterfallTierValue = NonNullable<FilterState['waterfallTier']>[number];
+
+	const waterfallTiers: Array<{ value: WaterfallTierValue; label: string }> = [
 		{ value: 'survival', label: 'Survival' },
 		{ value: 'security', label: 'Security' },
 		{ value: 'growth', label: 'Growth' },
@@ -26,21 +28,21 @@
 	function toggleCategory(categoryId: string) {
 		const currentIds = filters.categoryIds || [];
 		const newIds = currentIds.includes(categoryId)
-			? currentIds.filter(id => id !== categoryId)
+			? currentIds.filter((id) => id !== categoryId)
 			: [...currentIds, categoryId];
-		
+
 		onFiltersChange({
 			...filters,
 			categoryIds: newIds.length > 0 ? newIds : undefined
 		});
 	}
 
-	function toggleWaterfallTier(tier: FilterState['waterfallTier'][number]) {
-		const currentTiers = filters.waterfallTier || [];
+	function toggleWaterfallTier(tier: WaterfallTierValue) {
+		const currentTiers = filters.waterfallTier ?? [];
 		const newTiers = currentTiers.includes(tier)
-			? currentTiers.filter(t => t !== tier)
+			? currentTiers.filter((t) => t !== tier)
 			: [...currentTiers, tier];
-		
+
 		onFiltersChange({
 			...filters,
 			waterfallTier: newTiers.length > 0 ? newTiers : undefined
@@ -51,7 +53,9 @@
 <div class="space-y-4">
 	<!-- Category Type -->
 	<div class="space-y-2">
-		<label class="text-xs font-medium text-muted-foreground">Category Type</label>
+		<label for="filter-category-type" class="text-muted-foreground text-xs font-medium"
+			>Category Type</label
+		>
 		<Select.Root
 			type="single"
 			value={categoryTypeValue}
@@ -62,7 +66,7 @@
 				});
 			}}
 		>
-			<Select.Trigger class="w-full">
+			<Select.Trigger id="filter-category-type" class="w-full">
 				{filters.categoryType || 'All'}
 			</Select.Trigger>
 			<Select.Content>
@@ -75,15 +79,17 @@
 
 	<!-- Waterfall Tier -->
 	<div class="space-y-2">
-		<label class="text-xs font-medium text-muted-foreground">Waterfall Tier</label>
-		<div class="space-y-2">
+		<p class="text-muted-foreground text-xs font-medium" id="filter-waterfall-tier-heading">
+			Waterfall Tier
+		</p>
+		<div class="space-y-2" role="group" aria-labelledby="filter-waterfall-tier-heading">
 			{#each waterfallTiers as tier}
-				<label class="flex items-center space-x-2 cursor-pointer">
+				<label class="flex cursor-pointer items-center space-x-2">
 					<Checkbox
 						checked={filters.waterfallTier?.includes(tier.value) || false}
 						onCheckedChange={() => toggleWaterfallTier(tier.value)}
 					/>
-					<span class="text-sm text-primary">{tier.label}</span>
+					<span class="text-primary text-sm">{tier.label}</span>
 				</label>
 			{/each}
 		</div>
@@ -91,22 +97,28 @@
 
 	<!-- Categories -->
 	<div class="space-y-2">
-		<label class="text-xs font-medium text-muted-foreground">Categories</label>
-		<div class="max-h-48 overflow-y-auto space-y-2 border rounded-md p-2">
-			<label class="flex items-center space-x-2 cursor-pointer">
+		<p class="text-muted-foreground text-xs font-medium" id="filter-categories-heading">
+			Categories
+		</p>
+		<div
+			class="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2"
+			role="group"
+			aria-labelledby="filter-categories-heading"
+		>
+			<label class="flex cursor-pointer items-center space-x-2">
 				<Checkbox
 					checked={filters.categoryIds?.includes('__uncategorized__') || false}
 					onCheckedChange={() => toggleCategory('__uncategorized__')}
 				/>
-				<span class="text-sm text-primary">Uncategorized</span>
+				<span class="text-primary text-sm">Uncategorized</span>
 			</label>
 			{#each categoryList as category}
-				<label class="flex items-center space-x-2 cursor-pointer">
+				<label class="flex cursor-pointer items-center space-x-2">
 					<Checkbox
 						checked={filters.categoryIds?.includes(category.id) || false}
 						onCheckedChange={() => toggleCategory(category.id)}
 					/>
-					<span class="text-sm text-primary">{category.name}</span>
+					<span class="text-primary text-sm">{category.name}</span>
 				</label>
 			{/each}
 		</div>

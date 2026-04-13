@@ -82,9 +82,9 @@ describe('DependencyTrackingService', () => {
 		it('should prevent self-dependency', async () => {
 			const [tx1] = testTransactions;
 
-			await expect(
-				dependencyTrackingService.addDependency(tx1.id, tx1.id)
-			).rejects.toThrow('Transaction cannot depend on itself');
+			await expect(dependencyTrackingService.addDependency(tx1.id, tx1.id)).rejects.toThrow(
+				'Transaction cannot depend on itself'
+			);
 		});
 
 		it('should prevent circular dependencies', async () => {
@@ -95,9 +95,9 @@ describe('DependencyTrackingService', () => {
 			await dependencyTrackingService.addDependency(tx2.id, tx1.id);
 
 			// Try to create circular dependency: tx1 -> tx3
-			await expect(
-				dependencyTrackingService.addDependency(tx1.id, tx3.id)
-			).rejects.toThrow('circular dependency');
+			await expect(dependencyTrackingService.addDependency(tx1.id, tx3.id)).rejects.toThrow(
+				'circular dependency'
+			);
 		});
 
 		it('should update existing dependency type', async () => {
@@ -115,9 +115,9 @@ describe('DependencyTrackingService', () => {
 			const [tx1] = testTransactions;
 			const nonExistentId = generateUUID();
 
-			await expect(
-				dependencyTrackingService.addDependency(nonExistentId, tx1.id)
-			).rejects.toThrow('not found');
+			await expect(dependencyTrackingService.addDependency(nonExistentId, tx1.id)).rejects.toThrow(
+				'not found'
+			);
 		});
 
 		it('should add metadata to dependency', async () => {
@@ -369,11 +369,7 @@ describe('DependencyTrackingService', () => {
 			await dependencyTrackingService.addDependency(tx3.id, tx2.id);
 			await dependencyTrackingService.addDependency(tx2.id, tx1.id);
 
-			const order = await dependencyTrackingService.getTopologicalOrder([
-				tx1.id,
-				tx2.id,
-				tx3.id
-			]);
+			const order = await dependencyTrackingService.getTopologicalOrder([tx1.id, tx2.id, tx3.id]);
 
 			// tx1 should come before tx2, tx2 before tx3
 			expect(order.indexOf(tx1.id)).toBeLessThan(order.indexOf(tx2.id));
@@ -387,19 +383,15 @@ describe('DependencyTrackingService', () => {
 			await db.transactions.update(tx1.id, { dependencies: [tx2.id] });
 			await db.transactions.update(tx2.id, { dependencies: [tx1.id] });
 
-			await expect(
-				dependencyTrackingService.getTopologicalOrder([tx1.id, tx2.id])
-			).rejects.toThrow('circular dependencies');
+			await expect(dependencyTrackingService.getTopologicalOrder([tx1.id, tx2.id])).rejects.toThrow(
+				'circular dependencies'
+			);
 		});
 
 		it('should handle transactions with no dependencies', async () => {
 			const [tx1, tx2, tx3] = testTransactions;
 
-			const order = await dependencyTrackingService.getTopologicalOrder([
-				tx1.id,
-				tx2.id,
-				tx3.id
-			]);
+			const order = await dependencyTrackingService.getTopologicalOrder([tx1.id, tx2.id, tx3.id]);
 
 			expect(order).toHaveLength(3);
 			expect(order).toContain(tx1.id);

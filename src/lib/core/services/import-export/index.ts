@@ -1,6 +1,6 @@
 /**
  * Import/Export Services
- * 
+ *
  * Services for importing data from external sources (Money Manager, etc.)
  * and exporting data in various formats.
  */
@@ -20,12 +20,7 @@ export type {
 } from './types';
 
 // CSV parsing utilities
-export {
-	parseCSV,
-	readCSVFile,
-	readMultipleCSVFiles,
-	validateCSVStructure
-} from './csv-parser';
+export { parseCSV, readCSVFile, readMultipleCSVFiles, validateCSVStructure } from './csv-parser';
 
 // Schema inspection
 export {
@@ -55,4 +50,3 @@ export {
 	isDeleted,
 	getCategoryPriority
 } from './money-manager-mapper';
-

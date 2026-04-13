@@ -45,7 +45,7 @@
 	{:else}
 		<div></div>
 	{/if}
-	
+
 	<div class="flex space-x-4">
 		<Button.Root
 			type="button"
@@ -55,13 +55,8 @@
 		>
 			{cancelLabel}
 		</Button.Root>
-		<Button.Root
-			type="submit"
-			form={formId}
-			disabled={isLoading || isDeleting}
-		>
+		<Button.Root type="submit" form={formId} disabled={isLoading || isDeleting}>
 			{submitLabel}
 		</Button.Root>
 	</div>
 </div>
-

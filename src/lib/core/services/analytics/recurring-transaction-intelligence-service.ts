@@ -1,6 +1,6 @@
 /**
  * Recurring Transaction Intelligence Service
- * 
+ *
  * Provides intelligent handling of recurring transactions including:
  * - Pattern detection from transaction history
  * - Amount prediction based on historical data
@@ -13,7 +13,18 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { Transaction, Category } from '$lib/core/db';
 import { transactionService } from '../core/transaction-service';
-import { format, parseISO, addDays, addMonths, addWeeks, addYears, isWeekend, differenceInDays, startOfMonth, getDay } from 'date-fns';
+import {
+	format,
+	parseISO,
+	addDays,
+	addMonths,
+	addWeeks,
+	addYears,
+	isWeekend,
+	differenceInDays,
+	startOfMonth,
+	getDay
+} from 'date-fns';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -26,21 +37,21 @@ export interface RecurringPattern {
 	patternType: 'exact' | 'approximate' | 'seasonal' | 'trending';
 	isActive: boolean; // Whether pattern is currently relevant (recent activity)
 	dateRelevancy: number; // 0-100, based on how recent the last occurrence is
-	
+
 	// Core pattern data
 	averageAmount: number;
 	amountVariability: number; // Standard deviation or coefficient of variation
 	typicalDayOfMonth?: number; // 1-31, for monthly patterns
 	typicalDayOfWeek?: number; // 0-6 (Sunday-Saturday), for weekly patterns
 	typicalWeekOfMonth?: number; // 1-4, for monthly patterns
-	
+
 	// Historical data
 	occurrences: number;
 	firstObserved: string; // ISO date
 	lastObserved: string; // ISO date
 	historicalAmounts: number[];
 	historicalDates: string[]; // ISO dates
-	
+
 	// Variability tracking
 	seasonalVariation?: {
 		month: number; // 1-12
@@ -51,15 +62,15 @@ export interface RecurringPattern {
 		rate: number; // Change per period
 		confidence: number; // 0-100
 	};
-	
+
 	// Category learning
 	learnedCategoryId?: string;
 	categoryConfidence: number; // 0-100
-	
+
 	// Transaction matching
 	matchingTransactionIds: string[];
 	descriptionPattern?: string; // Regex or pattern for matching
-	
+
 	// Metadata
 	metadata: {
 		accountId?: string;
@@ -85,7 +96,12 @@ export interface RecurringPrediction {
 
 export interface RecurringConflict {
 	id: string;
-	type: 'date_overlap' | 'amount_mismatch' | 'missing_occurrence' | 'duplicate_detection' | 'category_mismatch';
+	type:
+		| 'date_overlap'
+		| 'amount_mismatch'
+		| 'missing_occurrence'
+		| 'duplicate_detection'
+		| 'category_mismatch';
 	severity: 'low' | 'medium' | 'high';
 	patternId: string;
 	transactionId?: string;
@@ -127,7 +143,7 @@ class RecurringTransactionIntelligenceService {
 		const transactions = await db.transactions
 			.where('clearedDate')
 			.above(cutoffDate.toISOString())
-			.and(tx => !tx.deletedAt && tx.status === 'cleared')
+			.and((tx) => !tx.deletedAt && tx.status === 'cleared')
 			.toArray();
 
 		const patterns: RecurringPattern[] = [];
@@ -214,7 +230,7 @@ class RecurringTransactionIntelligenceService {
 		// Apply seasonal variation if present
 		if (pattern.seasonalVariation && pattern.seasonalVariation.length > 0) {
 			const currentMonth = new Date().getMonth() + 1;
-			const seasonal = pattern.seasonalVariation.find(s => s.month === currentMonth);
+			const seasonal = pattern.seasonalVariation.find((s) => s.month === currentMonth);
 			if (seasonal) {
 				baseAmount += seasonal.adjustment;
 			}
@@ -335,9 +351,8 @@ class RecurringTransactionIntelligenceService {
 		}
 
 		if (categoryCounts.size > 0) {
-			const mostCommon = Array.from(categoryCounts.entries())
-				.sort((a, b) => b[1] - a[1])[0];
-			
+			const mostCommon = Array.from(categoryCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+
 			pattern.learnedCategoryId = mostCommon[0];
 			pattern.categoryConfidence = (mostCommon[1] / transactions.length) * 100;
 		}
@@ -353,14 +368,14 @@ class RecurringTransactionIntelligenceService {
 	 * Note: Missing occurrences are auto-resolved by marking patterns inactive
 	 */
 	async detectConflicts(patternId?: string): Promise<RecurringConflict[]> {
-		const patterns = patternId 
-			? [await this.getPattern(patternId)].filter(Boolean) as RecurringPattern[]
+		const patterns = patternId
+			? ([await this.getPattern(patternId)].filter(Boolean) as RecurringPattern[])
 			: await this.detectPatterns();
 
 		const conflicts: RecurringConflict[] = [];
 
 		// Only check active patterns for conflicts
-		const activePatterns = patterns.filter(p => p.isActive);
+		const activePatterns = patterns.filter((p) => p.isActive);
 
 		for (const pattern of activePatterns) {
 			// Missing occurrences are auto-resolved (pattern marked inactive)
@@ -411,7 +426,7 @@ class RecurringTransactionIntelligenceService {
 
 		// Try to find pattern from detected patterns
 		const patterns = await this.detectPatterns();
-		const pattern = patterns.find(p => p.id === patternId);
+		const pattern = patterns.find((p) => p.id === patternId);
 		if (pattern) {
 			this.patternCache.set(patternId, pattern);
 			return pattern;
@@ -439,7 +454,7 @@ class RecurringTransactionIntelligenceService {
 			// Create a key based on description, type, and account
 			// Don't include amount in initial grouping - we'll merge similar amounts later
 			const key = this.createTransactionKey(tx);
-			
+
 			if (!groups.has(key)) {
 				groups.set(key, []);
 			}
@@ -468,16 +483,17 @@ class RecurringTransactionIntelligenceService {
 			mergedGroups.push(merged.flat());
 		}
 
-		return mergedGroups.filter(g => g.length >= 2);
+		return mergedGroups.filter((g) => g.length >= 2);
 	}
 
 	private createTransactionKey(tx: Transaction): string {
 		// Normalize description for matching - focus on merchant/payee name
-		const normalizedDesc = (tx.description || '').toLowerCase()
+		const normalizedDesc = (tx.description || '')
+			.toLowerCase()
 			.replace(/[^\w\s]/g, '')
 			.replace(/\s+/g, ' ')
 			.trim();
-		
+
 		// Key includes: description, type, account (but NOT amount)
 		// This allows grouping transactions from same merchant regardless of amount
 		return `${normalizedDesc}_${tx.type}_${tx.accountId || 'none'}`;
@@ -490,17 +506,17 @@ class RecurringTransactionIntelligenceService {
 		// Check if groups have similar descriptions
 		const desc1 = (group1[0].description || '').toLowerCase();
 		const desc2 = (group2[0].description || '').toLowerCase();
-		
+
 		// Simple similarity check - check if descriptions share significant words
-		const words1 = desc1.split(/\s+/).filter(w => w.length > 2); // Ignore short words
-		const words2 = desc2.split(/\s+/).filter(w => w.length > 2);
-		
+		const words1 = desc1.split(/\s+/).filter((w) => w.length > 2); // Ignore short words
+		const words2 = desc2.split(/\s+/).filter((w) => w.length > 2);
+
 		if (words1.length === 0 || words2.length === 0) {
 			// If no meaningful words, check exact match
 			return desc1 === desc2;
 		}
 
-		const commonWords = words1.filter(w => words2.includes(w));
+		const commonWords = words1.filter((w) => words2.includes(w));
 		const similarity = commonWords.length / Math.max(words1.length, words2.length);
 
 		// Require at least 60% word overlap for similarity
@@ -517,8 +533,8 @@ class RecurringTransactionIntelligenceService {
 			return new Date(dateA).getTime() - new Date(dateB).getTime();
 		});
 
-		const amounts = group.map(tx => Math.abs(tx.amount || 0));
-		const dates = group.map(tx => tx.clearedDate || tx.plannedDate || tx.createdAt);
+		const amounts = group.map((tx) => Math.abs(tx.amount || 0));
+		const dates = group.map((tx) => tx.clearedDate || tx.plannedDate || tx.createdAt);
 
 		// Calculate frequency
 		const frequency = this.detectFrequency(dates);
@@ -545,7 +561,9 @@ class RecurringTransactionIntelligenceService {
 			isActive: true, // Will be recalculated later
 			dateRelevancy: 0, // Will be recalculated later
 			averageAmount,
-			amountVariability: this.calculateAmountVariability({ historicalAmounts: amounts } as RecurringPattern),
+			amountVariability: this.calculateAmountVariability({
+				historicalAmounts: amounts
+			} as RecurringPattern),
 			typicalDayOfMonth,
 			typicalDayOfWeek,
 			typicalWeekOfMonth,
@@ -554,7 +572,7 @@ class RecurringTransactionIntelligenceService {
 			lastObserved: dates[dates.length - 1],
 			historicalAmounts: amounts,
 			historicalDates: dates,
-			matchingTransactionIds: group.map(tx => tx.id),
+			matchingTransactionIds: group.map((tx) => tx.id),
 			descriptionPattern: this.extractDescriptionPattern(group),
 			categoryConfidence: 0,
 			metadata: {
@@ -580,7 +598,8 @@ class RecurringTransactionIntelligenceService {
 		}
 
 		const avgInterval = intervals.reduce((sum, d) => sum + d, 0) / intervals.length;
-		const variance = intervals.reduce((sum, d) => sum + Math.pow(d - avgInterval, 2), 0) / intervals.length;
+		const variance =
+			intervals.reduce((sum, d) => sum + Math.pow(d - avgInterval, 2), 0) / intervals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = stdDev / avgInterval;
 
@@ -601,35 +620,33 @@ class RecurringTransactionIntelligenceService {
 	}
 
 	private calculateTypicalDayOfMonth(dates: string[]): number | undefined {
-		const daysOfMonth = dates.map(d => parseISO(d).getDate());
+		const daysOfMonth = dates.map((d) => parseISO(d).getDate());
 		const counts = new Map<number, number>();
-		
+
 		for (const day of daysOfMonth) {
 			counts.set(day, (counts.get(day) || 0) + 1);
 		}
 
-		const mostCommon = Array.from(counts.entries())
-			.sort((a, b) => b[1] - a[1])[0];
+		const mostCommon = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
 
 		return mostCommon && mostCommon[1] >= dates.length * 0.5 ? mostCommon[0] : undefined;
 	}
 
 	private calculateTypicalDayOfWeek(dates: string[]): number | undefined {
-		const daysOfWeek = dates.map(d => getDay(parseISO(d)));
+		const daysOfWeek = dates.map((d) => getDay(parseISO(d)));
 		const counts = new Map<number, number>();
-		
+
 		for (const day of daysOfWeek) {
 			counts.set(day, (counts.get(day) || 0) + 1);
 		}
 
-		const mostCommon = Array.from(counts.entries())
-			.sort((a, b) => b[1] - a[1])[0];
+		const mostCommon = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
 
 		return mostCommon && mostCommon[1] >= dates.length * 0.5 ? mostCommon[0] : undefined;
 	}
 
 	private calculateTypicalWeekOfMonth(dates: string[]): number | undefined {
-		const weeksOfMonth = dates.map(d => {
+		const weeksOfMonth = dates.map((d) => {
 			const date = parseISO(d);
 			const start = startOfMonth(date);
 			const weekOfMonth = Math.ceil((date.getDate() + start.getDay()) / 7);
@@ -641,8 +658,7 @@ class RecurringTransactionIntelligenceService {
 			counts.set(week, (counts.get(week) || 0) + 1);
 		}
 
-		const mostCommon = Array.from(counts.entries())
-			.sort((a, b) => b[1] - a[1])[0];
+		const mostCommon = Array.from(counts.entries()).sort((a, b) => b[1] - a[1])[0];
 
 		return mostCommon && mostCommon[1] >= dates.length * 0.5 ? mostCommon[0] : undefined;
 	}
@@ -664,10 +680,11 @@ class RecurringTransactionIntelligenceService {
 
 		// Amount consistency
 		const avgAmount = amounts.reduce((sum, a) => sum + a, 0) / amounts.length;
-		const amountVariance = amounts.reduce((sum, a) => sum + Math.pow(a - avgAmount, 2), 0) / amounts.length;
+		const amountVariance =
+			amounts.reduce((sum, a) => sum + Math.pow(a - avgAmount, 2), 0) / amounts.length;
 		const amountStdDev = Math.sqrt(amountVariance);
 		const coefficientOfVariation = amountStdDev / avgAmount;
-		
+
 		if (coefficientOfVariation < 0.1) {
 			confidence += 20; // Very consistent amounts
 		} else if (coefficientOfVariation < 0.2) {
@@ -675,13 +692,14 @@ class RecurringTransactionIntelligenceService {
 		}
 
 		// Date consistency
-		const dates = group.map(tx => tx.clearedDate || tx.plannedDate || tx.createdAt);
+		const dates = group.map((tx) => tx.clearedDate || tx.plannedDate || tx.createdAt);
 		const intervals: number[] = [];
 		for (let i = 1; i < dates.length; i++) {
 			intervals.push(differenceInDays(parseISO(dates[i]), parseISO(dates[i - 1])));
 		}
 		const avgInterval = intervals.reduce((sum, d) => sum + d, 0) / intervals.length;
-		const intervalVariance = intervals.reduce((sum, d) => sum + Math.pow(d - avgInterval, 2), 0) / intervals.length;
+		const intervalVariance =
+			intervals.reduce((sum, d) => sum + Math.pow(d - avgInterval, 2), 0) / intervals.length;
 		const intervalStdDev = Math.sqrt(intervalVariance);
 		const intervalCV = intervalStdDev / avgInterval;
 
@@ -714,12 +732,14 @@ class RecurringTransactionIntelligenceService {
 
 		if (monthlyAmounts.size >= 3) {
 			// Check for significant seasonal variation
-			const monthlyAverages = Array.from(monthlyAmounts.entries())
-				.map(([month, amts]) => ({ month, avg: amts.reduce((s, a) => s + a, 0) / amts.length }));
-			
+			const monthlyAverages = Array.from(monthlyAmounts.entries()).map(([month, amts]) => ({
+				month,
+				avg: amts.reduce((s, a) => s + a, 0) / amts.length
+			}));
+
 			const overallAvg = monthlyAverages.reduce((s, m) => s + m.avg, 0) / monthlyAverages.length;
-			const maxDeviation = Math.max(...monthlyAverages.map(m => Math.abs(m.avg - overallAvg)));
-			
+			const maxDeviation = Math.max(...monthlyAverages.map((m) => Math.abs(m.avg - overallAvg)));
+
 			if (maxDeviation / overallAvg > 0.15) {
 				return 'seasonal';
 			}
@@ -737,14 +757,15 @@ class RecurringTransactionIntelligenceService {
 	}
 
 	private extractDescriptionPattern(group: Transaction[]): string {
-		const descriptions = group.map(tx => (tx.description || '').toLowerCase().trim());
-		
+		const descriptions = group.map((tx) => (tx.description || '').toLowerCase().trim());
+
 		// Find common words
-		const allWords = descriptions.flatMap(d => d.split(/\s+/));
+		const allWords = descriptions.flatMap((d) => d.split(/\s+/));
 		const wordCounts = new Map<string, number>();
-		
+
 		for (const word of allWords) {
-			if (word.length > 2) { // Ignore short words
+			if (word.length > 2) {
+				// Ignore short words
 				wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
 			}
 		}
@@ -764,12 +785,14 @@ class RecurringTransactionIntelligenceService {
 		const avg = amounts.reduce((sum, a) => sum + a, 0) / amounts.length;
 		const variance = amounts.reduce((sum, a) => sum + Math.pow(a - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
-		
+
 		// Return coefficient of variation (percentage)
 		return (stdDev / avg) * 100;
 	}
 
-	private analyzeSeasonalVariation(pattern: RecurringPattern): Array<{ month: number; adjustment: number }> {
+	private analyzeSeasonalVariation(
+		pattern: RecurringPattern
+	): Array<{ month: number; adjustment: number }> {
 		if (pattern.historicalAmounts.length < 6) return [];
 
 		const monthlyAmounts = new Map<number, number[]>();
@@ -795,13 +818,18 @@ class RecurringTransactionIntelligenceService {
 		return seasonalVariation;
 	}
 
-	private analyzeTrend(pattern: RecurringPattern): { direction: 'increasing' | 'decreasing' | 'stable'; rate: number; confidence: number } | null {
+	private analyzeTrend(pattern: RecurringPattern): {
+		direction: 'increasing' | 'decreasing' | 'stable';
+		rate: number;
+		confidence: number;
+	} | null {
 		if (pattern.historicalAmounts.length < 3) return null;
 
 		const trend = this.calculateSimpleTrend(pattern.historicalAmounts);
 		if (!trend) return null;
 
-		const direction = trend.rate > 0.05 ? 'increasing' : trend.rate < -0.05 ? 'decreasing' : 'stable';
+		const direction =
+			trend.rate > 0.05 ? 'increasing' : trend.rate < -0.05 ? 'decreasing' : 'stable';
 		const confidence = Math.min(100, Math.abs(trend.rate) * 1000);
 
 		return { direction, rate: trend.rate, confidence };
@@ -830,7 +858,7 @@ class RecurringTransactionIntelligenceService {
 			return s + Math.pow(v - predicted, 2);
 		}, 0);
 		const ssTot = y.reduce((s, v) => s + Math.pow(v - yMean, 2), 0);
-		const rSquared = 1 - (ssRes / ssTot);
+		const rSquared = 1 - ssRes / ssTot;
 
 		return { rate: slope, rSquared };
 	}
@@ -854,7 +882,7 @@ class RecurringTransactionIntelligenceService {
 	private calculatePeriodsSinceLast(pattern: RecurringPattern): number {
 		const lastDate = parseISO(pattern.lastObserved);
 		const now = new Date();
-		
+
 		switch (pattern.frequency) {
 			case 'daily':
 				return differenceInDays(now, lastDate);
@@ -863,9 +891,14 @@ class RecurringTransactionIntelligenceService {
 			case 'biweekly':
 				return Math.floor(differenceInDays(now, lastDate) / 14);
 			case 'monthly':
-				return (now.getFullYear() - lastDate.getFullYear()) * 12 + (now.getMonth() - lastDate.getMonth());
+				return (
+					(now.getFullYear() - lastDate.getFullYear()) * 12 + (now.getMonth() - lastDate.getMonth())
+				);
 			case 'quarterly':
-				return Math.floor((now.getFullYear() - lastDate.getFullYear()) * 4 + (now.getMonth() - lastDate.getMonth()) / 3);
+				return Math.floor(
+					(now.getFullYear() - lastDate.getFullYear()) * 4 +
+						(now.getMonth() - lastDate.getMonth()) / 3
+				);
 			case 'yearly':
 				return now.getFullYear() - lastDate.getFullYear();
 			default:
@@ -901,7 +934,9 @@ class RecurringTransactionIntelligenceService {
 		const notes: string[] = [];
 
 		if (pattern.trend && pattern.trend.confidence > 50) {
-			notes.push(`Trending ${pattern.trend.direction} at ${(pattern.trend.rate * 100).toFixed(1)}% per period`);
+			notes.push(
+				`Trending ${pattern.trend.direction} at ${(pattern.trend.rate * 100).toFixed(1)}% per period`
+			);
 		}
 
 		if (pattern.seasonalVariation && pattern.seasonalVariation.length > 0) {
@@ -932,7 +967,7 @@ class RecurringTransactionIntelligenceService {
 		for (const tx of transactions) {
 			const amount = Math.abs(tx.amount || 0);
 			const expectedRange = this.calculateVariabilityRange(pattern);
-			
+
 			// Check if amount is outside expected range (more than 2 standard deviations)
 			if (amount < expectedRange.min * 0.5 || amount > expectedRange.max * 1.5) {
 				conflicts.push({
@@ -970,8 +1005,14 @@ class RecurringTransactionIntelligenceService {
 
 		// Check for transactions that are too close together
 		for (let i = 1; i < transactions.length; i++) {
-			const prevDate = parseISO(transactions[i - 1].clearedDate || transactions[i - 1].plannedDate || transactions[i - 1].createdAt);
-			const currDate = parseISO(transactions[i].clearedDate || transactions[i].plannedDate || transactions[i].createdAt);
+			const prevDate = parseISO(
+				transactions[i - 1].clearedDate ||
+					transactions[i - 1].plannedDate ||
+					transactions[i - 1].createdAt
+			);
+			const currDate = parseISO(
+				transactions[i].clearedDate || transactions[i].plannedDate || transactions[i].createdAt
+			);
 			const daysBetween = differenceInDays(currDate, prevDate);
 
 			const expectedInterval = this.calculateAverageInterval(pattern);
@@ -1008,7 +1049,7 @@ class RecurringTransactionIntelligenceService {
 			const date = tx.clearedDate || tx.plannedDate || tx.createdAt;
 			const amount = Math.round((tx.amount || 0) * 100) / 100; // Round to 2 decimals
 			const key = `${date}_${amount}`;
-			
+
 			if (!groups.has(key)) {
 				groups.set(key, []);
 			}
@@ -1037,7 +1078,9 @@ class RecurringTransactionIntelligenceService {
 		return conflicts;
 	}
 
-	private async detectCategoryMismatches(patterns: RecurringPattern[]): Promise<RecurringConflict[]> {
+	private async detectCategoryMismatches(
+		patterns: RecurringPattern[]
+	): Promise<RecurringConflict[]> {
 		const conflicts: RecurringConflict[] = [];
 
 		for (const pattern of patterns) {
@@ -1111,14 +1154,14 @@ class RecurringTransactionIntelligenceService {
 		// Must have same description pattern (merchant/payee)
 		const desc1 = (pattern1.descriptionPattern || '').toLowerCase().trim();
 		const desc2 = (pattern2.descriptionPattern || '').toLowerCase().trim();
-		
+
 		if (desc1 !== desc2 && desc1.length > 0 && desc2.length > 0) {
 			// Check word overlap for similar descriptions
-			const words1 = desc1.split(/\s+/).filter(w => w.length > 2);
-			const words2 = desc2.split(/\s+/).filter(w => w.length > 2);
-			const commonWords = words1.filter(w => words2.includes(w));
+			const words1 = desc1.split(/\s+/).filter((w) => w.length > 2);
+			const words2 = desc2.split(/\s+/).filter((w) => w.length > 2);
+			const commonWords = words1.filter((w) => words2.includes(w));
 			const similarity = commonWords.length / Math.max(words1.length, words2.length);
-			
+
 			if (similarity < 0.7) return false; // Need at least 70% word overlap
 		}
 
@@ -1131,14 +1174,14 @@ class RecurringTransactionIntelligenceService {
 
 	private mergePatterns(patterns: RecurringPattern[]): RecurringPattern {
 		// Use the pattern with highest confidence as base
-		const base = patterns.reduce((best, current) => 
+		const base = patterns.reduce((best, current) =>
 			current.confidence > best.confidence ? current : best
 		);
 
 		// Merge all transaction IDs
 		const allTransactionIds = new Set<string>();
 		for (const pattern of patterns) {
-			pattern.matchingTransactionIds.forEach(id => allTransactionIds.add(id));
+			pattern.matchingTransactionIds.forEach((id) => allTransactionIds.add(id));
 		}
 
 		// Merge all amounts and dates
@@ -1166,7 +1209,9 @@ class RecurringTransactionIntelligenceService {
 			firstObserved: allDates[0],
 			lastObserved: allDates[allDates.length - 1],
 			averageAmount,
-			amountVariability: this.calculateAmountVariability({ historicalAmounts: allAmounts } as RecurringPattern),
+			amountVariability: this.calculateAmountVariability({
+				historicalAmounts: allAmounts
+			} as RecurringPattern),
 			// Recalculate frequency with merged data
 			frequency: this.detectFrequency(allDates) || base.frequency,
 			// Recalculate confidence (may be lower due to amount variability)
@@ -1206,10 +1251,12 @@ class RecurringTransactionIntelligenceService {
 				if (pattern.historicalDates.length >= 2) {
 					const intervals: number[] = [];
 					for (let i = 1; i < pattern.historicalDates.length; i++) {
-						intervals.push(differenceInDays(
-							parseISO(pattern.historicalDates[i]),
-							parseISO(pattern.historicalDates[i - 1])
-						));
+						intervals.push(
+							differenceInDays(
+								parseISO(pattern.historicalDates[i]),
+								parseISO(pattern.historicalDates[i - 1])
+							)
+						);
 					}
 					expectedInterval = intervals.reduce((sum, d) => sum + d, 0) / intervals.length;
 				}
@@ -1225,7 +1272,10 @@ class RecurringTransactionIntelligenceService {
 			return 0;
 		} else {
 			// Linear decrease from 100% to 0%
-			return Math.max(0, 100 - ((daysSinceLast - expectedInterval) / (maxDays - expectedInterval)) * 100);
+			return Math.max(
+				0,
+				100 - ((daysSinceLast - expectedInterval) / (maxDays - expectedInterval)) * 100
+			);
 		}
 	}
 
@@ -1258,10 +1308,12 @@ class RecurringTransactionIntelligenceService {
 				if (pattern.historicalDates.length >= 2) {
 					const intervals: number[] = [];
 					for (let i = 1; i < pattern.historicalDates.length; i++) {
-						intervals.push(differenceInDays(
-							parseISO(pattern.historicalDates[i]),
-							parseISO(pattern.historicalDates[i - 1])
-						));
+						intervals.push(
+							differenceInDays(
+								parseISO(pattern.historicalDates[i]),
+								parseISO(pattern.historicalDates[i - 1])
+							)
+						);
 					}
 					expectedInterval = intervals.reduce((sum, d) => sum + d, 0) / intervals.length;
 				}
@@ -1293,4 +1345,5 @@ class RecurringTransactionIntelligenceService {
 }
 
 // Export singleton instance
-export const recurringTransactionIntelligenceService = new RecurringTransactionIntelligenceService();
+export const recurringTransactionIntelligenceService =
+	new RecurringTransactionIntelligenceService();

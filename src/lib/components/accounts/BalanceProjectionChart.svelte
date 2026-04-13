@@ -1,13 +1,29 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { AccountProjection, DailyBalanceProjection } from '$lib/core/services/analytics/balance-projection-service';
+	import type {
+		AccountProjection,
+		DailyBalanceProjection
+	} from '$lib/core/services/analytics/balance-projection-service';
 	import { balanceProjectionService } from '$lib/core/services/analytics/balance-projection-service';
 	import { formatCurrencyAmount } from '$lib/utils/currency-utils';
 	import type { BufferStatus } from '$lib/utils/account-metadata-utils';
 	import { format, startOfDay, addDays } from 'date-fns';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card/index.ts';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardHeader,
+		CardTitle
+	} from '$lib/components/ui/card/index.ts';
 	import { Badge } from '$lib/components/ui/badge';
-	import { AlertTriangle, TrendingDown, TrendingUp, Calendar, Wallet, AlertCircle } from '@lucide/svelte';
+	import {
+		AlertTriangle,
+		TrendingDown,
+		TrendingUp,
+		Calendar,
+		Wallet,
+		AlertCircle
+	} from '@lucide/svelte';
 	import { Progress } from '$lib/components/ui/progress';
 
 	interface Props {
@@ -17,20 +33,19 @@
 		className?: string;
 	}
 
-	const { 
-		accountId, 
-		daysAhead = 90, 
-		showDetails = true,
-		className = '' 
-	}: Props = $props();
+	const { accountId, daysAhead = 90, showDetails = true, className = '' }: Props = $props();
 
 	let projections = $state<AccountProjection[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let selectedAccountId = $state<string | null>(accountId || null);
+	let selectedAccountId = $state<string | null>(null);
+
+	$effect.pre(() => {
+		selectedAccountId = accountId || null;
+	});
 	let selectedProjection = $derived(
-		selectedAccountId 
-			? projections.find(p => p.accountId === selectedAccountId) 
+		selectedAccountId
+			? projections.find((p) => p.accountId === selectedAccountId)
 			: projections[0] || null
 	);
 
@@ -51,8 +66,8 @@
 
 	const chartData = $derived.by((): ChartData => {
 		if (!selectedProjection) return { points: [], minBalance: 0, maxBalance: 0, bufferLine: 0 };
-		
-		const points = selectedProjection.projections.map(p => ({
+
+		const points = selectedProjection.projections.map((p) => ({
 			date: p.date,
 			balance: p.balance,
 			bufferAmount: p.bufferAmount,
@@ -61,11 +76,13 @@
 			isBelowBuffer: p.isBelowBuffer
 		}));
 
-		const balances = points.map(p => p.balance);
+		const balances = points.map((p) => p.balance);
 		const bufferLine = selectedProjection.projections[0]?.bufferAmount ?? 0;
 		// Scale Y-axis from actual data range + buffer so the balance line is visible (not squashed by startBalance)
 		const dataMin = balances.length ? Math.min(...balances, 0) : 0;
-		const dataMax = balances.length ? Math.max(...balances, bufferLine) : Math.max(bufferLine, selectedProjection.startBalance);
+		const dataMax = balances.length
+			? Math.max(...balances, bufferLine)
+			: Math.max(bufferLine, selectedProjection.startBalance);
 		const range = Math.max(dataMax - dataMin, 1);
 		const padding = range * 0.1;
 		const minBalance = dataMin - padding;
@@ -82,21 +99,31 @@
 	// Get status color
 	function getStatusColor(status: string): string {
 		switch (status) {
-			case 'optimal': return 'text-green-600 dark:text-green-400';
-			case 'comfort': return 'text-blue-600 dark:text-blue-400';
-			case 'warning': return 'text-yellow-600 dark:text-yellow-400';
-			case 'critical': return 'text-red-600 dark:text-red-400';
-			default: return 'text-gray-600 dark:text-gray-400';
+			case 'optimal':
+				return 'text-green-600 dark:text-green-400';
+			case 'comfort':
+				return 'text-blue-600 dark:text-blue-400';
+			case 'warning':
+				return 'text-yellow-600 dark:text-yellow-400';
+			case 'critical':
+				return 'text-red-600 dark:text-red-400';
+			default:
+				return 'text-gray-600 dark:text-gray-400';
 		}
 	}
 
 	function getStatusBgColor(status: string): string {
 		switch (status) {
-			case 'optimal': return 'bg-green-100 dark:bg-green-900/20';
-			case 'comfort': return 'bg-blue-100 dark:bg-blue-900/20';
-			case 'warning': return 'bg-yellow-100 dark:bg-yellow-900/20';
-			case 'critical': return 'bg-red-100 dark:bg-red-900/20';
-			default: return 'bg-gray-100 dark:bg-gray-800';
+			case 'optimal':
+				return 'bg-green-100 dark:bg-green-900/20';
+			case 'comfort':
+				return 'bg-blue-100 dark:bg-blue-900/20';
+			case 'warning':
+				return 'bg-yellow-100 dark:bg-yellow-900/20';
+			case 'critical':
+				return 'bg-red-100 dark:bg-red-900/20';
+			default:
+				return 'bg-gray-100 dark:bg-gray-800';
 		}
 	}
 
@@ -104,14 +131,14 @@
 		try {
 			isLoading = true;
 			error = null;
-			
+
 			const options = {
 				accountIds: accountId ? [accountId] : undefined,
 				daysAhead
 			};
-			
+
 			projections = await balanceProjectionService.generateProjections(options);
-			
+
 			if (projections.length > 0 && !selectedAccountId) {
 				selectedAccountId = projections[0].accountId;
 			}
@@ -130,7 +157,8 @@
 	function getBalanceColor(balance: number, bufferAmount: number): string {
 		if (balance < bufferAmount * 0.5) return 'stroke-red-500 fill-red-500/20';
 		if (balance < bufferAmount) return 'stroke-yellow-500 fill-yellow-500/20';
-		if (balance < bufferAmount * 1.5) return 'stroke-[var(--color-amber)] fill-[var(--color-amber)]/20';
+		if (balance < bufferAmount * 1.5)
+			return 'stroke-[var(--color-amber)] fill-[var(--color-amber)]/20';
 		return 'stroke-green-500 fill-green-500/20';
 	}
 </script>
@@ -147,8 +175,8 @@
 	{:else if error}
 		<Card>
 			<CardContent class="p-6">
-				<div class="flex items-center gap-2 text-destructive">
-					<AlertCircle class="w-5 h-5" />
+				<div class="text-destructive flex items-center gap-2">
+					<AlertCircle class="h-5 w-5" />
 					<div>{error}</div>
 				</div>
 			</CardContent>
@@ -156,7 +184,7 @@
 	{:else if projections.length === 0}
 		<Card>
 			<CardContent class="p-6">
-				<div class="text-center text-muted-foreground py-8">
+				<div class="text-muted-foreground py-8 text-center">
 					No accounts available for projection
 				</div>
 			</CardContent>
@@ -166,12 +194,13 @@
 		{#if projections.length > 1}
 			<Card class="mb-4">
 				<CardContent class="p-4">
-					<div class="flex gap-2 flex-wrap">
+					<div class="flex flex-wrap gap-2">
 						{#each projections as projection (projection.accountId)}
 							<button
-								onclick={() => selectedAccountId = projection.accountId}
-								class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors {selectedAccountId === projection.accountId 
-									? 'bg-primary text-primary-foreground' 
+								onclick={() => (selectedAccountId = projection.accountId)}
+								class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors {selectedAccountId ===
+								projection.accountId
+									? 'bg-primary text-primary-foreground'
 									: 'bg-muted text-muted-foreground hover:bg-muted/80'}"
 							>
 								{projection.accountName}
@@ -184,20 +213,23 @@
 
 		{#if selectedProjection}
 			<!-- Summary Cards -->
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+			<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
 				<Card>
 					<CardHeader class="pb-3">
-						<CardTitle class="text-sm font-medium text-muted-foreground">Minimum Balance</CardTitle>
+						<CardTitle class="text-muted-foreground text-sm font-medium">Minimum Balance</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div class="flex items-center gap-2">
-							<Wallet class="w-5 h-5 text-muted-foreground" />
+							<Wallet class="text-muted-foreground h-5 w-5" />
 							<div>
 								<div class="text-2xl font-bold">
-									{formatCurrencyAmount(selectedProjection.minimumBalance, selectedProjection.currency)}
+									{formatCurrencyAmount(
+										selectedProjection.minimumBalance,
+										selectedProjection.currency
+									)}
 								</div>
 								{#if selectedProjection.minimumBalanceDate}
-									<div class="text-xs text-muted-foreground">
+									<div class="text-muted-foreground text-xs">
 										{format(selectedProjection.minimumBalanceDate, 'MMM d, yyyy')}
 									</div>
 								{/if}
@@ -208,16 +240,21 @@
 
 				<Card>
 					<CardHeader class="pb-3">
-						<CardTitle class="text-sm font-medium text-muted-foreground">Low Balance Days</CardTitle>
+						<CardTitle class="text-muted-foreground text-sm font-medium">Low Balance Days</CardTitle
+						>
 					</CardHeader>
 					<CardContent>
 						<div class="flex items-center gap-2">
-							<AlertTriangle class="w-5 h-5 {selectedProjection.lowBalanceDays > 0 ? 'text-yellow-500' : 'text-muted-foreground'}" />
+							<AlertTriangle
+								class="h-5 w-5 {selectedProjection.lowBalanceDays > 0
+									? 'text-yellow-500'
+									: 'text-muted-foreground'}"
+							/>
 							<div>
 								<div class="text-2xl font-bold">
 									{selectedProjection.lowBalanceDays}
 								</div>
-								<div class="text-xs text-muted-foreground">days below buffer</div>
+								<div class="text-muted-foreground text-xs">days below buffer</div>
 							</div>
 						</div>
 					</CardContent>
@@ -225,16 +262,20 @@
 
 				<Card>
 					<CardHeader class="pb-3">
-						<CardTitle class="text-sm font-medium text-muted-foreground">Below Buffer</CardTitle>
+						<CardTitle class="text-muted-foreground text-sm font-medium">Below Buffer</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div class="flex items-center gap-2">
-							<AlertCircle class="w-5 h-5 {selectedProjection.belowBufferDays > 0 ? 'text-red-500' : 'text-muted-foreground'}" />
+							<AlertCircle
+								class="h-5 w-5 {selectedProjection.belowBufferDays > 0
+									? 'text-red-500'
+									: 'text-muted-foreground'}"
+							/>
 							<div>
 								<div class="text-2xl font-bold">
 									{selectedProjection.belowBufferDays}
 								</div>
-								<div class="text-xs text-muted-foreground">days</div>
+								<div class="text-muted-foreground text-xs">days</div>
 							</div>
 						</div>
 					</CardContent>
@@ -253,75 +294,97 @@
 					<div class="space-y-4">
 						<!-- Simple Line Chart Visualization -->
 						<div class="relative h-64 w-full">
-							<svg class="w-full h-full" viewBox="0 0 800 200" preserveAspectRatio="none">
+							<svg class="h-full w-full" viewBox="0 0 800 200" preserveAspectRatio="none">
 								<!-- Buffer line -->
 								<line
 									x1="0"
-									y1={200 - (chartData.bufferLine - chartData.minBalance) / (chartData.maxBalance - chartData.minBalance) * 200}
+									y1={200 -
+										((chartData.bufferLine - chartData.minBalance) /
+											(chartData.maxBalance - chartData.minBalance)) *
+											200}
 									x2="800"
-									y2={200 - (chartData.bufferLine - chartData.minBalance) / (chartData.maxBalance - chartData.minBalance) * 200}
+									y2={200 -
+										((chartData.bufferLine - chartData.minBalance) /
+											(chartData.maxBalance - chartData.minBalance)) *
+											200}
 									stroke="rgb(234, 179, 8)"
 									stroke-width="2"
 									stroke-dasharray="4 4"
 									opacity="0.6"
 								/>
-								
+
 								<!-- Balance line (amber to match legend) -->
-								{#if chartData.points.length > 1 && (chartData.maxBalance - chartData.minBalance) > 0}
+								{#if chartData.points.length > 1 && chartData.maxBalance - chartData.minBalance > 0}
 									<polyline
-										points={chartData.points.map((p: { balance: number }, i: number) => 
-											`${(i / (chartData.points.length - 1)) * 800},${200 - ((p.balance - chartData.minBalance) / (chartData.maxBalance - chartData.minBalance)) * 200}`
-										).join(' ')}
+										points={chartData.points
+											.map(
+												(p: { balance: number }, i: number) =>
+													`${(i / (chartData.points.length - 1)) * 800},${200 - ((p.balance - chartData.minBalance) / (chartData.maxBalance - chartData.minBalance)) * 200}`
+											)
+											.join(' ')}
 										fill="none"
 										stroke="var(--color-amber)"
 										stroke-width="2"
 									/>
 								{/if}
-								
+
 								<!-- Low balance areas -->
 								{#each chartData.points as point, i (i)}
 									{#if point.isBelowBuffer}
 										<circle
 											cx={(i / (chartData.points.length - 1)) * 800}
-											cy={200 - ((point.balance - chartData.minBalance) / (chartData.maxBalance - chartData.minBalance)) * 200}
+											cy={200 -
+												((point.balance - chartData.minBalance) /
+													(chartData.maxBalance - chartData.minBalance)) *
+													200}
 											r="4"
 											fill="rgb(239, 68, 68)"
 										/>
 									{/if}
 								{/each}
 							</svg>
-							
+
 							<!-- Legend -->
-							<div class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-muted-foreground px-2">
+							<div
+								class="text-muted-foreground absolute right-0 bottom-0 left-0 flex justify-between px-2 text-xs"
+							>
 								<span>{formatDate(selectedProjection.projections[0]?.date || new Date())}</span>
-								<span>{formatDate(selectedProjection.projections[selectedProjection.projections.length - 1]?.date || new Date())}</span>
+								<span
+									>{formatDate(
+										selectedProjection.projections[selectedProjection.projections.length - 1]
+											?.date || new Date()
+									)}</span
+								>
 							</div>
 						</div>
 
 						<!-- Legend -->
 						<div class="flex items-center gap-4 text-xs">
 							<div class="flex items-center gap-2">
-								<div class="w-4 h-0.5 bg-[var(--color-amber)]"></div>
+								<div class="h-0.5 w-4 bg-[var(--color-amber)]"></div>
 								<span class="text-muted-foreground">Projected Balance</span>
 							</div>
 							<div class="flex items-center gap-2">
-								<div class="w-4 h-0.5 bg-yellow-500 border-dashed border-t-2"></div>
+								<div class="h-0.5 w-4 border-t-2 border-dashed bg-yellow-500"></div>
 								<span class="text-muted-foreground">Buffer Level</span>
 							</div>
 							<div class="flex items-center gap-2">
-								<div class="w-2 h-2 rounded-full bg-red-500"></div>
+								<div class="h-2 w-2 rounded-full bg-red-500"></div>
 								<span class="text-muted-foreground">Below Buffer</span>
 							</div>
 						</div>
 
 						<!-- Key Dates -->
 						{#if showDetails && selectedProjection.minimumBalanceDate}
-							<div class="pt-4 border-t">
+							<div class="border-t pt-4">
 								<div class="flex items-center gap-2 text-sm">
-									<Calendar class="w-4 h-4 text-muted-foreground" />
+									<Calendar class="text-muted-foreground h-4 w-4" />
 									<span class="text-muted-foreground">Lowest balance:</span>
 									<span class="font-medium">
-										{formatCurrencyAmount(selectedProjection.minimumBalance, selectedProjection.currency)}
+										{formatCurrencyAmount(
+											selectedProjection.minimumBalance,
+											selectedProjection.currency
+										)}
 									</span>
 									<span class="text-muted-foreground">on</span>
 									<span class="font-medium">
@@ -339,18 +402,27 @@
 				<Card class="mt-4 border-yellow-500/50">
 					<CardHeader>
 						<CardTitle class="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
-							<AlertTriangle class="w-5 h-5" />
+							<AlertTriangle class="h-5 w-5" />
 							Low Balance Alerts
 						</CardTitle>
 					</CardHeader>
 					<CardContent>
 						<div class="space-y-2">
-							<p class="text-sm text-muted-foreground">
-								Your account will go below the buffer on <strong>{selectedProjection.belowBufferDays}</strong> day{selectedProjection.belowBufferDays !== 1 ? 's' : ''} in the next {daysAhead} days.
+							<p class="text-muted-foreground text-sm">
+								Your account will go below the buffer on <strong
+									>{selectedProjection.belowBufferDays}</strong
+								>
+								day{selectedProjection.belowBufferDays !== 1 ? 's' : ''} in the next {daysAhead} days.
 							</p>
 							{#if selectedProjection.minimumBalanceDate}
 								<p class="text-sm">
-									The lowest projected balance is <strong>{formatCurrencyAmount(selectedProjection.minimumBalance, selectedProjection.currency)}</strong> on {format(selectedProjection.minimumBalanceDate, 'MMMM d, yyyy')}.
+									The lowest projected balance is <strong
+										>{formatCurrencyAmount(
+											selectedProjection.minimumBalance,
+											selectedProjection.currency
+										)}</strong
+									>
+									on {format(selectedProjection.minimumBalanceDate, 'MMMM d, yyyy')}.
 								</p>
 							{/if}
 						</div>

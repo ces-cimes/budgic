@@ -1,6 +1,15 @@
 <script lang="ts">
-	import type { OptimizationResult, OptimizedPlan, TransactionMovement, PlanImprovement } from '$lib/core/services/analytics/optimization-service';
-	import { formatCurrencyAmount, formatMainCurrencyAmount, formatPercentage } from '$lib/utils/currency-utils';
+	import type {
+		OptimizationResult,
+		OptimizedPlan,
+		TransactionMovement,
+		PlanImprovement
+	} from '$lib/core/services/analytics/optimization-service';
+	import {
+		formatCurrencyAmount,
+		formatMainCurrencyAmount,
+		formatPercentage
+	} from '$lib/utils/currency-utils';
 	import { format, differenceInDays, parseISO } from 'date-fns';
 	import { userService, learningAdaptationService } from '$lib/core/services';
 	import * as Card from '$lib/components/ui/card';
@@ -43,9 +52,7 @@
 			userCurrency = preferences?.currency || 'USD';
 
 			const txIds = Array.from(result.originalPlan.keys());
-			const loaded = await Promise.all(
-				txIds.map((id) => db.transactions.get(id))
-			);
+			const loaded = await Promise.all(txIds.map((id) => db.transactions.get(id)));
 			const txMap = new Map<string, Transaction>();
 			loaded.forEach((tx) => {
 				if (tx) txMap.set(tx.id, tx);
@@ -144,7 +151,7 @@
 	{#if !result.success}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title class="flex items-center gap-2 text-destructive">
+				<Card.Title class="text-destructive flex items-center gap-2">
 					<AlertCircle class="h-5 w-5" />
 					Optimization Failed
 				</Card.Title>
@@ -153,7 +160,7 @@
 				{#if result.errors && result.errors.length > 0}
 					<div class="space-y-2">
 						{#each result.errors as error}
-							<div class="text-sm text-destructive">{error}</div>
+							<div class="text-destructive text-sm">{error}</div>
 						{/each}
 					</div>
 				{/if}
@@ -165,57 +172,65 @@
 				<Card.Header>
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<Sparkles class="h-5 w-5 text-primary" />
+							<Sparkles class="text-primary h-5 w-5" />
 							<Card.Title>Optimization Results</Card.Title>
 						</div>
 						{#if result.improvement > 0}
 							<Badge variant="default" class="bg-green-500">
-								<TrendingUp class="h-3 w-3 mr-1" />
+								<TrendingUp class="mr-1 h-3 w-3" />
 								Improved
 							</Badge>
 						{/if}
 					</div>
 				</Card.Header>
 				<Card.Content class="space-y-4">
-					<div class="p-3 rounded-lg bg-muted/50 border border-border">
+					<div class="bg-muted/50 border-border rounded-lg border p-3">
 						<div class="flex items-start gap-2">
-							<AlertCircle class="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-							<div class="text-xs text-muted-foreground space-y-1">
-								<p class="font-medium text-foreground">About the Score:</p>
+							<AlertCircle class="text-muted-foreground mt-0.5 h-4 w-4 flex-shrink-0" />
+							<div class="text-muted-foreground space-y-1 text-xs">
+								<p class="text-foreground font-medium">About the Score:</p>
 								<p>
-									The optimization score evaluates your financial plan's health. Lower (more negative) scores indicate more issues like buffer violations or fees.
-									The <strong>improvement</strong> value shows how much better the optimized plan is compared to your current plan.
-									A positive improvement means the optimization found a better arrangement.
+									The optimization score evaluates your financial plan's health. Lower (more
+									negative) scores indicate more issues like buffer violations or fees. The <strong
+										>improvement</strong
+									> value shows how much better the optimized plan is compared to your current plan. A
+									positive improvement means the optimization found a better arrangement.
 								</p>
 							</div>
 						</div>
 					</div>
 
-					<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<div class="space-y-2">
-							<div class="text-sm text-muted-foreground">Baseline Score</div>
+							<div class="text-muted-foreground text-sm">Baseline Score</div>
 							<div class="text-2xl font-semibold">{formatScore(result.baselineScore)}</div>
-							<div class="text-xs text-muted-foreground">Current plan</div>
-							<div class="text-xs text-muted-foreground/70">Raw: {result.baselineScore.toFixed(0)}</div>
+							<div class="text-muted-foreground text-xs">Current plan</div>
+							<div class="text-muted-foreground/70 text-xs">
+								Raw: {result.baselineScore.toFixed(0)}
+							</div>
 						</div>
 						<div class="space-y-2">
-							<div class="text-sm text-muted-foreground">Optimized Score</div>
-							<div class="text-2xl font-semibold text-primary">
+							<div class="text-muted-foreground text-sm">Optimized Score</div>
+							<div class="text-primary text-2xl font-semibold">
 								{formatScore(result.optimizedScore)}
 							</div>
-							<div class="text-xs text-muted-foreground">Suggested plan</div>
-							<div class="text-xs text-muted-foreground/70">Raw: {result.optimizedScore.toFixed(0)}</div>
+							<div class="text-muted-foreground text-xs">Suggested plan</div>
+							<div class="text-muted-foreground/70 text-xs">
+								Raw: {result.optimizedScore.toFixed(0)}
+							</div>
 						</div>
 						<div class="space-y-2">
-							<div class="text-sm text-muted-foreground">Improvement</div>
+							<div class="text-muted-foreground text-sm">Improvement</div>
 							<div class="text-2xl font-semibold text-green-600 dark:text-green-400">
 								{result.improvement >= 0 ? '+' : ''}{formatScore(result.improvement)}
 							</div>
-							<div class="text-xs text-muted-foreground">
+							<div class="text-muted-foreground text-xs">
 								({formatPercentage(improvementPercentage())} better)
 							</div>
 							{#if Math.abs(result.improvement) >= 1_000}
-								<div class="text-xs text-muted-foreground/70">Raw: {result.improvement >= 0 ? '+' : ''}{result.improvement.toFixed(0)}</div>
+								<div class="text-muted-foreground/70 text-xs">
+									Raw: {result.improvement >= 0 ? '+' : ''}{result.improvement.toFixed(0)}
+								</div>
 							{/if}
 						</div>
 					</div>
@@ -230,21 +245,23 @@
 						</div>
 					{/if}
 
-					<div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t">
+					<div class="grid grid-cols-2 gap-4 border-t pt-4 md:grid-cols-4">
 						<div class="space-y-1">
-							<div class="text-xs text-muted-foreground">Iterations</div>
+							<div class="text-muted-foreground text-xs">Iterations</div>
 							<div class="text-sm font-medium">{result.metadata.iterations}</div>
 						</div>
 						<div class="space-y-1">
-							<div class="text-xs text-muted-foreground">Transactions Moved</div>
+							<div class="text-muted-foreground text-xs">Transactions Moved</div>
 							<div class="text-sm font-medium">{result.metadata.transactionsMoved}</div>
 						</div>
 						<div class="space-y-1">
-							<div class="text-xs text-muted-foreground">Execution Time</div>
-							<div class="text-sm font-medium">{(result.metadata.executionTime / 1000).toFixed(2)}s</div>
+							<div class="text-muted-foreground text-xs">Execution Time</div>
+							<div class="text-sm font-medium">
+								{(result.metadata.executionTime / 1000).toFixed(2)}s
+							</div>
 						</div>
 						<div class="space-y-1">
-							<div class="text-xs text-muted-foreground">Status</div>
+							<div class="text-muted-foreground text-xs">Status</div>
 							<div class="text-sm font-medium">
 								{result.metadata.converged ? 'Converged' : 'Max Iterations'}
 							</div>
@@ -262,12 +279,12 @@
 						<div class="space-y-3">
 							{#each result.optimizedPlan.improvements as improvement}
 								{@const Icon = getImprovementIcon(improvement.type)}
-								<div class="flex items-start gap-3 p-3 rounded-lg bg-accent/50">
-									<Icon class="h-5 w-5 text-primary mt-0.5" />
+								<div class="bg-accent/50 flex items-start gap-3 rounded-lg p-3">
+									<Icon class="text-primary mt-0.5 h-5 w-5" />
 									<div class="flex-1">
 										<div class="font-medium">{improvement.description}</div>
 										{#if improvement.value > 0}
-											<div class="text-sm text-muted-foreground">
+											<div class="text-muted-foreground text-sm">
 												Value: {formatMainCurrencyAmount(improvement.value, userCurrency)}
 											</div>
 										{/if}
@@ -284,7 +301,10 @@
 					<Card.Header>
 						<Card.Title>Transaction Adjustments</Card.Title>
 						<Card.Description>
-							{result.optimizedPlan.movements.length} transaction{result.optimizedPlan.movements.length !== 1 ? 's' : ''}
+							{result.optimizedPlan.movements.length} transaction{result.optimizedPlan.movements
+								.length !== 1
+								? 's'
+								: ''}
 							will be adjusted
 						</Card.Description>
 					</Card.Header>
@@ -297,10 +317,14 @@
 									</div>
 									<div class="space-y-2">
 										{#each movementsByImpact().high as movement}
-											<div class="flex items-center justify-between p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+											<div
+												class="flex items-center justify-between rounded-lg border border-amber-200 p-3 dark:border-amber-800"
+											>
 												<div class="flex-1">
-													<div class="font-medium">{getTransactionName(movement.transactionId)}</div>
-													<div class="text-sm text-muted-foreground flex items-center gap-2">
+													<div class="font-medium">
+														{getTransactionName(movement.transactionId)}
+													</div>
+													<div class="text-muted-foreground flex items-center gap-2 text-sm">
 														<Calendar class="h-3 w-3" />
 														{format(movement.originalDate, 'MMM d, yyyy')}
 														<ArrowRight class="h-3 w-3" />
@@ -318,13 +342,17 @@
 
 							{#if movementsByImpact().medium.length > 0}
 								<div class="space-y-2">
-									<div class="text-sm font-medium">Medium Impact ({movementsByImpact().medium.length})</div>
+									<div class="text-sm font-medium">
+										Medium Impact ({movementsByImpact().medium.length})
+									</div>
 									<div class="space-y-2">
 										{#each movementsByImpact().medium as movement}
-											<div class="flex items-center justify-between p-3 rounded-lg border">
+											<div class="flex items-center justify-between rounded-lg border p-3">
 												<div class="flex-1">
-													<div class="font-medium">{getTransactionName(movement.transactionId)}</div>
-													<div class="text-sm text-muted-foreground flex items-center gap-2">
+													<div class="font-medium">
+														{getTransactionName(movement.transactionId)}
+													</div>
+													<div class="text-muted-foreground flex items-center gap-2 text-sm">
 														<Calendar class="h-3 w-3" />
 														{format(movement.originalDate, 'MMM d, yyyy')}
 														<ArrowRight class="h-3 w-3" />
@@ -342,13 +370,13 @@
 
 							{#if movementsByImpact().low.length > 0}
 								<div class="space-y-2">
-									<div class="text-sm font-medium text-muted-foreground">
+									<div class="text-muted-foreground text-sm font-medium">
 										Low Impact ({movementsByImpact().low.length})
 									</div>
 									<div class="space-y-1">
 										{#each movementsByImpact().low as movement}
-											<div class="flex items-center justify-between p-2 rounded text-sm">
-												<div class="flex-1 text-muted-foreground">
+											<div class="flex items-center justify-between rounded p-2 text-sm">
+												<div class="text-muted-foreground flex-1">
 													{getTransactionName(movement.transactionId)}
 												</div>
 												<Badge variant="outline" class="ml-4 text-xs">
@@ -372,41 +400,46 @@
 					<Card.Content>
 						<div class="space-y-4">
 							{#each result.recommendations as recommendation}
-								<div class="p-4 rounded-lg border">
-									<div class="flex items-start justify-between mb-2">
+								<div class="rounded-lg border p-4">
+									<div class="mb-2 flex items-start justify-between">
 										<div class="flex-1">
-											<div class="flex items-center gap-2 mb-1">
+											<div class="mb-1 flex items-center gap-2">
 												<Card.Title class="text-base">{recommendation.title}</Card.Title>
-												<Badge variant={
-													recommendation.priority === 'urgent' ? 'destructive' :
-													recommendation.priority === 'high' ? 'default' :
-													recommendation.priority === 'medium' ? 'secondary' : 'outline'
-												}>
+												<Badge
+													variant={recommendation.priority === 'urgent'
+														? 'destructive'
+														: recommendation.priority === 'high'
+															? 'default'
+															: recommendation.priority === 'medium'
+																? 'secondary'
+																: 'outline'}
+												>
 													{recommendation.priority}
 												</Badge>
 											</div>
-											<div class="text-sm text-muted-foreground mb-2">
+											<div class="text-muted-foreground mb-2 text-sm">
 												{recommendation.description}
 											</div>
 										</div>
 									</div>
 									{#if recommendation.estimatedSavings !== undefined && recommendation.estimatedSavings > 0}
-										<div class="text-sm font-medium text-green-600 dark:text-green-400 mb-2">
-											Estimated Savings: {formatMainCurrencyAmount(recommendation.estimatedSavings, userCurrency)}
+										<div class="mb-2 text-sm font-medium text-green-600 dark:text-green-400">
+											Estimated Savings: {formatMainCurrencyAmount(
+												recommendation.estimatedSavings,
+												userCurrency
+											)}
 										</div>
 									{/if}
-									<div class="flex gap-2 mt-2">
+									<div class="mt-2 flex gap-2">
 										{#if recommendation.actionable && onApply}
-											<Button size="sm" onclick={handleApply}>
-												Apply Optimization
-											</Button>
+											<Button size="sm" onclick={handleApply}>Apply Optimization</Button>
 										{/if}
 										<Button
 											size="sm"
 											variant="outline"
 											onclick={() => handleFeedback(recommendation.id, 'accepted')}
 										>
-											<CheckCircle2 class="w-4 h-4 mr-1" />
+											<CheckCircle2 class="mr-1 h-4 w-4" />
 											Helpful
 										</Button>
 										<Button
@@ -414,7 +447,7 @@
 											variant="ghost"
 											onclick={() => handleFeedback(recommendation.id, 'rejected')}
 										>
-											<X class="w-4 h-4 mr-1" />
+											<X class="mr-1 h-4 w-4" />
 											Not Helpful
 										</Button>
 									</div>
@@ -425,15 +458,13 @@
 				</Card.Root>
 			{/if}
 
-			<div class="flex gap-2 justify-end">
+			<div class="flex justify-end gap-2">
 				{#if onDismiss}
-					<Button variant="outline" onclick={onDismiss}>
-						Dismiss
-					</Button>
+					<Button variant="outline" onclick={onDismiss}>Dismiss</Button>
 				{/if}
 				{#if onApply && result.optimizedPlan}
 					<Button onclick={handleApply}>
-						<CheckCircle2 class="h-4 w-4 mr-2" />
+						<CheckCircle2 class="mr-2 h-4 w-4" />
 						Apply Optimization
 					</Button>
 				{/if}
@@ -442,9 +473,7 @@
 	{:else}
 		<Card.Root>
 			<Card.Content class="p-6">
-				<div class="text-center text-muted-foreground">
-					No optimization plan generated
-				</div>
+				<div class="text-muted-foreground text-center">No optimization plan generated</div>
 			</Card.Content>
 		</Card.Root>
 	{/if}

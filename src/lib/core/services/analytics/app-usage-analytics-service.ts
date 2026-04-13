@@ -72,7 +72,7 @@ class AppUsageAnalyticsService {
 	 */
 	async getUsageMetrics(days: number = 30): Promise<AppUsageMetrics> {
 		const actions = await userService.getUserActions(days);
-		
+
 		if (actions.length === 0) {
 			return this.getEmptyMetrics();
 		}
@@ -84,7 +84,7 @@ class AppUsageAnalyticsService {
 
 		// Calculate session durations
 		const sessionDurations: number[] = [];
-		sessions.forEach(sessionActions => {
+		sessions.forEach((sessionActions) => {
 			if (sessionActions.length > 1) {
 				const start = new Date(sessionActions[0].timestamp);
 				const end = new Date(sessionActions[sessionActions.length - 1].timestamp);
@@ -93,9 +93,10 @@ class AppUsageAnalyticsService {
 			}
 		});
 
-		const averageSessionDuration = sessionDurations.length > 0
-			? sessionDurations.reduce((sum, d) => sum + d, 0) / sessionDurations.length
-			: 0;
+		const averageSessionDuration =
+			sessionDurations.length > 0
+				? sessionDurations.reduce((sum, d) => sum + d, 0) / sessionDurations.length
+				: 0;
 
 		const averageActionsPerSession = totalSessions > 0 ? totalActions / totalSessions : 0;
 
@@ -117,11 +118,12 @@ class AppUsageAnalyticsService {
 		const sessionFrequency = this.determineSessionFrequency(sessions, days);
 
 		// Get date range
-		const sortedActions = actions.sort((a, b) => 
-			new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+		const sortedActions = actions.sort(
+			(a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
 		);
 		const firstActiveDate = sortedActions[0]?.timestamp || new Date().toISOString();
-		const lastActiveDate = sortedActions[sortedActions.length - 1]?.timestamp || new Date().toISOString();
+		const lastActiveDate =
+			sortedActions[sortedActions.length - 1]?.timestamp || new Date().toISOString();
 
 		return {
 			totalSessions,
@@ -148,8 +150,8 @@ class AppUsageAnalyticsService {
 		const sessionData: SessionData[] = [];
 
 		sessions.forEach((sessionActions, sessionId) => {
-			const sortedActions = sessionActions.sort((a, b) => 
-				new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+			const sortedActions = sessionActions.sort(
+				(a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
 			);
 			const startTime = sortedActions[0].timestamp;
 			const endTime = sortedActions[sortedActions.length - 1].timestamp;
@@ -158,7 +160,7 @@ class AppUsageAnalyticsService {
 			const duration = (end.getTime() - start.getTime()) / 1000;
 
 			const features = new Set<string>();
-			sortedActions.forEach(action => {
+			sortedActions.forEach((action) => {
 				// Extract feature from action type
 				const feature = this.extractFeatureFromAction(action.action);
 				if (feature) {
@@ -176,8 +178,8 @@ class AppUsageAnalyticsService {
 			});
 		});
 
-		return sessionData.sort((a, b) => 
-			new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+		return sessionData.sort(
+			(a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
 		);
 	}
 
@@ -186,7 +188,7 @@ class AppUsageAnalyticsService {
 	 */
 	async detectUsagePatterns(days: number = 90): Promise<UsagePattern[]> {
 		const actions = await userService.getUserActions(days);
-		
+
 		if (actions.length < 10) {
 			return [];
 		}
@@ -225,19 +227,15 @@ class AppUsageAnalyticsService {
 		const actions = await userService.getUserActions(90);
 		const featureUsage = this.calculateFeatureUsage(actions);
 
-		const adoptedFeatures = featureUsage
-			.filter(f => f.usageCount >= 10)
-			.map(f => f.feature);
+		const adoptedFeatures = featureUsage.filter((f) => f.usageCount >= 10).map((f) => f.feature);
 
 		const underutilizedFeatures = featureUsage
-			.filter(f => f.usageCount < 5 && f.percentage < 2)
-			.map(f => f.feature);
+			.filter((f) => f.usageCount < 5 && f.percentage < 2)
+			.map((f) => f.feature);
 
 		const recommendations: string[] = [];
 		if (underutilizedFeatures.length > 0) {
-			recommendations.push(
-				`Consider exploring: ${underutilizedFeatures.slice(0, 3).join(', ')}`
-			);
+			recommendations.push(`Consider exploring: ${underutilizedFeatures.slice(0, 3).join(', ')}`);
 		}
 
 		return {
@@ -254,7 +252,7 @@ class AppUsageAnalyticsService {
 	private groupActionsBySession(actions: UserAction[]): Map<string, UserAction[]> {
 		const sessions = new Map<string, UserAction[]>();
 
-		actions.forEach(action => {
+		actions.forEach((action) => {
 			const sessionId = action.sessionId || 'unknown';
 			const sessionActions = sessions.get(sessionId) || [];
 			sessionActions.push(action);
@@ -264,12 +262,15 @@ class AppUsageAnalyticsService {
 		return sessions;
 	}
 
-	private findMostActiveTime(actions: UserAction[]): { mostActiveDay: string; mostActiveHour: number } {
+	private findMostActiveTime(actions: UserAction[]): {
+		mostActiveDay: string;
+		mostActiveHour: number;
+	} {
 		const dayCounts = new Map<string, number>();
 		const hourCounts = new Map<number, number>();
 		const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-		actions.forEach(action => {
+		actions.forEach((action) => {
 			const date = new Date(action.timestamp);
 			const dayName = dayNames[date.getDay()];
 			const hour = date.getHours();
@@ -278,22 +279,29 @@ class AppUsageAnalyticsService {
 			hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
 		});
 
-		const mostActiveDay = Array.from(dayCounts.entries())
-			.sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown';
+		const mostActiveDay =
+			Array.from(dayCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Unknown';
 
-		const mostActiveHour = Array.from(hourCounts.entries())
-			.sort((a, b) => b[1] - a[1])[0]?.[0] || 12;
+		const mostActiveHour =
+			Array.from(hourCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 12;
 
 		return { mostActiveDay, mostActiveHour };
 	}
 
 	private calculateFeatureUsage(actions: UserAction[]): FeatureUsage[] {
-		const featureCounts = new Map<string, { count: number; lastUsed: string; timestamps: string[] }>();
+		const featureCounts = new Map<
+			string,
+			{ count: number; lastUsed: string; timestamps: string[] }
+		>();
 
-		actions.forEach(action => {
+		actions.forEach((action) => {
 			const feature = this.extractFeatureFromAction(action.action);
 			if (feature) {
-				const current = featureCounts.get(feature) || { count: 0, lastUsed: action.timestamp, timestamps: [] };
+				const current = featureCounts.get(feature) || {
+					count: 0,
+					lastUsed: action.timestamp,
+					timestamps: []
+				};
 				current.count++;
 				if (new Date(action.timestamp) > new Date(current.lastUsed)) {
 					current.lastUsed = action.timestamp;
@@ -313,18 +321,20 @@ class AppUsageAnalyticsService {
 			let averageTimeSpent: number | undefined;
 			if (data.timestamps.length > 1) {
 				const sortedTimestamps = data.timestamps
-					.map(ts => new Date(ts).getTime())
+					.map((ts) => new Date(ts).getTime())
 					.sort((a, b) => a - b);
-				
+
 				const intervals: number[] = [];
 				for (let i = 1; i < sortedTimestamps.length; i++) {
 					intervals.push((sortedTimestamps[i] - sortedTimestamps[i - 1]) / 1000);
 				}
-				
+
 				// Filter out very long intervals (likely different sessions)
-				const reasonableIntervals = intervals.filter(interval => interval < 3600); // Less than 1 hour
+				const reasonableIntervals = intervals.filter((interval) => interval < 3600); // Less than 1 hour
 				if (reasonableIntervals.length > 0) {
-					averageTimeSpent = reasonableIntervals.reduce((sum, interval) => sum + interval, 0) / reasonableIntervals.length;
+					averageTimeSpent =
+						reasonableIntervals.reduce((sum, interval) => sum + interval, 0) /
+						reasonableIntervals.length;
 				}
 			}
 
@@ -343,25 +353,25 @@ class AppUsageAnalyticsService {
 	private extractFeatureFromAction(action: string): string | null {
 		// Map action types to features
 		const actionToFeature: Record<string, string> = {
-			'view_accounts': 'Accounts',
-			'create_account': 'Accounts',
-			'update_account': 'Accounts',
-			'view_transactions': 'Transactions',
-			'create_transaction': 'Transactions',
-			'update_transaction': 'Transactions',
-			'delete_transaction': 'Transactions',
-			'create_split_transaction': 'Transactions',
-			'view_budget': 'Budget',
-			'create_budget': 'Budget',
-			'update_budget': 'Budget',
-			'check_budget': 'Budget',
-			'view_insights': 'Insights',
-			'view_analytics': 'Analytics',
-			'view_goals': 'Goals',
-			'create_goal': 'Goals',
-			'update_goal': 'Goals',
-			'view_settings': 'Settings',
-			'update_settings': 'Settings'
+			view_accounts: 'Accounts',
+			create_account: 'Accounts',
+			update_account: 'Accounts',
+			view_transactions: 'Transactions',
+			create_transaction: 'Transactions',
+			update_transaction: 'Transactions',
+			delete_transaction: 'Transactions',
+			create_split_transaction: 'Transactions',
+			view_budget: 'Budget',
+			create_budget: 'Budget',
+			update_budget: 'Budget',
+			check_budget: 'Budget',
+			view_insights: 'Insights',
+			view_analytics: 'Analytics',
+			view_goals: 'Goals',
+			create_goal: 'Goals',
+			update_goal: 'Goals',
+			view_settings: 'Settings',
+			update_settings: 'Settings'
 		};
 
 		return actionToFeature[action] || null;
@@ -415,17 +425,19 @@ class AppUsageAnalyticsService {
 
 		// Check if user is active most days
 		const uniqueDays = new Set<string>();
-		actions.forEach(action => {
+		actions.forEach((action) => {
 			const date = new Date(action.timestamp);
 			const dayKey = date.toISOString().substring(0, 10);
 			uniqueDays.add(dayKey);
 		});
 
 		const daysWithActivity = uniqueDays.size;
-		const totalDays = Math.ceil(
-			(new Date(actions[actions.length - 1].timestamp).getTime() - 
-			 new Date(actions[0].timestamp).getTime()) / (1000 * 60 * 60 * 24)
-		) + 1;
+		const totalDays =
+			Math.ceil(
+				(new Date(actions[actions.length - 1].timestamp).getTime() -
+					new Date(actions[0].timestamp).getTime()) /
+					(1000 * 60 * 60 * 24)
+			) + 1;
 
 		if (totalDays > 0 && daysWithActivity / totalDays >= 0.7) {
 			return {
@@ -452,7 +464,7 @@ class AppUsageAnalyticsService {
 
 		// Group by week
 		const weeklyCounts = new Map<string, number>();
-		actions.forEach(action => {
+		actions.forEach((action) => {
 			const date = new Date(action.timestamp);
 			const weekStart = this.getWeekStart(date);
 			const weekKey = weekStart.toISOString().substring(0, 10);
@@ -492,7 +504,7 @@ class AppUsageAnalyticsService {
 
 		// Group by month
 		const monthlyCounts = new Map<string, number>();
-		actions.forEach(action => {
+		actions.forEach((action) => {
 			const date = new Date(action.timestamp);
 			const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 			monthlyCounts.set(monthKey, (monthlyCounts.get(monthKey) || 0) + 1);

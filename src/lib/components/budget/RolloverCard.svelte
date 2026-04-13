@@ -1,10 +1,19 @@
 <script lang="ts">
 	import { rolloverService } from '$lib/core/services';
-	import type { PeriodSurplusDeficit, RolloverSuggestion } from '$lib/core/services/core/rollover-service';
+	import type {
+		PeriodSurplusDeficit,
+		RolloverSuggestion
+	} from '$lib/core/services/core/rollover-service';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { RefreshCw, TrendingUp, TrendingDown, CheckCircle } from '@lucide/svelte';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardHeader,
+		CardTitle
+	} from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 
 	interface Props {
@@ -62,7 +71,7 @@
 	<Card class="border-border">
 		<CardHeader>
 			<CardTitle class="flex items-center gap-2">
-				<RefreshCw class="w-5 h-5" />
+				<RefreshCw class="h-5 w-5" />
 				Period rollover
 			</CardTitle>
 			<CardDescription>
@@ -71,25 +80,25 @@
 		</CardHeader>
 		<CardContent class="space-y-4">
 			{#if loading}
-				<p class="text-sm text-muted-foreground">Loading…</p>
+				<p class="text-muted-foreground text-sm">Loading…</p>
 			{:else if surplusDeficit}
 				<!-- Summary -->
 				<div class="grid grid-cols-2 gap-3">
-					<div class="rounded-lg border border-border bg-muted/30 p-3">
-						<div class="flex items-center gap-2 text-sm text-muted-foreground">
-							<TrendingUp class="w-4 h-4 text-success" />
+					<div class="border-border bg-muted/30 rounded-lg border p-3">
+						<div class="text-muted-foreground flex items-center gap-2 text-sm">
+							<TrendingUp class="text-success h-4 w-4" />
 							Total surplus
 						</div>
-						<div class="text-lg font-semibold text-success">
+						<div class="text-success text-lg font-semibold">
 							{formatTransactionAmount(surplusDeficit.totalSurplus, surplusDeficit.currency)}
 						</div>
 					</div>
-					<div class="rounded-lg border border-border bg-muted/30 p-3">
-						<div class="flex items-center gap-2 text-sm text-muted-foreground">
-							<TrendingDown class="w-4 h-4 text-destructive" />
+					<div class="border-border bg-muted/30 rounded-lg border p-3">
+						<div class="text-muted-foreground flex items-center gap-2 text-sm">
+							<TrendingDown class="text-destructive h-4 w-4" />
 							Total deficit
 						</div>
-						<div class="text-lg font-semibold text-destructive">
+						<div class="text-destructive text-lg font-semibold">
 							{formatTransactionAmount(surplusDeficit.totalDeficit, surplusDeficit.currency)}
 						</div>
 					</div>
@@ -103,9 +112,19 @@
 							<span class="text-muted-foreground">Essential</span>
 							<span>
 								{#if surplusDeficit.essential.surplus > 0}
-									<span class="text-success">+{formatTransactionAmount(surplusDeficit.essential.surplus, surplusDeficit.essential.currency)}</span>
+									<span class="text-success"
+										>+{formatTransactionAmount(
+											surplusDeficit.essential.surplus,
+											surplusDeficit.essential.currency
+										)}</span
+									>
 								{:else if surplusDeficit.essential.deficit > 0}
-									<span class="text-destructive">−{formatTransactionAmount(surplusDeficit.essential.deficit, surplusDeficit.essential.currency)}</span>
+									<span class="text-destructive"
+										>−{formatTransactionAmount(
+											surplusDeficit.essential.deficit,
+											surplusDeficit.essential.currency
+										)}</span
+									>
 								{:else}
 									<span class="text-muted-foreground">—</span>
 								{/if}
@@ -115,9 +134,19 @@
 							<span class="text-muted-foreground">Discretionary</span>
 							<span>
 								{#if surplusDeficit.discretionary.surplus > 0}
-									<span class="text-success">+{formatTransactionAmount(surplusDeficit.discretionary.surplus, surplusDeficit.discretionary.currency)}</span>
+									<span class="text-success"
+										>+{formatTransactionAmount(
+											surplusDeficit.discretionary.surplus,
+											surplusDeficit.discretionary.currency
+										)}</span
+									>
 								{:else if surplusDeficit.discretionary.deficit > 0}
-									<span class="text-destructive">−{formatTransactionAmount(surplusDeficit.discretionary.deficit, surplusDeficit.discretionary.currency)}</span>
+									<span class="text-destructive"
+										>−{formatTransactionAmount(
+											surplusDeficit.discretionary.deficit,
+											surplusDeficit.discretionary.currency
+										)}</span
+									>
 								{:else}
 									<span class="text-muted-foreground">—</span>
 								{/if}
@@ -127,9 +156,19 @@
 							<span class="text-muted-foreground">Buffer</span>
 							<span>
 								{#if surplusDeficit.buffer.surplus > 0}
-									<span class="text-success">+{formatTransactionAmount(surplusDeficit.buffer.surplus, surplusDeficit.buffer.currency)}</span>
+									<span class="text-success"
+										>+{formatTransactionAmount(
+											surplusDeficit.buffer.surplus,
+											surplusDeficit.buffer.currency
+										)}</span
+									>
 								{:else if surplusDeficit.buffer.deficit > 0}
-									<span class="text-destructive">−{formatTransactionAmount(surplusDeficit.buffer.deficit, surplusDeficit.buffer.currency)}</span>
+									<span class="text-destructive"
+										>−{formatTransactionAmount(
+											surplusDeficit.buffer.deficit,
+											surplusDeficit.buffer.currency
+										)}</span
+									>
 								{:else}
 									<span class="text-muted-foreground">—</span>
 								{/if}
@@ -141,11 +180,16 @@
 				{#if suggestions.length > 0}
 					<div class="space-y-2">
 						<div class="text-sm font-medium">Suggested actions</div>
-						<ul class="space-y-1 text-sm text-muted-foreground">
+						<ul class="text-muted-foreground space-y-1 text-sm">
 							{#each suggestions as s}
 								<li class="flex items-start gap-2">
-									<CheckCircle class="mt-0.5 w-4 h-4 shrink-0 text-muted-foreground" />
-									<span>{s.category}: {s.action} ({formatTransactionAmount(s.amount, s.currency)})</span>
+									<CheckCircle class="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+									<span
+										>{s.category}: {s.action} ({formatTransactionAmount(
+											s.amount,
+											s.currency
+										)})</span
+									>
 								</li>
 							{/each}
 						</ul>
@@ -157,7 +201,7 @@
 						{applying ? 'Applying…' : 'Apply rollover to next period'}
 					</Button>
 				{:else}
-					<p class="text-sm text-muted-foreground">No surplus or deficit this period.</p>
+					<p class="text-muted-foreground text-sm">No surplus or deficit this period.</p>
 				{/if}
 			{/if}
 		</CardContent>

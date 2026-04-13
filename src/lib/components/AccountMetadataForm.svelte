@@ -17,19 +17,14 @@
 		onMetadataChange?: (metadata: Partial<AccountMetadata>) => void;
 	}
 
-	const {
-		accountType,
-		metadata = {},
-		currency = 'USD',
-		onMetadataChange
-	}: Props = $props();
+	const { accountType, metadata = {}, currency = 'USD', onMetadataChange }: Props = $props();
 
 	// Get relevant fields for this account type
 	const relevantFields = $derived(getRelevantMetadataFields(accountType));
 	const showMetadata = $derived(relevantFields.length > 0);
 
-	// State for metadata fields
-	let metadataState = $state<Partial<AccountMetadata>>(metadata || {});
+	// State for metadata fields (filled by $effect from `metadata` prop)
+	let metadataState = $state<Partial<AccountMetadata>>({});
 
 	// Initialize with defaults if needed
 	$effect(() => {
@@ -187,13 +182,10 @@
 {#if showMetadata}
 	{#each relevantFields as field (field)}
 		<!-- Label with Tooltip -->
-		<LabelWithTooltip 
-			for={field} 
-			tooltip={getTooltipText(field)}
-		>
+		<LabelWithTooltip for={field} tooltip={getTooltipText(field)}>
 			{formatMetadataFieldLabel(field)}
 		</LabelWithTooltip>
-		
+
 		<!-- Input -->
 		<div>
 			{#if field === 'isEmergencyFund'}
@@ -202,9 +194,9 @@
 						checked={metadataState?.[field] === true}
 						onCheckedChange={(checked) => updateField(field, checked)}
 					/>
-					<Label.Root for={field} class="font-normal text-sm">
+					<Label for={field} class="text-sm font-normal">
 						Use this account for emergency fund tracking
-					</Label.Root>
+					</Label>
 				</div>
 			{:else if field === 'accountType' && accountType === 'investment'}
 				{@const fieldValue = metadataState?.[field] ?? ''}
@@ -212,7 +204,7 @@
 					id={field}
 					value={String(fieldValue)}
 					onchange={(e) => updateField(field, e.currentTarget.value)}
-					class="w-full px-3 py-2 border border-input rounded-md bg-background text-primary"
+					class="border-input bg-background text-primary w-full rounded-md border px-3 py-2"
 				>
 					<option value="">Select account type</option>
 					<option value="IRA">IRA</option>
@@ -222,17 +214,10 @@
 				</select>
 			{:else}
 				<div class="relative">
-					{#if (
-						field === 'minimumBalance' ||
-						field === 'overdraftLimit' ||
-						field === 'overdraftFee' ||
-						field === 'creditLimit' ||
-						field === 'minimumPayment' ||
-						field === 'loanBalance' ||
-						field === 'transferLimit' ||
-						field === 'bufferAmount'
-					)}
-						<span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+					{#if field === 'minimumBalance' || field === 'overdraftLimit' || field === 'overdraftFee' || field === 'creditLimit' || field === 'minimumPayment' || field === 'loanBalance' || field === 'transferLimit' || field === 'bufferAmount'}
+						<span
+							class="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 transform text-sm"
+						>
 							{currency === 'USD' ? '$' : currency}
 						</span>
 						{@const fieldValue = metadataState?.[field] ?? ''}
@@ -260,7 +245,9 @@
 							max={getInputMax(field)}
 							class="pr-8"
 						/>
-						<span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground text-sm">
+						<span
+							class="text-muted-foreground absolute top-1/2 right-3 -translate-y-1/2 transform text-sm"
+						>
 							%
 						</span>
 					{:else}

@@ -9,7 +9,9 @@
 
 	let { filters, onFiltersChange }: Props = $props();
 
-	const statusOptions: Array<{ value: FilterState['statuses'][number]; label: string }> = [
+	type StatusValue = NonNullable<FilterState['statuses']>[number];
+
+	const statusOptions: Array<{ value: StatusValue; label: string }> = [
 		{ value: 'cleared', label: 'Cleared' },
 		{ value: 'pending', label: 'Pending' },
 		{ value: 'planned', label: 'Planned' },
@@ -18,16 +20,16 @@
 		{ value: 'overdue', label: 'Overdue' }
 	];
 
-	function toggleStatus(status: FilterState['statuses'][number]) {
-		const currentStatuses = filters.statuses || [];
-		let newStatuses: FilterState['statuses'];
-		
+	function toggleStatus(status: StatusValue) {
+		const currentStatuses = filters.statuses ?? [];
+		let newStatuses: NonNullable<FilterState['statuses']>;
+
 		if (currentStatuses.includes(status)) {
-			newStatuses = currentStatuses.filter(s => s !== status);
+			newStatuses = currentStatuses.filter((s) => s !== status);
 		} else {
-			newStatuses = [...currentStatuses, status] as FilterState['statuses'];
+			newStatuses = [...currentStatuses, status];
 		}
-		
+
 		onFiltersChange({
 			...filters,
 			statuses: newStatuses.length > 0 ? newStatuses : undefined
@@ -37,12 +39,12 @@
 
 <div class="space-y-2">
 	{#each statusOptions as option}
-		<label class="flex items-center space-x-2 cursor-pointer">
+		<label class="flex cursor-pointer items-center space-x-2">
 			<Checkbox
 				checked={filters.statuses?.includes(option.value) || false}
 				onCheckedChange={() => toggleStatus(option.value)}
 			/>
-			<span class="text-sm text-primary">{option.label}</span>
+			<span class="text-primary text-sm">{option.label}</span>
 		</label>
 	{/each}
 </div>

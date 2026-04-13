@@ -81,10 +81,15 @@
 		}
 	}
 
-	async function handleAllowanceSuggestion(suggestion: AllowanceAdjustmentSuggestion, accept: boolean) {
+	async function handleAllowanceSuggestion(
+		suggestion: AllowanceAdjustmentSuggestion,
+		accept: boolean
+	) {
 		if (!accept) {
 			// Remove from suggestions
-			allowanceSuggestions = allowanceSuggestions.filter(s => s.categoryId !== suggestion.categoryId);
+			allowanceSuggestions = allowanceSuggestions.filter(
+				(s) => s.categoryId !== suggestion.categoryId
+			);
 			return;
 		}
 
@@ -109,7 +114,9 @@
 				});
 
 				// Remove from suggestions
-				allowanceSuggestions = allowanceSuggestions.filter(s => s.categoryId !== suggestion.categoryId);
+				allowanceSuggestions = allowanceSuggestions.filter(
+					(s) => s.categoryId !== suggestion.categoryId
+				);
 			}
 		} catch (err) {
 			console.error('Error applying allowance adjustment:', err);
@@ -119,7 +126,7 @@
 
 	async function handleBufferSuggestion(suggestion: BufferAdjustmentSuggestion, accept: boolean) {
 		if (!accept) {
-			bufferSuggestions = bufferSuggestions.filter(s => s.accountId !== suggestion.accountId);
+			bufferSuggestions = bufferSuggestions.filter((s) => s.accountId !== suggestion.accountId);
 			return;
 		}
 
@@ -148,7 +155,7 @@
 					}
 				});
 
-				bufferSuggestions = bufferSuggestions.filter(s => s.accountId !== suggestion.accountId);
+				bufferSuggestions = bufferSuggestions.filter((s) => s.accountId !== suggestion.accountId);
 			}
 		} catch (err) {
 			console.error('Error applying buffer adjustment:', err);
@@ -192,21 +199,21 @@
 </script>
 
 <div class="space-y-6 {className}">
-	<div class="flex items-center justify-between mb-4">
+	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-2">
-			<Brain class="w-5 h-5 text-primary" />
+			<Brain class="text-primary h-5 w-5" />
 			<h2 class="text-lg font-semibold">Learning & Adaptation</h2>
 		</div>
 		<Button variant="ghost" size="sm" onclick={loadData} disabled={isLoading}>
-			<RefreshCw class="w-4 h-4 mr-2 {isLoading ? 'animate-spin' : ''}" />
+			<RefreshCw class="mr-2 h-4 w-4 {isLoading ? 'animate-spin' : ''}" />
 			Refresh
 		</Button>
 	</div>
 
 	{#if isLoading}
-		<div class="text-center py-12">
-			<div class="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
-				<RefreshCw class="w-8 h-8 text-muted-foreground animate-spin" />
+		<div class="py-12 text-center">
+			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+				<RefreshCw class="text-muted-foreground h-8 w-8 animate-spin" />
 			</div>
 			<p class="text-muted-foreground">Analyzing patterns and learning preferences...</p>
 		</div>
@@ -214,8 +221,8 @@
 		<Card.Root>
 			<Card.Content class="p-6">
 				<div class="text-center">
-					<AlertTriangle class="w-12 h-12 mx-auto mb-4 text-destructive" />
-					<h3 class="text-lg font-semibold mb-2">Error</h3>
+					<AlertTriangle class="text-destructive mx-auto mb-4 h-12 w-12" />
+					<h3 class="mb-2 text-lg font-semibold">Error</h3>
 					<p class="text-muted-foreground mb-4">{error}</p>
 					<Button onclick={loadData}>Retry</Button>
 				</div>
@@ -227,45 +234,50 @@
 			<Card.Root>
 				<Card.Header>
 					<button
-						class="flex items-center justify-between w-full"
+						class="flex w-full items-center justify-between"
 						onclick={() => (showPatterns = !showPatterns)}
 					>
 						<div class="flex items-center gap-2">
-							<TrendingUp class="w-5 h-5" />
+							<TrendingUp class="h-5 w-5" />
 							<Card.Title>Detected Patterns ({patterns.length})</Card.Title>
 						</div>
 						{#if showPatterns}
-							<ChevronUp class="w-4 h-4" />
+							<ChevronUp class="h-4 w-4" />
 						{:else}
-							<ChevronDown class="w-4 h-4" />
+							<ChevronDown class="h-4 w-4" />
 						{/if}
 					</button>
 				</Card.Header>
 				{#if showPatterns}
 					<Card.Content>
 						{#if patterns.length === 0}
-							<div class="text-center py-8 text-muted-foreground">
-								<Info class="w-8 h-8 mx-auto mb-2 opacity-50" />
+							<div class="text-muted-foreground py-8 text-center">
+								<Info class="mx-auto mb-2 h-8 w-8 opacity-50" />
 								<p class="text-sm">No patterns detected yet. More data needed.</p>
 							</div>
 						{:else}
 							<div class="space-y-3">
 								{#each patterns as pattern}
 									{@const Icon = getPatternTypeIcon(pattern.pattern.patternType)}
-									<div class="p-3 rounded-lg border">
+									<div class="rounded-lg border p-3">
 										<div class="flex items-start gap-3">
-											<Icon class="w-5 h-5 mt-0.5 text-primary" />
+											<Icon class="text-primary mt-0.5 h-5 w-5" />
 											<div class="flex-1">
-												<div class="flex items-center gap-2 mb-1">
+												<div class="mb-1 flex items-center gap-2">
 													<span class="font-medium">{pattern.pattern.title}</span>
-													<Badge variant="outline">{getPatternTypeLabel(pattern.pattern.patternType)}</Badge>
+													<Badge variant="outline"
+														>{getPatternTypeLabel(pattern.pattern.patternType)}</Badge
+													>
 													<Badge variant={pattern.confidence >= 80 ? 'default' : 'secondary'}>
 														{pattern.confidence}% confidence
 													</Badge>
 												</div>
-												<p class="text-sm text-muted-foreground mb-2">{pattern.pattern.description}</p>
-												<div class="text-xs text-muted-foreground">
-													{pattern.metadata.occurrences} occurrences over {pattern.metadata.timeframe}
+												<p class="text-muted-foreground mb-2 text-sm">
+													{pattern.pattern.description}
+												</p>
+												<div class="text-muted-foreground text-xs">
+													{pattern.metadata.occurrences} occurrences over {pattern.metadata
+														.timeframe}
 												</div>
 											</div>
 										</div>
@@ -282,17 +294,17 @@
 				<Card.Root>
 					<Card.Header>
 						<button
-							class="flex items-center justify-between w-full"
+							class="flex w-full items-center justify-between"
 							onclick={() => (showAllowanceSuggestions = !showAllowanceSuggestions)}
 						>
 							<div class="flex items-center gap-2">
-								<Settings class="w-5 h-5" />
+								<Settings class="h-5 w-5" />
 								<Card.Title>Allowance Adjustments ({allowanceSuggestions.length})</Card.Title>
 							</div>
 							{#if showAllowanceSuggestions}
-								<ChevronUp class="w-4 h-4" />
+								<ChevronUp class="h-4 w-4" />
 							{:else}
-								<ChevronDown class="w-4 h-4" />
+								<ChevronDown class="h-4 w-4" />
 							{/if}
 						</button>
 					</Card.Header>
@@ -300,12 +312,14 @@
 						<Card.Content>
 							<div class="space-y-4">
 								{#each allowanceSuggestions as suggestion}
-									<div class="p-4 rounded-lg border">
-										<div class="flex items-start justify-between mb-3">
+									<div class="rounded-lg border p-4">
+										<div class="mb-3 flex items-start justify-between">
 											<div class="flex-1">
-												<div class="font-medium mb-1">{suggestion.categoryName}</div>
-												<div class="text-sm text-muted-foreground mb-2">
-													Actual spending differs from budget by {Math.round(suggestion.variance * 100)}% for{' '}
+												<div class="mb-1 font-medium">{suggestion.categoryName}</div>
+												<div class="text-muted-foreground mb-2 text-sm">
+													Actual spending differs from budget by {Math.round(
+														suggestion.variance * 100
+													)}% for{' '}
 													{suggestion.consecutiveMonths} months
 												</div>
 												<div class="flex items-center gap-4 text-sm">
@@ -315,22 +329,22 @@
 															{formatMainCurrencyAmount(suggestion.currentAllowance, userCurrency)}
 														</span>
 													</div>
-													<ArrowRight class="w-4 h-4" />
+													<ArrowRight class="h-4 w-4" />
 													<div>
 														<span class="text-muted-foreground">Suggested: </span>
-														<span class="font-medium text-primary">
-															{formatMainCurrencyAmount(suggestion.suggestedAllowance, userCurrency)}
+														<span class="text-primary font-medium">
+															{formatMainCurrencyAmount(
+																suggestion.suggestedAllowance,
+																userCurrency
+															)}
 														</span>
 													</div>
 												</div>
 											</div>
 										</div>
 										<div class="flex gap-2">
-											<Button
-												size="sm"
-												onclick={() => handleAllowanceSuggestion(suggestion, true)}
-											>
-												<CheckCircle2 class="w-4 h-4 mr-1" />
+											<Button size="sm" onclick={() => handleAllowanceSuggestion(suggestion, true)}>
+												<CheckCircle2 class="mr-1 h-4 w-4" />
 												Accept
 											</Button>
 											<Button
@@ -338,7 +352,7 @@
 												variant="outline"
 												onclick={() => handleAllowanceSuggestion(suggestion, false)}
 											>
-												<X class="w-4 h-4 mr-1" />
+												<X class="mr-1 h-4 w-4" />
 												Dismiss
 											</Button>
 										</div>
@@ -355,17 +369,17 @@
 				<Card.Root>
 					<Card.Header>
 						<button
-							class="flex items-center justify-between w-full"
+							class="flex w-full items-center justify-between"
 							onclick={() => (showBufferSuggestions = !showBufferSuggestions)}
 						>
 							<div class="flex items-center gap-2">
-								<Shield class="w-5 h-5" />
+								<Shield class="h-5 w-5" />
 								<Card.Title>Buffer Adjustments ({bufferSuggestions.length})</Card.Title>
 							</div>
 							{#if showBufferSuggestions}
-								<ChevronUp class="w-4 h-4" />
+								<ChevronUp class="h-4 w-4" />
 							{:else}
-								<ChevronDown class="w-4 h-4" />
+								<ChevronDown class="h-4 w-4" />
 							{/if}
 						</button>
 					</Card.Header>
@@ -373,11 +387,11 @@
 						<Card.Content>
 							<div class="space-y-4">
 								{#each bufferSuggestions as suggestion}
-									<div class="p-4 rounded-lg border">
-										<div class="flex items-start justify-between mb-3">
+									<div class="rounded-lg border p-4">
+										<div class="mb-3 flex items-start justify-between">
 											<div class="flex-1">
-												<div class="font-medium mb-1">{suggestion.accountName}</div>
-												<div class="text-sm text-muted-foreground mb-2">
+												<div class="mb-1 font-medium">{suggestion.accountName}</div>
+												<div class="text-muted-foreground mb-2 text-sm">
 													{suggestion.reason === 'over_buffering'
 														? 'Buffer may be higher than needed'
 														: 'Buffer may be too low'}
@@ -389,10 +403,10 @@
 															{formatMainCurrencyAmount(suggestion.currentBuffer, userCurrency)}
 														</span>
 													</div>
-													<ArrowRight class="w-4 h-4" />
+													<ArrowRight class="h-4 w-4" />
 													<div>
 														<span class="text-muted-foreground">Suggested: </span>
-														<span class="font-medium text-primary">
+														<span class="text-primary font-medium">
 															{formatMainCurrencyAmount(suggestion.suggestedBuffer, userCurrency)}
 														</span>
 													</div>
@@ -401,7 +415,7 @@
 										</div>
 										<div class="flex gap-2">
 											<Button size="sm" onclick={() => handleBufferSuggestion(suggestion, true)}>
-												<CheckCircle2 class="w-4 h-4 mr-1" />
+												<CheckCircle2 class="mr-1 h-4 w-4" />
 												Accept
 											</Button>
 											<Button
@@ -409,7 +423,7 @@
 												variant="outline"
 												onclick={() => handleBufferSuggestion(suggestion, false)}
 											>
-												<X class="w-4 h-4 mr-1" />
+												<X class="mr-1 h-4 w-4" />
 												Dismiss
 											</Button>
 										</div>
@@ -426,17 +440,17 @@
 				<Card.Root>
 					<Card.Header>
 						<button
-							class="flex items-center justify-between w-full"
+							class="flex w-full items-center justify-between"
 							onclick={() => (showFlexibility = !showFlexibility)}
 						>
 							<div class="flex items-center gap-2">
-								<Brain class="w-5 h-5" />
+								<Brain class="h-5 w-5" />
 								<Card.Title>Learned Flexibility ({flexibilityResults.length})</Card.Title>
 							</div>
 							{#if showFlexibility}
-								<ChevronUp class="w-4 h-4" />
+								<ChevronUp class="h-4 w-4" />
 							{:else}
-								<ChevronDown class="w-4 h-4" />
+								<ChevronDown class="h-4 w-4" />
 							{/if}
 						</button>
 					</Card.Header>
@@ -444,16 +458,22 @@
 						<Card.Content>
 							<div class="space-y-3">
 								{#each flexibilityResults as result}
-									<div class="p-3 rounded-lg border">
+									<div class="rounded-lg border p-3">
 										<div class="flex items-center justify-between">
 											<div>
 												<div class="font-medium">{result.categoryName}</div>
-												<div class="text-sm text-muted-foreground">
+												<div class="text-muted-foreground text-sm">
 													Acceptance rate: {Math.round(result.acceptanceRate * 100)}% ({result.suggestionCount}{' '}
 													suggestions)
 												</div>
 											</div>
-											<Badge variant={result.learnedFlexibility > 0.7 ? 'default' : result.learnedFlexibility > 0.4 ? 'secondary' : 'outline'}>
+											<Badge
+												variant={result.learnedFlexibility > 0.7
+													? 'default'
+													: result.learnedFlexibility > 0.4
+														? 'secondary'
+														: 'outline'}
+											>
 												{Math.round(result.learnedFlexibility * 100)}% flexible
 											</Badge>
 										</div>
@@ -470,17 +490,17 @@
 				<Card.Root>
 					<Card.Header>
 						<button
-							class="flex items-center justify-between w-full"
+							class="flex w-full items-center justify-between"
 							onclick={() => (showDataQuality = !showDataQuality)}
 						>
 							<div class="flex items-center gap-2">
-								<AlertTriangle class="w-5 h-5 text-warning" />
+								<AlertTriangle class="text-warning h-5 w-5" />
 								<Card.Title>Data Quality Issues ({dataQualityIssues.length})</Card.Title>
 							</div>
 							{#if showDataQuality}
-								<ChevronUp class="w-4 h-4" />
+								<ChevronUp class="h-4 w-4" />
 							{:else}
-								<ChevronDown class="w-4 h-4" />
+								<ChevronDown class="h-4 w-4" />
 							{/if}
 						</button>
 					</Card.Header>
@@ -488,25 +508,31 @@
 						<Card.Content>
 							<div class="space-y-3">
 								{#each dataQualityIssues as issue}
-									<div class="p-3 rounded-lg border border-warning/50 bg-warning/10">
+									<div class="border-warning/50 bg-warning/10 rounded-lg border p-3">
 										<div class="flex items-start gap-3">
 											<AlertTriangle
-												class="w-5 h-5 mt-0.5 {issue.severity === 'high'
+												class="mt-0.5 h-5 w-5 {issue.severity === 'high'
 													? 'text-destructive'
 													: issue.severity === 'medium'
 														? 'text-warning'
 														: 'text-muted-foreground'}"
 											/>
 											<div class="flex-1">
-												<div class="flex items-center gap-2 mb-1">
+												<div class="mb-1 flex items-center gap-2">
 													<span class="font-medium">{issue.type.replace('_', ' ')}</span>
-													<Badge variant={issue.severity === 'high' ? 'destructive' : issue.severity === 'medium' ? 'default' : 'secondary'}>
+													<Badge
+														variant={issue.severity === 'high'
+															? 'destructive'
+															: issue.severity === 'medium'
+																? 'default'
+																: 'secondary'}
+													>
 														{issue.severity}
 													</Badge>
 												</div>
-												<p class="text-sm text-muted-foreground">{issue.description}</p>
+												<p class="text-muted-foreground text-sm">{issue.description}</p>
 												{#if issue.suggestedAction}
-													<p class="text-xs text-muted-foreground mt-1">{issue.suggestedAction}</p>
+													<p class="text-muted-foreground mt-1 text-xs">{issue.suggestedAction}</p>
 												{/if}
 											</div>
 										</div>
@@ -519,19 +545,16 @@
 			{/if}
 
 			<!-- Empty State -->
-			{#if patterns.length === 0 &&
-				allowanceSuggestions.length === 0 &&
-				bufferSuggestions.length === 0 &&
-				flexibilityResults.length === 0 &&
-				dataQualityIssues.length === 0}
+			{#if patterns.length === 0 && allowanceSuggestions.length === 0 && bufferSuggestions.length === 0 && flexibilityResults.length === 0 && dataQualityIssues.length === 0}
 				<Card.Root>
 					<Card.Content class="p-12 text-center">
-						<Brain class="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-						<h3 class="text-lg font-semibold mb-2">No Learning Data Yet</h3>
+						<Brain class="text-muted-foreground mx-auto mb-4 h-16 w-16 opacity-50" />
+						<h3 class="mb-2 text-lg font-semibold">No Learning Data Yet</h3>
 						<p class="text-muted-foreground mb-4">
-							The system needs more transaction history to detect patterns and learn your preferences.
+							The system needs more transaction history to detect patterns and learn your
+							preferences.
 						</p>
-						<p class="text-sm text-muted-foreground">
+						<p class="text-muted-foreground text-sm">
 							Check back after you've added more transactions and used the optimization features.
 						</p>
 					</Card.Content>
@@ -540,4 +563,3 @@
 		</div>
 	{/if}
 </div>
-

@@ -41,7 +41,12 @@ export interface RecoverySuggestion {
 	id: string;
 	title: string;
 	description: string;
-	actionType: 'reduce_spending' | 'move_transactions' | 'use_buffer' | 'borrow_future' | 'review_budget';
+	actionType:
+		| 'reduce_spending'
+		| 'move_transactions'
+		| 'use_buffer'
+		| 'borrow_future'
+		| 'review_budget';
 	priority: 'high' | 'medium' | 'low';
 	estimatedImpact?: number;
 	currency?: string;
@@ -96,9 +101,7 @@ class NegativeAllowanceService {
 			if (isOver) {
 				// When monthly <= 0: overBy = spentSoFar, or 1 if both 0 (so "adding any expense is over")
 				const overBy =
-					calc.monthly <= 0
-						? Math.max(calc.spentSoFar, 1)
-						: Math.abs(effectiveRemaining);
+					calc.monthly <= 0 ? Math.max(calc.spentSoFar, 1) : Math.abs(effectiveRemaining);
 				negativeCategories.push({
 					category: key,
 					allowanceAmount: calc.monthly,
@@ -113,16 +116,23 @@ class NegativeAllowanceService {
 		const shouldBlock = isNegative && handlingMode === 'block_with_warning';
 
 		let warningMessage: string | null = null;
-		if (isNegative && (handlingMode === 'allow_with_strong_warning' || handlingMode === 'block_with_warning')) {
+		if (
+			isNegative &&
+			(handlingMode === 'allow_with_strong_warning' || handlingMode === 'block_with_warning')
+		) {
 			const primary = negativeCategories[0];
 			const totalOver = negativeCategories.reduce((s, c) => s + c.overBy, 0);
 			const hasNoAllowance = primary.allowanceAmount <= 0;
 			warningMessage = hasNoAllowance
 				? `You have no spending allowance for this period (zero balance or no data). ${
-						shouldBlock ? 'Confirm to proceed, or add funds first.' : 'Consider adding funds or reviewing your budget.'
+						shouldBlock
+							? 'Confirm to proceed, or add funds first.'
+							: 'Consider adding funds or reviewing your budget.'
 					}`
 				: `You're over your spending allowance by ${formatAmount(totalOver, primary.currency)} this period. ${
-						shouldBlock ? 'Confirm to proceed, or adjust your spending.' : 'Review your budget and consider reducing future spending.'
+						shouldBlock
+							? 'Confirm to proceed, or adjust your spending.'
+							: 'Review your budget and consider reducing future spending.'
 					}`;
 		}
 
@@ -138,7 +148,9 @@ class NegativeAllowanceService {
 	/**
 	 * Record a negative allowance event for accountability tracking.
 	 */
-	async recordNegativeAllowanceEvent(input: RecordNegativeAllowanceInput): Promise<NegativeAllowanceEvent> {
+	async recordNegativeAllowanceEvent(
+		input: RecordNegativeAllowanceInput
+	): Promise<NegativeAllowanceEvent> {
 		const event: NegativeAllowanceEvent = {
 			id: generateUUID(),
 			periodStart: input.periodStart.toISOString(),
@@ -169,8 +181,12 @@ class NegativeAllowanceService {
 		const status = await this.checkNegativeAllowance(allowance, handlingMode, accountId);
 		if (!status.isNegative) return [];
 
-		const periodStart = allowance.periodStart instanceof Date ? allowance.periodStart : new Date(allowance.periodStart);
-		const periodEnd = allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
+		const periodStart =
+			allowance.periodStart instanceof Date
+				? allowance.periodStart
+				: new Date(allowance.periodStart);
+		const periodEnd =
+			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
 
 		// Avoid duplicate events for same period+category
 		const periodStartStr = periodStart.toISOString();
@@ -227,7 +243,9 @@ class NegativeAllowanceService {
 		if (filters?.unrecoveredOnly) {
 			result = result.filter((e) => e.recoveredAt == null);
 		}
-		return result.sort((a, b) => new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime());
+		return result.sort(
+			(a, b) => new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
+		);
 	}
 
 	/**
@@ -250,7 +268,8 @@ class NegativeAllowanceService {
 		const currency = allowance.total.currency;
 
 		// Total over
-		const totalRemaining = allowance.total.remaining ?? allowance.total.monthly - allowance.total.spentSoFar;
+		const totalRemaining =
+			allowance.total.remaining ?? allowance.total.monthly - allowance.total.spentSoFar;
 		if (totalRemaining >= 0) return suggestions;
 
 		const overBy = Math.abs(totalRemaining);
@@ -268,7 +287,8 @@ class NegativeAllowanceService {
 		suggestions.push({
 			id: 'move-transactions',
 			title: 'Move transactions to next period',
-			description: 'Reschedule some discretionary or buffer spending to next month to balance this period.',
+			description:
+				'Reschedule some discretionary or buffer spending to next month to balance this period.',
 			actionType: 'move_transactions',
 			priority: 'medium'
 		});
@@ -276,14 +296,14 @@ class NegativeAllowanceService {
 		suggestions.push({
 			id: 'review-budget',
 			title: 'Review your budget',
-			description: 'Check if your allowance is realistic for your income and fixed costs; adjust categories if needed.',
+			description:
+				'Check if your allowance is realistic for your income and fixed costs; adjust categories if needed.',
 			actionType: 'review_budget',
 			priority: 'low'
 		});
 
 		return suggestions;
 	}
-
 }
 
 export const negativeAllowanceService = new NegativeAllowanceService();

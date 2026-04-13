@@ -33,3 +33,5 @@ export type {
 	ReconciliationRecord,
 	ReconciliationDiscrepancy
 } from '../db';
+
+export type { Recommendation } from './analytics/recommendation-service';

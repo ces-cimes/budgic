@@ -56,17 +56,18 @@
 	});
 
 	const currentConfig = $derived(statusConfig[bufferStatus]);
+	const BufferStatusIcon = $derived(currentConfig.icon);
 
 	// Calculate progress percentage (0-100) based on buffer thresholds
 	const progressPercentage = $derived(() => {
 		if (bufferAmount === 0) return 100; // No buffer requirement
-		
+
 		const balance = account.currentBalance;
 		const maxThreshold = thresholds.optimal;
-		
+
 		if (balance >= maxThreshold) return 100;
 		if (balance <= 0) return 0;
-		
+
 		// Map balance to 0-100% scale
 		return Math.min(100, (balance / maxThreshold) * 100);
 	});
@@ -74,7 +75,7 @@
 	// Calculate which threshold the balance is closest to
 	const currentThreshold = $derived(() => {
 		const balance = account.currentBalance;
-		
+
 		if (balance >= thresholds.optimal) return 'optimal';
 		if (balance >= thresholds.comfort) return 'comfort';
 		if (balance >= thresholds.warning) return 'warning';
@@ -87,29 +88,26 @@
 		<!-- Buffer Status Header -->
 		<div class="flex items-center justify-between">
 			<div class="flex items-center gap-2">
-				<svelte:component
-					this={currentConfig.icon}
-					class="w-5 h-5 {currentConfig.color}"
-				/>
+				<BufferStatusIcon class="h-5 w-5 {currentConfig.color}" />
 				<div>
-					<div class="font-medium text-primary">{currentConfig.label}</div>
+					<div class="text-primary font-medium">{currentConfig.label}</div>
 					{#if showDetails}
-						<div class="text-sm text-muted-foreground">
+						<div class="text-muted-foreground text-sm">
 							{currentConfig.description}
 						</div>
 					{/if}
 				</div>
 			</div>
 			<div class="text-right">
-				<div class="text-sm font-medium text-primary">
+				<div class="text-primary text-sm font-medium">
 					Buffer: {formatTransactionAmount(bufferAmount, account.currency)}
 				</div>
 				{#if deficit > 0}
-					<div class="text-xs text-destructive">
+					<div class="text-destructive text-xs">
 						{formatTransactionAmount(deficit, account.currency)} below
 					</div>
 				{:else if surplus > 0}
-					<div class="text-xs text-success">
+					<div class="text-success text-xs">
 						{formatTransactionAmount(surplus, account.currency)} above
 					</div>
 				{/if}
@@ -118,14 +116,10 @@
 
 		<!-- Progress Bar -->
 		<div class="space-y-1">
-			<Progress
-				value={progressPercentage()}
-				max={100}
-				class="h-2"
-			/>
-			
+			<Progress value={progressPercentage()} max={100} class="h-2" />
+
 			{#if showDetails}
-				<div class="flex justify-between text-xs text-muted-foreground">
+				<div class="text-muted-foreground flex justify-between text-xs">
 					<span>Current: {formatTransactionAmount(account.currentBalance, account.currency)}</span>
 					<span>Target: {formatTransactionAmount(thresholds.optimal, account.currency)}</span>
 				</div>
@@ -135,25 +129,43 @@
 		<!-- Threshold Indicators (Optional - only show if details enabled) -->
 		{#if showDetails && account.currentBalance < thresholds.optimal}
 			<div class="grid grid-cols-4 gap-2 text-xs">
-				<div class="text-center p-2 rounded {account.currentBalance < thresholds.critical ? 'bg-destructive/10 text-destructive' : 'bg-muted/50'}">
+				<div
+					class="rounded p-2 text-center {account.currentBalance < thresholds.critical
+						? 'bg-destructive/10 text-destructive'
+						: 'bg-muted/50'}"
+				>
 					<div class="font-medium">Critical</div>
 					<div class="text-muted-foreground">
 						{formatTransactionAmount(thresholds.critical, account.currency)}
 					</div>
 				</div>
-				<div class="text-center p-2 rounded {account.currentBalance < thresholds.warning && account.currentBalance >= thresholds.critical ? 'bg-warning/10 text-warning' : 'bg-muted/50'}">
+				<div
+					class="rounded p-2 text-center {account.currentBalance < thresholds.warning &&
+					account.currentBalance >= thresholds.critical
+						? 'bg-warning/10 text-warning'
+						: 'bg-muted/50'}"
+				>
 					<div class="font-medium">Warning</div>
 					<div class="text-muted-foreground">
 						{formatTransactionAmount(thresholds.warning, account.currency)}
 					</div>
 				</div>
-				<div class="text-center p-2 rounded {account.currentBalance < thresholds.comfort && account.currentBalance >= thresholds.warning ? 'bg-info/10 text-info' : 'bg-muted/50'}">
+				<div
+					class="rounded p-2 text-center {account.currentBalance < thresholds.comfort &&
+					account.currentBalance >= thresholds.warning
+						? 'bg-info/10 text-info'
+						: 'bg-muted/50'}"
+				>
 					<div class="font-medium">Comfort</div>
 					<div class="text-muted-foreground">
 						{formatTransactionAmount(thresholds.comfort, account.currency)}
 					</div>
 				</div>
-				<div class="text-center p-2 rounded {account.currentBalance >= thresholds.comfort ? 'bg-success/10 text-success' : 'bg-muted/50'}">
+				<div
+					class="rounded p-2 text-center {account.currentBalance >= thresholds.comfort
+						? 'bg-success/10 text-success'
+						: 'bg-muted/50'}"
+				>
 					<div class="font-medium">Optimal</div>
 					<div class="text-muted-foreground">
 						{formatTransactionAmount(thresholds.optimal, account.currency)}
@@ -163,8 +175,5 @@
 		{/if}
 	</div>
 {:else}
-	<div class="text-sm text-muted-foreground">
-		No buffer set for this account
-	</div>
+	<div class="text-muted-foreground text-sm">No buffer set for this account</div>
 {/if}
-

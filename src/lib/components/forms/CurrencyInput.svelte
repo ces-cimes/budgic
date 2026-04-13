@@ -47,8 +47,13 @@
 	let showCurrencySheet = $state(false);
 	let currencyButtonRef: HTMLButtonElement | null = $state(null);
 	let currencyButtonPadding = $state(64); // Default padding in pixels
-	let inputValue = $state(value);
-	let lastExternalValue = $state(value);
+	let inputValue = $state(0);
+	let lastExternalValue = $state(0);
+
+	$effect.pre(() => {
+		inputValue = value;
+		lastExternalValue = value;
+	});
 
 	// Get current currency info
 	let currentCurrencyInfo = $derived(() => {
@@ -81,14 +86,6 @@
 		return `0.${'0'.repeat(decimals - 1)}1`;
 	});
 
-	// Sync external value to internal value when it changes externally
-	$effect(() => {
-		if (value !== lastExternalValue) {
-			inputValue = value;
-			lastExternalValue = value;
-		}
-	});
-
 	// Measure currency button width and update padding
 	$effect(() => {
 		if (currencyButtonRef) {
@@ -101,9 +98,9 @@
 					currencyButtonPadding = width + 12;
 				}
 			});
-			
+
 			resizeObserver.observe(currencyButtonRef);
-			
+
 			// Initial measurement with a small delay to ensure DOM is updated
 			const updatePadding = () => {
 				if (currencyButtonRef) {
@@ -113,13 +110,13 @@
 					currencyButtonPadding = width + 12;
 				}
 			};
-			
+
 			// Immediate measurement
 			updatePadding();
-			
+
 			// Also measure after a short delay to catch any layout changes
 			const timeoutId = setTimeout(updatePadding, 50);
-			
+
 			return () => {
 				resizeObserver.disconnect();
 				clearTimeout(timeoutId);
@@ -138,46 +135,46 @@
 	}
 </script>
 
-<div class="flex-1 relative flex items-center">
+<div class="relative flex flex-1 items-center">
 	<button
 		type="button"
 		bind:this={currencyButtonRef}
-		onclick={() => showCurrencySheet = true}
-		class="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1 px-2 py-1 rounded-md hover:bg-secondary transition-colors z-10"
+		onclick={() => (showCurrencySheet = true)}
+		class="hover:bg-secondary absolute top-1/2 left-2 z-10 flex -translate-y-1/2 transform items-center gap-1 rounded-md px-2 py-1 transition-colors"
 		aria-label="Change currency"
 	>
-		<span class="text-sm font-medium text-primary">{currencySymbol()}</span>
-		<ChevronDown class="w-3 h-3 text-muted-foreground" />
+		<span class="text-primary text-sm font-medium">{currencySymbol()}</span>
+		<ChevronDown class="text-muted-foreground h-3 w-3" />
 	</button>
 	<Input.Root
-		id={id}
+		{id}
 		type="number"
 		bind:value={inputValue}
 		oninput={handleInputChange}
 		onchange={handleInputChange}
-		placeholder={placeholder || (() => {
-			const decimalPlaces = currentCurrencyInfo().decimalPlaces;
-			return `0.${'0'.repeat(decimalPlaces)}`;
-		})()}
+		placeholder={placeholder ||
+			(() => {
+				const decimalPlaces = currentCurrencyInfo().decimalPlaces;
+				return `0.${'0'.repeat(decimalPlaces)}`;
+			})()}
 		step={step()}
 		style="padding-left: {currencyButtonPadding}px;"
-		required={required}
-		min={min}
-		max={max}
+		{required}
+		{min}
+		{max}
 		onfocus={handleFocus}
 		class={error ? 'border-destructive' : ''}
 	/>
 </div>
 
 {#if error}
-	<p class="text-sm text-destructive mt-1" role="alert">{error}</p>
+	<p class="text-destructive mt-1 text-sm" role="alert">{error}</p>
 {/if}
 
 <CurrencySelectionSheet
 	open={showCurrencySheet}
-	currencies={currencies}
+	{currencies}
 	selectedCurrency={currency}
 	onCurrencySelect={onCurrencyChange}
-	onClose={() => showCurrencySheet = false}
+	onClose={() => (showCurrencySheet = false)}
 />
-

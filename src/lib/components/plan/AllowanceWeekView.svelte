@@ -88,9 +88,8 @@
 				}
 			}
 
-			const dailyBudget = allowance && allowance.total.monthly > 0
-				? allowance.total.monthly / 30
-				: 0;
+			const dailyBudget =
+				allowance && allowance.total.monthly > 0 ? allowance.total.monthly / 30 : 0;
 
 			days = [];
 			for (let i = 0; i < 7; i++) {
@@ -123,42 +122,50 @@
 </script>
 
 <div class="space-y-2">
-	<h3 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">
+	<h3 class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase">
 		Week view
 	</h3>
 	{#if isLoading}
-		<div class="flex gap-1 h-12 items-end">
+		<div class="flex h-12 items-end gap-1">
 			{#each Array(7) as _}
-				<div class="flex-1 h-8 rounded bg-[var(--color-bg-surface)] animate-pulse"></div>
+				<div class="h-8 flex-1 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
 			{/each}
 		</div>
 	{:else}
-		<div class="flex gap-1 items-end">
+		<div class="flex items-end gap-1">
 			{#each days as day}
 				<div
-					class="flex flex-1 flex-col items-center gap-1 {day.isToday ? 'ring-2 ring-[var(--color-amber)] rounded-lg p-1 -m-0.5' : ''}"
+					class="flex flex-1 flex-col items-center gap-1 {day.isToday
+						? '-m-0.5 rounded-lg p-1 ring-2 ring-[var(--color-amber)]'
+						: ''}"
 				>
 					<div
-						class="w-full rounded-t min-h-[4px] flex flex-col justify-end overflow-hidden bg-[var(--color-bg-surface)]"
+						class="flex min-h-[4px] w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--color-bg-surface)]"
 						style="height: 40px;"
 					>
 						{#if day.isFuture}
 							<!-- Projected: show projected spend as bar -->
 							{#if day.spentProjected > 0}
 								<div
-									class="w-full rounded-t bg-[var(--color-amber)]/50 border border-dashed border-[var(--color-amber)]"
+									class="w-full rounded-t border border-dashed border-[var(--color-amber)] bg-[var(--color-amber)]/50"
 									style="height: {Math.min(100, (day.spentProjected / dailyBudget) * 100)}%;"
 								></div>
 							{/if}
 						{:else}
 							<!-- Actual: show spent vs daily budget -->
 							<div
-								class="w-full rounded-t transition-all {day.spentActual > dailyBudget ? 'bg-[var(--color-warm-coral)]' : 'bg-[var(--color-amber)]'}"
+								class="w-full rounded-t transition-all {day.spentActual > dailyBudget
+									? 'bg-[var(--color-warm-coral)]'
+									: 'bg-[var(--color-amber)]'}"
 								style="height: {Math.min(100, (day.spentActual / dailyBudget) * 100)}%;"
 							></div>
 						{/if}
 					</div>
-					<span class="text-[10px] font-medium {day.isToday ? 'text-[var(--color-amber)]' : 'text-[var(--color-text-tertiary)]'}">
+					<span
+						class="text-[10px] font-medium {day.isToday
+							? 'text-[var(--color-amber)]'
+							: 'text-[var(--color-text-tertiary)]'}"
+					>
 						{day.label}
 					</span>
 				</div>

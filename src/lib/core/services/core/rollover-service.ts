@@ -17,7 +17,10 @@ import { userService } from './user-service';
 export type AllowanceCategoryKey = 'essential' | 'discretionary' | 'buffer';
 
 export type RolloverSurplusBehavior = 'rollover_next' | 'to_savings_goals' | 'hybrid';
-export type RolloverDeficitBehavior = 'reduce_next_period' | 'borrow_from_other' | 'one_time_exception';
+export type RolloverDeficitBehavior =
+	| 'reduce_next_period'
+	| 'borrow_from_other'
+	| 'one_time_exception';
 
 export interface CategorySurplusDeficit {
 	surplus: number;
@@ -77,7 +80,9 @@ class RolloverService {
 	 */
 	computeSurplusDeficit(allowance: EnhancedAllowance): PeriodSurplusDeficit {
 		const periodStart =
-			allowance.periodStart instanceof Date ? allowance.periodStart : new Date(allowance.periodStart);
+			allowance.periodStart instanceof Date
+				? allowance.periodStart
+				: new Date(allowance.periodStart);
 		const periodEnd =
 			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
 		const currency = allowance.total.currency;
@@ -182,13 +187,17 @@ class RolloverService {
 	async applyRollover(input: ApplyRolloverInput): Promise<RolloverAdjustment[]> {
 		const { accountId, allowance } = input;
 		const prefs = await userService.getUserPreferences();
-		const surplusBehavior = input.surplusBehavior ?? prefs.rolloverSurplusBehavior ?? 'rollover_next';
-		const deficitBehavior = input.deficitBehavior ?? prefs.rolloverDeficitBehavior ?? 'reduce_next_period';
+		const surplusBehavior =
+			input.surplusBehavior ?? prefs.rolloverSurplusBehavior ?? 'rollover_next';
+		const deficitBehavior =
+			input.deficitBehavior ?? prefs.rolloverDeficitBehavior ?? 'reduce_next_period';
 		const hybridRatio = input.hybridRatio ?? prefs.rolloverSurplusHybridRatio ?? 0.5;
 
 		const sd = this.computeSurplusDeficit(allowance);
 		const periodStart =
-			allowance.periodStart instanceof Date ? allowance.periodStart : new Date(allowance.periodStart);
+			allowance.periodStart instanceof Date
+				? allowance.periodStart
+				: new Date(allowance.periodStart);
 		const periodEnd =
 			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
 		const fromPeriodStartStr = periodStart.toISOString();
@@ -319,7 +328,9 @@ class RolloverService {
 		deltas: Record<AllowanceCategoryKey, number>
 	): EnhancedAllowance {
 		const periodStart =
-			allowance.periodStart instanceof Date ? allowance.periodStart : new Date(allowance.periodStart);
+			allowance.periodStart instanceof Date
+				? allowance.periodStart
+				: new Date(allowance.periodStart);
 		const periodEnd =
 			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
 		const currency = allowance.total.currency;
@@ -350,9 +361,7 @@ class RolloverService {
 			monthly: totalMonthly,
 			remaining: totalRemaining,
 			dailySafe:
-				allowance.total.daysRemaining > 0
-					? totalRemaining / allowance.total.daysRemaining
-					: 0
+				allowance.total.daysRemaining > 0 ? totalRemaining / allowance.total.daysRemaining : 0
 		};
 		return {
 			...allowance,
@@ -372,9 +381,7 @@ class RolloverService {
 	): Promise<RolloverAdjustment[]> {
 		const limit = options?.limit ?? 30;
 		const all = await db.rolloverAdjustments.toArray();
-		const filtered = all.filter(
-			(a) => !a.deletedAt && (a.accountId ?? '') === (accountId ?? '')
-		);
+		const filtered = all.filter((a) => !a.deletedAt && (a.accountId ?? '') === (accountId ?? ''));
 		return filtered
 			.sort((a, b) => new Date(b.forPeriodStart).getTime() - new Date(a.forPeriodStart).getTime())
 			.slice(0, limit);

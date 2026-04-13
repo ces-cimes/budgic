@@ -10,11 +10,11 @@
 
 	let { activeFilterCount, onClick }: Props = $props();
 
-	const hasActiveFilters = activeFilterCount > 0;
+	const hasActiveFilters = $derived(activeFilterCount > 0);
 </script>
 
 <Button
-	variant={hasActiveFilters ? "default" : "outline"}
+	variant={hasActiveFilters ? 'default' : 'outline'}
 	size="icon"
 	onclick={onClick}
 	aria-label="Filter transactions"
@@ -22,9 +22,9 @@
 >
 	<MoreVertical size={20} />
 	{#if hasActiveFilters}
-		<Badge 
-			variant="secondary" 
-			class="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+		<Badge
+			variant="secondary"
+			class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center p-0 text-xs"
 		>
 			{activeFilterCount}
 		</Badge>

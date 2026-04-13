@@ -67,11 +67,7 @@ function dateInRange(d: Date, start: Date, end: Date): boolean {
 }
 
 /** Count how many times this occasion occurs in [periodStart, periodEnd]. */
-function countOccurrencesInPeriod(
-	occasion: Occasion,
-	periodStart: Date,
-	periodEnd: Date
-): number {
+function countOccurrencesInPeriod(occasion: Occasion, periodStart: Date, periodEnd: Date): number {
 	const pattern = parsePattern(occasion.pattern);
 	if (!pattern) return 0;
 
@@ -94,7 +90,10 @@ function countOccurrencesInPeriod(
 			const cur = new Date(periodStart.getFullYear(), periodStart.getMonth(), pattern.dayOfMonth);
 			const end = new Date(periodEnd);
 			while (cur <= end) {
-				if (cur.getMonth() === periodStart.getMonth() && cur.getFullYear() === periodStart.getFullYear()) {
+				if (
+					cur.getMonth() === periodStart.getMonth() &&
+					cur.getFullYear() === periodStart.getFullYear()
+				) {
 					if (dateInRange(cur, periodStart, periodEnd)) count++;
 				}
 				cur.setMonth(cur.getMonth() + 1);
@@ -121,7 +120,11 @@ function countOccurrencesInPeriod(
 	}
 
 	if (pattern.type === 'annual') {
-		const occasionDate = new Date(periodStart.getFullYear(), pattern.month - 1, pattern.dayOfMonth ?? 1);
+		const occasionDate = new Date(
+			periodStart.getFullYear(),
+			pattern.month - 1,
+			pattern.dayOfMonth ?? 1
+		);
 		return dateInRange(occasionDate, periodStart, periodEnd) ? 1 : 0;
 	}
 	return 0;
@@ -135,7 +138,10 @@ class OccasionService {
 	/**
 	 * Get all active occasions for an account (or global).
 	 */
-	async getOccasions(accountId?: string, options?: { includeInactive?: boolean }): Promise<Occasion[]> {
+	async getOccasions(
+		accountId?: string,
+		options?: { includeInactive?: boolean }
+	): Promise<Occasion[]> {
 		const all = await db.occasions.toArray();
 		let list = all.filter(
 			(o): o is Occasion => o != null && (o.accountId ?? '') === (accountId ?? '')
@@ -187,7 +193,11 @@ class OccasionService {
 		let transactions: Transaction[];
 		if (accountId) {
 			transactions = (await transactionService.getTransactionsByAccount(accountId)).filter(
-				(t) => t.status === 'cleared' && t.clearedDate && t.clearedDate >= cutoff.toISOString() && t.type === 'expense'
+				(t) =>
+					t.status === 'cleared' &&
+					t.clearedDate &&
+					t.clearedDate >= cutoff.toISOString() &&
+					t.type === 'expense'
 			);
 		} else {
 			const all = await db.transactions.toArray();

@@ -33,7 +33,8 @@ describe('FeeAvoidanceService', () => {
 			overdraftFee: 35
 		},
 		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString()
+		updatedAt: new Date().toISOString(),
+		deletedAt: null
 	};
 
 	const mockSavingsAccount: Account = {
@@ -48,7 +49,8 @@ describe('FeeAvoidanceService', () => {
 			transferLimit: 6
 		},
 		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString()
+		updatedAt: new Date().toISOString(),
+		deletedAt: null
 	};
 
 	const mockCreditAccount: Account = {
@@ -65,7 +67,8 @@ describe('FeeAvoidanceService', () => {
 			minimumPayment: 25
 		},
 		createdAt: new Date().toISOString(),
-		updatedAt: new Date().toISOString()
+		updatedAt: new Date().toISOString(),
+		deletedAt: null
 	};
 
 	beforeEach(() => {
@@ -191,7 +194,8 @@ describe('FeeAvoidanceService', () => {
 				description: 'Transfer',
 				clearedDate: new Date().toISOString(),
 				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString()
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
 			}));
 
 			vi.mocked(transactionService.getTransactionsByAccount).mockResolvedValue(transfers);
@@ -286,10 +290,7 @@ describe('FeeAvoidanceService', () => {
 				currentBalance: 1000
 			};
 
-			vi.mocked(accountService.getAccounts).mockResolvedValue([
-				mockCheckingAccount,
-				sourceAccount
-			]);
+			vi.mocked(accountService.getAccounts).mockResolvedValue([mockCheckingAccount, sourceAccount]);
 			vi.mocked(accountService.getAccount).mockImplementation(async (id) => {
 				if (id === mockCheckingAccount.id) return mockCheckingAccount;
 				if (id === sourceAccount.id) return sourceAccount;
@@ -340,7 +341,8 @@ describe('FeeAvoidanceService', () => {
 				description: 'Rent',
 				plannedDate: new Date(Date.now() + 86400000).toISOString(),
 				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString()
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
 			};
 
 			vi.mocked(accountService.getAccounts).mockResolvedValue([mockCheckingAccount]);
@@ -447,7 +449,8 @@ describe('FeeAvoidanceService', () => {
 				description: 'Rent',
 				plannedDate: new Date().toISOString(),
 				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString()
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
 			};
 
 			vi.mocked(db.transactions.get).mockResolvedValue(mockTransaction);
@@ -553,7 +556,8 @@ describe('FeeAvoidanceService', () => {
 				description: 'Rent',
 				plannedDate: new Date(Date.now() + 86400000).toISOString(),
 				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString()
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
 			};
 
 			vi.mocked(accountService.getAccounts).mockResolvedValue([mockCheckingAccount]);

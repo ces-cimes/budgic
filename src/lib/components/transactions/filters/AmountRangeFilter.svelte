@@ -11,10 +11,10 @@
 
 	let { filters, onFiltersChange, userCurrency = 'USD' }: Props = $props();
 
-	let minAmount = $state(filters.minAmount?.toString() || '');
-	let maxAmount = $state(filters.maxAmount?.toString() || '');
+	let minAmount = $state('');
+	let maxAmount = $state('');
 
-	$effect(() => {
+	$effect.pre(() => {
 		minAmount = filters.minAmount?.toString() || '';
 		maxAmount = filters.maxAmount?.toString() || '';
 	});
@@ -46,8 +46,11 @@
 	<!-- Amount Inputs -->
 	<div class="grid grid-cols-2 gap-2">
 		<div class="space-y-1">
-			<label class="text-xs font-medium text-muted-foreground">Min Amount</label>
+			<label for="filter-min-amount" class="text-muted-foreground text-xs font-medium"
+				>Min Amount</label
+			>
 			<Input
+				id="filter-min-amount"
 				type="number"
 				step="0.01"
 				placeholder="0.00"
@@ -57,8 +60,11 @@
 			/>
 		</div>
 		<div class="space-y-1">
-			<label class="text-xs font-medium text-muted-foreground">Max Amount</label>
+			<label for="filter-max-amount" class="text-muted-foreground text-xs font-medium"
+				>Max Amount</label
+			>
 			<Input
+				id="filter-max-amount"
 				type="number"
 				step="0.01"
 				placeholder="0.00"
@@ -71,7 +77,7 @@
 
 	<!-- Quick Presets -->
 	<div class="space-y-2">
-		<label class="text-xs font-medium text-muted-foreground">Quick Presets</label>
+		<p class="text-muted-foreground text-xs font-medium">Quick Presets</p>
 		<div class="flex flex-wrap gap-2">
 			{#each quickPresets as preset}
 				<Button

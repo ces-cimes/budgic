@@ -104,7 +104,9 @@
 		return `${h}:00 ${period}`;
 	}
 
-	function anomalyTypeLabel(type: 'unusual_amount' | 'unusual_timing' | 'unusual_category'): string {
+	function anomalyTypeLabel(
+		type: 'unusual_amount' | 'unusual_timing' | 'unusual_category'
+	): string {
 		switch (type) {
 			case 'unusual_amount':
 				return 'Unusual amount';
@@ -117,7 +119,9 @@
 		}
 	}
 
-	function anomalyBadgeClass(type: 'unusual_amount' | 'unusual_timing' | 'unusual_category'): string {
+	function anomalyBadgeClass(
+		type: 'unusual_amount' | 'unusual_timing' | 'unusual_category'
+	): string {
 		switch (type) {
 			case 'unusual_amount':
 				return 'bg-[var(--color-warm-coral)]/15 text-[var(--color-warm-coral)] border border-[var(--color-warm-coral)]/40';
@@ -148,27 +152,39 @@
 						return da < db ? a : b;
 					}, cleared[0])
 				: null;
-			const firstDate = firstTx ? new Date(firstTx.clearedDate || firstTx.createdAt || 0) : new Date();
+			const firstDate = firstTx
+				? new Date(firstTx.clearedDate || firstTx.createdAt || 0)
+				: new Date();
 			const daysSinceFirst = (Date.now() - firstDate.getTime()) / (24 * 60 * 60 * 1000);
 			isNewUser = daysSinceFirst < 14;
 
 			if (isNewUser) {
-				spendingPulse = "We're building your picture. Keep logging transactions and we'll start spotting patterns in about 2 weeks.";
+				spendingPulse =
+					"We're building your picture. Keep logging transactions and we'll start spotting patterns in about 2 weeks.";
 			} else if (behavioral?.length > 0) {
 				// Never use "Predictions Updated" / "X predictions available" as pulse — reserve for real spending summary only
 				const spendingInsight = behavioral.find(
 					(i) =>
 						i.title !== 'Predictions Updated' &&
-						!(i.description?.toLowerCase().includes('prediction') && i.description?.toLowerCase().includes('available'))
+						!(
+							i.description?.toLowerCase().includes('prediction') &&
+							i.description?.toLowerCase().includes('available')
+						)
 				);
 				if (spendingInsight) {
-					const text = [spendingInsight.description, spendingInsight.title].filter(Boolean).join(' ').trim();
-					spendingPulse = text || 'Your spending looks consistent. No notable patterns to highlight this week.';
+					const text = [spendingInsight.description, spendingInsight.title]
+						.filter(Boolean)
+						.join(' ')
+						.trim();
+					spendingPulse =
+						text || 'Your spending looks consistent. No notable patterns to highlight this week.';
 				} else {
-					spendingPulse = 'Your spending looks consistent. No notable patterns to highlight this week.';
+					spendingPulse =
+						'Your spending looks consistent. No notable patterns to highlight this week.';
 				}
 			} else {
-				spendingPulse = 'Your spending looks consistent. No notable patterns to highlight this week.';
+				spendingPulse =
+					'Your spending looks consistent. No notable patterns to highlight this week.';
 			}
 
 			// Recurring (include patternId for drill-in sheet)
@@ -179,9 +195,14 @@
 				recurringList.push({
 					patternId: p.id,
 					description: p.metadata?.notes || p.descriptionPattern || 'Recurring',
-					amount: pred ? `~${formatAmount(pred.predictedAmount, p.metadata?.currency || userCurrency)}` : '—',
+					amount: pred
+						? `~${formatAmount(pred.predictedAmount, p.metadata?.currency || userCurrency)}`
+						: '—',
 					nextDate: pred?.nextOccurrenceDate
-						? new Date(pred.nextOccurrenceDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+						? new Date(pred.nextOccurrenceDate).toLocaleDateString('en-US', {
+								month: 'short',
+								day: 'numeric'
+							})
 						: '—',
 					inferred: p.patternType === 'approximate' || p.patternType === 'seasonal'
 				});
@@ -199,7 +220,11 @@
 				}
 				const rawAmount = tx?.amount ?? 0;
 				const displayAmount =
-					tx?.type === 'expense' ? -Math.abs(rawAmount) : tx?.type === 'income' ? Math.abs(rawAmount) : rawAmount;
+					tx?.type === 'expense'
+						? -Math.abs(rawAmount)
+						: tx?.type === 'income'
+							? Math.abs(rawAmount)
+							: rawAmount;
 				enriched.push({
 					type: a.type,
 					transactionId: a.transactionId,
@@ -268,32 +293,39 @@
 </script>
 
 <div class="patterns-tab {className}">
-	<div class="py-2 sm:py-4 space-y-6">
+	<div class="space-y-6 py-2 sm:py-4">
 		{#if parentLoading || loading}
 			<div class="space-y-4">
-				<div class="h-20 rounded-xl bg-[var(--color-bg-tertiary)] animate-pulse"></div>
+				<div class="h-20 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
 				<div class="grid grid-cols-2 gap-2">
 					{#each Array(4) as _}
-						<div class="h-16 rounded-lg bg-[var(--color-bg-tertiary)] animate-pulse"></div>
+						<div class="h-16 animate-pulse rounded-lg bg-[var(--color-bg-tertiary)]"></div>
 					{/each}
 				</div>
 			</div>
 		{:else}
 			{#if insightTypeFilter && alertTypeInsights.length > 0}
-				<section class="mb-4 rounded-xl border border-border bg-muted/30 px-4 py-3">
-					<div class="flex items-start justify-between gap-2 mb-2">
-						<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">
+				<section class="border-border bg-muted/30 mb-4 rounded-xl border px-4 py-3">
+					<div class="mb-2 flex items-start justify-between gap-2">
+						<h2
+							class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
 							From alerts ({insightTypeFilter})
 						</h2>
-						<Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" onclick={clearInsightTypeFilter}>
+						<Button
+							variant="ghost"
+							size="sm"
+							class="h-7 shrink-0 text-xs"
+							onclick={clearInsightTypeFilter}
+						>
 							Clear filter
 						</Button>
 					</div>
 					<ul class="space-y-2">
 						{#each alertTypeInsights as ins (ins.id)}
 							<li class="text-sm">
-								<p class="font-medium text-foreground">{ins.title}</p>
-								<p class="text-xs text-muted-foreground mt-0.5">{ins.message}</p>
+								<p class="text-foreground font-medium">{ins.title}</p>
+								<p class="text-muted-foreground mt-0.5 text-xs">{ins.message}</p>
 							</li>
 						{/each}
 					</ul>
@@ -301,46 +333,51 @@
 			{/if}
 			<!-- 1. Spending pulse (UX_SPEC §3.4) -->
 			<section>
-				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
+				<h2
+					class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
 					Spending pulse
 				</h2>
-				<div
-					class="squircle-2xl squircle-border bg-card px-4 py-3 text-sm min-h-[3rem]"
-				>
+				<div class="squircle-2xl squircle-border bg-card min-h-[3rem] px-4 py-3 text-sm">
 					<p class="relative z-[2] text-[var(--color-text-secondary)]">
-						{spendingPulse || 'Your spending at a glance. Add more transactions to see patterns here.'}
+						{spendingPulse ||
+							'Your spending at a glance. Add more transactions to see patterns here.'}
 					</p>
 				</div>
 			</section>
 
 			<!-- 2. Recurring (transaction-like cards) -->
 			<section>
-				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
+				<h2
+					class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
 					Recurring
 				</h2>
 				{#if recurringList.length === 0}
-					<p class="text-sm text-muted-foreground">No recurring transactions detected yet.</p>
+					<p class="text-muted-foreground text-sm">No recurring transactions detected yet.</p>
 				{:else}
 					<ul class="space-y-2">
 						{#each recurringList as item}
 							<li>
 								<button
 									type="button"
-									class="w-full text-left rounded-xl border-2 border-border bg-card px-4 py-3 flex items-center gap-2 hover:bg-muted/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									class="border-border bg-card hover:bg-muted/30 focus-visible:ring-ring flex w-full items-center gap-2 rounded-xl border-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
 									onclick={() => {
 										selectedPatternId = item.patternId;
 										recurringSheetOpen = true;
 									}}
 								>
-									<div class="flex-1 min-w-0">
-										<p class="font-semibold text-foreground text-base truncate">
+									<div class="min-w-0 flex-1">
+										<p class="text-foreground truncate text-base font-semibold">
 											{item.inferred ? '~' : ''}{item.description}
 										</p>
-										<p class="text-sm text-muted-foreground truncate mt-0.5">Next: {item.nextDate}</p>
+										<p class="text-muted-foreground mt-0.5 truncate text-sm">
+											Next: {item.nextDate}
+										</p>
 									</div>
-									<div class="flex items-center gap-2 shrink-0">
+									<div class="flex shrink-0 items-center gap-2">
 										<span class="text-amount text-foreground">{item.amount}</span>
-										<ChevronRight class="w-4 h-4 text-muted-foreground" />
+										<ChevronRight class="text-muted-foreground h-4 w-4" />
 									</div>
 								</button>
 							</li>
@@ -353,28 +390,31 @@
 			{@const visibleAnomalies = anomalies.filter((a) => !$dismissedAnomalies.has(a.transactionId))}
 			{#if visibleAnomalies.length > 0}
 				<section>
-					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
+					<h2
+						class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+					>
 						Anomalies
 					</h2>
 					<ul class="space-y-2">
 						{#each visibleAnomalies as a (a.transactionId)}
-							<li class="rounded-xl border-2 border-border bg-card overflow-hidden">
+							<li class="border-border bg-card overflow-hidden rounded-xl border-2">
 								<div
 									role="button"
 									tabindex="0"
-									class="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-muted/30 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									class="hover:bg-muted/30 focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
 									onclick={() => goto(`/transactions/add/${a.transactionId}`)}
-									onkeydown={(e) => e.key === 'Enter' && goto(`/transactions/add/${a.transactionId}`)}
+									onkeydown={(e) =>
+										e.key === 'Enter' && goto(`/transactions/add/${a.transactionId}`)}
 								>
-									<div class="flex-1 min-w-0">
-										<p class="font-semibold text-foreground text-base truncate">
+									<div class="min-w-0 flex-1">
+										<p class="text-foreground truncate text-base font-semibold">
 											{a.description ?? 'Transaction'}
 										</p>
 										{#if a.categoryName}
-											<p class="text-sm text-muted-foreground truncate mt-0.5">{a.categoryName}</p>
+											<p class="text-muted-foreground mt-0.5 truncate text-sm">{a.categoryName}</p>
 										{/if}
 									</div>
-									<div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+									<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
 										<span
 											class="text-amount {a.txType === 'income'
 												? 'text-[var(--color-sage-green)]'
@@ -385,13 +425,15 @@
 											{formatTransactionAmount(a.amount ?? 0, a.currency ?? userCurrency, true)}
 										</span>
 										<span
-											class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border {anomalyBadgeClass(a.type)}"
+											class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wider uppercase {anomalyBadgeClass(
+												a.type
+											)}"
 										>
 											{anomalyTypeLabel(a.type)}
 										</span>
 										<button
 											type="button"
-											class="text-muted-foreground text-xs font-medium hover:text-foreground"
+											class="text-muted-foreground hover:text-foreground text-xs font-medium"
 											onclick={(e) => {
 												e.preventDefault();
 												e.stopPropagation();
@@ -411,30 +453,48 @@
 
 			<!-- 4. Your patterns (compact stat cards) -->
 			<section>
-				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3">
+				<h2
+					class="mb-3 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
 					Your patterns
 				</h2>
 				{#if patternStats}
 					<div class="grid grid-cols-2 gap-2">
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Peak day</p>
+							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+								Peak day
+							</p>
 							<p class="text-sm font-medium">{patternStats.peakDay}</p>
 						</div>
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Peak time</p>
+							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+								Peak time
+							</p>
 							<p class="text-sm font-medium">{patternStats.peakTime}</p>
 						</div>
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Biggest category</p>
-							<p class="text-sm font-medium truncate" title={patternStats.biggestCategory}>{patternStats.biggestCategory}</p>
+							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+								Biggest category
+							</p>
+							<p class="truncate text-sm font-medium" title={patternStats.biggestCategory}>
+								{patternStats.biggestCategory}
+							</p>
 						</div>
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Most frequent</p>
-							<p class="text-sm font-medium truncate" title={patternStats.mostFrequentCategory}>{patternStats.mostFrequentCategory}</p>
+							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+								Most frequent
+							</p>
+							<p class="truncate text-sm font-medium" title={patternStats.mostFrequentCategory}>
+								{patternStats.mostFrequentCategory}
+							</p>
 						</div>
-						<div class="col-span-2 squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Average transaction</p>
-							<p class="text-sm font-medium">{formatAmount(patternStats.avgAmount, userCurrency)}</p>
+						<div class="squircle-2xl squircle-border bg-card col-span-2 px-3 py-3">
+							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+								Average transaction
+							</p>
+							<p class="text-sm font-medium">
+								{formatAmount(patternStats.avgAmount, userCurrency)}
+							</p>
 						</div>
 					</div>
 				{/if}
@@ -442,13 +502,17 @@
 
 			<!-- 5. Upcoming (amount prominent) -->
 			<section>
-				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
+				<h2
+					class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
 					Upcoming
 				</h2>
 				{#if upcomingWeekAmount != null && upcomingWeekAmount > 0}
 					<p class="text-sm text-[var(--color-text-secondary)]">
 						Expected recurring spending this week:
-						<span class="font-semibold text-foreground tabular-nums ml-1">~{formatAmount(upcomingWeekAmount, userCurrency)}</span>
+						<span class="text-foreground ml-1 font-semibold tabular-nums"
+							>~{formatAmount(upcomingWeekAmount, userCurrency)}</span
+						>
 					</p>
 				{:else}
 					<p class="text-sm text-[var(--color-text-secondary)]">{upcomingSummary}</p>
@@ -456,17 +520,18 @@
 			</section>
 
 			<!-- Spending patterns (primary — based on transactions only) -->
-			<div class="pt-4 border-t border-border">
-				<h3 class="text-sm font-semibold text-foreground mb-1">Spending patterns</h3>
-				<p class="text-xs text-muted-foreground mb-3">Based on your transactions</p>
+			<div class="border-border border-t pt-4">
+				<h3 class="text-foreground mb-1 text-sm font-semibold">Spending patterns</h3>
+				<p class="text-muted-foreground mb-3 text-xs">Based on your transactions</p>
 				<BehavioralPatterns days={90} />
 			</div>
 
 			<!-- App usage (always visible; illustrative / for reference) -->
-			<div class="pt-4 border-t border-border">
-				<div class="rounded-lg border border-border bg-muted/20 px-3 py-2 mb-3">
-					<p class="text-xs text-muted-foreground">
-						<strong class="text-[var(--color-text-tertiary)]">App usage</strong> — for reference only. This data is used to improve your experience and is not part of your financial insights.
+			<div class="border-border border-t pt-4">
+				<div class="border-border bg-muted/20 mb-3 rounded-lg border px-3 py-2">
+					<p class="text-muted-foreground text-xs">
+						<strong class="text-[var(--color-text-tertiary)]">App usage</strong> — for reference only.
+						This data is used to improve your experience and is not part of your financial insights.
 					</p>
 				</div>
 				<AppUsageAnalytics days={30} compactWhenEmpty />
@@ -478,7 +543,7 @@
 	<RecurringPatternSheet
 		open={recurringSheetOpen}
 		patternId={selectedPatternId}
-		userCurrency={userCurrency}
+		{userCurrency}
 		onClose={() => {
 			recurringSheetOpen = false;
 			selectedPatternId = null;

@@ -41,7 +41,16 @@
 		}
 	}
 
-	function applyPreset(preset: 'today' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'last7Days' | 'last30Days' | 'last90Days') {
+	function applyPreset(
+		preset:
+			| 'today'
+			| 'thisWeek'
+			| 'thisMonth'
+			| 'thisYear'
+			| 'last7Days'
+			| 'last30Days'
+			| 'last90Days'
+	) {
 		const now = new Date();
 		let start: Date;
 		let end: Date = new Date(now);
@@ -92,7 +101,7 @@
 	}
 
 	const dateTypeValue = $derived(filters.dateType || 'cleared');
-	
+
 	const presets = [
 		{ value: 'today', label: 'Today' },
 		{ value: 'thisWeek', label: 'This Week' },
@@ -107,7 +116,8 @@
 <div class="space-y-4">
 	<!-- Date Type -->
 	<div class="space-y-2">
-		<label class="text-xs font-medium text-muted-foreground">Date Type</label>
+		<label for="filter-date-type" class="text-muted-foreground text-xs font-medium">Date Type</label
+		>
 		<Select.Root
 			type="single"
 			value={dateTypeValue}
@@ -118,7 +128,7 @@
 				});
 			}}
 		>
-			<Select.Trigger class="w-full">
+			<Select.Trigger id="filter-date-type" class="w-full">
 				{filters.dateType === 'planned' ? 'Planned' : 'Cleared'}
 			</Select.Trigger>
 			<Select.Content>
@@ -131,8 +141,11 @@
 	<!-- Date Range Inputs -->
 	<div class="grid grid-cols-2 gap-2">
 		<div class="space-y-1">
-			<label class="text-xs font-medium text-muted-foreground">Start Date</label>
+			<label for="filter-start-date" class="text-muted-foreground text-xs font-medium"
+				>Start Date</label
+			>
 			<Input
+				id="filter-start-date"
 				type="date"
 				bind:value={startDate}
 				oninput={updateDateRange}
@@ -140,8 +153,10 @@
 			/>
 		</div>
 		<div class="space-y-1">
-			<label class="text-xs font-medium text-muted-foreground">End Date</label>
+			<label for="filter-end-date" class="text-muted-foreground text-xs font-medium">End Date</label
+			>
 			<Input
+				id="filter-end-date"
 				type="date"
 				bind:value={endDate}
 				oninput={updateDateRange}
@@ -152,7 +167,7 @@
 
 	<!-- Quick Presets -->
 	<div class="space-y-2">
-		<label class="text-xs font-medium text-muted-foreground">Quick Presets</label>
+		<p class="text-muted-foreground text-xs font-medium">Quick Presets</p>
 		<div class="flex flex-wrap gap-2">
 			{#each presets as preset}
 				<Button

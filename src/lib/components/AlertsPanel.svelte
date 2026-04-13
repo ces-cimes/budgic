@@ -50,10 +50,7 @@
 	);
 
 	$effect(() => {
-		if (
-			expandedEarlierId &&
-			!earlierAlerts.some((i) => i.id === expandedEarlierId)
-		) {
+		if (expandedEarlierId && !earlierAlerts.some((i) => i.id === expandedEarlierId)) {
 			expandedEarlierId = null;
 		}
 	});
@@ -223,12 +220,11 @@
 	});
 </script>
 
-<Drawer.Root
-	bind:open={isOpen}
-	direction={isMobile ? 'bottom' : 'right'}
->
+<Drawer.Root bind:open={isOpen} direction={isMobile ? 'bottom' : 'right'}>
 	<Drawer.Content
-		class="w-full bg-background backdrop-blur-sm {isMobile ? 'max-h-[70vh] rounded-t-xl' : 'w-[320px] max-w-[320px] rounded-l-xl border-l'}"
+		class="bg-background w-full backdrop-blur-sm {isMobile
+			? 'max-h-[70vh] rounded-t-xl'
+			: 'w-[320px] max-w-[320px] rounded-l-xl border-l'}"
 	>
 		<Drawer.Header class="flex flex-row items-center justify-between gap-2">
 			<div>
@@ -242,29 +238,24 @@
 				</Drawer.Description>
 			</div>
 			{#if hasUnread}
-				<Button
-					variant="ghost"
-					size="sm"
-					class="shrink-0 text-xs"
-					onclick={handleMarkAllRead}
-				>
+				<Button variant="ghost" size="sm" class="shrink-0 text-xs" onclick={handleMarkAllRead}>
 					Mark all read
 				</Button>
 			{/if}
 		</Drawer.Header>
 
-		<div class="px-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 pb-6">
+		<div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6">
 			<!-- data-vaul-no-drag only on content: cards and "Earlier" section; empty area below stays draggable -->
 			<div data-vaul-no-drag>
 				{#if isLoading}
-					<div class="flex items-center justify-center py-8 text-muted-foreground text-sm">
+					<div class="text-muted-foreground flex items-center justify-center py-8 text-sm">
 						Loading...
 					</div>
 				{:else if unreadInsights.length === 0 && earlierAlerts.length === 0}
 					<div class="flex flex-col items-center justify-center py-12 text-center">
-						<Bell class="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
+						<Bell class="text-muted-foreground mb-4 h-12 w-12 opacity-50" />
 						<p class="text-sm font-medium">No alerts</p>
-						<p class="text-xs text-muted-foreground mt-1">You're all caught up!</p>
+						<p class="text-muted-foreground mt-1 text-xs">You're all caught up!</p>
 					</div>
 				{:else}
 					<div class="flex flex-col gap-4">
@@ -272,18 +263,24 @@
 							<div>
 								{#if showCriticalCoachmark}
 									<div
-										class="mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+										class="border-border bg-muted/40 text-muted-foreground mb-3 rounded-lg border px-3 py-2 text-xs"
 										role="note"
 									>
-										<p class="text-foreground font-medium mb-1">How alerts work</p>
+										<p class="text-foreground mb-1 font-medium">How alerts work</p>
 										<p>
 											<strong>Tap the alert</strong> to mark read and open the linked screen.
 											<strong>Details</strong> expands the full message when there is more to read.
-											<strong>Swipe left</strong> to dismiss, <strong>swipe right</strong> to snooze for 24 hours.
+											<strong>Swipe left</strong> to dismiss, <strong>swipe right</strong> to snooze
+											for 24 hours.
 											<strong>Dismiss</strong> (✕) removes it until the issue returns.
 											<strong>Mark all read</strong> in the header marks every unread alert here as read.
 										</p>
-										<Button variant="ghost" size="sm" class="mt-2 h-7 px-2 text-xs" onclick={dismissCriticalCoachmark}>
+										<Button
+											variant="ghost"
+											size="sm"
+											class="mt-2 h-7 px-2 text-xs"
+											onclick={dismissCriticalCoachmark}
+										>
 											Got it
 										</Button>
 									</div>
@@ -326,16 +323,16 @@
 					</div>
 
 					{#if earlierAlerts.length > 0}
-						<details class="mt-4 border-t border-border pt-3">
-							<summary class="text-xs font-medium text-muted-foreground cursor-pointer list-none">
+						<details class="border-border mt-4 border-t pt-3">
+							<summary class="text-muted-foreground cursor-pointer list-none text-xs font-medium">
 								Earlier — {earlierAlerts.length}
 							</summary>
-							<div class="space-y-2 mt-2">
+							<div class="mt-2 space-y-2">
 								{#each earlierAlerts as insight (insight.id)}
 									{@const dismissed = earlierWasDismissed(insight)}
 									{@const read = earlierWasRead(insight)}
 									<div
-										class="rounded-lg border overflow-hidden transition-colors {dismissed
+										class="overflow-hidden rounded-lg border transition-colors {dismissed
 											? 'border-amber-500/35 bg-amber-500/[0.07] dark:border-amber-400/30 dark:bg-amber-500/[0.09]'
 											: read
 												? 'border-sky-500/35 bg-sky-500/[0.06] dark:border-sky-400/30 dark:bg-sky-500/[0.08]'
@@ -345,15 +342,15 @@
 											<div class="flex min-w-0 flex-1 flex-col">
 												<button
 													type="button"
-													class="flex w-full gap-2 items-start rounded-none py-2 pl-3 pr-2 text-left hover:bg-black/[0.04] dark:hover:bg-white/[0.05] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+													class="focus-visible:ring-ring flex w-full items-start gap-2 rounded-none py-2 pr-2 pl-3 text-left hover:bg-black/[0.04] focus-visible:ring-2 focus-visible:outline focus-visible:ring-inset dark:hover:bg-white/[0.05]"
 													onclick={() => toggleEarlierExpand(insight.id)}
 													aria-expanded={expandedEarlierId === insight.id}
 												>
 													<span class="mt-0.5 shrink-0" aria-hidden="true">
 														{#if dismissed}
-															<X class="w-4 h-4 text-amber-600 dark:text-amber-400" />
+															<X class="h-4 w-4 text-amber-600 dark:text-amber-400" />
 														{:else}
-															<CheckCircle2 class="w-4 h-4 text-sky-600 dark:text-sky-400" />
+															<CheckCircle2 class="h-4 w-4 text-sky-600 dark:text-sky-400" />
 														{/if}
 													</span>
 													<div class="min-w-0 flex-1">
@@ -362,25 +359,23 @@
 														>
 															<div class="flex min-w-0 flex-wrap items-center gap-x-1.5">
 																<span
-																	class="text-[10px] font-semibold uppercase tracking-wider {dismissed
+																	class="text-[10px] font-semibold tracking-wider uppercase {dismissed
 																		? 'text-amber-700 dark:text-amber-400'
 																		: 'text-sky-700 dark:text-sky-400'}"
 																>
 																	{dismissed ? 'Dismissed' : read ? 'Read' : 'Earlier'}
 																</span>
 																{#if insight.severity === 'alert' || insight.severity === 'warning'}
-																	<span class="text-[10px] text-muted-foreground">
+																	<span class="text-muted-foreground text-[10px]">
 																		· {earlierSeverityLabel(insight.severity)}
 																	</span>
 																{/if}
 															</div>
-															<span
-																class="shrink-0 text-[10px] text-muted-foreground tabular-nums"
-															>
+															<span class="text-muted-foreground shrink-0 text-[10px] tabular-nums">
 																{formatEarlierTime(insight)}
 															</span>
 														</div>
-														<div class="font-medium text-foreground text-sm leading-snug">
+														<div class="text-foreground text-sm leading-snug font-medium">
 															{insight.title}
 														</div>
 													</div>
@@ -389,7 +384,7 @@
 													<div class="px-3 pb-2 pl-9">
 														<button
 															type="button"
-															class="inline-flex max-w-full items-center gap-0.5 rounded border border-border bg-background/60 px-1.5 py-0.5 text-left text-[10px] font-medium leading-tight text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
+															class="border-border bg-background/60 text-muted-foreground inline-flex max-w-full items-center gap-0.5 rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight font-medium hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
 															onclick={(e) => handleEarlierLinkClick(e, insight.actionUrl!)}
 														>
 															<span class="truncate">Open linked page</span>
@@ -399,11 +394,11 @@
 												{/if}
 											</div>
 											<div
-												class="flex w-11 shrink-0 flex-col self-stretch border-l border-border/50"
+												class="border-border/50 flex w-11 shrink-0 flex-col self-stretch border-l"
 											>
 												<button
 													type="button"
-													class="flex min-h-10 flex-1 items-center justify-center text-muted-foreground hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.08] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+													class="text-muted-foreground hover:text-foreground focus-visible:ring-ring flex min-h-10 flex-1 items-center justify-center hover:bg-black/[0.06] focus-visible:ring-2 focus-visible:outline focus-visible:ring-inset dark:hover:bg-white/[0.08]"
 													aria-expanded={expandedEarlierId === insight.id}
 													aria-label={expandedEarlierId === insight.id
 														? 'Hide details'
@@ -411,7 +406,8 @@
 													onclick={() => toggleEarlierExpand(insight.id)}
 												>
 													<ChevronDown
-														class="w-4 h-4 transition-transform duration-200 {expandedEarlierId === insight.id
+														class="h-4 w-4 transition-transform duration-200 {expandedEarlierId ===
+														insight.id
 															? 'rotate-180'
 															: ''}"
 														aria-hidden="true"
@@ -420,11 +416,8 @@
 											</div>
 										</div>
 										{#if expandedEarlierId === insight.id}
-											<div
-												class="space-y-2 border-t border-border/60 px-3 pb-3 pt-2"
-												role="region"
-											>
-												<p class="text-xs text-muted-foreground leading-relaxed">
+											<div class="border-border/60 space-y-2 border-t px-3 pt-2 pb-3" role="region">
+												<p class="text-muted-foreground text-xs leading-relaxed">
 													{insight.message}
 												</p>
 											</div>

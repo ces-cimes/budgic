@@ -62,7 +62,12 @@ export function swipe(
 		}
 
 		if (!isSwiping) {
-			if (axis === 'horizontal' && Math.abs(deltaX) > 10 && horizontalDominates && !verticalLocked) {
+			if (
+				axis === 'horizontal' &&
+				Math.abs(deltaX) > 10 &&
+				horizontalDominates &&
+				!verticalLocked
+			) {
 				isSwiping = true;
 				if (!swipeStarted) {
 					swipeStarted = true;
@@ -81,7 +86,10 @@ export function swipe(
 
 		const shouldLockScroll =
 			isSwiping ||
-			(axis === 'horizontal' && horizontalDominates && !verticalLocked && Math.abs(deltaX) >= lockThreshold);
+			(axis === 'horizontal' &&
+				horizontalDominates &&
+				!verticalLocked &&
+				Math.abs(deltaX) >= lockThreshold);
 		if (shouldLockScroll) {
 			e.preventDefault();
 			if (isSwiping) {

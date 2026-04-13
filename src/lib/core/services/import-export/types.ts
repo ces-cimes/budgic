@@ -1,6 +1,6 @@
 /**
  * Import/Export Type Definitions
- * 
+ *
  * Type definitions for import/export functionality, including
  * import results, progress tracking, and error handling.
  */
@@ -182,4 +182,3 @@ export interface TransferPair {
 	/** Fee transaction (if exists) */
 	feeTransaction?: Record<string, string>;
 }
-

@@ -12,20 +12,33 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { toast } from 'svelte-sonner';
-	
+
 	// Lucide icons
-	import { HomeIcon, ReceiptIcon, TargetIcon, WalletIcon, TrendingUpIcon, CalendarIcon, BellIcon, SettingsIcon, CreditCardIcon, GripVertical, Smartphone, Monitor } from '@lucide/svelte';
+	import {
+		HomeIcon,
+		ReceiptIcon,
+		TargetIcon,
+		WalletIcon,
+		TrendingUpIcon,
+		CalendarIcon,
+		BellIcon,
+		SettingsIcon,
+		CreditCardIcon,
+		GripVertical,
+		Smartphone,
+		Monitor
+	} from '@lucide/svelte';
 
 	// Icon mapping
 	const iconMap: Record<string, any> = {
-		'home': HomeIcon,
-		'receipt': ReceiptIcon,
-		'target': TargetIcon,
-		'wallet': WalletIcon,
+		home: HomeIcon,
+		receipt: ReceiptIcon,
+		target: TargetIcon,
+		wallet: WalletIcon,
 		'trending-up': TrendingUpIcon,
-		'calendar': CalendarIcon,
-		'bell': BellIcon,
-		'settings': SettingsIcon,
+		calendar: CalendarIcon,
+		bell: BellIcon,
+		settings: SettingsIcon,
 		'credit-card': CreditCardIcon
 	};
 
@@ -80,10 +93,10 @@
 
 	async function handleDrop(event: DragEvent, targetIndex: number) {
 		event.preventDefault();
-		
+
 		if (!draggedItem) return;
 
-		const draggedIndex = items.findIndex(item => item.id === draggedItem.id);
+		const draggedIndex = items.findIndex((item) => item.id === draggedItem.id);
 		if (draggedIndex === targetIndex) return;
 
 		// Reorder items
@@ -112,7 +125,11 @@
 		dragOverIndex = null;
 	}
 
-	async function toggleVisibility(itemId: string, field: 'showInMobile' | 'showInDesktop', value: boolean) {
+	async function toggleVisibility(
+		itemId: string,
+		field: 'showInMobile' | 'showInDesktop',
+		value: boolean
+	) {
 		saving = true;
 		try {
 			await navigationStore.updateItemVisibility(itemId, { [field]: value });
@@ -127,7 +144,11 @@
 	}
 
 	async function resetToDefaults() {
-		if (!confirm('Are you sure you want to reset navigation to default settings? This cannot be undone.')) {
+		if (
+			!confirm(
+				'Are you sure you want to reset navigation to default settings? This cannot be undone.'
+			)
+		) {
 			return;
 		}
 
@@ -245,25 +266,32 @@
 		<Header title="Navigation" backButtonLabel="Back to settings" backButtonLink="/settings" />
 	{/snippet}
 
-	<div class="mx-auto max-w-2xl px-4 py-6 space-y-4">
-		<div class="rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3">
+	<div class="mx-auto max-w-2xl space-y-4 px-4 py-6">
+		<div
+			class="rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3"
+		>
 			<p class="text-xs text-[var(--color-text-secondary)]">
-				Drag items to reorder. The first 4 visible items appear in the mobile bar; the rest are in the "More" menu.
+				Drag items to reorder. The first 4 visible items appear in the mobile bar; the rest are in
+				the "More" menu.
 			</p>
 		</div>
 
 		{#if loading}
 			<div class="space-y-2">
-				{#each [1,2,3,4,5] as _}
+				{#each [1, 2, 3, 4, 5] as _}
 					<div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
 				{/each}
 			</div>
 		{:else}
-			<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
-				<div class="px-5 py-2.5 border-b border-border">
-					<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Navigation items</h2>
+			<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div class="border-border border-b px-5 py-2.5">
+					<h2
+						class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+					>
+						Navigation items
+					</h2>
 				</div>
-				<div class="divide-y divide-border">
+				<div class="divide-border divide-y">
 					{#each items as item, index (item.id)}
 						{@const IconComponent = iconMap[item.icon] || HomeIcon}
 						<div
@@ -273,22 +301,28 @@
 							ondragover={(e) => handleDragOver(e, index)}
 							ondrop={(e) => handleDrop(e, index)}
 							ondragend={handleDragEnd}
-							class="flex items-center gap-3 px-4 py-3 cursor-move transition-colors {dragOverIndex === index ? 'bg-[var(--color-amber-subtle)]' : 'hover:bg-[var(--color-bg-surface)]'}"
+							class="flex cursor-move items-center gap-3 px-4 py-3 transition-colors {dragOverIndex ===
+							index
+								? 'bg-[var(--color-amber-subtle)]'
+								: 'hover:bg-[var(--color-bg-surface)]'}"
 						>
 							<GripVertical class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
-							<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)]">
+							<div
+								class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)]"
+							>
 								<IconComponent class="size-4 text-[var(--color-text-secondary)]" />
 							</div>
-							<div class="flex-1 min-w-0">
+							<div class="min-w-0 flex-1">
 								<p class="text-sm font-medium text-[var(--color-text-primary)]">{item.label}</p>
-								<p class="text-xs text-[var(--color-text-tertiary)] truncate">{item.path}</p>
+								<p class="truncate text-xs text-[var(--color-text-tertiary)]">{item.path}</p>
 							</div>
-							<div class="flex items-center gap-3 shrink-0">
+							<div class="flex shrink-0 items-center gap-3">
 								<div class="flex items-center gap-1.5" title="Mobile">
 									<Smartphone class="size-3.5 text-[var(--color-text-tertiary)]" />
 									<Switch
 										checked={item.showInMobile}
-										onCheckedChange={(checked) => toggleVisibility(item.id, 'showInMobile', checked)}
+										onCheckedChange={(checked) =>
+											toggleVisibility(item.id, 'showInMobile', checked)}
 										disabled={saving}
 									/>
 								</div>
@@ -296,7 +330,8 @@
 									<Monitor class="size-3.5 text-[var(--color-text-tertiary)]" />
 									<Switch
 										checked={item.showInDesktop}
-										onCheckedChange={(checked) => toggleVisibility(item.id, 'showInDesktop', checked)}
+										onCheckedChange={(checked) =>
+											toggleVisibility(item.id, 'showInDesktop', checked)}
 										disabled={saving}
 									/>
 								</div>
@@ -310,33 +345,47 @@
 				type="button"
 				onclick={resetToDefaults}
 				disabled={saving}
-				class="rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+				class="border-border rounded-xl border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
 			>
 				Reset to defaults
 			</button>
 
 			<!-- Section 2: Widget rotation (Slot A in desktop sidebar) -->
-			<div class="pt-8 border-t border-border mt-8">
-				<h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-3 px-1">Widget rotation</h2>
-				<p class="text-xs text-[var(--color-text-tertiary)] mb-4 px-1">Choose which widgets appear in the desktop sidebar and their order. The first enabled widget is the default.</p>
+			<div class="border-border mt-8 border-t pt-8">
+				<h2
+					class="mb-3 px-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
+					Widget rotation
+				</h2>
+				<p class="mb-4 px-1 text-xs text-[var(--color-text-tertiary)]">
+					Choose which widgets appear in the desktop sidebar and their order. The first enabled
+					widget is the default.
+				</p>
 				{#if widgetError}
-					<div class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3 mb-4">
+					<div
+						class="mb-4 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-4 py-3"
+					>
 						<p class="text-sm text-[var(--color-warm-coral)]">{widgetError}</p>
 					</div>
 				{/if}
 				{#if widgetLoading}
 					<div class="space-y-2">
-						{#each [1,2,3] as _}
+						{#each [1, 2, 3] as _}
 							<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
 						{/each}
 					</div>
 				{:else}
-					<div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
-						<div class="divide-y divide-border">
+					<div
+						class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+					>
+						<div class="divide-border divide-y">
 							{#each enabledWidgetIds as id, index (`enabled-${id}`)}
 								{@const meta = SIDEBAR_FOOTER_CARDS[id]}
 								<div
-									class="flex items-center gap-3 px-4 py-3 cursor-move transition-colors {widgetDragOverIndex === index && widgetDraggedId ? 'bg-[var(--color-amber-subtle)]' : 'hover:bg-[var(--color-bg-surface)]'}"
+									class="flex cursor-move items-center gap-3 px-4 py-3 transition-colors {widgetDragOverIndex ===
+										index && widgetDraggedId
+										? 'bg-[var(--color-amber-subtle)]'
+										: 'hover:bg-[var(--color-bg-surface)]'}"
 									draggable="true"
 									ondragstart={(e) => widgetDragStart(e, id)}
 									ondragover={(e) => widgetDragOver(e, index)}
@@ -379,7 +428,7 @@
 						type="button"
 						onclick={resetWidgetsToDefaults}
 						disabled={widgetSaving}
-						class="mt-4 rounded-xl border border-border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+						class="border-border mt-4 rounded-xl border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
 					>
 						Reset widgets to defaults
 					</button>
@@ -388,5 +437,3 @@
 		{/if}
 	</div>
 </PageLayout>
-
-

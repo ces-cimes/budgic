@@ -1,6 +1,6 @@
 /**
  * Credit Utilization Optimization Service
- * 
+ *
  * Provides credit utilization analysis, optimization recommendations, and alerts
  * to help users maintain optimal credit utilization for better credit scores.
  */
@@ -114,7 +114,9 @@ class CreditUtilizationService {
 			if (currentDay >= statementDay) {
 				nextClose = new Date(today.getFullYear(), today.getMonth() + 1, statementDay);
 			}
-			daysUntilStatementClose = Math.ceil((nextClose.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+			daysUntilStatementClose = Math.ceil(
+				(nextClose.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+			);
 		}
 
 		if (account.metadata?.paymentDueDate) {
@@ -125,7 +127,9 @@ class CreditUtilizationService {
 			if (currentDay >= dueDay) {
 				nextDue = new Date(today.getFullYear(), today.getMonth() + 1, dueDay);
 			}
-			daysUntilPaymentDue = Math.ceil((nextDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+			daysUntilPaymentDue = Math.ceil(
+				(nextDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+			);
 		}
 
 		if (account.metadata?.creditBureauReportingDate) {
@@ -136,7 +140,9 @@ class CreditUtilizationService {
 			if (currentDay >= reportingDay) {
 				nextReporting = new Date(today.getFullYear(), today.getMonth() + 1, reportingDay);
 			}
-			daysUntilReporting = Math.ceil((nextReporting.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+			daysUntilReporting = Math.ceil(
+				(nextReporting.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+			);
 		}
 
 		return {
@@ -161,7 +167,7 @@ class CreditUtilizationService {
 	 */
 	async analyzeAggregate(): Promise<AggregateCreditUtilizationAnalysis | null> {
 		const accounts = await accountService.getAccounts();
-		const creditAccounts = accounts.filter(acc => acc.type === 'credit');
+		const creditAccounts = accounts.filter((acc) => acc.type === 'credit');
 
 		if (creditAccounts.length === 0) {
 			return null;
@@ -216,12 +222,14 @@ class CreditUtilizationService {
 					type: 'payment',
 					priority: 'urgent',
 					title: `Critical: High Credit Utilization on ${accountAnalysis.accountName}`,
-				description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}, which significantly impacts your credit score.`,
-				accountId: accountAnalysis.accountId,
-				accountName: accountAnalysis.accountName,
-				recommendedAction: `Pay down ${accountAnalysis.recommendedPaymentForTarget ? 
-					formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
-					: 'your balance'} to reach optimal utilization.`,
+					description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}, which significantly impacts your credit score.`,
+					accountId: accountAnalysis.accountId,
+					accountName: accountAnalysis.accountName,
+					recommendedAction: `Pay down ${
+						accountAnalysis.recommendedPaymentForTarget
+							? formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency)
+							: 'your balance'
+					} to reach optimal utilization.`,
 					estimatedImpact: {
 						utilizationImprovement: accountAnalysis.utilization - 30,
 						creditScoreImpact: 'positive',
@@ -240,12 +248,14 @@ class CreditUtilizationService {
 					type: 'payment',
 					priority: 'high',
 					title: `High Credit Utilization on ${accountAnalysis.accountName}`,
-				description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}, which may negatively impact your credit score.`,
-				accountId: accountAnalysis.accountId,
-				accountName: accountAnalysis.accountName,
-				recommendedAction: `Consider paying down ${accountAnalysis.recommendedPaymentForTarget ? 
-					formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
-					: 'your balance'} to improve your credit score.`,
+					description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}, which may negatively impact your credit score.`,
+					accountId: accountAnalysis.accountId,
+					accountName: accountAnalysis.accountName,
+					recommendedAction: `Consider paying down ${
+						accountAnalysis.recommendedPaymentForTarget
+							? formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency)
+							: 'your balance'
+					} to improve your credit score.`,
 					estimatedImpact: {
 						utilizationImprovement: accountAnalysis.utilization - 30,
 						creditScoreImpact: 'positive',
@@ -263,12 +273,14 @@ class CreditUtilizationService {
 					type: 'payment',
 					priority: 'medium',
 					title: `Moderate Credit Utilization on ${accountAnalysis.accountName}`,
-				description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}. Reducing it to below 30% can improve your credit score.`,
-				accountId: accountAnalysis.accountId,
-				accountName: accountAnalysis.accountName,
-				recommendedAction: `Consider paying down ${accountAnalysis.recommendedPaymentForTarget ? 
-					formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
-					: 'your balance'} to reach optimal utilization.`,
+					description: `Your credit utilization is ${formatPercentage(accountAnalysis.utilization)}. Reducing it to below 30% can improve your credit score.`,
+					accountId: accountAnalysis.accountId,
+					accountName: accountAnalysis.accountName,
+					recommendedAction: `Consider paying down ${
+						accountAnalysis.recommendedPaymentForTarget
+							? formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency)
+							: 'your balance'
+					} to reach optimal utilization.`,
 					estimatedImpact: {
 						utilizationImprovement: accountAnalysis.utilization - 30,
 						creditScoreImpact: 'positive',
@@ -283,7 +295,10 @@ class CreditUtilizationService {
 			}
 
 			// Statement timing recommendations
-			if (accountAnalysis.daysUntilStatementClose !== undefined && accountAnalysis.daysUntilStatementClose <= 7) {
+			if (
+				accountAnalysis.daysUntilStatementClose !== undefined &&
+				accountAnalysis.daysUntilStatementClose <= 7
+			) {
 				if (accountAnalysis.utilization > 30) {
 					recommendations.push({
 						id: `credit-util-timing-${accountAnalysis.accountId}`,
@@ -293,9 +308,14 @@ class CreditUtilizationService {
 						description: `Your statement closes in ${accountAnalysis.daysUntilStatementClose} day(s). Paying down your balance now will improve the utilization reported to credit bureaus.`,
 						accountId: accountAnalysis.accountId,
 						accountName: accountAnalysis.accountName,
-					recommendedAction: `Make a payment of ${accountAnalysis.recommendedPaymentForTarget ? 
-						formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency) 
-						: 'at least the minimum'} before the statement closes.`,
+						recommendedAction: `Make a payment of ${
+							accountAnalysis.recommendedPaymentForTarget
+								? formatAmount(
+										accountAnalysis.recommendedPaymentForTarget,
+										accountAnalysis.currency
+									)
+								: 'at least the minimum'
+						} before the statement closes.`,
 						estimatedImpact: {
 							utilizationImprovement: accountAnalysis.utilization - 30,
 							creditScoreImpact: 'positive'
@@ -318,7 +338,8 @@ class CreditUtilizationService {
 				priority: 'high',
 				title: 'High Overall Credit Utilization',
 				description: `Your overall credit utilization across all accounts is ${formatPercentage(aggregate.totalUtilization)}, which may negatively impact your credit score.`,
-				recommendedAction: 'Consider paying down balances on accounts with highest utilization first, or redistributing debt across accounts.',
+				recommendedAction:
+					'Consider paying down balances on accounts with highest utilization first, or redistributing debt across accounts.',
 				estimatedImpact: {
 					utilizationImprovement: aggregate.totalUtilization - 30,
 					creditScoreImpact: 'positive',
@@ -367,9 +388,7 @@ class CreditUtilizationService {
 		}
 
 		// Sort accounts by utilization (highest first)
-		const sortedAccounts = [...aggregate.accounts].sort(
-			(a, b) => b.utilization - a.utilization
-		);
+		const sortedAccounts = [...aggregate.accounts].sort((a, b) => b.utilization - a.utilization);
 
 		const recommendations: Array<{
 			accountId: string;

@@ -34,14 +34,14 @@ Longer-horizon or partially implemented directions—**do not** treat README bul
 
 ## Documentation
 
-| Type | Location |
-|------|-----------|
-| **Index (actionable vs informational vs legacy)** | [docs/README.md](./docs/README.md) |
-| **User-test MVP, Android checklist** | [docs/actionable/MVP_READY.md](./docs/actionable/MVP_READY.md) · archived narrative [docs/00_legacy/MVP_USER_TESTING.md](./docs/00_legacy/MVP_USER_TESTING.md) |
-| **Design Bible (canonical)** | [docs/informational/DESIGN_BIBLE.md](./docs/informational/DESIGN_BIBLE.md) |
-| **UX spec** | [docs/informational/UX_SPEC.md](./docs/informational/UX_SPEC.md) |
-| **Service architecture** | [docs/informational/architecture/](docs/informational/architecture/) (see README in that folder) |
-| **Archived roadmaps & old analyses** | [docs/00_legacy/README.md](./docs/00_legacy/README.md) |
+| Type                                              | Location                                                                                                                                                       |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Index (actionable vs informational vs legacy)** | [docs/README.md](./docs/README.md)                                                                                                                             |
+| **User-test MVP, Android checklist**              | [docs/actionable/MVP_READY.md](./docs/actionable/MVP_READY.md) · archived narrative [docs/00_legacy/MVP_USER_TESTING.md](./docs/00_legacy/MVP_USER_TESTING.md) |
+| **Design Bible (canonical)**                      | [docs/informational/DESIGN_BIBLE.md](./docs/informational/DESIGN_BIBLE.md)                                                                                     |
+| **UX spec**                                       | [docs/informational/UX_SPEC.md](./docs/informational/UX_SPEC.md)                                                                                               |
+| **Service architecture**                          | [docs/informational/architecture/](docs/informational/architecture/) (see README in that folder)                                                               |
+| **Archived roadmaps & old analyses**              | [docs/00_legacy/README.md](./docs/00_legacy/README.md)                                                                                                         |
 
 ## Getting started (development)
 

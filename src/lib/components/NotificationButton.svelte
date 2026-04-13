@@ -34,7 +34,9 @@
 		alertsPanelStore.openPanel();
 	}
 
-	const variant = $derived((badgeVariant === 'warning' ? 'warning' : 'destructive') as 'destructive' | 'warning');
+	const variant = $derived(
+		(badgeVariant === 'warning' ? 'warning' : 'destructive') as 'destructive' | 'warning'
+	);
 </script>
 
 <Button
@@ -45,10 +47,5 @@
 	aria-label="Alerts"
 >
 	<Bell size={20} />
-	<AlertBadge
-		count={unreadCount}
-		variant={variant}
-		compact={true}
-		class="absolute -top-1 -right-1"
-	/>
+	<AlertBadge count={unreadCount} {variant} compact={true} class="absolute -top-1 -right-1" />
 </Button>

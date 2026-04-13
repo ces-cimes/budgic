@@ -1,6 +1,6 @@
 /**
  * Emergency Fund Management Service
- * 
+ *
  * Provides emergency fund calculation, tracking, recommendations, and alerts
  * to help users maintain adequate emergency reserves.
  */
@@ -19,11 +19,11 @@ export interface EmergencyFundFactors {
 	// Base calculation
 	monthlyEssentialExpenses: number;
 	targetMonths: number; // 3-6 months recommended
-	
+
 	// Multiplicative factors
 	incomeStabilityMultiplier: number; // ×1.2 if irregular income
 	jobTypeMultiplier: number; // ×1.25 if contractor/seasonal
-	
+
 	// Additive factors
 	dependentsAdjustment: number; // +15% per dependent
 	healthAdjustment: number; // +10-30% based on medical needs
@@ -93,17 +93,17 @@ class EmergencyFundService {
 		// Get expenses from last 3 months
 		const now = new Date();
 		const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-		
+
 		const essentialExpenses = transactions
-			.filter(t => {
+			.filter((t) => {
 				if (t.type !== 'expense') return false;
 				if (t.status !== 'cleared') return false;
 				if (!t.clearedDate) return false;
-				
+
 				const date = new Date(t.clearedDate);
 				return date >= threeMonthsAgo;
 			})
-			.filter(t => {
+			.filter((t) => {
 				// Only include essential categories (survival and security tiers)
 				// This is a simplified check - in a real implementation, you'd check category waterfallTier
 				return true; // For now, include all expenses
@@ -113,7 +113,7 @@ class EmergencyFundService {
 		for (const tx of essentialExpenses) {
 			const amount = Math.abs(tx.amount || 0);
 			const transactionCurrency = tx.currency || mainCurrency;
-			
+
 			let convertedAmount = amount;
 			if (transactionCurrency !== mainCurrency) {
 				const converted = await exchangeRateService.convertAmount(
@@ -126,12 +126,15 @@ class EmergencyFundService {
 					convertedAmount = converted;
 				}
 			}
-			
+
 			totalExpenses += convertedAmount;
 		}
 
 		// Average over the number of months we have data for
-		const monthsOfData = Math.max(1, Math.ceil((now.getTime() - threeMonthsAgo.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+		const monthsOfData = Math.max(
+			1,
+			Math.ceil((now.getTime() - threeMonthsAgo.getTime()) / (1000 * 60 * 60 * 24 * 30))
+		);
 		return totalExpenses / monthsOfData;
 	}
 
@@ -142,7 +145,7 @@ class EmergencyFundService {
 		monthlyEssentialExpenses: number
 	): Promise<EmergencyFundFactors> {
 		const preferences = await userService.getUserPreferences();
-		
+
 		// Get factors from preferences
 		const targetMonths = preferences?.emergencyFundTargetMonths || 6;
 		const incomeStability = preferences?.emergencyFundIncomeStability || 'stable';
@@ -157,7 +160,7 @@ class EmergencyFundService {
 
 		// Calculate adjustments
 		const dependentsAdjustment = dependents * 15; // 15% per dependent
-		
+
 		let healthAdjustment = 0;
 		switch (healthNeeds) {
 			case 'low':
@@ -188,17 +191,19 @@ class EmergencyFundService {
 	private calculateTargetEmergencyFund(factors: EmergencyFundFactors): number {
 		// Base calculation
 		const base = factors.monthlyEssentialExpenses * factors.targetMonths;
-		
+
 		// Apply multiplicative factors
-		const afterMultiplicative = base * factors.incomeStabilityMultiplier * factors.jobTypeMultiplier;
-		
+		const afterMultiplicative =
+			base * factors.incomeStabilityMultiplier * factors.jobTypeMultiplier;
+
 		// Apply additive factors
 		const dependentsAmount = base * (factors.dependentsAdjustment / 100);
 		const healthAmount = base * (factors.healthAdjustment / 100);
-		
+
 		// Final target
-		const target = afterMultiplicative + dependentsAmount + healthAmount + factors.insuranceGapsAdjustment;
-		
+		const target =
+			afterMultiplicative + dependentsAmount + healthAmount + factors.insuranceGapsAdjustment;
+
 		return Math.max(0, target);
 	}
 
@@ -207,7 +212,7 @@ class EmergencyFundService {
 	 */
 	private async getEmergencyFundAccounts(accounts: Account[]): Promise<Account[]> {
 		// Check if accounts have emergency fund designation in metadata
-		return accounts.filter(acc => {
+		return accounts.filter((acc) => {
 			// Check metadata for emergency fund designation
 			if (acc.metadata?.isEmergencyFund === true) {
 				return acc.isActive;
@@ -225,11 +230,11 @@ class EmergencyFundService {
 		mainCurrency: string
 	): Promise<number> {
 		let totalBalance = 0;
-		
+
 		for (const account of emergencyFundAccounts) {
 			const balance = account.currentBalance;
 			const accountCurrency = account.currency;
-			
+
 			if (accountCurrency === mainCurrency) {
 				totalBalance += balance;
 			} else {
@@ -243,7 +248,7 @@ class EmergencyFundService {
 				}
 			}
 		}
-		
+
 		return totalBalance;
 	}
 
@@ -273,10 +278,10 @@ class EmergencyFundService {
 
 			// Get all accounts
 			const accounts = await accountService.getAccounts();
-			
+
 			// Get emergency fund accounts
 			const emergencyFundAccounts = await this.getEmergencyFundAccounts(accounts);
-			
+
 			if (emergencyFundAccounts.length === 0) {
 				// No emergency fund accounts designated
 				return null;
@@ -310,24 +315,24 @@ class EmergencyFundService {
 
 			// Calculate metrics
 			const percentageAchieved = targetAmount > 0 ? (currentBalance / targetAmount) * 100 : 0;
-			const monthsCovered = monthlyEssentialExpenses > 0 ? currentBalance / monthlyEssentialExpenses : 0;
+			const monthsCovered =
+				monthlyEssentialExpenses > 0 ? currentBalance / monthlyEssentialExpenses : 0;
 			const status = this.getEmergencyFundStatus(currentBalance, targetAmount, monthsCovered);
 
 			// Calculate recommended monthly contribution
 			const deficit = Math.max(0, targetAmount - currentBalance);
-			const monthsToTarget = deficit > 0 && monthlyEssentialExpenses > 0 
-				? Math.ceil(deficit / (monthlyEssentialExpenses * 0.1)) // Assume 10% of expenses can be saved
-				: 0;
-			const recommendedMonthlyContribution = monthsToTarget > 0 
-				? deficit / monthsToTarget 
-				: 0;
+			const monthsToTarget =
+				deficit > 0 && monthlyEssentialExpenses > 0
+					? Math.ceil(deficit / (monthlyEssentialExpenses * 0.1)) // Assume 10% of expenses can be saved
+					: 0;
+			const recommendedMonthlyContribution = monthsToTarget > 0 ? deficit / monthsToTarget : 0;
 
 			// Get account breakdown
 			const accountBreakdown = await Promise.all(
 				emergencyFundAccounts.map(async (acc) => {
 					const balance = acc.currentBalance;
 					const accountCurrency = acc.currency;
-					
+
 					let convertedBalance = balance;
 					if (accountCurrency !== mainCurrency) {
 						const converted = await exchangeRateService.convertAmount(
@@ -339,7 +344,7 @@ class EmergencyFundService {
 							convertedBalance = converted;
 						}
 					}
-					
+
 					return {
 						accountId: acc.id,
 						accountName: acc.name,
@@ -405,7 +410,7 @@ class EmergencyFundService {
 					type: 'contribute',
 					priority: 'high',
 					title: 'Increase Emergency Fund Contributions',
-					description: `Your emergency fund is below target. You have ${analysis.monthsCovered.toFixed(1)} months covered, but should aim for ${(analysis.factors.targetMonths).toFixed(0)} months.`,
+					description: `Your emergency fund is below target. You have ${analysis.monthsCovered.toFixed(1)} months covered, but should aim for ${analysis.factors.targetMonths.toFixed(0)} months.`,
 					recommendedAction: `Contribute ${formatAmount(analysis.recommendedMonthlyContribution, analysis.currency)} per month to reach your target.`,
 					estimatedImpact: {
 						monthsToTarget: analysis.monthsToTarget,
@@ -443,7 +448,7 @@ class EmergencyFundService {
 		// Location optimization recommendations
 		if (analysis.emergencyFundAccounts.length > 0) {
 			// Check if emergency fund is in high-interest accounts
-			const hasLowInterest = analysis.emergencyFundAccounts.some(acc => {
+			const hasLowInterest = analysis.emergencyFundAccounts.some((acc) => {
 				// This would check account interest rates - simplified for now
 				return false;
 			});
@@ -454,8 +459,10 @@ class EmergencyFundService {
 					type: 'optimize_location',
 					priority: 'low',
 					title: 'Optimize Emergency Fund Location',
-					description: 'Consider moving your emergency fund to a high-yield savings account to earn more interest while maintaining liquidity.',
-					recommendedAction: 'Review account interest rates and consider transferring to higher-yield accounts.',
+					description:
+						'Consider moving your emergency fund to a high-yield savings account to earn more interest while maintaining liquidity.',
+					recommendedAction:
+						'Review account interest rates and consider transferring to higher-yield accounts.',
 					estimatedImpact: {},
 					actionable: true,
 					metadata: {}
@@ -481,19 +488,16 @@ class EmergencyFundService {
 		}
 
 		const amount = Math.abs(transaction.amount || 0);
-		
+
 		// Get all transactions for comparison
 		const allTransactions = await transactionService.getAllTransactions();
 		const unplannedExpenses = allTransactions.filter(
-			t => t.type === 'expense' && 
-			t.status === 'cleared' && 
-			t.id !== transaction.id &&
-			t.status !== 'planned' // Only unplanned expenses
+			(t) => t.type === 'expense' && t.status === 'cleared' && t.id !== transaction.id
 		);
 
 		// Rule 1: Amount > 2× largest historical unplanned expense
 		if (unplannedExpenses.length > 0) {
-			const largestExpense = Math.max(...unplannedExpenses.map(t => Math.abs(t.amount || 0)));
+			const largestExpense = Math.max(...unplannedExpenses.map((t) => Math.abs(t.amount || 0)));
 			if (amount > largestExpense * 2) {
 				return true;
 			}
@@ -503,8 +507,8 @@ class EmergencyFundService {
 		try {
 			const { calculateGlobalAllowance } = await import('$lib/utils/allowance-utils');
 			const globalAllowance = await calculateGlobalAllowance();
-			const monthlyAllowance = globalAllowance.monthly || 0;
-			
+			const monthlyAllowance = globalAllowance.total.monthly || 0;
+
 			if (monthlyAllowance > 0 && amount > monthlyAllowance * 0.5) {
 				return true;
 			}
@@ -517,9 +521,17 @@ class EmergencyFundService {
 		// Check if transaction category is in emergency-related categories
 		// This would require checking category waterfallTier or specific emergency categories
 		// For now, we'll check if the transaction description contains emergency keywords
-		const emergencyKeywords = ['emergency', 'urgent', 'medical', 'hospital', 'repair', 'breakdown', 'accident'];
+		const emergencyKeywords = [
+			'emergency',
+			'urgent',
+			'medical',
+			'hospital',
+			'repair',
+			'breakdown',
+			'accident'
+		];
 		const description = (transaction.description || '').toLowerCase();
-		if (emergencyKeywords.some(keyword => description.includes(keyword))) {
+		if (emergencyKeywords.some((keyword) => description.includes(keyword))) {
 			return true;
 		}
 
@@ -539,7 +551,7 @@ class EmergencyFundService {
 		};
 	}> {
 		const isEmergency = await this.detectEmergencyTransaction(transaction);
-		
+
 		if (!isEmergency) {
 			return { isEmergency: false };
 		}
@@ -553,21 +565,20 @@ class EmergencyFundService {
 		// Calculate impact on emergency fund
 		const transactionAmount = Math.abs(transaction.amount || 0);
 		const newBalance = Math.max(0, analysis.currentBalance - transactionAmount);
-		const percentageUsed = analysis.currentBalance > 0 
-			? (transactionAmount / analysis.currentBalance) * 100 
-			: 0;
+		const percentageUsed =
+			analysis.currentBalance > 0 ? (transactionAmount / analysis.currentBalance) * 100 : 0;
 
 		// Generate recovery plan
 		const deficit = Math.max(0, analysis.targetAmount - newBalance);
-		const recommendedMonthlyContribution = deficit > 0 && analysis.factors.monthlyEssentialExpenses > 0
-			? Math.max(
-				deficit / 6, // Rebuild over 6 months
-				analysis.factors.monthlyEssentialExpenses * 0.1 // Minimum 10% of monthly expenses
-			)
-			: 0;
-		const monthsToRebuild = recommendedMonthlyContribution > 0 
-			? Math.ceil(deficit / recommendedMonthlyContribution)
-			: 0;
+		const recommendedMonthlyContribution =
+			deficit > 0 && analysis.factors.monthlyEssentialExpenses > 0
+				? Math.max(
+						deficit / 6, // Rebuild over 6 months
+						analysis.factors.monthlyEssentialExpenses * 0.1 // Minimum 10% of monthly expenses
+					)
+				: 0;
+		const monthsToRebuild =
+			recommendedMonthlyContribution > 0 ? Math.ceil(deficit / recommendedMonthlyContribution) : 0;
 
 		// Recovery plan suggests reduced allowances if emergency fund is significantly depleted
 		const reducedAllowances = percentageUsed > 25 || newBalance < analysis.targetAmount * 0.5;

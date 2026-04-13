@@ -56,22 +56,28 @@
 			// Load user currency preference first
 			const preferences = await userService.getUserPreferences();
 			userCurrency = preferences?.currency || null;
-			
+
 			// Load accounts and budget categories for name resolution
 			const [accountsData, budgetCategoriesData] = await Promise.all([
 				accountService.getAccounts(),
 				db.getActiveCategories()
 			]);
-			
-			accounts = accountsData.reduce((acc, account) => {
-				acc[account.id] = account;
-				return acc;
-			}, {} as Record<string, Account>);
-			
-			budgetCategories = budgetCategoriesData.reduce((acc, category) => {
-				acc[category.id] = category;
-				return acc;
-			}, {} as Record<string, Category>);
+
+			accounts = accountsData.reduce(
+				(acc, account) => {
+					acc[account.id] = account;
+					return acc;
+				},
+				{} as Record<string, Account>
+			);
+
+			budgetCategories = budgetCategoriesData.reduce(
+				(acc, category) => {
+					acc[category.id] = category;
+					return acc;
+				},
+				{} as Record<string, Category>
+			);
 
 			const transactionsData = await transactionService.getAllTransactions();
 			transactions = transactionsData.filter((t) => t && !t.deletedAt);
@@ -101,15 +107,20 @@
 				<!-- Desktop: Popover anchored to button. Trigger hidden on mobile (FAB opens Dialog there). -->
 				<Popover.Root bind:open={headerAddPopoverOpen}>
 					<Popover.Trigger
-						class="hidden sm:flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground border-0 bg-transparent cursor-pointer"
+						class="text-muted-foreground hover:text-foreground hidden cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2 py-1.5 text-sm sm:flex"
 						aria-label="Add transaction"
 					>
 						<Plus class="h-4 w-4" />
 						<span>Add transaction</span>
 					</Popover.Trigger>
-					<Popover.Content class="w-[min(calc(100vw-2rem),20rem)] p-0" align="end" side="bottom" sideOffset={6}>
+					<Popover.Content
+						class="w-[min(calc(100vw-2rem),20rem)] p-0"
+						align="end"
+						side="bottom"
+						sideOffset={6}
+					>
 						<div class="p-2">
-							<p class="px-2 pb-2 text-xs font-medium text-muted-foreground">Choose type</p>
+							<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
 							<TypePicker onSelect={handleHeaderAddTypeSelect} />
 						</div>
 					</Popover.Content>
@@ -118,10 +129,10 @@
 		</Header>
 	{/snippet}
 
-	<div class="mx-auto max-w-4xl px-5 sm:px-6 py-4">
+	<div class="mx-auto max-w-4xl px-5 py-4 sm:px-6">
 		{#if isLoading}
 			<!-- Skeleton loading state — no spinners -->
-			<div class="mb-4 squircle-2xl squircle-border squircle-fill-tertiary px-5 py-3.5">
+			<div class="squircle-2xl squircle-border squircle-fill-tertiary mb-4 px-5 py-3.5">
 				<div class="grid grid-cols-3 gap-4">
 					{#each [1, 2, 3] as _}
 						<div class="flex flex-col items-center gap-1.5">
@@ -134,10 +145,12 @@
 			<div class="space-y-2">
 				{#each [1, 2, 3, 4, 5, 6, 7, 8] as i}
 					<div
-						class="flex items-center gap-3 squircle-2xl squircle-border squircle-fill-tertiary px-4 py-3"
+						class="squircle-2xl squircle-border squircle-fill-tertiary flex items-center gap-3 px-4 py-3"
 						style="animation-delay: {i * 40}ms"
 					>
-						<div class="size-9 shrink-0 animate-pulse rounded-full bg-[var(--color-bg-surface)]"></div>
+						<div
+							class="size-9 shrink-0 animate-pulse rounded-full bg-[var(--color-bg-surface)]"
+						></div>
 						<div class="flex-1 space-y-2">
 							<div class="h-3.5 w-2/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
 							<div class="h-2.5 w-1/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
@@ -153,7 +166,7 @@
 				categories={budgetCategories}
 				{userCurrency}
 				filters={transactionFilters}
-				onFiltersChange={onFiltersChange}
+				{onFiltersChange}
 				onTransactionClick={handleTransactionClick}
 				onAddTransaction={() => openTypePicker()}
 				enableFilters={true}

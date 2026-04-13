@@ -10,7 +10,14 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Sparkles, History, CheckCircle2, AlertCircle, Loader2, TrendingUp } from '@lucide/svelte';
+	import {
+		Sparkles,
+		History,
+		CheckCircle2,
+		AlertCircle,
+		Loader2,
+		TrendingUp
+	} from '@lucide/svelte';
 	import { format } from 'date-fns';
 	import type { Account } from '$lib/core/db';
 
@@ -87,7 +94,7 @@
 	{#if error}
 		<Card.Root class="border-destructive">
 			<Card.Content class="p-4">
-				<div class="flex items-center gap-2 text-destructive">
+				<div class="text-destructive flex items-center gap-2">
 					<AlertCircle class="h-5 w-5" />
 					<span>{error}</span>
 				</div>
@@ -99,14 +106,11 @@
 		<p class="text-muted-foreground text-sm">
 			Optimize transaction timing to avoid fees and maintain better balances.
 		</p>
-		<Button
-			onclick={runOptimization}
-			disabled={isOptimizing || accounts.length === 0}
-		>
+		<Button onclick={runOptimization} disabled={isOptimizing || accounts.length === 0}>
 			{#if isOptimizing}
-				<Loader2 class="h-4 w-4 animate-spin mr-2" />
+				<Loader2 class="mr-2 h-4 w-4 animate-spin" />
 			{:else}
-				<Sparkles class="h-4 w-4 mr-2" />
+				<Sparkles class="mr-2 h-4 w-4" />
 			{/if}
 			{isOptimizing ? 'Optimizing...' : 'Run optimization'}
 		</Button>
@@ -122,7 +126,9 @@
 					{#each accounts as account}
 						<button
 							type="button"
-							class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors {selectedAccountIds.includes(account.id)
+							class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors {selectedAccountIds.includes(
+								account.id
+							)
 								? 'border-primary bg-primary/10 text-primary'
 								: 'border-border hover:bg-accent'}"
 							onclick={() => toggleAccount(account.id)}
@@ -159,8 +165,11 @@
 							<div class="flex items-center gap-2">
 								<span class="text-muted-foreground">{format(entry.runAt, 'MMM d, HH:mm')}</span>
 								{#if entry.applied}
-									<Badge variant="secondary" class="bg-green-500/20 text-green-700 dark:text-green-400">
-										<CheckCircle2 class="h-3 w-3 mr-1" />
+									<Badge
+										variant="secondary"
+										class="bg-green-500/20 text-green-700 dark:text-green-400"
+									>
+										<CheckCircle2 class="mr-1 h-3 w-3" />
 										Applied
 									</Badge>
 								{:else}
@@ -181,7 +190,9 @@
 	{/if}
 
 	{#if !currentResult && history.length === 0 && !isOptimizing}
-		<div class="text-muted-foreground rounded-xl border border-border bg-card/50 p-8 text-center text-sm">
+		<div
+			class="text-muted-foreground border-border bg-card/50 rounded-xl border p-8 text-center text-sm"
+		>
 			<Sparkles class="text-muted-foreground/50 mx-auto mb-2 h-10 w-10" />
 			<p>Run optimization to get suggestions for timing your transactions and avoiding fees.</p>
 		</div>

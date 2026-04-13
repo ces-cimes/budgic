@@ -96,42 +96,46 @@
 	<Card.Root>
 		<Card.Header>
 			<div class="flex items-center gap-2">
-				<Scale class="h-5 w-5 text-muted-foreground" />
+				<Scale class="text-muted-foreground h-5 w-5" />
 				<div>
 					<Card.Title>Goal trade-off analysis</Card.Title>
 					<Card.Description>
-						See how shifting money between goals affects target dates. Allocations are by priority (critical first).
+						See how shifting money between goals affects target dates. Allocations are by priority
+						(critical first).
 					</Card.Description>
 				</div>
 			</div>
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			{#if error}
-				<p class="text-sm text-destructive">{error}</p>
+				<p class="text-destructive text-sm">{error}</p>
 			{:else if loading}
-				<p class="text-sm text-muted-foreground">Loading allocation…</p>
+				<p class="text-muted-foreground text-sm">Loading allocation…</p>
 			{:else if allocationPreview}
 				<!-- Allocation by priority -->
 				<div>
-					<p class="text-sm font-medium text-primary mb-2">Current allocation (by priority)</p>
-					<p class="text-xs text-muted-foreground mb-2">
-						Total for goals: {formatAmount(allocationPreview.totalAvailableInUserCurrency, userCurrency)}/mo
+					<p class="text-primary mb-2 text-sm font-medium">Current allocation (by priority)</p>
+					<p class="text-muted-foreground mb-2 text-xs">
+						Total for goals: {formatAmount(
+							allocationPreview.totalAvailableInUserCurrency,
+							userCurrency
+						)}/mo
 						{#if allocationPreview.totalShortfall > 0}
 							· Shortfall: {formatAmount(allocationPreview.totalShortfall, userCurrency)}
 						{/if}
 					</p>
-					<div class="space-y-1.5 max-h-48 overflow-y-auto">
+					<div class="max-h-48 space-y-1.5 overflow-y-auto">
 						{#each allocationPreview.allocations as alloc (alloc.goalId)}
 							<div
-								class="flex items-center justify-between text-sm py-1.5 px-2 rounded-md bg-muted/50"
+								class="bg-muted/50 flex items-center justify-between rounded-md px-2 py-1.5 text-sm"
 							>
-								<div class="flex items-center gap-2 min-w-0">
+								<div class="flex min-w-0 items-center gap-2">
 									<Badge class={getPriorityColor(alloc.priority)} variant="secondary">
 										{alloc.priority}
 									</Badge>
-									<span class="truncate font-medium text-primary">{alloc.goalName}</span>
+									<span class="text-primary truncate font-medium">{alloc.goalName}</span>
 								</div>
-								<div class="flex items-center gap-2 shrink-0">
+								<div class="flex shrink-0 items-center gap-2">
 									<span class="text-muted-foreground">
 										{formatAmount(alloc.allocatedInUserCurrency, userCurrency)}/mo
 									</span>
@@ -147,15 +151,15 @@
 				</div>
 
 				<!-- Opportunity cost: "If I add $X to Goal A..." -->
-				<div class="pt-2 border-t">
-					<p class="text-sm font-medium text-primary mb-2 flex items-center gap-1">
+				<div class="border-t pt-2">
+					<p class="text-primary mb-2 flex items-center gap-1 text-sm font-medium">
 						<Info class="h-4 w-4" />
 						What if I contribute more to one goal?
 					</p>
 					<div class="flex flex-wrap items-end gap-2">
 						<select
 							bind:value={selectedGoalId}
-							class="rounded-md border border-input bg-background px-3 py-2 text-sm min-w-[140px]"
+							class="border-input bg-background min-w-[140px] rounded-md border px-3 py-2 text-sm"
 						>
 							{#each activeGoals as g (g.id)}
 								<option value={g.id}>{g.name}</option>
@@ -167,9 +171,9 @@
 								min="1"
 								step="10"
 								bind:value={amountIncrease}
-								class="rounded-md border border-input bg-background px-3 py-2 text-sm w-24"
+								class="border-input bg-background w-24 rounded-md border px-3 py-2 text-sm"
 							/>
-							<span class="text-sm text-muted-foreground">{userCurrency}/mo</span>
+							<span class="text-muted-foreground text-sm">{userCurrency}/mo</span>
 						</div>
 						<Button.Root
 							size="sm"
@@ -181,21 +185,30 @@
 					</div>
 
 					{#if tradeOffResult}
-						<div class="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-							<p class="text-sm font-medium text-primary mb-1">
-								Adding {formatAmount(tradeOffResult.amountIncreaseInUserCurrency, tradeOffResult.userCurrency)}/mo to {tradeOffResult.increasedGoalName}:
+						<div
+							class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20"
+						>
+							<p class="text-primary mb-1 text-sm font-medium">
+								Adding {formatAmount(
+									tradeOffResult.amountIncreaseInUserCurrency,
+									tradeOffResult.userCurrency
+								)}/mo to {tradeOffResult.increasedGoalName}:
 							</p>
 							{#if tradeOffResult.impacts.length > 0}
-								<ul class="space-y-1 text-sm text-muted-foreground">
+								<ul class="text-muted-foreground space-y-1 text-sm">
 									{#each tradeOffResult.impacts as impact (impact.goalId)}
 										<li class="flex items-center gap-2">
 											<TrendingDown class="h-4 w-4 shrink-0 text-amber-600" />
-											<span><strong class="text-primary">{impact.goalName}</strong> — {impact.message}</span>
+											<span
+												><strong class="text-primary">{impact.goalName}</strong> — {impact.message}</span
+											>
 										</li>
 									{/each}
 								</ul>
 							{:else}
-								<p class="text-sm text-muted-foreground">No impact on other goals (only one goal or no allocation shift).</p>
+								<p class="text-muted-foreground text-sm">
+									No impact on other goals (only one goal or no allocation shift).
+								</p>
 							{/if}
 						</div>
 					{/if}

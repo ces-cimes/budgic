@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { recurringTransactionIntelligenceService } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
-	import type { RecurringPattern, RecurringPrediction, RecurringConflict } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
+	import type {
+		RecurringPattern,
+		RecurringPrediction,
+		RecurringConflict
+	} from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
 	import { transactionService } from '$lib/core/services';
 	import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import { format, parseISO } from 'date-fns';
@@ -11,7 +15,18 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Alert from '$lib/components/ui/alert';
-	import { RefreshCw, TrendingUp, TrendingDown, Calendar, AlertTriangle, CheckCircle2, XCircle, Sparkles, BarChart3, AlertCircle } from '@lucide/svelte';
+	import {
+		RefreshCw,
+		TrendingUp,
+		TrendingDown,
+		Calendar,
+		AlertTriangle,
+		CheckCircle2,
+		XCircle,
+		Sparkles,
+		BarChart3,
+		AlertCircle
+	} from '@lucide/svelte';
 
 	interface Props {
 		className?: string;
@@ -37,12 +52,17 @@
 		try {
 			isLoading = true;
 			error = null;
-			patterns = await recurringTransactionIntelligenceService.detectPatterns(daysToAnalyze, minOccurrences);
-			
+			patterns = await recurringTransactionIntelligenceService.detectPatterns(
+				daysToAnalyze,
+				minOccurrences
+			);
+
 			// Load predictions only for active patterns
-			const activePatterns = patterns.filter(p => p.isActive);
+			const activePatterns = patterns.filter((p) => p.isActive);
 			const predictionPromises = activePatterns.map(async (pattern) => {
-				const prediction = await recurringTransactionIntelligenceService.predictNextOccurrence(pattern.id);
+				const prediction = await recurringTransactionIntelligenceService.predictNextOccurrence(
+					pattern.id
+				);
 				if (prediction) {
 					predictions.set(pattern.id, prediction);
 				}
@@ -80,7 +100,10 @@
 	}
 
 	// Resolve conflict
-	async function resolveConflict(conflictId: string, resolution: 'merge' | 'split' | 'ignore' | 'update' | 'create') {
+	async function resolveConflict(
+		conflictId: string,
+		resolution: 'merge' | 'split' | 'ignore' | 'update' | 'create'
+	) {
 		try {
 			await recurringTransactionIntelligenceService.resolveConflict(conflictId, resolution);
 			await loadPatterns(); // Reload to refresh conflicts
@@ -135,12 +158,20 @@
 <div class="recurring-transaction-manager {className}">
 	<Card.Root>
 		<Card.Header>
-			<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+			<div
+				class="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center sm:gap-0"
+			>
 				<div class="flex items-center gap-2">
 					<Sparkles class="text-primary h-5 w-5" />
 					<Card.Title class="text-lg sm:text-xl">Recurring Transaction Intelligence</Card.Title>
 				</div>
-				<Button size="sm" variant="outline" onclick={loadPatterns} disabled={isLoading} class="w-full sm:w-auto">
+				<Button
+					size="sm"
+					variant="outline"
+					onclick={loadPatterns}
+					disabled={isLoading}
+					class="w-full sm:w-auto"
+				>
 					<RefreshCw class="mr-2 h-4 w-4 {isLoading ? 'animate-spin' : ''}" />
 					Refresh
 				</Button>
@@ -160,20 +191,20 @@
 
 			<Tabs.Root bind:value={activeTab} class="w-full">
 				<Tabs.List class="grid w-full grid-cols-3 gap-1 sm:gap-0">
-					<Tabs.Trigger value="patterns" class="text-xs sm:text-sm px-2 sm:px-4">
-						<BarChart3 class="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+					<Tabs.Trigger value="patterns" class="px-2 text-xs sm:px-4 sm:text-sm">
+						<BarChart3 class="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
 						<span class="hidden sm:inline">Patterns</span>
 						<span class="sm:hidden">Patterns</span>
 						<span class="ml-1">({patterns.length})</span>
 					</Tabs.Trigger>
-					<Tabs.Trigger value="predictions" class="text-xs sm:text-sm px-2 sm:px-4">
-						<Calendar class="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+					<Tabs.Trigger value="predictions" class="px-2 text-xs sm:px-4 sm:text-sm">
+						<Calendar class="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
 						<span class="hidden sm:inline">Predictions</span>
 						<span class="sm:hidden">Pred</span>
 						<span class="ml-1">({predictions.size})</span>
 					</Tabs.Trigger>
-					<Tabs.Trigger value="conflicts" class="text-xs sm:text-sm px-2 sm:px-4">
-						<AlertTriangle class="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+					<Tabs.Trigger value="conflicts" class="px-2 text-xs sm:px-4 sm:text-sm">
+						<AlertTriangle class="mr-1 h-3 w-3 sm:mr-2 sm:h-4 sm:w-4" />
 						<span class="hidden sm:inline">Conflicts</span>
 						<span class="sm:hidden">Conf</span>
 						<span class="ml-1">({conflicts.length})</span>
@@ -184,35 +215,46 @@
 				<Tabs.Content value="patterns" class="mt-4">
 					{#if isLoading}
 						<div class="flex items-center justify-center py-8">
-							<RefreshCw class="h-6 w-6 animate-spin text-muted-foreground" />
+							<RefreshCw class="text-muted-foreground h-6 w-6 animate-spin" />
 						</div>
 					{:else if patterns.length === 0}
-						<div class="text-center py-8 text-muted-foreground">
+						<div class="text-muted-foreground py-8 text-center">
 							<p>No recurring patterns detected yet.</p>
-							<p class="text-sm mt-2">Add more transactions to enable pattern detection.</p>
+							<p class="mt-2 text-sm">Add more transactions to enable pattern detection.</p>
 						</div>
 					{:else}
-						<div class="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-							<div class="text-xs sm:text-sm text-muted-foreground">
-								{patterns.filter(p => p.isActive).length} active, {patterns.filter(p => !p.isActive).length} inactive
+						<div
+							class="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center"
+						>
+							<div class="text-muted-foreground text-xs sm:text-sm">
+								{patterns.filter((p) => p.isActive).length} active, {patterns.filter(
+									(p) => !p.isActive
+								).length} inactive
 							</div>
 							<Button
 								size="sm"
 								variant="outline"
 								onclick={() => (showInactivePatterns = !showInactivePatterns)}
-								class="w-full sm:w-auto text-xs sm:text-sm"
+								class="w-full text-xs sm:w-auto sm:text-sm"
 							>
 								{showInactivePatterns ? 'Hide' : 'Show'} Inactive
 							</Button>
 						</div>
 						<div class="space-y-3 sm:space-y-4">
-							{#each patterns.filter(p => showInactivePatterns || p.isActive) as pattern (pattern.id)}
-								<Card.Root class="py-2 sm:py-3 hover:bg-accent/50 transition-colors cursor-pointer {!pattern.isActive ? 'opacity-60' : ''}" onclick={() => viewPatternDetails(pattern)} role="button" tabindex={0}>
+							{#each patterns.filter((p) => showInactivePatterns || p.isActive) as pattern (pattern.id)}
+								<Card.Root
+									class="hover:bg-accent/50 cursor-pointer py-2 transition-colors sm:py-3 {!pattern.isActive
+										? 'opacity-60'
+										: ''}"
+									onclick={() => viewPatternDetails(pattern)}
+									role="button"
+									tabindex={0}
+								>
 									<Card.Content class="px-2 sm:px-3">
-										<div class="flex flex-col sm:flex-row items-start justify-between gap-3">
-											<div class="flex-1 min-w-0 w-full sm:w-auto">
-												<div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
-													<h3 class="font-semibold text-sm sm:text-base truncate">
+										<div class="flex flex-col items-start justify-between gap-3 sm:flex-row">
+											<div class="w-full min-w-0 flex-1 sm:w-auto">
+												<div class="mb-2 flex flex-wrap items-center gap-1.5 sm:gap-2">
+													<h3 class="truncate text-sm font-semibold sm:text-base">
 														{pattern.descriptionPattern || 'Recurring Transaction'}
 													</h3>
 													{#if !pattern.isActive}
@@ -220,38 +262,59 @@
 															Inactive
 														</Badge>
 													{/if}
-													<Badge variant={pattern.metadata.type === 'income' ? 'default' : 'secondary'} class="text-xs">
+													<Badge
+														variant={pattern.metadata.type === 'income' ? 'default' : 'secondary'}
+														class="text-xs"
+													>
 														{pattern.metadata.type || 'expense'}
 													</Badge>
 													<Badge class="{getFrequencyColor(pattern.frequency)} text-xs">
 														{pattern.frequency}
 													</Badge>
-													<Badge variant="outline" class="{getConfidenceColor(pattern.confidence)} text-xs">
+													<Badge
+														variant="outline"
+														class="{getConfidenceColor(pattern.confidence)} text-xs"
+													>
 														{pattern.confidence}%
 													</Badge>
 												</div>
-												<div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+												<div
+													class="text-muted-foreground flex flex-col gap-2 text-xs sm:flex-row sm:items-center sm:gap-4 sm:text-sm"
+												>
 													<div class="flex items-center gap-1">
 														<span class="font-medium">
 															{pattern.metadata.type === 'income' ? '+' : ''}
-															{formatAmount(pattern.averageAmount, pattern.metadata.currency || 'USD')}
+															{formatAmount(
+																pattern.averageAmount,
+																pattern.metadata.currency || 'USD'
+															)}
 														</span>
 													</div>
 													<div class="flex items-center gap-1">
-														<Calendar class="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-														<span>{pattern.occurrences} {pattern.occurrences === 1 ? 'occurrence' : 'occurrences'}</span>
+														<Calendar class="h-3 w-3 flex-shrink-0 sm:h-4 sm:w-4" />
+														<span
+															>{pattern.occurrences}
+															{pattern.occurrences === 1 ? 'occurrence' : 'occurrences'}</span
+														>
 													</div>
 													<div class="text-xs sm:text-sm">
-														{format(parseISO(pattern.firstObserved), 'MMM d, yyyy')} - {format(parseISO(pattern.lastObserved), 'MMM d, yyyy')}
+														{format(parseISO(pattern.firstObserved), 'MMM d, yyyy')} - {format(
+															parseISO(pattern.lastObserved),
+															'MMM d, yyyy'
+														)}
 													</div>
 												</div>
 												{#if pattern.trend}
 													<div class="mt-2 flex items-center gap-1 text-xs sm:text-sm">
 														{#if pattern.trend.direction === 'increasing'}
-															<TrendingUp class="h-3 w-3 sm:h-4 sm:w-4 text-green-500 flex-shrink-0" />
+															<TrendingUp
+																class="h-3 w-3 flex-shrink-0 text-green-500 sm:h-4 sm:w-4"
+															/>
 															<span class="text-green-500">Trending up</span>
 														{:else if pattern.trend.direction === 'decreasing'}
-															<TrendingDown class="h-3 w-3 sm:h-4 sm:w-4 text-red-500 flex-shrink-0" />
+															<TrendingDown
+																class="h-3 w-3 flex-shrink-0 text-red-500 sm:h-4 sm:w-4"
+															/>
 															<span class="text-red-500">Trending down</span>
 														{:else}
 															<span class="text-muted-foreground">Stable</span>
@@ -259,12 +322,15 @@
 													</div>
 												{/if}
 											</div>
-											<div class="flex gap-2 w-full sm:w-auto self-start sm:self-center">
+											<div class="flex w-full gap-2 self-start sm:w-auto sm:self-center">
 												{#if !pattern.seasonalVariation || pattern.seasonalVariation.length === 0}
 													<Button
 														size="sm"
 														variant="outline"
-														onclick={(e) => { e.stopPropagation(); trackVariability(pattern.id); }}
+														onclick={(e) => {
+															e.stopPropagation();
+															trackVariability(pattern.id);
+														}}
 														title="Track variability"
 														class="h-8 flex-1"
 													>
@@ -275,7 +341,10 @@
 													<Button
 														size="sm"
 														variant="outline"
-														onclick={(e) => { e.stopPropagation(); learnCategory(pattern.id); }}
+														onclick={(e) => {
+															e.stopPropagation();
+															learnCategory(pattern.id);
+														}}
 														title="Learn category"
 														class="h-8 flex-1"
 													>
@@ -294,54 +363,75 @@
 				<!-- Predictions Tab -->
 				<Tabs.Content value="predictions" class="mt-4">
 					{@const activePredictions = Array.from(predictions.entries()).filter(([patternId]) => {
-						const pattern = patterns.find(p => p.id === patternId);
+						const pattern = patterns.find((p) => p.id === patternId);
 						return pattern && pattern.isActive;
 					})}
 					{#if activePredictions.length === 0}
-						<div class="text-center py-8 text-muted-foreground">
+						<div class="text-muted-foreground py-8 text-center">
 							<p>No predictions available.</p>
-							<p class="text-sm mt-2">Active patterns need at least 3 occurrences to generate predictions.</p>
+							<p class="mt-2 text-sm">
+								Active patterns need at least 3 occurrences to generate predictions.
+							</p>
 						</div>
 					{:else}
 						<div class="space-y-3 sm:space-y-4">
 							{#each activePredictions as [patternId, prediction] (patternId)}
-								{@const pattern = patterns.find(p => p.id === patternId)}
+								{@const pattern = patterns.find((p) => p.id === patternId)}
 								{#if pattern}
 									<Card.Root>
 										<Card.Content class="p-4 sm:p-6">
 											<div class="flex flex-col gap-3">
-												<h3 class="font-semibold text-sm sm:text-base">
+												<h3 class="text-sm font-semibold sm:text-base">
 													{pattern.descriptionPattern || 'Recurring Transaction'}
 												</h3>
 												<div class="space-y-2 text-xs sm:text-sm">
-													<div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+													<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
 														<div class="flex items-center gap-1.5 sm:gap-2">
-															<Calendar class="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+															<Calendar
+																class="text-muted-foreground h-3 w-3 flex-shrink-0 sm:h-4 sm:w-4"
+															/>
 															<span class="font-medium">Next Occurrence:</span>
 														</div>
-														<span>{format(parseISO(prediction.nextOccurrenceDate), 'MMM d, yyyy')}</span>
+														<span
+															>{format(
+																parseISO(prediction.nextOccurrenceDate),
+																'MMM d, yyyy'
+															)}</span
+														>
 													</div>
-													<div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+													<div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
 														<div class="flex items-center gap-1.5 sm:gap-2">
 															<span class="font-medium">Predicted Amount:</span>
 														</div>
 														<div class="flex flex-wrap items-center gap-1 sm:gap-2">
 															<span class="font-medium">
 																{pattern.metadata.type === 'income' ? '+' : ''}
-																{formatAmount(prediction.predictedAmount, pattern.metadata.currency || 'USD')}
+																{formatAmount(
+																	prediction.predictedAmount,
+																	pattern.metadata.currency || 'USD'
+																)}
 															</span>
 															<span class="text-muted-foreground text-xs">
-																({pattern.metadata.type === 'income' ? '+' : ''}{formatAmount(prediction.variabilityRange.min, pattern.metadata.currency || 'USD')} - {pattern.metadata.type === 'income' ? '+' : ''}{formatAmount(prediction.variabilityRange.max, pattern.metadata.currency || 'USD')})
+																({pattern.metadata.type === 'income' ? '+' : ''}{formatAmount(
+																	prediction.variabilityRange.min,
+																	pattern.metadata.currency || 'USD'
+																)} - {pattern.metadata.type === 'income' ? '+' : ''}{formatAmount(
+																	prediction.variabilityRange.max,
+																	pattern.metadata.currency || 'USD'
+																)})
 															</span>
 														</div>
 													</div>
 													<div class="flex items-center gap-2">
-														<Badge variant="outline" class="{getConfidenceColor(prediction.confidence)} text-xs">
+														<Badge
+															variant="outline"
+															class="{getConfidenceColor(prediction.confidence)} text-xs"
+														>
 															{prediction.confidence}% confidence
 														</Badge>
 													</div>
 													{#if prediction.notes}
-														<p class="text-xs text-muted-foreground mt-2">{prediction.notes}</p>
+														<p class="text-muted-foreground mt-2 text-xs">{prediction.notes}</p>
 													{/if}
 												</div>
 											</div>
@@ -356,15 +446,15 @@
 				<!-- Conflicts Tab -->
 				<Tabs.Content value="conflicts" class="mt-4">
 					{#if conflicts.length === 0}
-						<div class="text-center py-8 text-muted-foreground">
-							<CheckCircle2 class="h-12 w-12 mx-auto mb-2 text-green-500" />
+						<div class="text-muted-foreground py-8 text-center">
+							<CheckCircle2 class="mx-auto mb-2 h-12 w-12 text-green-500" />
 							<p>No conflicts detected.</p>
-							<p class="text-sm mt-2">All recurring patterns are consistent.</p>
+							<p class="mt-2 text-sm">All recurring patterns are consistent.</p>
 						</div>
 					{:else}
 						<div class="space-y-3 sm:space-y-4">
 							{#each conflicts as conflict (conflict.id)}
-								{@const pattern = patterns.find(p => p.id === conflict.patternId)}
+								{@const pattern = patterns.find((p) => p.id === conflict.patternId)}
 								<Card.Root>
 									<Card.Content class="p-4 sm:p-6">
 										<div class="flex flex-col gap-3">
@@ -374,20 +464,23 @@
 												</Badge>
 												<Badge variant="outline" class="text-xs">{conflict.type}</Badge>
 											</div>
-											<h3 class="font-semibold text-sm sm:text-base">
+											<h3 class="text-sm font-semibold sm:text-base">
 												{pattern?.descriptionPattern || 'Unknown Pattern'}
 											</h3>
-											<p class="text-xs sm:text-sm text-muted-foreground">{conflict.description}</p>
+											<p class="text-muted-foreground text-xs sm:text-sm">{conflict.description}</p>
 											{#if conflict.suggestedResolution}
-												<div class="bg-accent p-3 rounded-md">
-													<p class="text-xs sm:text-sm font-medium mb-1">Suggested Resolution:</p>
-													<p class="text-xs text-muted-foreground mb-2">{conflict.suggestedResolution.details}</p>
-													<div class="flex flex-col sm:flex-row gap-2">
+												<div class="bg-accent rounded-md p-3">
+													<p class="mb-1 text-xs font-medium sm:text-sm">Suggested Resolution:</p>
+													<p class="text-muted-foreground mb-2 text-xs">
+														{conflict.suggestedResolution.details}
+													</p>
+													<div class="flex flex-col gap-2 sm:flex-row">
 														<Button
 															size="sm"
 															variant="outline"
-															onclick={() => resolveConflict(conflict.id, conflict.suggestedResolution!.action)}
-															class="w-full sm:w-auto text-xs sm:text-sm"
+															onclick={() =>
+																resolveConflict(conflict.id, conflict.suggestedResolution!.action)}
+															class="w-full text-xs sm:w-auto sm:text-sm"
 														>
 															{conflict.suggestedResolution.action}
 														</Button>
@@ -395,7 +488,7 @@
 															size="sm"
 															variant="ghost"
 															onclick={() => resolveConflict(conflict.id, 'ignore')}
-															class="w-full sm:w-auto text-xs sm:text-sm"
+															class="w-full text-xs sm:w-auto sm:text-sm"
 														>
 															Ignore
 														</Button>
@@ -416,7 +509,7 @@
 	<!-- Pattern Details Dialog -->
 	{#if selectedPattern}
 		<Dialog.Root bind:open={showPatternDetails}>
-			<Dialog.Content class="max-w-2xl max-h-[90vh] overflow-y-auto">
+			<Dialog.Content class="max-h-[90vh] max-w-2xl overflow-y-auto">
 				<Dialog.Header>
 					<Dialog.Title class="text-lg sm:text-xl">Pattern Details</Dialog.Title>
 					<Dialog.Description class="text-sm">
@@ -427,29 +520,34 @@
 				<div class="space-y-4">
 					<!-- Basic Info -->
 					<div>
-						<h3 class="font-semibold mb-2 text-sm sm:text-base">Basic Information</h3>
+						<h3 class="mb-2 text-sm font-semibold sm:text-base">Basic Information</h3>
 						<div class="space-y-2 text-xs sm:text-sm">
-							<div class="flex justify-between items-center gap-2">
+							<div class="flex items-center justify-between gap-2">
 								<span class="text-muted-foreground">Frequency:</span>
 								<Badge class="{getFrequencyColor(selectedPattern.frequency)} text-xs">
 									{selectedPattern.frequency}
 								</Badge>
 							</div>
-							<div class="flex justify-between items-center gap-2">
+							<div class="flex items-center justify-between gap-2">
 								<span class="text-muted-foreground">Confidence:</span>
-								<span class="{getConfidenceColor(selectedPattern.confidence)}">
+								<span class={getConfidenceColor(selectedPattern.confidence)}>
 									{selectedPattern.confidence}%
 								</span>
 							</div>
-							<div class="flex justify-between items-center gap-2">
+							<div class="flex items-center justify-between gap-2">
 								<span class="text-muted-foreground">Occurrences:</span>
 								<span>{selectedPattern.occurrences}</span>
 							</div>
-							<div class="flex justify-between items-center gap-2">
+							<div class="flex items-center justify-between gap-2">
 								<span class="text-muted-foreground">Average Amount:</span>
-								<span class="font-medium">{formatAmount(selectedPattern.averageAmount, selectedPattern.metadata.currency || 'USD')}</span>
+								<span class="font-medium"
+									>{formatAmount(
+										selectedPattern.averageAmount,
+										selectedPattern.metadata.currency || 'USD'
+									)}</span
+								>
 							</div>
-							<div class="flex justify-between items-center gap-2">
+							<div class="flex items-center justify-between gap-2">
 								<span class="text-muted-foreground">Amount Variability:</span>
 								<span>{formatPercentage(selectedPattern.amountVariability)}</span>
 							</div>
@@ -459,22 +557,32 @@
 					<!-- Timing Info -->
 					{#if selectedPattern.typicalDayOfMonth || selectedPattern.typicalDayOfWeek}
 						<div>
-							<h3 class="font-semibold mb-2 text-sm sm:text-base">Timing Pattern</h3>
+							<h3 class="mb-2 text-sm font-semibold sm:text-base">Timing Pattern</h3>
 							<div class="space-y-2 text-xs sm:text-sm">
 								{#if selectedPattern.typicalDayOfMonth}
-									<div class="flex justify-between items-center gap-2">
+									<div class="flex items-center justify-between gap-2">
 										<span class="text-muted-foreground">Typical Day of Month:</span>
 										<span>{selectedPattern.typicalDayOfMonth}</span>
 									</div>
 								{/if}
 								{#if selectedPattern.typicalDayOfWeek}
-									<div class="flex justify-between items-center gap-2">
+									<div class="flex items-center justify-between gap-2">
 										<span class="text-muted-foreground">Typical Day of Week:</span>
-										<span>{['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][selectedPattern.typicalDayOfWeek]}</span>
+										<span
+											>{[
+												'Sunday',
+												'Monday',
+												'Tuesday',
+												'Wednesday',
+												'Thursday',
+												'Friday',
+												'Saturday'
+											][selectedPattern.typicalDayOfWeek]}</span
+										>
 									</div>
 								{/if}
 								{#if selectedPattern.typicalWeekOfMonth}
-									<div class="flex justify-between items-center gap-2">
+									<div class="flex items-center justify-between gap-2">
 										<span class="text-muted-foreground">Typical Week of Month:</span>
 										<span>Week {selectedPattern.typicalWeekOfMonth}</span>
 									</div>
@@ -486,29 +594,33 @@
 					<!-- Trend Info -->
 					{#if selectedPattern.trend}
 						<div>
-							<h3 class="font-semibold mb-2 text-sm sm:text-base">Trend Analysis</h3>
+							<h3 class="mb-2 text-sm font-semibold sm:text-base">Trend Analysis</h3>
 							<div class="space-y-2 text-xs sm:text-sm">
-								<div class="flex justify-between items-center gap-2">
+								<div class="flex items-center justify-between gap-2">
 									<span class="text-muted-foreground">Direction:</span>
 									<span class="flex items-center gap-1">
 										{#if selectedPattern.trend.direction === 'increasing'}
-											<TrendingUp class="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
+											<TrendingUp class="h-3 w-3 text-green-500 sm:h-4 sm:w-4" />
 											<span class="text-green-500">Increasing</span>
 										{:else if selectedPattern.trend.direction === 'decreasing'}
-											<TrendingDown class="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
+											<TrendingDown class="h-3 w-3 text-red-500 sm:h-4 sm:w-4" />
 											<span class="text-red-500">Decreasing</span>
 										{:else}
 											<span>Stable</span>
 										{/if}
 									</span>
 								</div>
-								<div class="flex justify-between items-center gap-2">
+								<div class="flex items-center justify-between gap-2">
 									<span class="text-muted-foreground">Rate:</span>
-									<span>{formatPercentage(selectedPattern.trend.rate * 100, { maxDecimals: 2 })} per period</span>
+									<span
+										>{formatPercentage(selectedPattern.trend.rate * 100, { maxDecimals: 2 })} per period</span
+									>
 								</div>
-								<div class="flex justify-between items-center gap-2">
+								<div class="flex items-center justify-between gap-2">
 									<span class="text-muted-foreground">Confidence:</span>
-									<span>{formatPercentage(selectedPattern.trend.confidence, { maxDecimals: 0 })}</span>
+									<span
+										>{formatPercentage(selectedPattern.trend.confidence, { maxDecimals: 0 })}</span
+									>
 								</div>
 							</div>
 						</div>
@@ -517,16 +629,32 @@
 					<!-- Seasonal Variation -->
 					{#if selectedPattern.seasonalVariation && selectedPattern.seasonalVariation.length > 0}
 						<div>
-							<h3 class="font-semibold mb-2 text-sm sm:text-base">Seasonal Variation</h3>
+							<h3 class="mb-2 text-sm font-semibold sm:text-base">Seasonal Variation</h3>
 							<div class="space-y-1 text-xs sm:text-sm">
 								{#each selectedPattern.seasonalVariation as variation}
-									<div class="flex justify-between items-center gap-2">
+									<div class="flex items-center justify-between gap-2">
 										<span class="text-muted-foreground">
-											{['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][variation.month - 1]}:
+											{[
+												'Jan',
+												'Feb',
+												'Mar',
+												'Apr',
+												'May',
+												'Jun',
+												'Jul',
+												'Aug',
+												'Sep',
+												'Oct',
+												'Nov',
+												'Dec'
+											][variation.month - 1]}:
 										</span>
 										<span class="font-medium">
 											{variation.adjustment > 0 ? '+' : ''}
-											{formatAmount(variation.adjustment, selectedPattern.metadata.currency || 'USD')}
+											{formatAmount(
+												variation.adjustment,
+												selectedPattern.metadata.currency || 'USD'
+											)}
 										</span>
 									</div>
 								{/each}
@@ -537,15 +665,21 @@
 					<!-- Category Learning -->
 					{#if selectedPattern.learnedCategoryId}
 						<div>
-							<h3 class="font-semibold mb-2 text-sm sm:text-base">Learned Category</h3>
+							<h3 class="mb-2 text-sm font-semibold sm:text-base">Learned Category</h3>
 							<div class="text-xs sm:text-sm">
-								<div class="flex justify-between items-center gap-2">
+								<div class="flex items-center justify-between gap-2">
 									<span class="text-muted-foreground">Category:</span>
-									<Badge variant="outline" class="text-xs">{selectedPattern.learnedCategoryId}</Badge>
+									<Badge variant="outline" class="text-xs"
+										>{selectedPattern.learnedCategoryId}</Badge
+									>
 								</div>
-								<div class="flex justify-between items-center gap-2 mt-2">
+								<div class="mt-2 flex items-center justify-between gap-2">
 									<span class="text-muted-foreground">Confidence:</span>
-									<span>{formatPercentage(selectedPattern.categoryConfidence, { maxDecimals: 0 })}</span>
+									<span
+										>{formatPercentage(selectedPattern.categoryConfidence, {
+											maxDecimals: 0
+										})}</span
+									>
 								</div>
 							</div>
 						</div>
@@ -553,7 +687,11 @@
 				</div>
 
 				<Dialog.Footer>
-					<Button variant="outline" onclick={() => (showPatternDetails = false)} class="w-full sm:w-auto">Close</Button>
+					<Button
+						variant="outline"
+						onclick={() => (showPatternDetails = false)}
+						class="w-full sm:w-auto">Close</Button
+					>
 				</Dialog.Footer>
 			</Dialog.Content>
 		</Dialog.Root>

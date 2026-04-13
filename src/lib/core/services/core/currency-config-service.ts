@@ -4,7 +4,10 @@
  */
 
 import { db, generateUUID, type CurrencyConfiguration } from '$lib/core/db';
-import { getSystemCurrencyDefaults, getAllSystemCurrencyDefaults } from '$lib/core/currency-defaults';
+import {
+	getSystemCurrencyDefaults,
+	getAllSystemCurrencyDefaults
+} from '$lib/core/currency-defaults';
 import type { Account } from '$lib/core/db';
 
 class CurrencyConfigService {
@@ -16,7 +19,7 @@ class CurrencyConfigService {
 		const customConfig = await db.currencyConfigurations
 			.where('currencyCode')
 			.equals(currencyCode)
-			.filter(config => !config.deletedAt)
+			.filter((config) => !config.deletedAt)
 			.first();
 
 		if (customConfig) {
@@ -76,13 +79,15 @@ class CurrencyConfigService {
 	 */
 	async updateCurrencyConfig(
 		currencyCode: string,
-		updates: Partial<Omit<CurrencyConfiguration, 'id' | 'currencyCode' | 'createdAt' | 'updatedAt' | 'deletedAt'>>
+		updates: Partial<
+			Omit<CurrencyConfiguration, 'id' | 'currencyCode' | 'createdAt' | 'updatedAt' | 'deletedAt'>
+		>
 	): Promise<CurrencyConfiguration> {
 		// Check if configuration already exists
 		const existing = await db.currencyConfigurations
 			.where('currencyCode')
 			.equals(currencyCode)
-			.filter(config => !config.deletedAt)
+			.filter((config) => !config.deletedAt)
 			.first();
 
 		if (existing) {
@@ -121,7 +126,7 @@ class CurrencyConfigService {
 		const existing = await db.currencyConfigurations
 			.where('currencyCode')
 			.equals(currencyCode)
-			.filter(config => !config.deletedAt)
+			.filter((config) => !config.deletedAt)
 			.first();
 
 		if (existing) {
@@ -141,7 +146,7 @@ class CurrencyConfigService {
 	async getAllConfigurations(): Promise<CurrencyConfiguration[]> {
 		// Get all custom configurations
 		const customConfigs = await db.currencyConfigurations
-			.filter(config => !config.deletedAt)
+			.filter((config) => !config.deletedAt)
 			.toArray();
 
 		// Get all system currencies
@@ -163,13 +168,13 @@ class CurrencyConfigService {
 	 */
 	async initializeSystemDefaults(): Promise<void> {
 		const systemDefaults = getAllSystemCurrencyDefaults();
-		
+
 		// Check which currencies already have configurations
 		const existingConfigs = await db.currencyConfigurations
-			.filter(config => !config.deletedAt)
+			.filter((config) => !config.deletedAt)
 			.toArray();
-		
-		const existingCurrencyCodes = new Set(existingConfigs.map(c => c.currencyCode));
+
+		const existingCurrencyCodes = new Set(existingConfigs.map((c) => c.currencyCode));
 
 		// Only add system defaults if they don't already exist
 		for (const defaults of systemDefaults) {
@@ -178,7 +183,7 @@ class CurrencyConfigService {
 				const existing = await db.currencyConfigurations
 					.where('currencyCode')
 					.equals(defaults.currencyCode)
-					.filter(config => !config.deletedAt && !config.isCustom)
+					.filter((config) => !config.deletedAt && !config.isCustom)
 					.first();
 
 				if (!existing) {
@@ -207,4 +212,3 @@ class CurrencyConfigService {
 }
 
 export const currencyConfigService = new CurrencyConfigService();
-

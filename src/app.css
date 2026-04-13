@@ -1,592 +1,1270 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-@import "tw-animate-css";
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.99 0.002 85);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: var(--color-bg-secondary);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+	--radius: 0.625rem;
+	--background: oklch(0.99 0.002 85);
+	--foreground: oklch(0.141 0.005 285.823);
+	--card: oklch(1 0 0);
+	--card-foreground: oklch(0.141 0.005 285.823);
+	--popover: oklch(1 0 0);
+	--popover-foreground: oklch(0.141 0.005 285.823);
+	--primary: oklch(0.21 0.006 285.885);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.967 0.001 286.375);
+	--secondary-foreground: oklch(0.21 0.006 285.885);
+	--muted: oklch(0.967 0.001 286.375);
+	--muted-foreground: oklch(0.552 0.016 285.938);
+	--accent: oklch(0.967 0.001 286.375);
+	--accent-foreground: oklch(0.21 0.006 285.885);
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.92 0.004 286.32);
+	--input: oklch(0.92 0.004 286.32);
+	--ring: oklch(0.705 0.015 286.067);
+	--chart-1: oklch(0.646 0.222 41.116);
+	--chart-2: oklch(0.6 0.118 184.704);
+	--chart-3: oklch(0.398 0.07 227.392);
+	--chart-4: oklch(0.828 0.189 84.429);
+	--chart-5: oklch(0.769 0.188 70.08);
+	--sidebar: var(--color-bg-secondary);
+	--sidebar-foreground: oklch(0.141 0.005 285.823);
+	--sidebar-primary: oklch(0.21 0.006 285.885);
+	--sidebar-primary-foreground: oklch(0.985 0 0);
+	--sidebar-accent: oklch(0.967 0.001 286.375);
+	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
+	--sidebar-border: oklch(0.92 0.004 286.32);
+	--sidebar-ring: oklch(0.705 0.015 286.067);
 
-  /* ── Budgic Amber (brand) ── */
-  --color-amber:          oklch(0.52 0.14 85);
-  --color-amber-muted:    oklch(0.44 0.10 85);
-  --color-amber-subtle:   oklch(0.52 0.14 85 / 0.10);
-  --color-amber-glow:     oklch(0.52 0.14 85 / 0.22);
+	/* ── Budgic Amber (brand) ── */
+	--color-amber: oklch(0.52 0.14 85);
+	--color-amber-muted: oklch(0.44 0.1 85);
+	--color-amber-subtle: oklch(0.52 0.14 85 / 0.1);
+	--color-amber-glow: oklch(0.52 0.14 85 / 0.22);
 
-  /* ── Hero number (adapts per theme) ── */
-  --color-hero-number:    oklch(0.30 0.09 85);
+	/* ── Hero number (adapts per theme) ── */
+	--color-hero-number: oklch(0.3 0.09 85);
 
-  /* ── Named palette ── */
-  --color-sage-green:     oklch(0.678 0.12 142.5);
-  --color-golden-amber:   oklch(0.52 0.14 85);
-  --color-warm-coral:     oklch(0.65 0.18 25.0);
-  --color-warm-charcoal:  oklch(0.15 0.005 285.823);
-  --color-warm-ivory:     oklch(0.95 0.01 85.0);
+	/* ── Named palette ── */
+	--color-sage-green: oklch(0.678 0.12 142.5);
+	--color-golden-amber: oklch(0.52 0.14 85);
+	--color-warm-coral: oklch(0.65 0.18 25);
+	--color-warm-charcoal: oklch(0.15 0.005 285.823);
+	--color-warm-ivory: oklch(0.95 0.01 85);
 
-  /* ── Background Layers — Light ── */
-  --color-bg-primary:     oklch(0.99 0.002 85);
-  --color-bg-secondary:   oklch(0.96 0.003 85);
-  --color-bg-tertiary:    oklch(0.93 0.004 85);
-  --color-bg-surface:     oklch(0.90 0.005 85);
+	/* ── Background Layers — Light ── */
+	--color-bg-primary: oklch(0.99 0.002 85);
+	--color-bg-secondary: oklch(0.96 0.003 85);
+	--color-bg-tertiary: oklch(0.93 0.004 85);
+	--color-bg-surface: oklch(0.9 0.005 85);
 
-  /* ── Text Hierarchy — Light ── */
-  --color-text-primary:   oklch(0.141 0.005 285.823);
-  --color-text-secondary: oklch(0.35 0.01 285.823);
-  --color-text-tertiary:  oklch(0.55 0.016 285.938);
-  --color-text-disabled:  oklch(0.7 0.02 285.823);
+	/* ── Text Hierarchy — Light ── */
+	--color-text-primary: oklch(0.141 0.005 285.823);
+	--color-text-secondary: oklch(0.35 0.01 285.823);
+	--color-text-tertiary: oklch(0.55 0.016 285.938);
+	--color-text-disabled: oklch(0.7 0.02 285.823);
 
-  /* ── Semantic accents — Light ── */
-  --color-success:        oklch(0.45 0.12 142.5);
-  --color-warning:        oklch(0.52 0.14 85);
-  --color-alert:          oklch(0.65 0.18 25.0);
-  --color-info:           oklch(0.55 0.12 220.0);
+	/* ── Semantic accents — Light ── */
+	--color-success: oklch(0.45 0.12 142.5);
+	--color-warning: oklch(0.52 0.14 85);
+	--color-alert: oklch(0.65 0.18 25);
+	--color-info: oklch(0.55 0.12 220);
 
-  /* ── Confidence / spending state colors ── */
-  --color-high-confidence:        oklch(0.45 0.12 142.5);
-  --color-high-confidence-accent: oklch(0.65 0.18 85.0);
-  --color-medium-confidence:      oklch(0.6 0.12 85.0);
-  --color-borrowed-future:        oklch(0.7 0.15 25.0);
-  --color-overspent:              oklch(0.65 0.18 25.0);
-  --color-fresh-day:              oklch(0.967 0.001 286.375);
-  --color-moderate-spending:      oklch(0.92 0.004 286.32);
-  --color-high-velocity:          oklch(0.65 0.18 25.0);
-  --color-cooldown:               oklch(0.3 0.05 220.0);
-  --color-positive-reinforcement: oklch(0.8 0.2 85.0);
-  --color-momentum-alert:         oklch(0.65 0.18 25.0);
+	/* ── Confidence / spending state colors ── */
+	--color-high-confidence: oklch(0.45 0.12 142.5);
+	--color-high-confidence-accent: oklch(0.65 0.18 85);
+	--color-medium-confidence: oklch(0.6 0.12 85);
+	--color-borrowed-future: oklch(0.7 0.15 25);
+	--color-overspent: oklch(0.65 0.18 25);
+	--color-fresh-day: oklch(0.967 0.001 286.375);
+	--color-moderate-spending: oklch(0.92 0.004 286.32);
+	--color-high-velocity: oklch(0.65 0.18 25);
+	--color-cooldown: oklch(0.3 0.05 220);
+	--color-positive-reinforcement: oklch(0.8 0.2 85);
+	--color-momentum-alert: oklch(0.65 0.18 25);
 
-  /* ── Legacy aliases ── */
-  --bg-primary:     var(--color-bg-primary);
-  --text-primary:   var(--color-text-primary);
-  --color-expense:  var(--color-warm-coral);
-  --color-income:   var(--color-sage-green);
-  --color-savings:  var(--color-info);
-  --color-highlight: var(--color-text-primary);
+	/* ── Legacy aliases ── */
+	--bg-primary: var(--color-bg-primary);
+	--text-primary: var(--color-text-primary);
+	--color-expense: var(--color-warm-coral);
+	--color-income: var(--color-sage-green);
+	--color-savings: var(--color-info);
+	--color-highlight: var(--color-text-primary);
 }
 
 .dark {
-  --background: oklch(0.10 0.006 285);
-  --foreground: oklch(0.95 0.01 85);
-  --card: oklch(0.17 0.005 285);
-  --card-foreground: oklch(0.95 0.01 85);
-  --popover: oklch(0.17 0.005 285);
-  --popover-foreground: oklch(0.95 0.01 85);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.14 0.005 285);
-  --secondary: oklch(0.22 0.006 285);
-  --secondary-foreground: oklch(0.95 0.01 85);
-  --muted: oklch(0.22 0.006 285);
-  --muted-foreground: oklch(0.60 0.012 285);
-  --accent: oklch(0.22 0.006 285);
-  --accent-foreground: oklch(0.95 0.01 85);
-  --destructive: oklch(0.65 0.18 25.0);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.52 0.14 85 / 50%);
-  --chart-1: oklch(0.78 0.16 85);
-  --chart-2: oklch(0.70 0.14 145);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.62 0.15 260);
-  --chart-5: oklch(0.65 0.18 25);
-  --sidebar: oklch(0.13 0.005 285);
-  --sidebar-foreground: oklch(0.95 0.01 85);
-  --sidebar-primary: oklch(0.78 0.16 85);
-  --sidebar-primary-foreground: oklch(0.10 0.006 285);
-  --sidebar-accent: oklch(0.22 0.006 285);
-  --sidebar-accent-foreground: oklch(0.95 0.01 85);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.52 0.14 85 / 50%);
+	--background: oklch(0.1 0.006 285);
+	--foreground: oklch(0.95 0.01 85);
+	--card: oklch(0.17 0.005 285);
+	--card-foreground: oklch(0.95 0.01 85);
+	--popover: oklch(0.17 0.005 285);
+	--popover-foreground: oklch(0.95 0.01 85);
+	--primary: oklch(0.92 0.004 286.32);
+	--primary-foreground: oklch(0.14 0.005 285);
+	--secondary: oklch(0.22 0.006 285);
+	--secondary-foreground: oklch(0.95 0.01 85);
+	--muted: oklch(0.22 0.006 285);
+	--muted-foreground: oklch(0.6 0.012 285);
+	--accent: oklch(0.22 0.006 285);
+	--accent-foreground: oklch(0.95 0.01 85);
+	--destructive: oklch(0.65 0.18 25);
+	--border: oklch(1 0 0 / 8%);
+	--input: oklch(1 0 0 / 12%);
+	--ring: oklch(0.52 0.14 85 / 50%);
+	--chart-1: oklch(0.78 0.16 85);
+	--chart-2: oklch(0.7 0.14 145);
+	--chart-3: oklch(0.769 0.188 70.08);
+	--chart-4: oklch(0.62 0.15 260);
+	--chart-5: oklch(0.65 0.18 25);
+	--sidebar: oklch(0.13 0.005 285);
+	--sidebar-foreground: oklch(0.95 0.01 85);
+	--sidebar-primary: oklch(0.78 0.16 85);
+	--sidebar-primary-foreground: oklch(0.1 0.006 285);
+	--sidebar-accent: oklch(0.22 0.006 285);
+	--sidebar-accent-foreground: oklch(0.95 0.01 85);
+	--sidebar-border: oklch(1 0 0 / 8%);
+	--sidebar-ring: oklch(0.52 0.14 85 / 50%);
 
-  /* ── Budgic Amber (brand) — dark mode ── */
-  --color-amber:          oklch(0.78 0.16 85);
-  --color-amber-muted:    oklch(0.60 0.13 85);
-  --color-amber-subtle:   oklch(0.78 0.16 85 / 0.12);
-  --color-amber-glow:     oklch(0.78 0.16 85 / 0.25);
+	/* ── Budgic Amber (brand) — dark mode ── */
+	--color-amber: oklch(0.78 0.16 85);
+	--color-amber-muted: oklch(0.6 0.13 85);
+	--color-amber-subtle: oklch(0.78 0.16 85 / 0.12);
+	--color-amber-glow: oklch(0.78 0.16 85 / 0.25);
 
-  /* ── Hero number — dark mode ── */
-  --color-hero-number:    oklch(0.78 0.16 85);
+	/* ── Hero number — dark mode ── */
+	--color-hero-number: oklch(0.78 0.16 85);
 
-  /* ── Named palette — dark ── */
-  --color-sage-green:     oklch(0.70 0.14 142.5);
-  --color-golden-amber:   oklch(0.78 0.16 85);
-  --color-warm-coral:     oklch(0.65 0.18 25.0);
-  --color-warm-charcoal:  oklch(0.10 0.006 285);
-  --color-warm-ivory:     oklch(0.95 0.01 85.0);
+	/* ── Named palette — dark ── */
+	--color-sage-green: oklch(0.7 0.14 142.5);
+	--color-golden-amber: oklch(0.78 0.16 85);
+	--color-warm-coral: oklch(0.65 0.18 25);
+	--color-warm-charcoal: oklch(0.1 0.006 285);
+	--color-warm-ivory: oklch(0.95 0.01 85);
 
-  /* ── Background Layers — Dark ── */
-  --color-bg-primary:     oklch(0.10 0.006 285);
-  --color-bg-secondary:   oklch(0.13 0.005 285);
-  --color-bg-tertiary:    oklch(0.17 0.005 285);
-  --color-bg-surface:     oklch(0.22 0.006 285);
+	/* ── Background Layers — Dark ── */
+	--color-bg-primary: oklch(0.1 0.006 285);
+	--color-bg-secondary: oklch(0.13 0.005 285);
+	--color-bg-tertiary: oklch(0.17 0.005 285);
+	--color-bg-surface: oklch(0.22 0.006 285);
 
-  /* ── Text Hierarchy — Dark ── */
-  --color-text-primary:   oklch(0.95 0.01 85.0);
-  --color-text-secondary: oklch(0.75 0.02 85.0);
-  --color-text-tertiary:  oklch(0.55 0.016 285.938);
-  --color-text-disabled:  oklch(0.35 0.01 285.823);
+	/* ── Text Hierarchy — Dark ── */
+	--color-text-primary: oklch(0.95 0.01 85);
+	--color-text-secondary: oklch(0.75 0.02 85);
+	--color-text-tertiary: oklch(0.55 0.016 285.938);
+	--color-text-disabled: oklch(0.35 0.01 285.823);
 
-  /* ── Semantic accents — Dark ── */
-  --color-success:        oklch(0.62 0.14 142.5);
-  --color-warning:        oklch(0.78 0.16 85);
-  --color-alert:          oklch(0.65 0.18 25.0);
-  --color-info:           oklch(0.62 0.15 260);
+	/* ── Semantic accents — Dark ── */
+	--color-success: oklch(0.62 0.14 142.5);
+	--color-warning: oklch(0.78 0.16 85);
+	--color-alert: oklch(0.65 0.18 25);
+	--color-info: oklch(0.62 0.15 260);
 
-  /* ── Confidence / spending state — Dark ── */
-  --color-high-confidence:        oklch(0.62 0.14 142.5);
-  --color-high-confidence-accent: oklch(0.78 0.16 85);
-  --color-medium-confidence:      oklch(0.60 0.13 85);
-  --color-borrowed-future:        oklch(0.7 0.15 25.0);
-  --color-overspent:              oklch(0.65 0.18 25.0);
-  --color-fresh-day:              oklch(0.17 0.005 285);
-  --color-moderate-spending:      oklch(0.14 0.005 285);
-  --color-high-velocity:          oklch(0.65 0.18 25.0);
-  --color-cooldown:               oklch(0.25 0.05 220.0);
-  --color-positive-reinforcement: oklch(0.78 0.16 85);
-  --color-momentum-alert:         oklch(0.65 0.18 25.0);
+	/* ── Confidence / spending state — Dark ── */
+	--color-high-confidence: oklch(0.62 0.14 142.5);
+	--color-high-confidence-accent: oklch(0.78 0.16 85);
+	--color-medium-confidence: oklch(0.6 0.13 85);
+	--color-borrowed-future: oklch(0.7 0.15 25);
+	--color-overspent: oklch(0.65 0.18 25);
+	--color-fresh-day: oklch(0.17 0.005 285);
+	--color-moderate-spending: oklch(0.14 0.005 285);
+	--color-high-velocity: oklch(0.65 0.18 25);
+	--color-cooldown: oklch(0.25 0.05 220);
+	--color-positive-reinforcement: oklch(0.78 0.16 85);
+	--color-momentum-alert: oklch(0.65 0.18 25);
 
-  /* ── Legacy aliases ── */
-  --bg-primary:     var(--color-bg-primary);
-  --text-primary:   var(--color-text-primary);
-  --color-expense:  var(--color-warm-coral);
-  --color-income:   var(--color-sage-green);
-  --color-savings:  var(--color-info);
-  --color-highlight: var(--color-text-primary);
+	/* ── Legacy aliases ── */
+	--bg-primary: var(--color-bg-primary);
+	--text-primary: var(--color-text-primary);
+	--color-expense: var(--color-warm-coral);
+	--color-income: var(--color-sage-green);
+	--color-savings: var(--color-info);
+	--color-highlight: var(--color-text-primary);
 }
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-card: var(--card);
+	--color-card-foreground: var(--card-foreground);
+	--color-popover: var(--popover);
+	--color-popover-foreground: var(--popover-foreground);
+	--color-primary: var(--primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-secondary: var(--secondary);
+	--color-secondary-foreground: var(--secondary-foreground);
+	--color-muted: var(--muted);
+	--color-muted-foreground: var(--muted-foreground);
+	--color-accent: var(--accent);
+	--color-accent-foreground: var(--accent-foreground);
+	--color-destructive: var(--destructive);
+	--color-border: var(--border);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+	--color-chart-1: var(--chart-1);
+	--color-chart-2: var(--chart-2);
+	--color-chart-3: var(--chart-3);
+	--color-chart-4: var(--chart-4);
+	--color-chart-5: var(--chart-5);
+	--color-sidebar: var(--sidebar);
+	--color-sidebar-foreground: var(--sidebar-foreground);
+	--color-sidebar-primary: var(--sidebar-primary);
+	--color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+	--color-sidebar-accent: var(--sidebar-accent);
+	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+	--color-sidebar-border: var(--sidebar-border);
+	--color-sidebar-ring: var(--sidebar-ring);
 
-  /* ── Font families ── */
-  --font-sans:    'Manrope', sans-serif;
-  --font-display: 'Instrument Serif', serif;
-  --font-mono:    'JetBrains Mono', monospace;
+	/* ── Font families ── */
+	--font-sans: 'Manrope', sans-serif;
+	--font-display: 'Instrument Serif', serif;
+	--font-mono: 'JetBrains Mono', monospace;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-sidebar text-foreground;
-    font-family: var(--font-sans);
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-  }
+	* {
+		@apply border-border outline-ring/50;
+	}
+	body {
+		@apply bg-sidebar text-foreground;
+		font-family: var(--font-sans);
+		-webkit-overflow-scrolling: touch;
+		overscroll-behavior: contain;
+	}
 
-  /* ── Font family utilities ── */
-  .font-display { font-family: var(--font-display); }
-  .font-mono    { font-family: var(--font-mono); }
+	/* ── Font family utilities ── */
+	.font-display {
+		font-family: var(--font-display);
+	}
+	.font-mono {
+		font-family: var(--font-mono);
+	}
 
-  /* ── Hero number: large financial figures ── */
-  .text-hero {
-    font-family: var(--font-display);
-    font-size: clamp(3.5rem, 8vw, 4.5rem);
-    line-height: 1;
-    letter-spacing: -0.02em;
-    color: var(--color-hero-number);
-    font-variant-numeric: tabular-nums;
-  }
-  .text-hero-sm {
-    font-family: var(--font-display);
-    font-size: clamp(1.75rem, 5vw, 2.5rem);
-    line-height: 1;
-    letter-spacing: -0.015em;
-    color: var(--color-hero-number);
-    font-variant-numeric: tabular-nums;
-  }
+	/* ── Hero number: large financial figures ── */
+	.text-hero {
+		font-family: var(--font-display);
+		font-size: clamp(3.5rem, 8vw, 4.5rem);
+		line-height: 1;
+		letter-spacing: -0.02em;
+		color: var(--color-hero-number);
+		font-variant-numeric: tabular-nums;
+	}
+	.text-hero-sm {
+		font-family: var(--font-display);
+		font-size: clamp(1.75rem, 5vw, 2.5rem);
+		line-height: 1;
+		letter-spacing: -0.015em;
+		color: var(--color-hero-number);
+		font-variant-numeric: tabular-nums;
+	}
 
-  /* ── Currency symbol at hero scale (0.85em) ── */
-  .currency-symbol {
-    font-size: 0.85em;
-    vertical-align: baseline;
-  }
+	/* ── Currency symbol at hero scale (0.85em) ── */
+	.currency-symbol {
+		font-size: 0.85em;
+		vertical-align: baseline;
+	}
 
-  /* ── Mono amount: inline transaction figures ── */
-  .text-amount {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-  .text-amount-sm {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
+	/* ── Mono amount: inline transaction figures ── */
+	.text-amount {
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+	.text-amount-sm {
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+		font-size: 0.75rem;
+		font-weight: 500;
+	}
 
-  /* ── Amber brand utilities ── */
-  .text-amber   { color: var(--color-amber); }
-  .bg-amber     { background-color: var(--color-amber); }
-  .border-amber { border-color: var(--color-amber); }
-  .bg-amber-subtle { background-color: var(--color-amber-subtle); }
-  .ring-amber   { --tw-ring-color: var(--color-amber-glow); }
+	/* ── Amber brand utilities ── */
+	.text-amber {
+		color: var(--color-amber);
+	}
+	.bg-amber {
+		background-color: var(--color-amber);
+	}
+	.border-amber {
+		border-color: var(--color-amber);
+	}
+	.bg-amber-subtle {
+		background-color: var(--color-amber-subtle);
+	}
+	.ring-amber {
+		--tw-ring-color: var(--color-amber-glow);
+	}
 
-  /* ── Semantic color shorthands ── */
-  .accent   { @apply text-[var(--accent)]; }
-  .expense  { @apply text-[var(--color-expense)]; }
-  .income   { @apply text-[var(--color-income)]; }
-  .savings  { @apply text-[var(--color-savings)]; }
+	/* ── Semantic color shorthands ── */
+	.accent {
+		@apply text-[var(--accent)];
+	}
+	.expense {
+		@apply text-[var(--color-expense)];
+	}
+	.income {
+		@apply text-[var(--color-income)];
+	}
+	.savings {
+		@apply text-[var(--color-savings)];
+	}
 
-  /* Text hierarchy */
-  .text-primary   { @apply text-[var(--color-text-primary)]; }
-  .text-secondary { @apply text-[var(--color-text-secondary)]; }
-  .text-tertiary  { @apply text-[var(--color-text-tertiary)]; }
-  .text-disabled  { @apply text-[var(--color-text-disabled)]; }
+	/* Text hierarchy */
+	.text-primary {
+		@apply text-[var(--color-text-primary)];
+	}
+	.text-secondary {
+		@apply text-[var(--color-text-secondary)];
+	}
+	.text-tertiary {
+		@apply text-[var(--color-text-tertiary)];
+	}
+	.text-disabled {
+		@apply text-[var(--color-text-disabled)];
+	}
 
-  /* Background layers */
-  .bg-primary   { @apply bg-[var(--color-bg-primary)]; }
-  .bg-secondary { @apply bg-[var(--color-bg-secondary)]; }
-  .bg-tertiary  { @apply bg-[var(--color-bg-tertiary)]; }
-  .bg-surface   { @apply bg-[var(--color-bg-surface)]; }
+	/* Background layers */
+	.bg-primary {
+		@apply bg-[var(--color-bg-primary)];
+	}
+	.bg-secondary {
+		@apply bg-[var(--color-bg-secondary)];
+	}
+	.bg-tertiary {
+		@apply bg-[var(--color-bg-tertiary)];
+	}
+	.bg-surface {
+		@apply bg-[var(--color-bg-surface)];
+	}
 
-  /* Border helpers */
-  .border-primary   { @apply border-[var(--color-bg-surface)]; }
-  .border-secondary { @apply border-[var(--color-text-tertiary)]; }
+	/* Border helpers */
+	.border-primary {
+		@apply border-[var(--color-bg-surface)];
+	}
+	.border-secondary {
+		@apply border-[var(--color-text-tertiary)];
+	}
 
-  /* Mobile touch improvements */
-  @media (pointer: coarse) {
-    /* Make tooltips more visible on touch devices */
-    [class*="cursor-help"] {
-      position: relative;
-    }
-    
-    /* Show tooltip below the element on mobile */
-    .tooltip {
-      transform: translateX(-50%);
-      left: 50% !important;
-      top: auto !important;
-      bottom: -2.5rem;
-    }
-    
-    /* Improve touch targets for specific interactive elements */
-    .touch-target {
-      min-height: 44px;
-      min-width: 44px;
-    }
-    
-    /* Apply to navigation and critical interactive elements */
-    nav button, .navigation-bar button, .fab {
-      min-height: 44px;
-      min-width: 44px;
-    }
-    
-    /* Better scrolling for transaction lists */
-    .transaction-list {
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
-    }
-    
-    /* Prevent zoom on double tap */
-    * {
-      touch-action: manipulation;
-    }
-    
-    /* Allow scrolling on scrollable containers */
-    .scrollable {
-      touch-action: pan-y;
-    }
-  }
+	/* Mobile touch improvements */
+	@media (pointer: coarse) {
+		/* Make tooltips more visible on touch devices */
+		[class*='cursor-help'] {
+			position: relative;
+		}
 
-  .tooltip {
-    animation: tooltipFadeIn 0.15s ease-out;
-  }
-  
-  @keyframes tooltipFadeIn {
-    from { opacity: 0; transform: translateY(-5px) translateX(-50%); }
-    to { opacity: 1; transform: translateY(0) translateX(-50%); }
-  }
+		/* Show tooltip below the element on mobile */
+		.tooltip {
+			transform: translateX(-50%);
+			left: 50% !important;
+			top: auto !important;
+			bottom: -2.5rem;
+		}
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
-  }
+		/* Improve touch targets for specific interactive elements */
+		.touch-target {
+			min-height: 44px;
+			min-width: 44px;
+		}
+
+		/* Apply to navigation and critical interactive elements */
+		nav button,
+		.navigation-bar button,
+		.fab {
+			min-height: 44px;
+			min-width: 44px;
+		}
+
+		/* Better scrolling for transaction lists */
+		.transaction-list {
+			-webkit-overflow-scrolling: touch;
+			overscroll-behavior: contain;
+		}
+
+		/* Prevent zoom on double tap */
+		* {
+			touch-action: manipulation;
+		}
+
+		/* Allow scrolling on scrollable containers */
+		.scrollable {
+			touch-action: pan-y;
+		}
+	}
+
+	.tooltip {
+		animation: tooltipFadeIn 0.15s ease-out;
+	}
+
+	@keyframes tooltipFadeIn {
+		from {
+			opacity: 0;
+			transform: translateY(-5px) translateX(-50%);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) translateX(-50%);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		*::before,
+		*::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+		}
+	}
 }
 
 @layer components {
-  /* ── Glass surface ── */
-  /* Base glass: light-mode safe default (overridden per theme below) */
-  .glass {
-    @apply relative overflow-hidden rounded-[20px];
-    background: oklch(0.17 0.005 285 / 0.05);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid oklch(1 0 0 / 0.08);
-    box-shadow:
-      0 0 0 1px oklch(1 0 0 / 0.04) inset,
-      0 1px 0 oklch(1 0 0 / 0.07) inset;
+	/* ── Glass surface ── */
+	/* Base glass: light-mode safe default (overridden per theme below) */
+	.glass {
+		@apply relative overflow-hidden rounded-[20px];
+		background: oklch(0.17 0.005 285 / 0.05);
+		backdrop-filter: blur(20px) saturate(180%);
+		-webkit-backdrop-filter: blur(20px) saturate(180%);
+		border: 1px solid oklch(1 0 0 / 0.08);
+		box-shadow:
+			0 0 0 1px oklch(1 0 0 / 0.04) inset,
+			0 1px 0 oklch(1 0 0 / 0.07) inset;
 
-    /* Top edge highlight */
-    &::before {
-      @apply content-[''] absolute left-0 top-0 right-0 h-px;
-      background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.15), transparent);
-    }
-  }
+		/* Top edge highlight */
+		&::before {
+			@apply absolute top-0 right-0 left-0 h-px content-[''];
+			background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.15), transparent);
+		}
+	}
 
-  /* Light mode glass override — only when .dark is not on the root */
-  :root:not(.dark) .glass {
-    background: oklch(1 0 0 / 0.80);
-    border-color: oklch(0 0 0 / 0.08);
-    box-shadow: 0 1px 0 oklch(1 0 0 / 0.9) inset;
-  }
+	/* Light mode glass override — only when .dark is not on the root */
+	:root:not(.dark) .glass {
+		background: oklch(1 0 0 / 0.8);
+		border-color: oklch(0 0 0 / 0.08);
+		box-shadow: 0 1px 0 oklch(1 0 0 / 0.9) inset;
+	}
 
-  /* Dark mode glass: translucent surface at 45% — intentionally lighter than Bible's 0.85 */
-  :root.dark .glass {
-    background: oklch(0.17 0.005 285 / 0.45);
-    border-color: oklch(1 0 0 / 0.08);
-    box-shadow:
-      0 0 0 1px oklch(1 0 0 / 0.04) inset,
-      0 1px 0 oklch(1 0 0 / 0.06) inset;
-  }
+	/* Dark mode glass: translucent surface at 45% — intentionally lighter than Bible's 0.85 */
+	:root.dark .glass {
+		background: oklch(0.17 0.005 285 / 0.45);
+		border-color: oklch(1 0 0 / 0.08);
+		box-shadow:
+			0 0 0 1px oklch(1 0 0 / 0.04) inset,
+			0 1px 0 oklch(1 0 0 / 0.06) inset;
+	}
 
-  :root.dark .glass::before {
-    background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.12), transparent);
-  }
+	:root.dark .glass::before {
+		background: linear-gradient(to right, transparent, oklch(1 0 0 / 0.12), transparent);
+	}
 
-  /* ── Budget progress bar (gradient fill by usage) ── */
-  .budget-progress {
-    @apply h-1.5 w-full rounded-full bg-[var(--color-bg-surface)];
-    display: flex;
-    overflow: hidden;
-  }
-  .budget-progress-overspent {
-    overflow: visible;
-    outline: 2px solid var(--color-warm-coral);
-    outline-offset: -1px;
-  }
-  .budget-progress-fill {
-    @apply h-full transition-all duration-700 ease-out flex-shrink-0;
-    border-radius: 9999px;
-    background: linear-gradient(
-      to right,
-      var(--color-sage-green) 0%,
-      var(--color-amber)      60%,
-      var(--color-warm-coral) 85%,
-      var(--color-warm-coral) 100%
-    );
-    background-size: 200% 100%;
-    background-position-x: calc(100% - var(--fill-pct, 0) * 1%);
-  }
-  .budget-progress-overspent .budget-progress-fill {
-    border-radius: 9999px 0 0 9999px;
-    flex-shrink: 0;
-  }
-  .budget-progress-overflow {
-    flex-shrink: 0;
-    height: 100%;
-    border-radius: 0 9999px 9999px 0;
-    background: var(--color-warm-coral);
-    min-width: 4px;
-  }
+	/* ── Budget progress bar (gradient fill by usage) ── */
+	.budget-progress {
+		@apply h-1.5 w-full rounded-full bg-[var(--color-bg-surface)];
+		display: flex;
+		overflow: hidden;
+	}
+	.budget-progress-overspent {
+		overflow: visible;
+		outline: 2px solid var(--color-warm-coral);
+		outline-offset: -1px;
+	}
+	.budget-progress-fill {
+		@apply h-full flex-shrink-0 transition-all duration-700 ease-out;
+		border-radius: 9999px;
+		background: linear-gradient(
+			to right,
+			var(--color-sage-green) 0%,
+			var(--color-amber) 60%,
+			var(--color-warm-coral) 85%,
+			var(--color-warm-coral) 100%
+		);
+		background-size: 200% 100%;
+		background-position-x: calc(100% - var(--fill-pct, 0) * 1%);
+	}
+	.budget-progress-overspent .budget-progress-fill {
+		border-radius: 9999px 0 0 9999px;
+		flex-shrink: 0;
+	}
+	.budget-progress-overflow {
+		flex-shrink: 0;
+		height: 100%;
+		border-radius: 0 9999px 9999px 0;
+		background: var(--color-warm-coral);
+		min-width: 4px;
+	}
 
-  /* ── Count-up number animation ── */
-  @keyframes count-up-reveal {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .animate-count-up {
-    animation: count-up-reveal 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
+	/* ── Count-up number animation ── */
+	@keyframes count-up-reveal {
+		from {
+			opacity: 0;
+			transform: translateY(6px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.animate-count-up {
+		animation: count-up-reveal 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
 
-  /* ── Card entrance stagger ── */
-  @keyframes card-enter {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .animate-card-enter {
-    animation: card-enter 250ms ease-out both;
-  }
+	/* ── Card entrance stagger ── */
+	@keyframes card-enter {
+		from {
+			opacity: 0;
+			transform: translateY(10px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.animate-card-enter {
+		animation: card-enter 250ms ease-out both;
+	}
 
-  /* ── Amber shimmer celebration ── */
-  @keyframes amber-shimmer {
-    0%   { opacity: 0.8; transform: scale(1); }
-    60%  { opacity: 0.3; transform: scale(1.5); }
-    100% { opacity: 0;   transform: scale(2); }
-  }
-  .animate-amber-shimmer::after {
-    @apply content-[''] absolute inset-0 rounded-[inherit] pointer-events-none;
-    background: radial-gradient(circle, var(--color-amber-glow) 0%, transparent 70%);
-    animation: amber-shimmer 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
+	/* ── Amber shimmer celebration ── */
+	@keyframes amber-shimmer {
+		0% {
+			opacity: 0.8;
+			transform: scale(1);
+		}
+		60% {
+			opacity: 0.3;
+			transform: scale(1.5);
+		}
+		100% {
+			opacity: 0;
+			transform: scale(2);
+		}
+	}
+	.animate-amber-shimmer::after {
+		@apply pointer-events-none absolute inset-0 rounded-[inherit] content-[''];
+		background: radial-gradient(circle, var(--color-amber-glow) 0%, transparent 70%);
+		animation: amber-shimmer 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+	}
 
-  /* ── Alert badge: attention-grabbing bump when count updates ── */
-  @keyframes alert-badge-bump {
-    0%   { transform: scale(1); }
-    35%  { transform: scale(1.35); }
-    70%  { transform: scale(0.95); }
-    100% { transform: scale(1); }
-  }
-  .animate-alert-badge-bump {
-    animation: alert-badge-bump 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
+	/* ── Alert badge: attention-grabbing bump when count updates ── */
+	@keyframes alert-badge-bump {
+		0% {
+			transform: scale(1);
+		}
+		35% {
+			transform: scale(1.35);
+		}
+		70% {
+			transform: scale(0.95);
+		}
+		100% {
+			transform: scale(1);
+		}
+	}
+	.animate-alert-badge-bump {
+		animation: alert-badge-bump 320ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+	}
 
-  /* ── Squircle corners (superellipse clip-path), see https://jrabausch.github.io/squircle/ ── */
-  /* Drop-in for rounded-*: squircle-none | sm | (default) | md | lg | xl | 2xl | 3xl | 4xl. Set background on the element (e.g. bg-primary, bg-card). */
-  /* Regenerate polygons: node scripts/squircle-clip-path.js <radius> 14 (script outputs reversed/convex fill). */
-  .squircle-none {
-    border-radius: 0;
-    clip-path: none;
-  }
-  .squircle-sm {
-    --squircle-path: polygon(0.00px 2.00px,0.02px 1.12px,0.08px 0.76px,0.18px 0.51px,0.32px 0.32px,0.51px 0.18px,0.76px 0.08px,1.12px 0.02px,2.00px 0.00px,calc(100% - 2.00px) 0.00px,calc(100% - 1.12px) 0.02px,calc(100% - 0.76px) 0.08px,calc(100% - 0.51px) 0.18px,calc(100% - 0.32px) 0.32px,calc(100% - 0.18px) 0.51px,calc(100% - 0.08px) 0.76px,calc(100% - 0.02px) 1.12px,calc(100% - 0.00px) 2.00px,calc(100% - 0.00px) calc(100% - 2.00px),calc(100% - 0.02px) calc(100% - 1.12px),calc(100% - 0.08px) calc(100% - 0.76px),calc(100% - 0.18px) calc(100% - 0.51px),calc(100% - 0.32px) calc(100% - 0.32px),calc(100% - 0.51px) calc(100% - 0.18px),calc(100% - 0.76px) calc(100% - 0.08px),calc(100% - 1.12px) calc(100% - 0.02px),calc(100% - 2.00px) calc(100% - 0.00px),2.00px calc(100% - 0.00px),1.12px calc(100% - 0.02px),0.76px calc(100% - 0.08px),0.51px calc(100% - 0.18px),0.32px calc(100% - 0.32px),0.18px calc(100% - 0.51px),0.08px calc(100% - 0.76px),0.02px calc(100% - 1.12px),0.00px calc(100% - 2.00px));
-    clip-path: var(--squircle-path);
-  }
-  .squircle {
-    --squircle-path: polygon(0.00px 4.00px,0.04px 2.23px,0.16px 1.53px,0.35px 1.02px,0.64px 0.64px,1.02px 0.35px,1.53px 0.16px,2.23px 0.04px,4.00px 0.00px,calc(100% - 4.00px) 0.00px,calc(100% - 2.23px) 0.04px,calc(100% - 1.53px) 0.16px,calc(100% - 1.02px) 0.35px,calc(100% - 0.64px) 0.64px,calc(100% - 0.35px) 1.02px,calc(100% - 0.16px) 1.53px,calc(100% - 0.04px) 2.23px,calc(100% - 0.00px) 4.00px,calc(100% - 0.00px) calc(100% - 4.00px),calc(100% - 0.04px) calc(100% - 2.23px),calc(100% - 0.16px) calc(100% - 1.53px),calc(100% - 0.35px) calc(100% - 1.02px),calc(100% - 0.64px) calc(100% - 0.64px),calc(100% - 1.02px) calc(100% - 0.35px),calc(100% - 1.53px) calc(100% - 0.16px),calc(100% - 2.23px) calc(100% - 0.04px),calc(100% - 4.00px) calc(100% - 0.00px),4.00px calc(100% - 0.00px),2.23px calc(100% - 0.04px),1.53px calc(100% - 0.16px),1.02px calc(100% - 0.35px),0.64px calc(100% - 0.64px),0.35px calc(100% - 1.02px),0.16px calc(100% - 1.53px),0.04px calc(100% - 2.23px),0.00px calc(100% - 4.00px));
-    clip-path: var(--squircle-path);
-  }
-  .squircle-md {
-    --squircle-path: polygon(0.00px 6.00px,0.06px 3.35px,0.23px 2.29px,0.53px 1.53px,0.95px 0.95px,1.53px 0.53px,2.29px 0.23px,3.35px 0.06px,6.00px 0.00px,calc(100% - 6.00px) 0.00px,calc(100% - 3.35px) 0.06px,calc(100% - 2.29px) 0.23px,calc(100% - 1.53px) 0.53px,calc(100% - 0.95px) 0.95px,calc(100% - 0.53px) 1.53px,calc(100% - 0.23px) 2.29px,calc(100% - 0.06px) 3.35px,calc(100% - 0.00px) 6.00px,calc(100% - 0.00px) calc(100% - 6.00px),calc(100% - 0.06px) calc(100% - 3.35px),calc(100% - 0.23px) calc(100% - 2.29px),calc(100% - 0.53px) calc(100% - 1.53px),calc(100% - 0.95px) calc(100% - 0.95px),calc(100% - 1.53px) calc(100% - 0.53px),calc(100% - 2.29px) calc(100% - 0.23px),calc(100% - 3.35px) calc(100% - 0.06px),calc(100% - 6.00px) calc(100% - 0.00px),6.00px calc(100% - 0.00px),3.35px calc(100% - 0.06px),2.29px calc(100% - 0.23px),1.53px calc(100% - 0.53px),0.95px calc(100% - 0.95px),0.53px calc(100% - 1.53px),0.23px calc(100% - 2.29px),0.06px calc(100% - 3.35px),0.00px calc(100% - 6.00px));
-    clip-path: var(--squircle-path);
-  }
-  .squircle-lg {
-    --squircle-path: polygon(0.00px 8.00px,0.08px 4.47px,0.31px 3.05px,0.71px 2.04px,1.27px 1.27px,2.04px 0.71px,3.05px 0.31px,4.47px 0.08px,8.00px 0.00px,calc(100% - 8.00px) 0.00px,calc(100% - 4.47px) 0.08px,calc(100% - 3.05px) 0.31px,calc(100% - 2.04px) 0.71px,calc(100% - 1.27px) 1.27px,calc(100% - 0.71px) 2.04px,calc(100% - 0.31px) 3.05px,calc(100% - 0.08px) 4.47px,calc(100% - 0.00px) 8.00px,calc(100% - 0.00px) calc(100% - 8.00px),calc(100% - 0.08px) calc(100% - 4.47px),calc(100% - 0.31px) calc(100% - 3.05px),calc(100% - 0.71px) calc(100% - 2.04px),calc(100% - 1.27px) calc(100% - 1.27px),calc(100% - 2.04px) calc(100% - 0.71px),calc(100% - 3.05px) calc(100% - 0.31px),calc(100% - 4.47px) calc(100% - 0.08px),calc(100% - 8.00px) calc(100% - 0.00px),8.00px calc(100% - 0.00px),4.47px calc(100% - 0.08px),3.05px calc(100% - 0.31px),2.04px calc(100% - 0.71px),1.27px calc(100% - 1.27px),0.71px calc(100% - 2.04px),0.31px calc(100% - 3.05px),0.08px calc(100% - 4.47px),0.00px calc(100% - 8.00px));
-    clip-path: var(--squircle-path);
-  }
-  .squircle-xl {
-    --squircle-path: polygon(0.00px 12.00px,0.12px 6.70px,0.47px 4.58px,1.06px 3.06px,1.91px 1.91px,3.06px 1.06px,4.58px 0.47px,6.70px 0.12px,12.00px 0.00px,calc(100% - 12.00px) 0.00px,calc(100% - 6.70px) 0.12px,calc(100% - 4.58px) 0.47px,calc(100% - 3.06px) 1.06px,calc(100% - 1.91px) 1.91px,calc(100% - 1.06px) 3.06px,calc(100% - 0.47px) 4.58px,calc(100% - 0.12px) 6.70px,calc(100% - 0.00px) 12.00px,calc(100% - 0.00px) calc(100% - 12.00px),calc(100% - 0.12px) calc(100% - 6.70px),calc(100% - 0.47px) calc(100% - 4.58px),calc(100% - 1.06px) calc(100% - 3.06px),calc(100% - 1.91px) calc(100% - 1.91px),calc(100% - 3.06px) calc(100% - 1.06px),calc(100% - 4.58px) calc(100% - 0.47px),calc(100% - 6.70px) calc(100% - 0.12px),calc(100% - 12.00px) calc(100% - 0.00px),12.00px calc(100% - 0.00px),6.70px calc(100% - 0.12px),4.58px calc(100% - 0.47px),3.06px calc(100% - 1.06px),1.91px calc(100% - 1.91px),1.06px calc(100% - 3.06px),0.47px calc(100% - 4.58px),0.12px calc(100% - 6.70px),0.00px calc(100% - 12.00px));
-    clip-path: var(--squircle-path);
-  }
-  .squircle-2xl {
-    --squircle-path: polygon(0.00px 16.00px,0.15px 8.93px,0.62px 6.10px,1.41px 4.07px,2.55px 2.55px,4.07px 1.41px,6.10px 0.62px,8.93px 0.15px,16.00px 0.00px,calc(100% - 16.00px) 0.00px,calc(100% - 8.93px) 0.15px,calc(100% - 6.10px) 0.62px,calc(100% - 4.07px) 1.41px,calc(100% - 2.55px) 2.55px,calc(100% - 1.41px) 4.07px,calc(100% - 0.62px) 6.10px,calc(100% - 0.15px) 8.93px,calc(100% - 0.00px) 16.00px,calc(100% - 0.00px) calc(100% - 16.00px),calc(100% - 0.15px) calc(100% - 8.93px),calc(100% - 0.62px) calc(100% - 6.10px),calc(100% - 1.41px) calc(100% - 4.07px),calc(100% - 2.55px) calc(100% - 2.55px),calc(100% - 4.07px) calc(100% - 1.41px),calc(100% - 6.10px) calc(100% - 0.62px),calc(100% - 8.93px) calc(100% - 0.15px),calc(100% - 16.00px) calc(100% - 0.00px),16.00px calc(100% - 0.00px),8.93px calc(100% - 0.15px),6.10px calc(100% - 0.62px),4.07px calc(100% - 1.41px),2.55px calc(100% - 2.55px),1.41px calc(100% - 4.07px),0.62px calc(100% - 6.10px),0.15px calc(100% - 8.93px),0.00px calc(100% - 16.00px));
-    clip-path: var(--squircle-path);
-  }
-  .squircle-3xl {
-    --squircle-path: polygon(0.00px 24.00px,0.23px 13.40px,0.93px 9.15px,2.12px 6.11px,3.82px 3.82px,6.11px 2.12px,9.15px 0.93px,13.40px 0.23px,24.00px 0.00px,calc(100% - 24.00px) 0.00px,calc(100% - 13.40px) 0.23px,calc(100% - 9.15px) 0.93px,calc(100% - 6.11px) 2.12px,calc(100% - 3.82px) 3.82px,calc(100% - 2.12px) 6.11px,calc(100% - 0.93px) 9.15px,calc(100% - 0.23px) 13.40px,calc(100% - 0.00px) 24.00px,calc(100% - 0.00px) calc(100% - 24.00px),calc(100% - 0.23px) calc(100% - 13.40px),calc(100% - 0.93px) calc(100% - 9.15px),calc(100% - 2.12px) calc(100% - 6.11px),calc(100% - 3.82px) calc(100% - 3.82px),calc(100% - 6.11px) calc(100% - 2.12px),calc(100% - 9.15px) calc(100% - 0.93px),calc(100% - 13.40px) calc(100% - 0.23px),calc(100% - 24.00px) calc(100% - 0.00px),24.00px calc(100% - 0.00px),13.40px calc(100% - 0.23px),9.15px calc(100% - 0.93px),6.11px calc(100% - 2.12px),3.82px calc(100% - 3.82px),2.12px calc(100% - 6.11px),0.93px calc(100% - 9.15px),0.23px calc(100% - 13.40px),0.00px calc(100% - 24.00px));
-    clip-path: var(--squircle-path);
-  }
-  .squircle-4xl {
-    --squircle-path: polygon(0.00px 32.00px,0.31px 17.87px,1.24px 12.20px,2.82px 8.15px,5.09px 5.09px,8.15px 2.82px,12.20px 1.24px,17.87px 0.31px,32.00px 0.00px,calc(100% - 32.00px) 0.00px,calc(100% - 17.87px) 0.31px,calc(100% - 12.20px) 1.24px,calc(100% - 8.15px) 2.82px,calc(100% - 5.09px) 5.09px,calc(100% - 2.82px) 8.15px,calc(100% - 1.24px) 12.20px,calc(100% - 0.31px) 17.87px,calc(100% - 0.00px) 32.00px,calc(100% - 0.00px) calc(100% - 32.00px),calc(100% - 0.31px) calc(100% - 17.87px),calc(100% - 1.24px) calc(100% - 12.20px),calc(100% - 2.82px) calc(100% - 8.15px),calc(100% - 5.09px) calc(100% - 5.09px),calc(100% - 8.15px) calc(100% - 2.82px),calc(100% - 12.20px) calc(100% - 1.24px),calc(100% - 17.87px) calc(100% - 0.31px),calc(100% - 32.00px) calc(100% - 0.00px),32.00px calc(100% - 0.00px),17.87px calc(100% - 0.31px),12.20px calc(100% - 1.24px),8.15px calc(100% - 2.82px),5.09px calc(100% - 5.09px),2.82px calc(100% - 8.15px),1.24px calc(100% - 12.20px),0.31px calc(100% - 17.87px),0.00px calc(100% - 32.00px));
-    clip-path: var(--squircle-path);
-  }
+	/* ── Squircle corners (superellipse clip-path), see https://jrabausch.github.io/squircle/ ── */
+	/* Drop-in for rounded-*: squircle-none | sm | (default) | md | lg | xl | 2xl | 3xl | 4xl. Set background on the element (e.g. bg-primary, bg-card). */
+	/* Regenerate polygons: node scripts/squircle-clip-path.js <radius> 14 (script outputs reversed/convex fill). */
+	.squircle-none {
+		border-radius: 0;
+		clip-path: none;
+	}
+	.squircle-sm {
+		--squircle-path: polygon(
+			0px 2px,
+			0.02px 1.12px,
+			0.08px 0.76px,
+			0.18px 0.51px,
+			0.32px 0.32px,
+			0.51px 0.18px,
+			0.76px 0.08px,
+			1.12px 0.02px,
+			2px 0px,
+			calc(100% - 2px) 0px,
+			calc(100% - 1.12px) 0.02px,
+			calc(100% - 0.76px) 0.08px,
+			calc(100% - 0.51px) 0.18px,
+			calc(100% - 0.32px) 0.32px,
+			calc(100% - 0.18px) 0.51px,
+			calc(100% - 0.08px) 0.76px,
+			calc(100% - 0.02px) 1.12px,
+			calc(100% - 0px) 2px,
+			calc(100% - 0px) calc(100% - 2px),
+			calc(100% - 0.02px) calc(100% - 1.12px),
+			calc(100% - 0.08px) calc(100% - 0.76px),
+			calc(100% - 0.18px) calc(100% - 0.51px),
+			calc(100% - 0.32px) calc(100% - 0.32px),
+			calc(100% - 0.51px) calc(100% - 0.18px),
+			calc(100% - 0.76px) calc(100% - 0.08px),
+			calc(100% - 1.12px) calc(100% - 0.02px),
+			calc(100% - 2px) calc(100% - 0px),
+			2px calc(100% - 0px),
+			1.12px calc(100% - 0.02px),
+			0.76px calc(100% - 0.08px),
+			0.51px calc(100% - 0.18px),
+			0.32px calc(100% - 0.32px),
+			0.18px calc(100% - 0.51px),
+			0.08px calc(100% - 0.76px),
+			0.02px calc(100% - 1.12px),
+			0px calc(100% - 2px)
+		);
+		clip-path: var(--squircle-path);
+	}
+	.squircle {
+		--squircle-path: polygon(
+			0px 4px,
+			0.04px 2.23px,
+			0.16px 1.53px,
+			0.35px 1.02px,
+			0.64px 0.64px,
+			1.02px 0.35px,
+			1.53px 0.16px,
+			2.23px 0.04px,
+			4px 0px,
+			calc(100% - 4px) 0px,
+			calc(100% - 2.23px) 0.04px,
+			calc(100% - 1.53px) 0.16px,
+			calc(100% - 1.02px) 0.35px,
+			calc(100% - 0.64px) 0.64px,
+			calc(100% - 0.35px) 1.02px,
+			calc(100% - 0.16px) 1.53px,
+			calc(100% - 0.04px) 2.23px,
+			calc(100% - 0px) 4px,
+			calc(100% - 0px) calc(100% - 4px),
+			calc(100% - 0.04px) calc(100% - 2.23px),
+			calc(100% - 0.16px) calc(100% - 1.53px),
+			calc(100% - 0.35px) calc(100% - 1.02px),
+			calc(100% - 0.64px) calc(100% - 0.64px),
+			calc(100% - 1.02px) calc(100% - 0.35px),
+			calc(100% - 1.53px) calc(100% - 0.16px),
+			calc(100% - 2.23px) calc(100% - 0.04px),
+			calc(100% - 4px) calc(100% - 0px),
+			4px calc(100% - 0px),
+			2.23px calc(100% - 0.04px),
+			1.53px calc(100% - 0.16px),
+			1.02px calc(100% - 0.35px),
+			0.64px calc(100% - 0.64px),
+			0.35px calc(100% - 1.02px),
+			0.16px calc(100% - 1.53px),
+			0.04px calc(100% - 2.23px),
+			0px calc(100% - 4px)
+		);
+		clip-path: var(--squircle-path);
+	}
+	.squircle-md {
+		--squircle-path: polygon(
+			0px 6px,
+			0.06px 3.35px,
+			0.23px 2.29px,
+			0.53px 1.53px,
+			0.95px 0.95px,
+			1.53px 0.53px,
+			2.29px 0.23px,
+			3.35px 0.06px,
+			6px 0px,
+			calc(100% - 6px) 0px,
+			calc(100% - 3.35px) 0.06px,
+			calc(100% - 2.29px) 0.23px,
+			calc(100% - 1.53px) 0.53px,
+			calc(100% - 0.95px) 0.95px,
+			calc(100% - 0.53px) 1.53px,
+			calc(100% - 0.23px) 2.29px,
+			calc(100% - 0.06px) 3.35px,
+			calc(100% - 0px) 6px,
+			calc(100% - 0px) calc(100% - 6px),
+			calc(100% - 0.06px) calc(100% - 3.35px),
+			calc(100% - 0.23px) calc(100% - 2.29px),
+			calc(100% - 0.53px) calc(100% - 1.53px),
+			calc(100% - 0.95px) calc(100% - 0.95px),
+			calc(100% - 1.53px) calc(100% - 0.53px),
+			calc(100% - 2.29px) calc(100% - 0.23px),
+			calc(100% - 3.35px) calc(100% - 0.06px),
+			calc(100% - 6px) calc(100% - 0px),
+			6px calc(100% - 0px),
+			3.35px calc(100% - 0.06px),
+			2.29px calc(100% - 0.23px),
+			1.53px calc(100% - 0.53px),
+			0.95px calc(100% - 0.95px),
+			0.53px calc(100% - 1.53px),
+			0.23px calc(100% - 2.29px),
+			0.06px calc(100% - 3.35px),
+			0px calc(100% - 6px)
+		);
+		clip-path: var(--squircle-path);
+	}
+	.squircle-lg {
+		--squircle-path: polygon(
+			0px 8px,
+			0.08px 4.47px,
+			0.31px 3.05px,
+			0.71px 2.04px,
+			1.27px 1.27px,
+			2.04px 0.71px,
+			3.05px 0.31px,
+			4.47px 0.08px,
+			8px 0px,
+			calc(100% - 8px) 0px,
+			calc(100% - 4.47px) 0.08px,
+			calc(100% - 3.05px) 0.31px,
+			calc(100% - 2.04px) 0.71px,
+			calc(100% - 1.27px) 1.27px,
+			calc(100% - 0.71px) 2.04px,
+			calc(100% - 0.31px) 3.05px,
+			calc(100% - 0.08px) 4.47px,
+			calc(100% - 0px) 8px,
+			calc(100% - 0px) calc(100% - 8px),
+			calc(100% - 0.08px) calc(100% - 4.47px),
+			calc(100% - 0.31px) calc(100% - 3.05px),
+			calc(100% - 0.71px) calc(100% - 2.04px),
+			calc(100% - 1.27px) calc(100% - 1.27px),
+			calc(100% - 2.04px) calc(100% - 0.71px),
+			calc(100% - 3.05px) calc(100% - 0.31px),
+			calc(100% - 4.47px) calc(100% - 0.08px),
+			calc(100% - 8px) calc(100% - 0px),
+			8px calc(100% - 0px),
+			4.47px calc(100% - 0.08px),
+			3.05px calc(100% - 0.31px),
+			2.04px calc(100% - 0.71px),
+			1.27px calc(100% - 1.27px),
+			0.71px calc(100% - 2.04px),
+			0.31px calc(100% - 3.05px),
+			0.08px calc(100% - 4.47px),
+			0px calc(100% - 8px)
+		);
+		clip-path: var(--squircle-path);
+	}
+	.squircle-xl {
+		--squircle-path: polygon(
+			0px 12px,
+			0.12px 6.7px,
+			0.47px 4.58px,
+			1.06px 3.06px,
+			1.91px 1.91px,
+			3.06px 1.06px,
+			4.58px 0.47px,
+			6.7px 0.12px,
+			12px 0px,
+			calc(100% - 12px) 0px,
+			calc(100% - 6.7px) 0.12px,
+			calc(100% - 4.58px) 0.47px,
+			calc(100% - 3.06px) 1.06px,
+			calc(100% - 1.91px) 1.91px,
+			calc(100% - 1.06px) 3.06px,
+			calc(100% - 0.47px) 4.58px,
+			calc(100% - 0.12px) 6.7px,
+			calc(100% - 0px) 12px,
+			calc(100% - 0px) calc(100% - 12px),
+			calc(100% - 0.12px) calc(100% - 6.7px),
+			calc(100% - 0.47px) calc(100% - 4.58px),
+			calc(100% - 1.06px) calc(100% - 3.06px),
+			calc(100% - 1.91px) calc(100% - 1.91px),
+			calc(100% - 3.06px) calc(100% - 1.06px),
+			calc(100% - 4.58px) calc(100% - 0.47px),
+			calc(100% - 6.7px) calc(100% - 0.12px),
+			calc(100% - 12px) calc(100% - 0px),
+			12px calc(100% - 0px),
+			6.7px calc(100% - 0.12px),
+			4.58px calc(100% - 0.47px),
+			3.06px calc(100% - 1.06px),
+			1.91px calc(100% - 1.91px),
+			1.06px calc(100% - 3.06px),
+			0.47px calc(100% - 4.58px),
+			0.12px calc(100% - 6.7px),
+			0px calc(100% - 12px)
+		);
+		clip-path: var(--squircle-path);
+	}
+	.squircle-2xl {
+		--squircle-path: polygon(
+			0px 16px,
+			0.15px 8.93px,
+			0.62px 6.1px,
+			1.41px 4.07px,
+			2.55px 2.55px,
+			4.07px 1.41px,
+			6.1px 0.62px,
+			8.93px 0.15px,
+			16px 0px,
+			calc(100% - 16px) 0px,
+			calc(100% - 8.93px) 0.15px,
+			calc(100% - 6.1px) 0.62px,
+			calc(100% - 4.07px) 1.41px,
+			calc(100% - 2.55px) 2.55px,
+			calc(100% - 1.41px) 4.07px,
+			calc(100% - 0.62px) 6.1px,
+			calc(100% - 0.15px) 8.93px,
+			calc(100% - 0px) 16px,
+			calc(100% - 0px) calc(100% - 16px),
+			calc(100% - 0.15px) calc(100% - 8.93px),
+			calc(100% - 0.62px) calc(100% - 6.1px),
+			calc(100% - 1.41px) calc(100% - 4.07px),
+			calc(100% - 2.55px) calc(100% - 2.55px),
+			calc(100% - 4.07px) calc(100% - 1.41px),
+			calc(100% - 6.1px) calc(100% - 0.62px),
+			calc(100% - 8.93px) calc(100% - 0.15px),
+			calc(100% - 16px) calc(100% - 0px),
+			16px calc(100% - 0px),
+			8.93px calc(100% - 0.15px),
+			6.1px calc(100% - 0.62px),
+			4.07px calc(100% - 1.41px),
+			2.55px calc(100% - 2.55px),
+			1.41px calc(100% - 4.07px),
+			0.62px calc(100% - 6.1px),
+			0.15px calc(100% - 8.93px),
+			0px calc(100% - 16px)
+		);
+		clip-path: var(--squircle-path);
+	}
+	.squircle-3xl {
+		--squircle-path: polygon(
+			0px 24px,
+			0.23px 13.4px,
+			0.93px 9.15px,
+			2.12px 6.11px,
+			3.82px 3.82px,
+			6.11px 2.12px,
+			9.15px 0.93px,
+			13.4px 0.23px,
+			24px 0px,
+			calc(100% - 24px) 0px,
+			calc(100% - 13.4px) 0.23px,
+			calc(100% - 9.15px) 0.93px,
+			calc(100% - 6.11px) 2.12px,
+			calc(100% - 3.82px) 3.82px,
+			calc(100% - 2.12px) 6.11px,
+			calc(100% - 0.93px) 9.15px,
+			calc(100% - 0.23px) 13.4px,
+			calc(100% - 0px) 24px,
+			calc(100% - 0px) calc(100% - 24px),
+			calc(100% - 0.23px) calc(100% - 13.4px),
+			calc(100% - 0.93px) calc(100% - 9.15px),
+			calc(100% - 2.12px) calc(100% - 6.11px),
+			calc(100% - 3.82px) calc(100% - 3.82px),
+			calc(100% - 6.11px) calc(100% - 2.12px),
+			calc(100% - 9.15px) calc(100% - 0.93px),
+			calc(100% - 13.4px) calc(100% - 0.23px),
+			calc(100% - 24px) calc(100% - 0px),
+			24px calc(100% - 0px),
+			13.4px calc(100% - 0.23px),
+			9.15px calc(100% - 0.93px),
+			6.11px calc(100% - 2.12px),
+			3.82px calc(100% - 3.82px),
+			2.12px calc(100% - 6.11px),
+			0.93px calc(100% - 9.15px),
+			0.23px calc(100% - 13.4px),
+			0px calc(100% - 24px)
+		);
+		clip-path: var(--squircle-path);
+	}
+	.squircle-4xl {
+		--squircle-path: polygon(
+			0px 32px,
+			0.31px 17.87px,
+			1.24px 12.2px,
+			2.82px 8.15px,
+			5.09px 5.09px,
+			8.15px 2.82px,
+			12.2px 1.24px,
+			17.87px 0.31px,
+			32px 0px,
+			calc(100% - 32px) 0px,
+			calc(100% - 17.87px) 0.31px,
+			calc(100% - 12.2px) 1.24px,
+			calc(100% - 8.15px) 2.82px,
+			calc(100% - 5.09px) 5.09px,
+			calc(100% - 2.82px) 8.15px,
+			calc(100% - 1.24px) 12.2px,
+			calc(100% - 0.31px) 17.87px,
+			calc(100% - 0px) 32px,
+			calc(100% - 0px) calc(100% - 32px),
+			calc(100% - 0.31px) calc(100% - 17.87px),
+			calc(100% - 1.24px) calc(100% - 12.2px),
+			calc(100% - 2.82px) calc(100% - 8.15px),
+			calc(100% - 5.09px) calc(100% - 5.09px),
+			calc(100% - 8.15px) calc(100% - 2.82px),
+			calc(100% - 12.2px) calc(100% - 1.24px),
+			calc(100% - 17.87px) calc(100% - 0.31px),
+			calc(100% - 32px) calc(100% - 0px),
+			32px calc(100% - 0px),
+			17.87px calc(100% - 0.31px),
+			12.2px calc(100% - 1.24px),
+			8.15px calc(100% - 2.82px),
+			5.09px calc(100% - 5.09px),
+			2.82px calc(100% - 8.15px),
+			1.24px calc(100% - 12.2px),
+			0.31px calc(100% - 17.87px),
+			0px calc(100% - 32px)
+		);
+		clip-path: var(--squircle-path);
+	}
 
-  /* ── Squircle border: accurate 1px border using inner/outer polygons ── */
-  /* Use with one of .squircle-sm | .squircle | .squircle-md | … | .squircle-4xl. */
-  /* Border color: --squircle-border-color (defaults to var(--border)). Fill: --squircle-fill (defaults to var(--card)). */
-  .squircle-border {
-    position: relative;
-    background: transparent;
-    --squircle-border-color: var(--border);
-    --squircle-fill: var(--card);
-  }
-  .squircle-border::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    clip-path: var(--squircle-path);
-    background: var(--squircle-border-color);
-    z-index: 0;
-  }
-  .squircle-border::after {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    z-index: 1;
-    background: var(--squircle-fill);
-  }
-  .squircle-border > * {
-    position: relative;
-    z-index: 2;
-  }
-  .squircle-border.squircle-sm::after {
-    clip-path: polygon(0.00px 2.00px,0.02px 0.96px,0.06px 0.64px,0.14px 0.42px,0.26px 0.26px,0.42px 0.14px,0.64px 0.06px,0.96px 0.02px,2.00px 0.00px,calc(100% - 2.00px) 0.00px,calc(100% - 0.96px) 0.02px,calc(100% - 0.64px) 0.06px,calc(100% - 0.42px) 0.14px,calc(100% - 0.26px) 0.26px,calc(100% - 0.14px) 0.42px,calc(100% - 0.06px) 0.64px,calc(100% - 0.02px) 0.96px,calc(100% - 0.00px) 2.00px,calc(100% - 0.00px) calc(100% - 2.00px),calc(100% - 0.02px) calc(100% - 0.96px),calc(100% - 0.06px) calc(100% - 0.64px),calc(100% - 0.14px) calc(100% - 0.42px),calc(100% - 0.26px) calc(100% - 0.26px),calc(100% - 0.42px) calc(100% - 0.14px),calc(100% - 0.64px) calc(100% - 0.06px),calc(100% - 0.96px) calc(100% - 0.02px),calc(100% - 2.00px) calc(100% - 0.00px),2.00px calc(100% - 0.00px),0.96px calc(100% - 0.02px),0.64px calc(100% - 0.06px),0.42px calc(100% - 0.14px),0.26px calc(100% - 0.26px),0.14px calc(100% - 0.42px),0.06px calc(100% - 0.64px),0.02px calc(100% - 0.96px),0.00px calc(100% - 2.00px));
-  }
-  /* Inner polygons use radius R-2 so the fill doesn’t overlap the border in the curved corner. */
-  .squircle-border.squircle::after {
-    clip-path: polygon(0.00px 4.00px,0.03px 1.92px,0.12px 1.28px,0.28px 0.84px,0.52px 0.52px,0.84px 0.28px,1.28px 0.12px,1.92px 0.03px,4.00px 0.00px,calc(100% - 4.00px) 0.00px,calc(100% - 1.92px) 0.03px,calc(100% - 1.28px) 0.12px,calc(100% - 0.84px) 0.28px,calc(100% - 0.52px) 0.52px,calc(100% - 0.28px) 0.84px,calc(100% - 0.12px) 1.28px,calc(100% - 0.03px) 1.92px,calc(100% - 0.00px) 4.00px,calc(100% - 0.00px) calc(100% - 4.00px),calc(100% - 0.03px) calc(100% - 1.92px),calc(100% - 0.12px) calc(100% - 1.28px),calc(100% - 0.28px) calc(100% - 0.84px),calc(100% - 0.52px) calc(100% - 0.52px),calc(100% - 0.84px) calc(100% - 0.28px),calc(100% - 1.28px) calc(100% - 0.12px),calc(100% - 1.92px) calc(100% - 0.03px),calc(100% - 4.00px) calc(100% - 0.00px),4.00px calc(100% - 0.00px),1.92px calc(100% - 0.03px),1.28px calc(100% - 0.12px),0.84px calc(100% - 0.28px),0.52px calc(100% - 0.52px),0.28px calc(100% - 0.84px),0.12px calc(100% - 1.28px),0.03px calc(100% - 1.92px),0.00px calc(100% - 4.00px));
-  }
-  .squircle-border.squircle-md::after {
-    clip-path: polygon(0.00px 6.00px,0.05px 2.88px,0.19px 1.91px,0.43px 1.26px,0.78px 0.78px,1.26px 0.43px,1.91px 0.19px,2.88px 0.05px,6.00px 0.00px,calc(100% - 6.00px) 0.00px,calc(100% - 2.88px) 0.05px,calc(100% - 1.91px) 0.19px,calc(100% - 1.26px) 0.43px,calc(100% - 0.78px) 0.78px,calc(100% - 0.43px) 1.26px,calc(100% - 0.19px) 1.91px,calc(100% - 0.05px) 2.88px,calc(100% - 0.00px) 6.00px,calc(100% - 0.00px) calc(100% - 6.00px),calc(100% - 0.05px) calc(100% - 2.88px),calc(100% - 0.19px) calc(100% - 1.91px),calc(100% - 0.43px) calc(100% - 1.26px),calc(100% - 0.78px) calc(100% - 0.78px),calc(100% - 1.26px) calc(100% - 0.43px),calc(100% - 1.91px) calc(100% - 0.19px),calc(100% - 2.88px) calc(100% - 0.05px),calc(100% - 6.00px) calc(100% - 0.00px),6.00px calc(100% - 0.00px),2.88px calc(100% - 0.05px),1.91px calc(100% - 0.19px),1.26px calc(100% - 0.43px),0.78px calc(100% - 0.78px),0.43px calc(100% - 1.26px),0.19px calc(100% - 1.91px),0.05px calc(100% - 2.88px),0.00px calc(100% - 6.00px));
-  }
-  .squircle-border.squircle-lg::after {
-    clip-path: polygon(0.00px 8.00px,0.06px 3.84px,0.25px 2.55px,0.57px 1.68px,1.04px 1.04px,1.68px 0.57px,2.55px 0.25px,3.84px 0.06px,8.00px 0.00px,calc(100% - 8.00px) 0.00px,calc(100% - 3.84px) 0.06px,calc(100% - 2.55px) 0.25px,calc(100% - 1.68px) 0.57px,calc(100% - 1.04px) 1.04px,calc(100% - 0.57px) 1.68px,calc(100% - 0.25px) 2.55px,calc(100% - 0.06px) 3.84px,calc(100% - 0.00px) 8.00px,calc(100% - 0.00px) calc(100% - 8.00px),calc(100% - 0.06px) calc(100% - 3.84px),calc(100% - 0.25px) calc(100% - 2.55px),calc(100% - 0.57px) calc(100% - 1.68px),calc(100% - 1.04px) calc(100% - 1.04px),calc(100% - 1.68px) calc(100% - 0.57px),calc(100% - 2.55px) calc(100% - 0.25px),calc(100% - 3.84px) calc(100% - 0.06px),calc(100% - 8.00px) calc(100% - 0.00px),8.00px calc(100% - 0.00px),3.84px calc(100% - 0.06px),2.55px calc(100% - 0.25px),1.68px calc(100% - 0.57px),1.04px calc(100% - 1.04px),0.57px calc(100% - 1.68px),0.25px calc(100% - 2.55px),0.06px calc(100% - 3.84px),0.00px calc(100% - 8.00px));
-  }
-  .squircle-border.squircle-xl::after {
-    clip-path: polygon(0.00px 13.00px,0.10px 6.24px,0.41px 4.15px,0.93px 2.72px,1.68px 1.68px,2.72px 0.93px,4.15px 0.41px,6.24px 0.10px,13.00px 0.00px,calc(100% - 13.00px) 0.00px,calc(100% - 6.24px) 0.10px,calc(100% - 4.15px) 0.41px,calc(100% - 2.72px) 0.93px,calc(100% - 1.68px) 1.68px,calc(100% - 0.93px) 2.72px,calc(100% - 0.41px) 4.15px,calc(100% - 0.10px) 6.24px,calc(100% - 0.00px) 13.00px,calc(100% - 0.00px) calc(100% - 13.00px),calc(100% - 0.10px) calc(100% - 6.24px),calc(100% - 0.41px) calc(100% - 4.15px),calc(100% - 0.93px) calc(100% - 2.72px),calc(100% - 1.68px) calc(100% - 1.68px),calc(100% - 2.72px) calc(100% - 0.93px),calc(100% - 4.15px) calc(100% - 0.41px),calc(100% - 6.24px) calc(100% - 0.10px),calc(100% - 13.00px) calc(100% - 0.00px),13.00px calc(100% - 0.00px),6.24px calc(100% - 0.10px),4.15px calc(100% - 0.41px),2.72px calc(100% - 0.93px),1.68px calc(100% - 1.68px),0.93px calc(100% - 2.72px),0.41px calc(100% - 4.15px),0.10px calc(100% - 6.24px),0.00px calc(100% - 13.00px));
-  }
-  .squircle-border.squircle-2xl::after {
-    clip-path: polygon(0.00px 19.00px,0.15px 9.12px,0.59px 6.06px,1.35px 3.98px,2.46px 2.46px,3.98px 1.35px,6.06px 0.59px,9.12px 0.15px,19.00px 0.00px,calc(100% - 19.00px) 0.00px,calc(100% - 9.12px) 0.15px,calc(100% - 6.06px) 0.59px,calc(100% - 3.98px) 1.35px,calc(100% - 2.46px) 2.46px,calc(100% - 1.35px) 3.98px,calc(100% - 0.59px) 6.06px,calc(100% - 0.15px) 9.12px,calc(100% - 0.00px) 19.00px,calc(100% - 0.00px) calc(100% - 19.00px),calc(100% - 0.15px) calc(100% - 9.12px),calc(100% - 0.59px) calc(100% - 6.06px),calc(100% - 1.35px) calc(100% - 3.98px),calc(100% - 2.46px) calc(100% - 2.46px),calc(100% - 3.98px) calc(100% - 1.35px),calc(100% - 6.06px) calc(100% - 0.59px),calc(100% - 9.12px) calc(100% - 0.15px),calc(100% - 19.00px) calc(100% - 0.00px),19.00px calc(100% - 0.00px),9.12px calc(100% - 0.15px),6.06px calc(100% - 0.59px),3.98px calc(100% - 1.35px),2.46px calc(100% - 2.46px),1.35px calc(100% - 3.98px),0.59px calc(100% - 6.06px),0.15px calc(100% - 9.12px),0.00px calc(100% - 19.00px));
-  }
-  .squircle-border.squircle-3xl::after {
-    clip-path: polygon(0.00px 28.00px,0.22px 13.44px,0.87px 8.93px,1.99px 5.87px,3.62px 3.62px,5.87px 1.99px,8.93px 0.87px,13.44px 0.22px,28.00px 0.00px,calc(100% - 28.00px) 0.00px,calc(100% - 13.44px) 0.22px,calc(100% - 8.93px) 0.87px,calc(100% - 5.87px) 1.99px,calc(100% - 3.62px) 3.62px,calc(100% - 1.99px) 5.87px,calc(100% - 0.87px) 8.93px,calc(100% - 0.22px) 13.44px,calc(100% - 0.00px) 28.00px,calc(100% - 0.00px) calc(100% - 28.00px),calc(100% - 0.22px) calc(100% - 13.44px),calc(100% - 0.87px) calc(100% - 8.93px),calc(100% - 1.99px) calc(100% - 5.87px),calc(100% - 3.62px) calc(100% - 3.62px),calc(100% - 5.87px) calc(100% - 1.99px),calc(100% - 8.93px) calc(100% - 0.87px),calc(100% - 13.44px) calc(100% - 0.22px),calc(100% - 28.00px) calc(100% - 0.00px),28.00px calc(100% - 0.00px),13.44px calc(100% - 0.22px),8.93px calc(100% - 0.87px),5.87px calc(100% - 1.99px),3.62px calc(100% - 3.62px),1.99px calc(100% - 5.87px),0.87px calc(100% - 8.93px),0.22px calc(100% - 13.44px),0.00px calc(100% - 28.00px));
-  }
-  .squircle-border.squircle-4xl::after {
-    clip-path: polygon(0.00px 38.00px,0.29px 18.24px,1.18px 12.12px,2.70px 7.96px,4.92px 4.92px,7.96px 2.70px,12.12px 1.18px,18.24px 0.29px,38.00px 0.00px,calc(100% - 38.00px) 0.00px,calc(100% - 18.24px) 0.29px,calc(100% - 12.12px) 1.18px,calc(100% - 7.96px) 2.70px,calc(100% - 4.92px) 4.92px,calc(100% - 2.70px) 7.96px,calc(100% - 1.18px) 12.12px,calc(100% - 0.29px) 18.24px,calc(100% - 0.00px) 38.00px,calc(100% - 0.00px) calc(100% - 38.00px),calc(100% - 0.29px) calc(100% - 18.24px),calc(100% - 1.18px) calc(100% - 12.12px),calc(100% - 2.70px) calc(100% - 7.96px),calc(100% - 4.92px) calc(100% - 4.92px),calc(100% - 7.96px) calc(100% - 2.70px),calc(100% - 12.12px) calc(100% - 1.18px),calc(100% - 18.24px) calc(100% - 0.29px),calc(100% - 38.00px) calc(100% - 0.00px),38.00px calc(100% - 0.00px),18.24px calc(100% - 0.29px),12.12px calc(100% - 1.18px),7.96px calc(100% - 2.70px),4.92px calc(100% - 4.92px),2.70px calc(100% - 7.96px),1.18px calc(100% - 12.12px),0.29px calc(100% - 18.24px),0.00px calc(100% - 38.00px));
-  }
+	/* ── Squircle border: accurate 1px border using inner/outer polygons ── */
+	/* Use with one of .squircle-sm | .squircle | .squircle-md | … | .squircle-4xl. */
+	/* Border color: --squircle-border-color (defaults to var(--border)). Fill: --squircle-fill (defaults to var(--card)). */
+	.squircle-border {
+		position: relative;
+		background: transparent;
+		--squircle-border-color: var(--border);
+		--squircle-fill: var(--card);
+	}
+	.squircle-border::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		clip-path: var(--squircle-path);
+		background: var(--squircle-border-color);
+		z-index: 0;
+	}
+	.squircle-border::after {
+		content: '';
+		position: absolute;
+		inset: 1px;
+		z-index: 1;
+		background: var(--squircle-fill);
+	}
+	.squircle-border > * {
+		position: relative;
+		z-index: 2;
+	}
+	.squircle-border.squircle-sm::after {
+		clip-path: polygon(
+			0px 2px,
+			0.02px 0.96px,
+			0.06px 0.64px,
+			0.14px 0.42px,
+			0.26px 0.26px,
+			0.42px 0.14px,
+			0.64px 0.06px,
+			0.96px 0.02px,
+			2px 0px,
+			calc(100% - 2px) 0px,
+			calc(100% - 0.96px) 0.02px,
+			calc(100% - 0.64px) 0.06px,
+			calc(100% - 0.42px) 0.14px,
+			calc(100% - 0.26px) 0.26px,
+			calc(100% - 0.14px) 0.42px,
+			calc(100% - 0.06px) 0.64px,
+			calc(100% - 0.02px) 0.96px,
+			calc(100% - 0px) 2px,
+			calc(100% - 0px) calc(100% - 2px),
+			calc(100% - 0.02px) calc(100% - 0.96px),
+			calc(100% - 0.06px) calc(100% - 0.64px),
+			calc(100% - 0.14px) calc(100% - 0.42px),
+			calc(100% - 0.26px) calc(100% - 0.26px),
+			calc(100% - 0.42px) calc(100% - 0.14px),
+			calc(100% - 0.64px) calc(100% - 0.06px),
+			calc(100% - 0.96px) calc(100% - 0.02px),
+			calc(100% - 2px) calc(100% - 0px),
+			2px calc(100% - 0px),
+			0.96px calc(100% - 0.02px),
+			0.64px calc(100% - 0.06px),
+			0.42px calc(100% - 0.14px),
+			0.26px calc(100% - 0.26px),
+			0.14px calc(100% - 0.42px),
+			0.06px calc(100% - 0.64px),
+			0.02px calc(100% - 0.96px),
+			0px calc(100% - 2px)
+		);
+	}
+	/* Inner polygons use radius R-2 so the fill doesn’t overlap the border in the curved corner. */
+	.squircle-border.squircle::after {
+		clip-path: polygon(
+			0px 4px,
+			0.03px 1.92px,
+			0.12px 1.28px,
+			0.28px 0.84px,
+			0.52px 0.52px,
+			0.84px 0.28px,
+			1.28px 0.12px,
+			1.92px 0.03px,
+			4px 0px,
+			calc(100% - 4px) 0px,
+			calc(100% - 1.92px) 0.03px,
+			calc(100% - 1.28px) 0.12px,
+			calc(100% - 0.84px) 0.28px,
+			calc(100% - 0.52px) 0.52px,
+			calc(100% - 0.28px) 0.84px,
+			calc(100% - 0.12px) 1.28px,
+			calc(100% - 0.03px) 1.92px,
+			calc(100% - 0px) 4px,
+			calc(100% - 0px) calc(100% - 4px),
+			calc(100% - 0.03px) calc(100% - 1.92px),
+			calc(100% - 0.12px) calc(100% - 1.28px),
+			calc(100% - 0.28px) calc(100% - 0.84px),
+			calc(100% - 0.52px) calc(100% - 0.52px),
+			calc(100% - 0.84px) calc(100% - 0.28px),
+			calc(100% - 1.28px) calc(100% - 0.12px),
+			calc(100% - 1.92px) calc(100% - 0.03px),
+			calc(100% - 4px) calc(100% - 0px),
+			4px calc(100% - 0px),
+			1.92px calc(100% - 0.03px),
+			1.28px calc(100% - 0.12px),
+			0.84px calc(100% - 0.28px),
+			0.52px calc(100% - 0.52px),
+			0.28px calc(100% - 0.84px),
+			0.12px calc(100% - 1.28px),
+			0.03px calc(100% - 1.92px),
+			0px calc(100% - 4px)
+		);
+	}
+	.squircle-border.squircle-md::after {
+		clip-path: polygon(
+			0px 6px,
+			0.05px 2.88px,
+			0.19px 1.91px,
+			0.43px 1.26px,
+			0.78px 0.78px,
+			1.26px 0.43px,
+			1.91px 0.19px,
+			2.88px 0.05px,
+			6px 0px,
+			calc(100% - 6px) 0px,
+			calc(100% - 2.88px) 0.05px,
+			calc(100% - 1.91px) 0.19px,
+			calc(100% - 1.26px) 0.43px,
+			calc(100% - 0.78px) 0.78px,
+			calc(100% - 0.43px) 1.26px,
+			calc(100% - 0.19px) 1.91px,
+			calc(100% - 0.05px) 2.88px,
+			calc(100% - 0px) 6px,
+			calc(100% - 0px) calc(100% - 6px),
+			calc(100% - 0.05px) calc(100% - 2.88px),
+			calc(100% - 0.19px) calc(100% - 1.91px),
+			calc(100% - 0.43px) calc(100% - 1.26px),
+			calc(100% - 0.78px) calc(100% - 0.78px),
+			calc(100% - 1.26px) calc(100% - 0.43px),
+			calc(100% - 1.91px) calc(100% - 0.19px),
+			calc(100% - 2.88px) calc(100% - 0.05px),
+			calc(100% - 6px) calc(100% - 0px),
+			6px calc(100% - 0px),
+			2.88px calc(100% - 0.05px),
+			1.91px calc(100% - 0.19px),
+			1.26px calc(100% - 0.43px),
+			0.78px calc(100% - 0.78px),
+			0.43px calc(100% - 1.26px),
+			0.19px calc(100% - 1.91px),
+			0.05px calc(100% - 2.88px),
+			0px calc(100% - 6px)
+		);
+	}
+	.squircle-border.squircle-lg::after {
+		clip-path: polygon(
+			0px 8px,
+			0.06px 3.84px,
+			0.25px 2.55px,
+			0.57px 1.68px,
+			1.04px 1.04px,
+			1.68px 0.57px,
+			2.55px 0.25px,
+			3.84px 0.06px,
+			8px 0px,
+			calc(100% - 8px) 0px,
+			calc(100% - 3.84px) 0.06px,
+			calc(100% - 2.55px) 0.25px,
+			calc(100% - 1.68px) 0.57px,
+			calc(100% - 1.04px) 1.04px,
+			calc(100% - 0.57px) 1.68px,
+			calc(100% - 0.25px) 2.55px,
+			calc(100% - 0.06px) 3.84px,
+			calc(100% - 0px) 8px,
+			calc(100% - 0px) calc(100% - 8px),
+			calc(100% - 0.06px) calc(100% - 3.84px),
+			calc(100% - 0.25px) calc(100% - 2.55px),
+			calc(100% - 0.57px) calc(100% - 1.68px),
+			calc(100% - 1.04px) calc(100% - 1.04px),
+			calc(100% - 1.68px) calc(100% - 0.57px),
+			calc(100% - 2.55px) calc(100% - 0.25px),
+			calc(100% - 3.84px) calc(100% - 0.06px),
+			calc(100% - 8px) calc(100% - 0px),
+			8px calc(100% - 0px),
+			3.84px calc(100% - 0.06px),
+			2.55px calc(100% - 0.25px),
+			1.68px calc(100% - 0.57px),
+			1.04px calc(100% - 1.04px),
+			0.57px calc(100% - 1.68px),
+			0.25px calc(100% - 2.55px),
+			0.06px calc(100% - 3.84px),
+			0px calc(100% - 8px)
+		);
+	}
+	.squircle-border.squircle-xl::after {
+		clip-path: polygon(
+			0px 13px,
+			0.1px 6.24px,
+			0.41px 4.15px,
+			0.93px 2.72px,
+			1.68px 1.68px,
+			2.72px 0.93px,
+			4.15px 0.41px,
+			6.24px 0.1px,
+			13px 0px,
+			calc(100% - 13px) 0px,
+			calc(100% - 6.24px) 0.1px,
+			calc(100% - 4.15px) 0.41px,
+			calc(100% - 2.72px) 0.93px,
+			calc(100% - 1.68px) 1.68px,
+			calc(100% - 0.93px) 2.72px,
+			calc(100% - 0.41px) 4.15px,
+			calc(100% - 0.1px) 6.24px,
+			calc(100% - 0px) 13px,
+			calc(100% - 0px) calc(100% - 13px),
+			calc(100% - 0.1px) calc(100% - 6.24px),
+			calc(100% - 0.41px) calc(100% - 4.15px),
+			calc(100% - 0.93px) calc(100% - 2.72px),
+			calc(100% - 1.68px) calc(100% - 1.68px),
+			calc(100% - 2.72px) calc(100% - 0.93px),
+			calc(100% - 4.15px) calc(100% - 0.41px),
+			calc(100% - 6.24px) calc(100% - 0.1px),
+			calc(100% - 13px) calc(100% - 0px),
+			13px calc(100% - 0px),
+			6.24px calc(100% - 0.1px),
+			4.15px calc(100% - 0.41px),
+			2.72px calc(100% - 0.93px),
+			1.68px calc(100% - 1.68px),
+			0.93px calc(100% - 2.72px),
+			0.41px calc(100% - 4.15px),
+			0.1px calc(100% - 6.24px),
+			0px calc(100% - 13px)
+		);
+	}
+	.squircle-border.squircle-2xl::after {
+		clip-path: polygon(
+			0px 19px,
+			0.15px 9.12px,
+			0.59px 6.06px,
+			1.35px 3.98px,
+			2.46px 2.46px,
+			3.98px 1.35px,
+			6.06px 0.59px,
+			9.12px 0.15px,
+			19px 0px,
+			calc(100% - 19px) 0px,
+			calc(100% - 9.12px) 0.15px,
+			calc(100% - 6.06px) 0.59px,
+			calc(100% - 3.98px) 1.35px,
+			calc(100% - 2.46px) 2.46px,
+			calc(100% - 1.35px) 3.98px,
+			calc(100% - 0.59px) 6.06px,
+			calc(100% - 0.15px) 9.12px,
+			calc(100% - 0px) 19px,
+			calc(100% - 0px) calc(100% - 19px),
+			calc(100% - 0.15px) calc(100% - 9.12px),
+			calc(100% - 0.59px) calc(100% - 6.06px),
+			calc(100% - 1.35px) calc(100% - 3.98px),
+			calc(100% - 2.46px) calc(100% - 2.46px),
+			calc(100% - 3.98px) calc(100% - 1.35px),
+			calc(100% - 6.06px) calc(100% - 0.59px),
+			calc(100% - 9.12px) calc(100% - 0.15px),
+			calc(100% - 19px) calc(100% - 0px),
+			19px calc(100% - 0px),
+			9.12px calc(100% - 0.15px),
+			6.06px calc(100% - 0.59px),
+			3.98px calc(100% - 1.35px),
+			2.46px calc(100% - 2.46px),
+			1.35px calc(100% - 3.98px),
+			0.59px calc(100% - 6.06px),
+			0.15px calc(100% - 9.12px),
+			0px calc(100% - 19px)
+		);
+	}
+	.squircle-border.squircle-3xl::after {
+		clip-path: polygon(
+			0px 28px,
+			0.22px 13.44px,
+			0.87px 8.93px,
+			1.99px 5.87px,
+			3.62px 3.62px,
+			5.87px 1.99px,
+			8.93px 0.87px,
+			13.44px 0.22px,
+			28px 0px,
+			calc(100% - 28px) 0px,
+			calc(100% - 13.44px) 0.22px,
+			calc(100% - 8.93px) 0.87px,
+			calc(100% - 5.87px) 1.99px,
+			calc(100% - 3.62px) 3.62px,
+			calc(100% - 1.99px) 5.87px,
+			calc(100% - 0.87px) 8.93px,
+			calc(100% - 0.22px) 13.44px,
+			calc(100% - 0px) 28px,
+			calc(100% - 0px) calc(100% - 28px),
+			calc(100% - 0.22px) calc(100% - 13.44px),
+			calc(100% - 0.87px) calc(100% - 8.93px),
+			calc(100% - 1.99px) calc(100% - 5.87px),
+			calc(100% - 3.62px) calc(100% - 3.62px),
+			calc(100% - 5.87px) calc(100% - 1.99px),
+			calc(100% - 8.93px) calc(100% - 0.87px),
+			calc(100% - 13.44px) calc(100% - 0.22px),
+			calc(100% - 28px) calc(100% - 0px),
+			28px calc(100% - 0px),
+			13.44px calc(100% - 0.22px),
+			8.93px calc(100% - 0.87px),
+			5.87px calc(100% - 1.99px),
+			3.62px calc(100% - 3.62px),
+			1.99px calc(100% - 5.87px),
+			0.87px calc(100% - 8.93px),
+			0.22px calc(100% - 13.44px),
+			0px calc(100% - 28px)
+		);
+	}
+	.squircle-border.squircle-4xl::after {
+		clip-path: polygon(
+			0px 38px,
+			0.29px 18.24px,
+			1.18px 12.12px,
+			2.7px 7.96px,
+			4.92px 4.92px,
+			7.96px 2.7px,
+			12.12px 1.18px,
+			18.24px 0.29px,
+			38px 0px,
+			calc(100% - 38px) 0px,
+			calc(100% - 18.24px) 0.29px,
+			calc(100% - 12.12px) 1.18px,
+			calc(100% - 7.96px) 2.7px,
+			calc(100% - 4.92px) 4.92px,
+			calc(100% - 2.7px) 7.96px,
+			calc(100% - 1.18px) 12.12px,
+			calc(100% - 0.29px) 18.24px,
+			calc(100% - 0px) 38px,
+			calc(100% - 0px) calc(100% - 38px),
+			calc(100% - 0.29px) calc(100% - 18.24px),
+			calc(100% - 1.18px) calc(100% - 12.12px),
+			calc(100% - 2.7px) calc(100% - 7.96px),
+			calc(100% - 4.92px) calc(100% - 4.92px),
+			calc(100% - 7.96px) calc(100% - 2.7px),
+			calc(100% - 12.12px) calc(100% - 1.18px),
+			calc(100% - 18.24px) calc(100% - 0.29px),
+			calc(100% - 38px) calc(100% - 0px),
+			38px calc(100% - 0px),
+			18.24px calc(100% - 0.29px),
+			12.12px calc(100% - 1.18px),
+			7.96px calc(100% - 2.7px),
+			4.92px calc(100% - 4.92px),
+			2.7px calc(100% - 7.96px),
+			1.18px calc(100% - 12.12px),
+			0.29px calc(100% - 18.24px),
+			0px calc(100% - 38px)
+		);
+	}
 
-  /* Fill variants for squircle-border when not using card background */
-  .squircle-fill-tertiary { --squircle-fill: var(--color-bg-tertiary); }
-  .squircle-fill-surface { --squircle-fill: var(--color-bg-surface); }
+	/* Fill variants for squircle-border when not using card background */
+	.squircle-fill-tertiary {
+		--squircle-fill: var(--color-bg-tertiary);
+	}
+	.squircle-fill-surface {
+		--squircle-fill: var(--color-bg-surface);
+	}
 
-  /* Optional: 1px squircle outline via drop-shadow (no extra DOM). Wrap the squircle in .squircle-outline. */
-  .squircle-outline {
-    filter: drop-shadow(0 -1px 0 var(--border)) drop-shadow(0 1px 0 var(--border)) drop-shadow(1px 0 0 var(--border)) drop-shadow(-1px 0 0 var(--border));
-  }
+	/* Optional: 1px squircle outline via drop-shadow (no extra DOM). Wrap the squircle in .squircle-outline. */
+	.squircle-outline {
+		filter: drop-shadow(0 -1px 0 var(--border)) drop-shadow(0 1px 0 var(--border))
+			drop-shadow(1px 0 0 var(--border)) drop-shadow(-1px 0 0 var(--border));
+	}
 }

@@ -396,15 +396,17 @@ export function calculateTransactionImpact(transaction: Transaction, accountId?:
 	switch (transaction.type) {
 		case 'income':
 			// Use cached accountAmount if available (converted to account currency), otherwise use original amount
-			const incomeAmount = transaction.accountAmount !== undefined 
-				? transaction.accountAmount 
-				: transaction.amount || 0;
+			const incomeAmount =
+				transaction.accountAmount !== undefined
+					? transaction.accountAmount
+					: transaction.amount || 0;
 			return incomeAmount; // Positive adds, negative subtracts
 		case 'expense':
 			// Use cached accountAmount if available (converted to account currency), otherwise use original amount
-			const expenseAmount = transaction.accountAmount !== undefined 
-				? transaction.accountAmount 
-				: transaction.amount || 0;
+			const expenseAmount =
+				transaction.accountAmount !== undefined
+					? transaction.accountAmount
+					: transaction.amount || 0;
 			return -expenseAmount; // Positive subtracts, negative adds (like cashback)
 		case 'transfer':
 			// For transfers, use transferDetails instead of amount field
@@ -412,14 +414,15 @@ export function calculateTransactionImpact(transaction: Transaction, accountId?:
 				return calculateTransferImpact(transaction, accountId);
 			}
 			// Fallback for legacy transfers
-			return transaction.accountAmount !== undefined 
-				? transaction.accountAmount 
+			return transaction.accountAmount !== undefined
+				? transaction.accountAmount
 				: transaction.amount || 0;
 		case 'adjustment':
 			// Use cached accountAmount if available (converted to account currency), otherwise use original amount
-			const adjustmentAmount = transaction.accountAmount !== undefined 
-				? transaction.accountAmount 
-				: transaction.amount || 0;
+			const adjustmentAmount =
+				transaction.accountAmount !== undefined
+					? transaction.accountAmount
+					: transaction.amount || 0;
 			return adjustmentAmount; // Direct modification
 		default:
 			return 0;
@@ -436,22 +439,31 @@ export function calculateTransferImpact(transaction: Transaction, accountId: str
 		return 0;
 	}
 
-	const { toAccountId, transferAmount, toAccountAmount, feeAmount, feeAccountId, feeAccountAmount } = transaction.transferDetails;
+	const {
+		toAccountId,
+		transferAmount,
+		toAccountAmount,
+		feeAmount,
+		feeAccountId,
+		feeAccountAmount
+	} = transaction.transferDetails;
 	const sourceAccountId = transaction.accountId;
 	const feeAccount = feeAccountId || sourceAccountId; // Default fee to source account
 
 	if (accountId === sourceAccountId) {
 		// Source account: money going out + fee (if fee is on this account)
 		// Use cached accountAmount for transfer amount (converted to source account currency)
-		const sourceTransferAmount = transaction.accountAmount !== undefined 
-			? transaction.accountAmount 
-			: transferAmount || 0;
-		
+		const sourceTransferAmount =
+			transaction.accountAmount !== undefined ? transaction.accountAmount : transferAmount || 0;
+
 		// Use cached feeAccountAmount if fee is on this account, otherwise use original feeAmount
-		const feeOnThisAccount = feeAccount === sourceAccountId 
-			? (feeAccountAmount !== undefined ? feeAccountAmount : feeAmount || 0)
-			: 0;
-		
+		const feeOnThisAccount =
+			feeAccount === sourceAccountId
+				? feeAccountAmount !== undefined
+					? feeAccountAmount
+					: feeAmount || 0
+				: 0;
+
 		return -(sourceTransferAmount + feeOnThisAccount);
 	} else if (accountId === toAccountId) {
 		// Destination account: money coming in
@@ -811,7 +823,7 @@ const AccountMetadataSchema = z.object({
 
 	// Buffer management (will be calculated, but can be overridden)
 	bufferAmount: z.number().min(0).optional(), // User-defined buffer amount
-	
+
 	// Emergency fund designation
 	isEmergencyFund: z.boolean().optional() // Designate this account as part of emergency fund
 });
@@ -989,7 +1001,7 @@ const TransactionSchema = BaseSchema.extend({
 			feeCategoryId: z.string().optional() // Category for the fee
 		})
 		.optional(),
-	
+
 	// Currency conversion metadata (for multi-currency transactions)
 	currencyConversion: z
 		.object({
@@ -1048,7 +1060,7 @@ const UserPreferencesSchema = BaseSchema.extend({
 	// Privacy and Data Preferences
 	analyticsEnabled: z.boolean().default(true),
 	backupEnabled: z.boolean().default(true),
-	
+
 	// Emergency Fund Preferences
 	emergencyFundTargetMonths: z.number().min(3).max(12).default(6), // Target months of expenses (3-12)
 	emergencyFundIncomeStability: z.enum(['stable', 'irregular']).default('stable'), // Income stability
@@ -1059,7 +1071,12 @@ const UserPreferencesSchema = BaseSchema.extend({
 
 	// Negative Allowance Handling (when spending exceeds allowance)
 	negativeAllowanceHandling: z
-		.enum(['block_with_warning', 'allow_with_strong_warning', 'borrow_from_future', 'borrow_from_other_categories'])
+		.enum([
+			'block_with_warning',
+			'allow_with_strong_warning',
+			'borrow_from_future',
+			'borrow_from_other_categories'
+		])
 		.default('allow_with_strong_warning'),
 
 	// Envelope Borrowing limits (when using borrow_from_other_categories)
@@ -1336,7 +1353,12 @@ const NegativeAllowanceEventSchema = BaseSchema.extend({
 	spentAmount: z.number(), // Actual spent
 	overBy: z.number(), // spentAmount - allowanceAmount (positive when negative allowance)
 	currency: z.string().min(3).max(3),
-	handlingApplied: z.enum(['block_with_warning', 'allow_with_strong_warning', 'borrow_from_future', 'borrow_from_other_categories']), // User's setting when event occurred
+	handlingApplied: z.enum([
+		'block_with_warning',
+		'allow_with_strong_warning',
+		'borrow_from_future',
+		'borrow_from_other_categories'
+	]), // User's setting when event occurred
 	recoveredAt: z.string().datetime().optional(), // When user resolved (e.g. moved transaction, next period started)
 	metadata: z.string().optional() // JSON: recoverySuggestionsAccepted, transactionIds, etc.
 });
@@ -1773,7 +1795,8 @@ export class BudgicDB extends Dexie {
 				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
 			rolloverAdjustments:
 				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
-			occasions: 'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]'
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]'
 		});
 
 		// Add validation hooks
@@ -2215,19 +2238,22 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.negativeAllowanceEvents.hook('updating', (modifications: Partial<NegativeAllowanceEvent>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.negativeAllowanceEvents.hook(
+			'updating',
+			(modifications: Partial<NegativeAllowanceEvent>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					NegativeAllowanceEventSchema.parse(updated);
+				} catch (error) {
+					console.error('Negative allowance event update validation failed:', error);
+					console.error('Modifications:', modifications);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				NegativeAllowanceEventSchema.parse(updated);
-			} catch (error) {
-				console.error('Negative allowance event update validation failed:', error);
-				console.error('Modifications:', modifications);
-				throw error;
 			}
-		});
+		);
 
 		// Envelope Borrowing validation
 		this.envelopeBorrowings.hook('creating', (primKey, obj, trans) => {
@@ -2241,19 +2267,22 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.envelopeBorrowings.hook('updating', (modifications: Partial<EnvelopeBorrowing>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.envelopeBorrowings.hook(
+			'updating',
+			(modifications: Partial<EnvelopeBorrowing>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					EnvelopeBorrowingSchema.parse(updated);
+				} catch (error) {
+					console.error('Envelope borrowing update validation failed:', error);
+					console.error('Modifications:', modifications);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				EnvelopeBorrowingSchema.parse(updated);
-			} catch (error) {
-				console.error('Envelope borrowing update validation failed:', error);
-				console.error('Modifications:', modifications);
-				throw error;
 			}
-		});
+		);
 
 		// Rollover adjustment validation
 		this.rolloverAdjustments.hook('creating', (primKey, obj, trans) => {
@@ -2265,18 +2294,21 @@ export class BudgicDB extends Dexie {
 				throw error;
 			}
 		});
-		this.rolloverAdjustments.hook('updating', (modifications: Partial<RolloverAdjustment>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.rolloverAdjustments.hook(
+			'updating',
+			(modifications: Partial<RolloverAdjustment>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					RolloverAdjustmentSchema.parse(updated);
+				} catch (error) {
+					console.error('Rollover adjustment update validation failed:', error);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				RolloverAdjustmentSchema.parse(updated);
-			} catch (error) {
-				console.error('Rollover adjustment update validation failed:', error);
-				throw error;
 			}
-		});
+		);
 
 		// Occasion validation
 		this.occasions.hook('creating', (primKey, obj, trans) => {
@@ -2735,7 +2767,7 @@ export class BudgicDB extends Dexie {
 			.equals(accountId)
 			.filter((transaction) => !transaction.deletedAt)
 			.toArray();
-		
+
 		// Sort by date (oldest first) for consistent ordering
 		// This ensures balance calculations and other operations process transactions chronologically
 		return transactions.sort((a, b) => {
@@ -2743,12 +2775,12 @@ export class BudgicDB extends Dexie {
 			const dateB = b.clearedDate || b.plannedDate || b.createdAt;
 			const timeA = new Date(dateA).getTime();
 			const timeB = new Date(dateB).getTime();
-			
+
 			// If dates are equal, use creation time as tiebreaker
 			if (timeA === timeB) {
 				return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
 			}
-			
+
 			return timeA - timeB; // Oldest first
 		});
 	}
@@ -2995,8 +3027,7 @@ export class BudgicDB extends Dexie {
 		const all = await this.insights
 			.filter(
 				(insight) =>
-					(insight.readAt != null || insight.dismissedAt != null) &&
-					insight.type !== 'prediction'
+					(insight.readAt != null || insight.dismissedAt != null) && insight.type !== 'prediction'
 			)
 			.toArray();
 		const recent = all.filter((insight) => {
@@ -3016,9 +3047,7 @@ export class BudgicDB extends Dexie {
 	 */
 	async markPanelInsightsAsRead(): Promise<void> {
 		const unread = await this.getUnreadInsights();
-		const panel = unread.filter(
-			(i) => i.severity === 'alert' || i.severity === 'warning'
-		);
+		const panel = unread.filter((i) => i.severity === 'alert' || i.severity === 'warning');
 		await Promise.all(
 			panel.map((insight) =>
 				this.insights.update(insight.id, {
@@ -3228,11 +3257,13 @@ export class BudgicDB extends Dexie {
 
 		// Start with the initial balance
 		let balance = account.initialBalance || 0;
-		
+
 		// Debug logging for balance calculation (only in development)
 		const isDebugMode = typeof window !== 'undefined' && (window as any).__BUDGIC_DEBUG__;
 		if (isDebugMode) {
-			console.log(`[Balance Calc] Account: ${account.name} (${accountId}), Starting balance: ${balance}`);
+			console.log(
+				`[Balance Calc] Account: ${account.name} (${accountId}), Starting balance: ${balance}`
+			);
 		}
 
 		// Get all cleared transactions where this account is the source (accountId)
@@ -3240,12 +3271,14 @@ export class BudgicDB extends Dexie {
 		const clearedSourceTransactions = sourceTransactions.filter(
 			(t) => t.status === 'cleared' && !t.deletedAt
 		);
-		
+
 		// Debug: Log transaction count and check for multi-currency transactions
 		if (isDebugMode) {
-			console.log(`[Balance Calc] Found ${clearedSourceTransactions.length} cleared source transactions`);
-			const multiCurrencyCount = clearedSourceTransactions.filter(t => 
-				t.currency && t.accountAmount !== undefined && t.currency !== account.currency
+			console.log(
+				`[Balance Calc] Found ${clearedSourceTransactions.length} cleared source transactions`
+			);
+			const multiCurrencyCount = clearedSourceTransactions.filter(
+				(t) => t.currency && t.accountAmount !== undefined && t.currency !== account.currency
 			).length;
 			if (multiCurrencyCount > 0) {
 				console.log(`[Balance Calc] Found ${multiCurrencyCount} multi-currency transactions`);
@@ -3305,39 +3338,43 @@ export class BudgicDB extends Dexie {
 			const dateB = b.clearedDate || b.plannedDate || b.createdAt;
 			const timeA = new Date(dateA).getTime();
 			const timeB = new Date(dateB).getTime();
-			
+
 			// If dates are equal, use creation time as tiebreaker for consistent ordering
 			if (timeA === timeB) {
 				return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
 			}
-			
+
 			return timeA - timeB; // Oldest first
 		});
 
 		// Apply impact of all transactions in chronological order
 		let transactionCount = 0;
-		
+
 		for (const transaction of allAffectingTransactions) {
 			const impact = calculateTransactionImpact(transaction, accountId);
 			const previousBalance = balance;
 			balance += impact;
 			transactionCount++;
-			
+
 			if (isDebugMode) {
 				const date = transaction.clearedDate || transaction.plannedDate || transaction.createdAt;
-				const amountUsed = transaction.accountAmount !== undefined 
-					? transaction.accountAmount 
-					: transaction.amount;
-				const currencyInfo = transaction.currency && transaction.currency !== account.currency 
-					? ` (${transaction.currency}→${account.currency}, using accountAmount: ${transaction.accountAmount?.toFixed(2) || 'N/A'})`
-					: '';
+				const amountUsed =
+					transaction.accountAmount !== undefined ? transaction.accountAmount : transaction.amount;
+				const currencyInfo =
+					transaction.currency && transaction.currency !== account.currency
+						? ` (${transaction.currency}→${account.currency}, using accountAmount: ${transaction.accountAmount?.toFixed(2) || 'N/A'})`
+						: '';
 				const impactStr = impact > 0 ? `+${impact.toFixed(2)}` : impact.toFixed(2);
-				console.log(`[Balance Calc] ${date.substring(0, 10)}: ${transaction.type} ${impactStr} (original: ${transaction.amount?.toFixed(2) || 'N/A'}${currencyInfo}) (${previousBalance.toFixed(2)} → ${balance.toFixed(2)})`);
+				console.log(
+					`[Balance Calc] ${date.substring(0, 10)}: ${transaction.type} ${impactStr} (original: ${transaction.amount?.toFixed(2) || 'N/A'}${currencyInfo}) (${previousBalance.toFixed(2)} → ${balance.toFixed(2)})`
+				);
 			}
 		}
-		
+
 		if (isDebugMode) {
-			console.log(`[Balance Calc] Account: ${account.name}, Processed ${transactionCount} transactions, Final balance: ${balance}`);
+			console.log(
+				`[Balance Calc] Account: ${account.name}, Processed ${transactionCount} transactions, Final balance: ${balance}`
+			);
 		}
 
 		await this.updateAccountBalance(accountId, balance);

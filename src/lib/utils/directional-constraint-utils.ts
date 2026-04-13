@@ -47,8 +47,10 @@ export const DIRECTIONAL_CONSTRAINTS: DirectionalConstraintInfo[] = [
 /**
  * Get constraint information by value
  */
-export function getConstraintInfo(constraint: DirectionalConstraint): DirectionalConstraintInfo | undefined {
-	return DIRECTIONAL_CONSTRAINTS.find(c => c.value === constraint);
+export function getConstraintInfo(
+	constraint: DirectionalConstraint
+): DirectionalConstraintInfo | undefined {
+	return DIRECTIONAL_CONSTRAINTS.find((c) => c.value === constraint);
 }
 
 /**
@@ -89,9 +91,9 @@ export function validateDateMovement(
 		const originalTime = originalDate.getTime();
 		const newTime = newDate.getTime();
 		if (originalTime !== newTime) {
-			return { 
-				isValid: false, 
-				error: 'This transaction has a fixed date and cannot be moved' 
+			return {
+				isValid: false,
+				error: 'This transaction has a fixed date and cannot be moved'
 			};
 		}
 		return { isValid: true };
@@ -104,9 +106,9 @@ export function validateDateMovement(
 	// Forward-only: new date must be >= original date
 	if (constraint === 'forward-only') {
 		if (daysDiff < 0) {
-			return { 
-				isValid: false, 
-				error: 'This transaction can only be moved forward (to a later date)' 
+			return {
+				isValid: false,
+				error: 'This transaction can only be moved forward (to a later date)'
 			};
 		}
 		return { isValid: true };
@@ -115,9 +117,9 @@ export function validateDateMovement(
 	// Backward-only: new date must be <= original date
 	if (constraint === 'backward-only') {
 		if (daysDiff > 0) {
-			return { 
-				isValid: false, 
-				error: 'This transaction can only be moved backward (to an earlier date)' 
+			return {
+				isValid: false,
+				error: 'This transaction can only be moved backward (to an earlier date)'
 			};
 		}
 		return { isValid: true };
@@ -181,7 +183,7 @@ export function getEffectiveMaxDays(
 
 	// Get flexibility tier limit
 	const flexibilityMax = getMaxFlexibilityDays(flexibilityTier);
-	
+
 	// For forward-only or backward-only, the limit is still the flexibility tier
 	// (the direction is handled separately in validation)
 	return flexibilityMax;
@@ -208,8 +210,11 @@ export function suggestConstraint(
 	// Recurring subscriptions are typically forward-only
 	if (isRecurring && categoryName) {
 		const lowerName = categoryName.toLowerCase();
-		if (lowerName.includes('subscription') || lowerName.includes('renewal') || 
-		    lowerName.includes('service')) {
+		if (
+			lowerName.includes('subscription') ||
+			lowerName.includes('renewal') ||
+			lowerName.includes('service')
+		) {
 			return 'forward-only';
 		}
 	}
@@ -217,8 +222,12 @@ export function suggestConstraint(
 	// Bill payments are typically backward-only
 	if (categoryName) {
 		const lowerName = categoryName.toLowerCase();
-		if (lowerName.includes('bill') || lowerName.includes('payment') || 
-		    lowerName.includes('due') || lowerName.includes('utility')) {
+		if (
+			lowerName.includes('bill') ||
+			lowerName.includes('payment') ||
+			lowerName.includes('due') ||
+			lowerName.includes('utility')
+		) {
 			return 'backward-only';
 		}
 	}
@@ -226,8 +235,11 @@ export function suggestConstraint(
 	// Fixed appointments or contracts
 	if (categoryName) {
 		const lowerName = categoryName.toLowerCase();
-		if (lowerName.includes('appointment') || lowerName.includes('contract') || 
-		    lowerName.includes('fixed')) {
+		if (
+			lowerName.includes('appointment') ||
+			lowerName.includes('contract') ||
+			lowerName.includes('fixed')
+		) {
 			return 'fixed';
 		}
 	}
@@ -235,4 +247,3 @@ export function suggestConstraint(
 	// Default: no constraint
 	return 'none';
 }
-

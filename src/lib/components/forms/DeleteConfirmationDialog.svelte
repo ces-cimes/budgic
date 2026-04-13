@@ -32,7 +32,8 @@
 		<Dialog.Header>
 			<Dialog.Title>Delete {entityName}</Dialog.Title>
 			<Dialog.Description>
-				Are you sure you want to delete this {entityName.toLowerCase()}? This action cannot be undone.
+				Are you sure you want to delete this {entityName.toLowerCase()}? This action cannot be
+				undone.
 				{#if entityDetails}
 					<br />
 					<br />
@@ -41,19 +42,14 @@
 					{/if}
 					{#if entityDetails.amount !== undefined && entityDetails.currency}
 						<br />
-						<strong>Amount:</strong> {entityDetails.currency}{Math.abs(entityDetails.amount).toFixed(2)}
+						<strong>Amount:</strong>
+						{entityDetails.currency}{Math.abs(entityDetails.amount).toFixed(2)}
 					{/if}
 				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-			<Button.Root
-				variant="outline"
-				onclick={onCancel}
-				disabled={isDeleting}
-			>
-				Cancel
-			</Button.Root>
+			<Button.Root variant="outline" onclick={onCancel} disabled={isDeleting}>Cancel</Button.Root>
 			<Button.Root
 				variant="destructive"
 				onclick={onConfirm}
@@ -70,4 +66,3 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
-

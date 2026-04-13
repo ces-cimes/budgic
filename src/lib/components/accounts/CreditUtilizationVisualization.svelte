@@ -11,9 +11,22 @@
 		type CreditUtilizationStatus
 	} from '$lib/utils/account-metadata-utils';
 	import { formatTransactionAmount, formatPercentage } from '$lib/utils/currency-utils';
-	import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp, CreditCard, Info } from '@lucide/svelte';
+	import {
+		AlertCircle,
+		CheckCircle2,
+		AlertTriangle,
+		TrendingUp,
+		CreditCard,
+		Info
+	} from '@lucide/svelte';
 	import { Progress } from '$lib/components/ui/progress';
-	import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
+	import {
+		Card,
+		CardContent,
+		CardDescription,
+		CardHeader,
+		CardTitle
+	} from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { ChevronDown } from '@lucide/svelte';
@@ -25,7 +38,12 @@
 		showRecommendations?: boolean;
 	}
 
-	const { account, showAggregate = false, showDetails = true, showRecommendations = true }: Props = $props();
+	const {
+		account,
+		showAggregate = false,
+		showDetails = true,
+		showRecommendations = true
+	}: Props = $props();
 
 	let aggregateAnalysis = $state<AggregateCreditUtilizationAnalysis | null>(null);
 	let accountAnalysis = $state<CreditUtilizationAnalysis | null>(null);
@@ -124,10 +142,14 @@
 	</div>
 {:else if account && accountAnalysis}
 	<!-- Single Account View -->
-	<Card class="border-2 {accountAnalysis.status ? statusConfig[accountAnalysis.status].borderColor : ''}">
+	<Card
+		class="border-2 {accountAnalysis.status
+			? statusConfig[accountAnalysis.status].borderColor
+			: ''}"
+	>
 		<CardHeader>
 			<CardTitle class="flex items-center gap-2">
-				<CreditCard class="w-5 h-5" />
+				<CreditCard class="h-5 w-5" />
 				Credit Utilization: {account.name}
 			</CardTitle>
 			<CardDescription>
@@ -142,7 +164,7 @@
 		</CardHeader>
 		<CardContent class="space-y-4">
 			<!-- Utilization Percentage -->
-			<div class="text-center space-y-2">
+			<div class="space-y-2 text-center">
 				<div class="text-4xl font-bold {getUtilizationColor(accountAnalysis.utilization)}">
 					{formatPercentage(accountAnalysis.utilization)}
 				</div>
@@ -150,7 +172,7 @@
 					{@const config = statusConfig[accountAnalysis.status]}
 					{@const Icon = config.icon}
 					<div class="flex items-center justify-center gap-2">
-						<Icon class="w-4 h-4 {config.color}" />
+						<Icon class="h-4 w-4 {config.color}" />
 						<Badge
 							variant={accountAnalysis.status === 'critical' || accountAnalysis.status === 'poor'
 								? 'destructive'
@@ -181,7 +203,7 @@
 				/>
 				<div class="flex items-center justify-between text-xs">
 					<span class="text-muted-foreground">Available Credit</span>
-					<span class="font-medium text-success">
+					<span class="text-success font-medium">
 						{formatTransactionAmount(accountAnalysis.availableCredit, account.currency)}
 					</span>
 				</div>
@@ -189,24 +211,29 @@
 
 			<!-- Key Metrics -->
 			{#if showDetails}
-				<div class="grid grid-cols-2 gap-4 pt-4 border-t">
+				<div class="grid grid-cols-2 gap-4 border-t pt-4">
 					<div>
-						<div class="text-xs text-muted-foreground">Current Debt</div>
+						<div class="text-muted-foreground text-xs">Current Debt</div>
 						<div class="text-lg font-semibold">
 							{formatTransactionAmount(accountAnalysis.currentDebt, account.currency)}
 						</div>
 					</div>
 					<div>
-						<div class="text-xs text-muted-foreground">Credit Limit</div>
+						<div class="text-muted-foreground text-xs">Credit Limit</div>
 						<div class="text-lg font-semibold">
 							{formatTransactionAmount(accountAnalysis.creditLimit, account.currency)}
 						</div>
 					</div>
 					{#if accountAnalysis.recommendedPaymentForTarget}
 						<div class="col-span-2">
-							<div class="text-xs text-muted-foreground">Recommended Payment (for 30% utilization)</div>
-							<div class="text-lg font-semibold text-info">
-								{formatTransactionAmount(accountAnalysis.recommendedPaymentForTarget, account.currency)}
+							<div class="text-muted-foreground text-xs">
+								Recommended Payment (for 30% utilization)
+							</div>
+							<div class="text-info text-lg font-semibold">
+								{formatTransactionAmount(
+									accountAnalysis.recommendedPaymentForTarget,
+									account.currency
+								)}
 							</div>
 						</div>
 					{/if}
@@ -215,56 +242,58 @@
 
 			<!-- Recommendations -->
 			{#if showRecommendations && accountAnalysis.utilization > 30}
-				<div class="pt-4 border-t">
+				<div class="border-t pt-4">
 					<button
-						class="flex items-center justify-between w-full p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+						class="bg-muted/50 hover:bg-muted flex w-full items-center justify-between rounded-lg border p-3 transition-colors"
 						onclick={() => (showRecommendationsExpanded = !showRecommendationsExpanded)}
 					>
-						<span class="text-sm font-medium flex items-center gap-2">
-							<Info class="w-4 h-4" />
+						<span class="flex items-center gap-2 text-sm font-medium">
+							<Info class="h-4 w-4" />
 							Recommendations
 						</span>
 						<ChevronDown
-							class="w-4 h-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
 						/>
 					</button>
 					{#if showRecommendationsExpanded}
 						<div class="mt-2 space-y-2">
 							{#if accountAnalysis.recommendedPaymentForTarget}
 								<div
-									class="p-3 rounded-lg border {accountAnalysis.utilization > 50
+									class="rounded-lg border p-3 {accountAnalysis.utilization > 50
 										? 'border-destructive/50 bg-destructive/10'
 										: 'border-warning/50 bg-warning/10'}"
 								>
 									<div class="flex items-start gap-2">
 										<AlertTriangle
-											class="w-4 h-4 mt-0.5 {accountAnalysis.utilization > 50
+											class="mt-0.5 h-4 w-4 {accountAnalysis.utilization > 50
 												? 'text-destructive'
 												: 'text-warning'}"
 										/>
 										<div class="flex-1">
 											<div class="text-sm font-medium">
-												Pay {formatTransactionAmount(accountAnalysis.recommendedPaymentForTarget, account.currency)} to reach optimal utilization
+												Pay {formatTransactionAmount(
+													accountAnalysis.recommendedPaymentForTarget,
+													account.currency
+												)} to reach optimal utilization
 											</div>
-											<div class="text-xs text-muted-foreground mt-1">
-												This will reduce your utilization from {formatPercentage(accountAnalysis.utilization)} to 30%, which is optimal for your credit score.
+											<div class="text-muted-foreground mt-1 text-xs">
+												This will reduce your utilization from {formatPercentage(
+													accountAnalysis.utilization
+												)} to 30%, which is optimal for your credit score.
 											</div>
 										</div>
 									</div>
 								</div>
 							{/if}
-							{#if accountAnalysis.daysUntilStatementClose !== undefined &&
-								accountAnalysis.daysUntilStatementClose <= 7 &&
-								accountAnalysis.utilization > 30}
-								<div class="p-3 rounded-lg border border-info/50 bg-info/10">
+							{#if accountAnalysis.daysUntilStatementClose !== undefined && accountAnalysis.daysUntilStatementClose <= 7 && accountAnalysis.utilization > 30}
+								<div class="border-info/50 bg-info/10 rounded-lg border p-3">
 									<div class="flex items-start gap-2">
-										<Info class="w-4 h-4 mt-0.5 text-info" />
+										<Info class="text-info mt-0.5 h-4 w-4" />
 										<div class="flex-1">
-											<div class="text-sm font-medium">
-												Pay before statement closes
-											</div>
-											<div class="text-xs text-muted-foreground mt-1">
-												Your statement closes in {accountAnalysis.daysUntilStatementClose} day(s). Paying down your balance now will improve the utilization reported to credit bureaus.
+											<div class="text-sm font-medium">Pay before statement closes</div>
+											<div class="text-muted-foreground mt-1 text-xs">
+												Your statement closes in {accountAnalysis.daysUntilStatementClose} day(s). Paying
+												down your balance now will improve the utilization reported to credit bureaus.
 											</div>
 										</div>
 									</div>
@@ -278,10 +307,14 @@
 	</Card>
 {:else if showAggregate && aggregateAnalysis}
 	<!-- Aggregate View -->
-	<Card class="border-2 {aggregateAnalysis.status ? statusConfig[aggregateAnalysis.status].borderColor : ''}">
+	<Card
+		class="border-2 {aggregateAnalysis.status
+			? statusConfig[aggregateAnalysis.status].borderColor
+			: ''}"
+	>
 		<CardHeader>
 			<CardTitle class="flex items-center gap-2">
-				<CreditCard class="w-5 h-5" />
+				<CreditCard class="h-5 w-5" />
 				Overall Credit Utilization
 			</CardTitle>
 			<CardDescription>
@@ -292,7 +325,7 @@
 		</CardHeader>
 		<CardContent class="space-y-4">
 			<!-- Aggregate Utilization -->
-			<div class="text-center space-y-2">
+			<div class="space-y-2 text-center">
 				<div class="text-4xl font-bold {getUtilizationColor(aggregateAnalysis.totalUtilization)}">
 					{formatPercentage(aggregateAnalysis.totalUtilization)}
 				</div>
@@ -300,9 +333,10 @@
 					{@const config = statusConfig[aggregateAnalysis.status]}
 					{@const Icon = config.icon}
 					<div class="flex items-center justify-center gap-2">
-						<Icon class="w-4 h-4 {config.color}" />
+						<Icon class="h-4 w-4 {config.color}" />
 						<Badge
-							variant={aggregateAnalysis.status === 'critical' || aggregateAnalysis.status === 'poor'
+							variant={aggregateAnalysis.status === 'critical' ||
+							aggregateAnalysis.status === 'poor'
 								? 'destructive'
 								: aggregateAnalysis.status === 'fair'
 									? 'outline'
@@ -331,7 +365,7 @@
 				/>
 				<div class="flex items-center justify-between text-xs">
 					<span class="text-muted-foreground">Total Available Credit</span>
-					<span class="font-medium text-success">
+					<span class="text-success font-medium">
 						{formatTransactionAmount(
 							aggregateAnalysis.totalCreditLimit - aggregateAnalysis.totalDebt,
 							'USD'
@@ -342,30 +376,32 @@
 
 			<!-- Account Breakdown -->
 			{#if showDetails && aggregateAnalysis.accounts.length > 0}
-				<div class="pt-4 border-t">
+				<div class="border-t pt-4">
 					<button
-						class="flex items-center justify-between w-full p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+						class="bg-muted/50 hover:bg-muted flex w-full items-center justify-between rounded-lg border p-3 transition-colors"
 						onclick={() => (showAccountDetails = !showAccountDetails)}
 					>
 						<span class="text-sm font-medium">Account Details</span>
 						<ChevronDown
-							class="w-4 h-4 transition-transform {showAccountDetails ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showAccountDetails ? 'rotate-180' : ''}"
 						/>
 					</button>
 					{#if showAccountDetails}
 						<div class="mt-2 space-y-2">
 							{#each aggregateAnalysis.accounts as accountAnalysis}
 								<div
-									class="p-3 rounded-lg border {accountAnalysis.status === 'critical' || accountAnalysis.status === 'poor'
+									class="rounded-lg border p-3 {accountAnalysis.status === 'critical' ||
+									accountAnalysis.status === 'poor'
 										? 'border-destructive/50 bg-destructive/10'
 										: accountAnalysis.status === 'fair'
 											? 'border-warning/50 bg-warning/10'
 											: 'border-border bg-muted/50'}"
 								>
-									<div class="flex items-center justify-between mb-2">
+									<div class="mb-2 flex items-center justify-between">
 										<div class="font-medium">{accountAnalysis.accountName}</div>
 										<Badge
-											variant={accountAnalysis.status === 'critical' || accountAnalysis.status === 'poor'
+											variant={accountAnalysis.status === 'critical' ||
+											accountAnalysis.status === 'poor'
 												? 'destructive'
 												: accountAnalysis.status === 'fair'
 													? 'outline'
@@ -374,13 +410,16 @@
 											{formatPercentage(accountAnalysis.utilization)}
 										</Badge>
 									</div>
-									<div class="text-xs text-muted-foreground">
+									<div class="text-muted-foreground text-xs">
 										{formatTransactionAmount(accountAnalysis.currentDebt, 'USD')} /{' '}
 										{formatTransactionAmount(accountAnalysis.creditLimit, 'USD')}
 									</div>
 									{#if accountAnalysis.recommendedPaymentForTarget}
-										<div class="text-xs text-info mt-1">
-											Recommended: {formatTransactionAmount(accountAnalysis.recommendedPaymentForTarget, 'USD')}
+										<div class="text-info mt-1 text-xs">
+											Recommended: {formatTransactionAmount(
+												accountAnalysis.recommendedPaymentForTarget,
+												'USD'
+											)}
 										</div>
 									{/if}
 								</div>
@@ -392,29 +431,30 @@
 
 			<!-- Recommendations -->
 			{#if showRecommendations && recommendations.length > 0}
-				<div class="pt-4 border-t">
+				<div class="border-t pt-4">
 					<button
-						class="flex items-center justify-between w-full p-3 rounded-lg border bg-muted/50 hover:bg-muted transition-colors"
+						class="bg-muted/50 hover:bg-muted flex w-full items-center justify-between rounded-lg border p-3 transition-colors"
 						onclick={() => (showRecommendationsExpanded = !showRecommendationsExpanded)}
 					>
-						<span class="text-sm font-medium flex items-center gap-2">
-							<Info class="w-4 h-4" />
+						<span class="flex items-center gap-2 text-sm font-medium">
+							<Info class="h-4 w-4" />
 							Recommendations ({recommendations.length})
 						</span>
 						<ChevronDown
-							class="w-4 h-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
 						/>
 					</button>
 					{#if showRecommendationsExpanded}
 						<div class="mt-2 space-y-2">
 							{#each recommendations.slice(0, 5) as rec}
-								{@const Icon = rec.priority === 'urgent' || rec.priority === 'high'
-									? AlertCircle
-									: rec.priority === 'medium'
-										? AlertTriangle
-										: Info}
+								{@const Icon =
+									rec.priority === 'urgent' || rec.priority === 'high'
+										? AlertCircle
+										: rec.priority === 'medium'
+											? AlertTriangle
+											: Info}
 								<div
-									class="p-3 rounded-lg border {rec.priority === 'urgent' || rec.priority === 'high'
+									class="rounded-lg border p-3 {rec.priority === 'urgent' || rec.priority === 'high'
 										? 'border-destructive/50 bg-destructive/10'
 										: rec.priority === 'medium'
 											? 'border-warning/50 bg-warning/10'
@@ -422,7 +462,7 @@
 								>
 									<div class="flex items-start gap-2">
 										<Icon
-											class="w-4 h-4 mt-0.5 {rec.priority === 'urgent' || rec.priority === 'high'
+											class="mt-0.5 h-4 w-4 {rec.priority === 'urgent' || rec.priority === 'high'
 												? 'text-destructive'
 												: rec.priority === 'medium'
 													? 'text-warning'
@@ -430,8 +470,8 @@
 										/>
 										<div class="flex-1">
 											<div class="text-sm font-medium">{rec.title}</div>
-											<div class="text-xs text-muted-foreground mt-1">{rec.description}</div>
-											<div class="text-xs text-info mt-1">{rec.recommendedAction}</div>
+											<div class="text-muted-foreground mt-1 text-xs">{rec.description}</div>
+											<div class="text-info mt-1 text-xs">{rec.recommendedAction}</div>
 										</div>
 									</div>
 								</div>
@@ -443,9 +483,11 @@
 		</CardContent>
 	</Card>
 {:else}
-	<div class="text-center p-8 text-muted-foreground">
-		<CreditCard class="w-12 h-12 mx-auto mb-4 opacity-50" />
+	<div class="text-muted-foreground p-8 text-center">
+		<CreditCard class="mx-auto mb-4 h-12 w-12 opacity-50" />
 		<p>No credit accounts found or no credit limit data available.</p>
-		<p class="text-sm mt-2">Add credit limit information to your credit accounts to see utilization analysis.</p>
+		<p class="mt-2 text-sm">
+			Add credit limit information to your credit accounts to see utilization analysis.
+		</p>
 	</div>
 {/if}

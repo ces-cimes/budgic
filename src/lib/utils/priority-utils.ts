@@ -88,7 +88,7 @@ export const PRIORITY_LEVELS: PriorityLevel[] = [
  * Get priority level information by value
  */
 export function getPriorityLevel(priority: number): PriorityLevel | undefined {
-	return PRIORITY_LEVELS.find(level => level.value === priority);
+	return PRIORITY_LEVELS.find((level) => level.value === priority);
 }
 
 /**
@@ -143,32 +143,51 @@ export function suggestPriority(
 		const lowerName = categoryName.toLowerCase();
 
 		// Critical expenses (9-10)
-		if (lowerName.includes('rent') || lowerName.includes('mortgage') || 
-		    lowerName.includes('emergency') || lowerName.includes('medical')) {
+		if (
+			lowerName.includes('rent') ||
+			lowerName.includes('mortgage') ||
+			lowerName.includes('emergency') ||
+			lowerName.includes('medical')
+		) {
 			return 9;
 		}
 
 		// Very high priority (8)
-		if (lowerName.includes('utility') || lowerName.includes('insurance') || 
-		    lowerName.includes('debt') || lowerName.includes('loan')) {
+		if (
+			lowerName.includes('utility') ||
+			lowerName.includes('insurance') ||
+			lowerName.includes('debt') ||
+			lowerName.includes('loan')
+		) {
 			return 8;
 		}
 
 		// High priority (7)
-		if (lowerName.includes('phone') || lowerName.includes('internet') || 
-		    lowerName.includes('essential')) {
+		if (
+			lowerName.includes('phone') ||
+			lowerName.includes('internet') ||
+			lowerName.includes('essential')
+		) {
 			return 7;
 		}
 
 		// Moderate priority (5-6)
-		if (lowerName.includes('grocery') || lowerName.includes('food') || 
-		    lowerName.includes('subscription') || lowerName.includes('service')) {
+		if (
+			lowerName.includes('grocery') ||
+			lowerName.includes('food') ||
+			lowerName.includes('subscription') ||
+			lowerName.includes('service')
+		) {
 			return 6;
 		}
 
 		// Low priority (1-4)
-		if (lowerName.includes('entertainment') || lowerName.includes('hobby') || 
-		    lowerName.includes('shopping') || lowerName.includes('dining')) {
+		if (
+			lowerName.includes('entertainment') ||
+			lowerName.includes('hobby') ||
+			lowerName.includes('shopping') ||
+			lowerName.includes('dining')
+		) {
 			return 3;
 		}
 	}
@@ -176,4 +195,3 @@ export function suggestPriority(
 	// Default moderate priority
 	return 5;
 }
-

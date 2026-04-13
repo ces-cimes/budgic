@@ -24,4 +24,7 @@ export const SIDEBAR_FOOTER_CARDS: Record<SidebarFooterCardId, SidebarFooterCard
 	}
 };
 
-export const DEFAULT_SIDEBAR_FOOTER_CARDS: SidebarFooterCardId[] = ['total_balance', 'today_allowance'];
+export const DEFAULT_SIDEBAR_FOOTER_CARDS: SidebarFooterCardId[] = [
+	'total_balance',
+	'today_allowance'
+];

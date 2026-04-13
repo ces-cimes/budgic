@@ -1,9 +1,9 @@
 /**
  * Balance Projection Service
- * 
+ *
  * Provides daily balance projections based on scheduled transactions,
  * recurring transactions, and account metadata (buffer management).
- * 
+ *
  * This service enables forward-looking balance calculations to help users
  * anticipate future account balances and avoid low balance situations.
  */
@@ -12,7 +12,11 @@ import { db, generateUUID, calculateTransactionImpact } from '$lib/core/db';
 import type { Account, Transaction } from '$lib/core/db';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
-import { getBufferAmount, getBufferStatus, type BufferStatus } from '$lib/utils/account-metadata-utils';
+import {
+	getBufferAmount,
+	getBufferStatus,
+	type BufferStatus
+} from '$lib/utils/account-metadata-utils';
 import { addDays, startOfDay, isAfter, isBefore, format, parseISO } from 'date-fns';
 
 /**
@@ -122,7 +126,7 @@ class BalanceProjectionService {
 		// Check cache
 		const cached = projectionCache.get(cacheKey);
 		const now = Date.now();
-		if (cached && (now - cached.timestamp) < CACHE_TTL) {
+		if (cached && now - cached.timestamp < CACHE_TTL) {
 			return cached.projections;
 		}
 
@@ -130,21 +134,23 @@ class BalanceProjectionService {
 
 		// Get accounts to project
 		const accounts = accountIds
-			? await Promise.all(accountIds.map(id => accountService.getAccount(id)))
+			? await Promise.all(accountIds.map((id) => accountService.getAccount(id)))
 			: await accountService.getAccounts();
-		
+
 		const validAccounts = accounts.filter((a): a is Account => a !== null && a.isActive);
 
 		// Generate projections for each account
 		const projections = await Promise.all(
-			validAccounts.map(account => this.projectAccount(account, startDate, endDate, {
-				includeRecurring,
-				includePlanned
-			}))
+			validAccounts.map((account) =>
+				this.projectAccount(account, startDate, endDate, {
+					includeRecurring,
+					includePlanned
+				})
+			)
 		);
 
 		// Cache results with account IDs for targeted invalidation
-		const accountIdsSet = new Set(validAccounts.map(a => a.id));
+		const accountIdsSet = new Set(validAccounts.map((a) => a.id));
 		projectionCache.set(cacheKey, {
 			projections,
 			timestamp: now,
@@ -173,11 +179,11 @@ class BalanceProjectionService {
 		if (accountIds.length === 0) return;
 
 		const accountIdsSet = new Set(accountIds);
-		
+
 		// Remove cache entries that include any of the affected accounts
 		for (const [key, entry] of projectionCache.entries()) {
 			// Check if any of the affected accounts are in this cache entry
-			const hasAffectedAccount = Array.from(entry.accountIds).some(id => accountIdsSet.has(id));
+			const hasAffectedAccount = Array.from(entry.accountIds).some((id) => accountIdsSet.has(id));
 			if (hasAffectedAccount) {
 				projectionCache.delete(key);
 			}
@@ -207,9 +213,9 @@ class BalanceProjectionService {
 
 		// Get all transactions that affect this account
 		const allTransactions = await transactionService.getTransactionsByAccount(account.id);
-		
+
 		// Get cleared transactions up to start date (to establish starting balance)
-		const clearedUpToStart = allTransactions.filter(tx => {
+		const clearedUpToStart = allTransactions.filter((tx) => {
 			if (tx.status !== 'cleared' || !tx.clearedDate) return false;
 			const txDate = parseISO(tx.clearedDate);
 			return isBefore(txDate, startDate) || txDate.getTime() === startDate.getTime();
@@ -224,7 +230,7 @@ class BalanceProjectionService {
 
 		// Get planned transactions in the projection period
 		if (options.includePlanned) {
-			const plannedTransactions = allTransactions.filter(tx => {
+			const plannedTransactions = allTransactions.filter((tx) => {
 				if (tx.status !== 'planned' || !tx.plannedDate) return false;
 				const txDate = parseISO(tx.plannedDate);
 				return !isBefore(txDate, startDate) && !isAfter(txDate, endDate);
@@ -252,7 +258,7 @@ class BalanceProjectionService {
 		// Generate recurring transactions
 		if (options.includeRecurring) {
 			const recurringTransactions = allTransactions.filter(
-				tx => tx.recurrenceRule && (tx.status === 'planned' || tx.status === 'cleared')
+				(tx) => tx.recurrenceRule && (tx.status === 'planned' || tx.status === 'cleared')
 			);
 
 			for (const tx of recurringTransactions) {
@@ -344,8 +350,8 @@ class BalanceProjectionService {
 		const baseDate = transaction.plannedDate
 			? parseISO(transaction.plannedDate)
 			: transaction.clearedDate
-			? parseISO(transaction.clearedDate)
-			: new Date();
+				? parseISO(transaction.clearedDate)
+				: new Date();
 
 		const dates: Date[] = [];
 		let currentDate = new Date(baseDate);
@@ -367,11 +373,7 @@ class BalanceProjectionService {
 	/**
 	 * Get next recurrence date based on rule
 	 */
-	private getNextRecurrenceDate(
-		currentDate: Date,
-		rule: string,
-		minimumDate?: Date
-	): Date {
+	private getNextRecurrenceDate(currentDate: Date, rule: string, minimumDate?: Date): Date {
 		const nextDate = new Date(currentDate);
 
 		switch (rule.toLowerCase()) {
@@ -463,9 +465,7 @@ class BalanceProjectionService {
 	 * Uses cached projections if available
 	 * Only returns one alert per account (the earliest/most severe)
 	 */
-	async generateLowBalanceAlerts(
-		options: ProjectionOptions = {}
-	): Promise<LowBalanceAlert[]> {
+	async generateLowBalanceAlerts(options: ProjectionOptions = {}): Promise<LowBalanceAlert[]> {
 		// Use cached projections to avoid duplicate calculations
 		const projections = await this.generateProjections(options);
 		const alerts: LowBalanceAlert[] = [];
@@ -479,7 +479,7 @@ class BalanceProjectionService {
 
 			// Find the earliest below-buffer day for this account
 			let earliestAlert: LowBalanceAlert | null = null;
-			
+
 			for (const daily of projection.projections) {
 				if (daily.isBelowBuffer && daily.bufferAmount > 0) {
 					const severity = daily.bufferStatus === 'critical' ? 'critical' : 'warning';
@@ -494,9 +494,11 @@ class BalanceProjectionService {
 					};
 
 					// Keep only the earliest alert per account (or most severe if same date)
-					if (!earliestAlert || 
+					if (
+						!earliestAlert ||
 						daily.date.getTime() < earliestAlert.date.getTime() ||
-						(severity === 'critical' && earliestAlert.severity === 'warning')) {
+						(severity === 'critical' && earliestAlert.severity === 'warning')
+					) {
 						earliestAlert = alert;
 					}
 				}

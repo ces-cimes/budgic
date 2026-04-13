@@ -28,12 +28,16 @@ export function getSmartGroupKey(date: Date): string {
 	const today = new Date();
 	const yesterday = new Date(today);
 	yesterday.setDate(yesterday.getDate() - 1);
-	
+
 	// Reset time to start of day for comparison
 	const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 	const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-	const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
-	
+	const yesterdayOnly = new Date(
+		yesterday.getFullYear(),
+		yesterday.getMonth(),
+		yesterday.getDate()
+	);
+
 	if (dateOnly.getTime() === todayOnly.getTime()) {
 		return 'today';
 	} else if (dateOnly.getTime() === yesterdayOnly.getTime()) {
@@ -57,7 +61,7 @@ export function getSmartGroupKey(date: Date): string {
 
 export function getGroupDate(groupKey: string): Date {
 	const today = new Date();
-	
+
 	switch (groupKey) {
 		case 'today':
 			return today;
@@ -97,12 +101,16 @@ export function getSimpleGroupLabel(groupKey: string): string {
 	const today = new Date();
 	const yesterday = new Date(today);
 	yesterday.setDate(yesterday.getDate() - 1);
-	
+
 	// Reset time for comparison
 	const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 	const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-	const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
-	
+	const yesterdayOnly = new Date(
+		yesterday.getFullYear(),
+		yesterday.getMonth(),
+		yesterday.getDate()
+	);
+
 	if (dateOnly.getTime() === todayOnly.getTime()) {
 		return 'Today';
 	} else if (dateOnly.getTime() === yesterdayOnly.getTime()) {
@@ -111,17 +119,17 @@ export function getSimpleGroupLabel(groupKey: string): string {
 		// Format as "Mon, Dec 25" or "Mon, Dec 25, 2023" if different year
 		const currentYear = today.getFullYear();
 		const dateYear = date.getFullYear();
-		
+
 		if (dateYear === currentYear) {
-			return date.toLocaleDateString(undefined, { 
-				weekday: 'short', 
-				month: 'short', 
-				day: 'numeric' 
+			return date.toLocaleDateString(undefined, {
+				weekday: 'short',
+				month: 'short',
+				day: 'numeric'
 			});
 		} else {
-			return date.toLocaleDateString(undefined, { 
-				weekday: 'short', 
-				month: 'short', 
+			return date.toLocaleDateString(undefined, {
+				weekday: 'short',
+				month: 'short',
 				day: 'numeric',
 				year: 'numeric'
 			});
@@ -147,14 +155,14 @@ export function getSmartGroupLabel(groupKey: string): string {
 				const date = new Date(dateStr);
 				const today = new Date();
 				const daysDiff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-				
+
 				if (daysDiff <= 14) {
 					return `In ${daysDiff} days`;
 				} else {
-					return date.toLocaleDateString(undefined, { 
-						weekday: 'long', 
-						month: 'short', 
-						day: 'numeric' 
+					return date.toLocaleDateString(undefined, {
+						weekday: 'long',
+						month: 'short',
+						day: 'numeric'
 					});
 				}
 			} else if (groupKey.startsWith('past_')) {
@@ -162,14 +170,14 @@ export function getSmartGroupLabel(groupKey: string): string {
 				const date = new Date(dateStr);
 				const today = new Date();
 				const daysDiff = Math.ceil((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-				
+
 				if (daysDiff <= 14) {
 					return `${daysDiff} days ago`;
 				} else {
-					return date.toLocaleDateString(undefined, { 
-						weekday: 'long', 
-						month: 'short', 
-						day: 'numeric' 
+					return date.toLocaleDateString(undefined, {
+						weekday: 'long',
+						month: 'short',
+						day: 'numeric'
 					});
 				}
 			}
@@ -188,7 +196,7 @@ export function isInCurrentWeek(date: Date): boolean {
 	const weekStart = getWeekStart(today);
 	const weekEnd = new Date(weekStart);
 	weekEnd.setDate(weekEnd.getDate() + 6);
-	
+
 	return date >= weekStart && date <= weekEnd;
 }
 
@@ -199,7 +207,7 @@ export function isInLastWeek(date: Date): boolean {
 	const lastWeekStartDate = getWeekStart(lastWeekStart);
 	const lastWeekEnd = new Date(lastWeekStartDate);
 	lastWeekEnd.setDate(lastWeekEnd.getDate() + 6);
-	
+
 	return date >= lastWeekStartDate && date <= lastWeekEnd;
 }
 
@@ -210,6 +218,6 @@ export function isInNextWeek(date: Date): boolean {
 	const nextWeekStartDate = getWeekStart(nextWeekStart);
 	const nextWeekEnd = new Date(nextWeekStartDate);
 	nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
-	
+
 	return date >= nextWeekStartDate && date <= nextWeekEnd;
-} 
+}

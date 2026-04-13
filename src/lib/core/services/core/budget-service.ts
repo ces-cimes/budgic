@@ -2,369 +2,381 @@ import { db, generateUUID } from '$lib/core/db';
 import type { Category, Transaction } from '$lib/core/db';
 
 interface BudgetAllocation {
-    categoryId: string;
-    categoryName: string;
-    allocatedAmount: number;
-    spentAmount: number;
-    remainingAmount: number;
-    percentageUsed: number;
-    waterfallTier: Category['waterfallTier'];
-    priority: number;
+	categoryId: string;
+	categoryName: string;
+	allocatedAmount: number;
+	spentAmount: number;
+	remainingAmount: number;
+	percentageUsed: number;
+	waterfallTier: Category['waterfallTier'];
+	priority: number;
 }
 
 interface BudgetSummary {
-    totalAllocated: number;
-    totalSpent: number;
-    totalRemaining: number;
-    allocations: BudgetAllocation[];
-    byTier: Record<Category['waterfallTier'], {
-        allocated: number;
-        spent: number;
-        remaining: number;
-    }>;
+	totalAllocated: number;
+	totalSpent: number;
+	totalRemaining: number;
+	allocations: BudgetAllocation[];
+	byTier: Record<
+		Category['waterfallTier'],
+		{
+			allocated: number;
+			spent: number;
+			remaining: number;
+		}
+	>;
 }
 
 class BudgetService {
-    public get ready() {
-        return Promise.resolve();
-    }
+	public get ready() {
+		return Promise.resolve();
+	}
 
-    public isLoading() {
-        return false;
-    }
+	public isLoading() {
+		return false;
+	}
 
-    // ============================================================================
-    // BUDGET MANAGEMENT
-    // ============================================================================
+	// ============================================================================
+	// BUDGET MANAGEMENT
+	// ============================================================================
 
-    /**
-     * Get budget summary for all categories (converted to main currency)
-     */
-    async getBudgetSummary(): Promise<BudgetSummary> {
-        const categories = await db.getActiveCategories();
-        const transactions = await db.transactions.toArray();
-        
-        // Get user's main currency
-        const { userService } = await import('$lib/core/services');
-        const preferences = await userService.getUserPreferences();
-        const mainCurrency = preferences?.currency || 'USD';
-        
-        const allocations: BudgetAllocation[] = [];
-        let totalAllocated = 0;
-        let totalSpent = 0;
+	/**
+	 * Get budget summary for all categories (converted to main currency)
+	 */
+	async getBudgetSummary(): Promise<BudgetSummary> {
+		const categories = await db.getActiveCategories();
+		const transactions = await db.transactions.toArray();
 
-        // Calculate budget allocations for each category
-        for (const category of categories) {
-            if (category.budgetAmount && category.budgetAmount > 0) {
-                const spentAmount = await this.calculateCategorySpending(category.id, transactions, mainCurrency);
-                const remainingAmount = category.budgetAmount - spentAmount;
-                const percentageUsed = category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
+		const allocations: BudgetAllocation[] = [];
+		let totalAllocated = 0;
+		let totalSpent = 0;
 
-                allocations.push({
-                    categoryId: category.id,
-                    categoryName: category.name,
-                    allocatedAmount: category.budgetAmount,
-                    spentAmount,
-                    remainingAmount,
-                    percentageUsed,
-                    waterfallTier: category.waterfallTier,
-                    priority: category.priority
-                });
+		// Calculate budget allocations for each category
+		for (const category of categories) {
+			if (category.budgetAmount && category.budgetAmount > 0) {
+				const spentAmount = await this.calculateCategorySpending(category.id, transactions);
+				const remainingAmount = category.budgetAmount - spentAmount;
+				const percentageUsed =
+					category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
 
-                totalAllocated += category.budgetAmount;
-                totalSpent += spentAmount;
-            }
-        }
+				allocations.push({
+					categoryId: category.id,
+					categoryName: category.name,
+					allocatedAmount: category.budgetAmount,
+					spentAmount,
+					remainingAmount,
+					percentageUsed,
+					waterfallTier: category.waterfallTier,
+					priority: category.priority
+				});
 
-        // Calculate by tier
-        const byTier: Record<Category['waterfallTier'], { allocated: number; spent: number; remaining: number }> = {
-            survival: { allocated: 0, spent: 0, remaining: 0 },
-            security: { allocated: 0, spent: 0, remaining: 0 },
-            growth: { allocated: 0, spent: 0, remaining: 0 },
-            lifestyle: { allocated: 0, spent: 0, remaining: 0 }
-        };
+				totalAllocated += category.budgetAmount;
+				totalSpent += spentAmount;
+			}
+		}
 
-        allocations.forEach(allocation => {
-            const tier = allocation.waterfallTier;
-            byTier[tier].allocated += allocation.allocatedAmount;
-            byTier[tier].spent += allocation.spentAmount;
-            byTier[tier].remaining += allocation.remainingAmount;
-        });
+		// Calculate by tier
+		const byTier: Record<
+			Category['waterfallTier'],
+			{ allocated: number; spent: number; remaining: number }
+		> = {
+			survival: { allocated: 0, spent: 0, remaining: 0 },
+			security: { allocated: 0, spent: 0, remaining: 0 },
+			growth: { allocated: 0, spent: 0, remaining: 0 },
+			lifestyle: { allocated: 0, spent: 0, remaining: 0 }
+		};
 
-        return {
-            totalAllocated,
-            totalSpent,
-            totalRemaining: totalAllocated - totalSpent,
-            allocations,
-            byTier
-        };
-    }
+		allocations.forEach((allocation) => {
+			const tier = allocation.waterfallTier;
+			byTier[tier].allocated += allocation.allocatedAmount;
+			byTier[tier].spent += allocation.spentAmount;
+			byTier[tier].remaining += allocation.remainingAmount;
+		});
 
-    /**
-     * Set budget amount for a category
-     */
-    async setCategoryBudget(categoryId: string, amount: number): Promise<void> {
-        const category = await db.categories.get(categoryId);
-        if (!category) {
-            throw new Error(`Category ${categoryId} not found`);
-        }
+		return {
+			totalAllocated,
+			totalSpent,
+			totalRemaining: totalAllocated - totalSpent,
+			allocations,
+			byTier
+		};
+	}
 
-        await db.categories.update(categoryId, {
-            budgetAmount: amount,
-            updatedAt: new Date().toISOString()
-        });
-    }
+	/**
+	 * Set budget amount for a category
+	 */
+	async setCategoryBudget(categoryId: string, amount: number): Promise<void> {
+		const category = await db.categories.get(categoryId);
+		if (!category) {
+			throw new Error(`Category ${categoryId} not found`);
+		}
 
-    /**
-     * Get budget for a specific category
-     */
-    async getCategoryBudget(categoryId: string): Promise<BudgetAllocation | null> {
-        const category = await db.categories.get(categoryId);
-        if (!category || !category.budgetAmount) {
-            return null;
-        }
+		await db.categories.update(categoryId, {
+			budgetAmount: amount,
+			updatedAt: new Date().toISOString()
+		});
+	}
 
-        const transactions = await db.transactions.toArray();
-        const { userService } = await import('$lib/core/services');
-        const preferences = await userService.getUserPreferences();
-        const mainCurrency = preferences?.currency || 'USD';
-        const spentAmount = await this.calculateCategorySpending(categoryId, transactions, mainCurrency);
-        const remainingAmount = category.budgetAmount - spentAmount;
-        const percentageUsed = category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
+	/**
+	 * Get budget for a specific category
+	 */
+	async getCategoryBudget(categoryId: string): Promise<BudgetAllocation | null> {
+		const category = await db.categories.get(categoryId);
+		if (!category || !category.budgetAmount) {
+			return null;
+		}
 
-        return {
-            categoryId: category.id,
-            categoryName: category.name,
-            allocatedAmount: category.budgetAmount,
-            spentAmount,
-            remainingAmount,
-            percentageUsed,
-            waterfallTier: category.waterfallTier,
-            priority: category.priority
-        };
-    }
+		const transactions = await db.transactions.toArray();
+		const spentAmount = await this.calculateCategorySpending(categoryId, transactions);
+		const remainingAmount = category.budgetAmount - spentAmount;
+		const percentageUsed =
+			category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
 
-    /**
-     * Get budget recommendations based on spending patterns
-     */
-    async getBudgetRecommendations(): Promise<{
-        categoryId: string;
-        categoryName: string;
-        currentSpending: number;
-        recommendedBudget: number;
-        reasoning: string;
-    }[]> {
-        const categories = await db.getActiveCategories();
-        const transactions = await db.transactions.toArray();
-        const recommendations: {
-            categoryId: string;
-            categoryName: string;
-            currentSpending: number;
-            recommendedBudget: number;
-            reasoning: string;
-        }[] = [];
+		return {
+			categoryId: category.id,
+			categoryName: category.name,
+			allocatedAmount: category.budgetAmount,
+			spentAmount,
+			remainingAmount,
+			percentageUsed,
+			waterfallTier: category.waterfallTier,
+			priority: category.priority
+		};
+	}
 
-        // Calculate average spending over last 3 months
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-        const recentTransactions = transactions.filter((tx: Transaction) => 
-            tx.clearedDate && new Date(tx.clearedDate) >= threeMonthsAgo
-        );
+	/**
+	 * Get budget recommendations based on spending patterns
+	 */
+	async getBudgetRecommendations(): Promise<
+		{
+			categoryId: string;
+			categoryName: string;
+			currentSpending: number;
+			recommendedBudget: number;
+			reasoning: string;
+		}[]
+	> {
+		const categories = await db.getActiveCategories();
+		const transactions = await db.transactions.toArray();
+		const recommendations: {
+			categoryId: string;
+			categoryName: string;
+			currentSpending: number;
+			recommendedBudget: number;
+			reasoning: string;
+		}[] = [];
 
-        // Get user's main currency
-        const { userService, exchangeRateService } = await import('$lib/core/services');
-        const preferences = await userService.getUserPreferences();
-        const mainCurrency = preferences?.currency || 'USD';
-        
-        for (const category of categories) {
-            const categoryTransactions = recentTransactions.filter((tx: Transaction) => tx.categoryId === category.id);
-            
-            // Convert all amounts to main currency
-            let totalSpending = 0;
-            for (const tx of categoryTransactions) {
-                if (tx.type === 'expense') {
-                    const amount = Math.abs(tx.amount || 0);
-                    const transactionCurrency = tx.currency || mainCurrency;
-                    
-                    let convertedAmount = amount;
-                    if (transactionCurrency !== mainCurrency) {
-                        const converted = await exchangeRateService.convertAmount(
-                            amount,
-                            transactionCurrency,
-                            mainCurrency,
-                            tx.clearedDate ? new Date(tx.clearedDate) : undefined
-                        );
-                        if (converted !== null) {
-                            convertedAmount = converted;
-                        } else {
-                            console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`);
-                        }
-                    }
-                    
-                    totalSpending += convertedAmount;
-                }
-            }
+		// Calculate average spending over last 3 months
+		const threeMonthsAgo = new Date();
+		threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+		const recentTransactions = transactions.filter(
+			(tx: Transaction) => tx.clearedDate && new Date(tx.clearedDate) >= threeMonthsAgo
+		);
 
-            const averageMonthlySpending = totalSpending / 3;
-            const recommendedBudget = averageMonthlySpending * 1.1; // 10% buffer
+		// Get user's main currency
+		const { userService, exchangeRateService } = await import('$lib/core/services');
+		const preferences = await userService.getUserPreferences();
+		const mainCurrency = preferences?.currency || 'USD';
 
-            if (averageMonthlySpending > 0) {
-                recommendations.push({
-                    categoryId: category.id,
-                    categoryName: category.name,
-                    currentSpending: averageMonthlySpending,
-                    recommendedBudget,
-                    reasoning: `Based on ${categoryTransactions.length} transactions over the last 3 months`
-                });
-            }
-        }
+		for (const category of categories) {
+			const categoryTransactions = recentTransactions.filter(
+				(tx: Transaction) => tx.categoryId === category.id
+			);
 
-        return recommendations.sort((a, b) => b.currentSpending - a.currentSpending);
-    }
+			// Convert all amounts to main currency
+			let totalSpending = 0;
+			for (const tx of categoryTransactions) {
+				if (tx.type === 'expense') {
+					const amount = Math.abs(tx.amount || 0);
+					const transactionCurrency = tx.currency || mainCurrency;
 
-    /**
-     * Get budget alerts (over budget categories)
-     */
-    async getBudgetAlerts(): Promise<{
-        categoryId: string;
-        categoryName: string;
-        allocatedAmount: number;
-        spentAmount: number;
-        overageAmount: number;
-        percentageOver: number;
-    }[]> {
-        const budgetSummary = await this.getBudgetSummary();
-        const alerts: {
-            categoryId: string;
-            categoryName: string;
-            allocatedAmount: number;
-            spentAmount: number;
-            overageAmount: number;
-            percentageOver: number;
-        }[] = [];
+					let convertedAmount = amount;
+					if (transactionCurrency !== mainCurrency) {
+						const converted = await exchangeRateService.convertAmount(
+							amount,
+							transactionCurrency,
+							mainCurrency,
+							tx.clearedDate ? new Date(tx.clearedDate) : undefined
+						);
+						if (converted !== null) {
+							convertedAmount = converted;
+						} else {
+							console.warn(
+								`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`
+							);
+						}
+					}
 
-        budgetSummary.allocations.forEach(allocation => {
-            if (allocation.spentAmount > allocation.allocatedAmount) {
-                alerts.push({
-                    categoryId: allocation.categoryId,
-                    categoryName: allocation.categoryName,
-                    allocatedAmount: allocation.allocatedAmount,
-                    spentAmount: allocation.spentAmount,
-                    overageAmount: allocation.spentAmount - allocation.allocatedAmount,
-                    percentageOver: allocation.percentageUsed - 100
-                });
-            }
-        });
+					totalSpending += convertedAmount;
+				}
+			}
 
-        return alerts.sort((a, b) => b.percentageOver - a.percentageOver);
-    }
+			const averageMonthlySpending = totalSpending / 3;
+			const recommendedBudget = averageMonthlySpending * 1.1; // 10% buffer
 
-    /**
-     * Get waterfall budget progress
-     */
-    async getWaterfallProgress(): Promise<{
-        tier: Category['waterfallTier'];
-        totalAllocated: number;
-        totalSpent: number;
-        remaining: number;
-        percentageUsed: number;
-        categories: BudgetAllocation[];
-    }[]> {
-        const budgetSummary = await this.getBudgetSummary();
-        const tierProgress: {
-            tier: Category['waterfallTier'];
-            totalAllocated: number;
-            totalSpent: number;
-            remaining: number;
-            percentageUsed: number;
-            categories: BudgetAllocation[];
-        }[] = [];
+			if (averageMonthlySpending > 0) {
+				recommendations.push({
+					categoryId: category.id,
+					categoryName: category.name,
+					currentSpending: averageMonthlySpending,
+					recommendedBudget,
+					reasoning: `Based on ${categoryTransactions.length} transactions over the last 3 months`
+				});
+			}
+		}
 
-        const tiers: Category['waterfallTier'][] = ['survival', 'security', 'growth', 'lifestyle'];
+		return recommendations.sort((a, b) => b.currentSpending - a.currentSpending);
+	}
 
-        tiers.forEach(tier => {
-            const tierCategories = budgetSummary.allocations.filter(a => a.waterfallTier === tier);
-            const tierData = budgetSummary.byTier[tier];
-            
-            tierProgress.push({
-                tier,
-                totalAllocated: tierData.allocated,
-                totalSpent: tierData.spent,
-                remaining: tierData.remaining,
-                percentageUsed: tierData.allocated > 0 ? (tierData.spent / tierData.allocated) * 100 : 0,
-                categories: tierCategories.sort((a, b) => a.priority - b.priority)
-            });
-        });
+	/**
+	 * Get budget alerts (over budget categories)
+	 */
+	async getBudgetAlerts(): Promise<
+		{
+			categoryId: string;
+			categoryName: string;
+			allocatedAmount: number;
+			spentAmount: number;
+			overageAmount: number;
+			percentageOver: number;
+		}[]
+	> {
+		const budgetSummary = await this.getBudgetSummary();
+		const alerts: {
+			categoryId: string;
+			categoryName: string;
+			allocatedAmount: number;
+			spentAmount: number;
+			overageAmount: number;
+			percentageOver: number;
+		}[] = [];
 
-        return tierProgress;
-    }
+		budgetSummary.allocations.forEach((allocation) => {
+			if (allocation.spentAmount > allocation.allocatedAmount) {
+				alerts.push({
+					categoryId: allocation.categoryId,
+					categoryName: allocation.categoryName,
+					allocatedAmount: allocation.allocatedAmount,
+					spentAmount: allocation.spentAmount,
+					overageAmount: allocation.spentAmount - allocation.allocatedAmount,
+					percentageOver: allocation.percentageUsed - 100
+				});
+			}
+		});
 
-    /**
-     * Get all budget categories (for compatibility with old interface)
-     */
-    async getBudgetCategories(): Promise<Category[]> {
-        return await db.getActiveCategories();
-    }
+		return alerts.sort((a, b) => b.percentageOver - a.percentageOver);
+	}
 
-    /**
-     * Update a budget category (for compatibility with old interface)
-     */
-    async updateBudgetCategory(categoryId: string, updates: Partial<Category>): Promise<void> {
-        const category = await db.categories.get(categoryId);
-        if (!category) {
-            throw new Error(`Category ${categoryId} not found`);
-        }
+	/**
+	 * Get waterfall budget progress
+	 */
+	async getWaterfallProgress(): Promise<
+		{
+			tier: Category['waterfallTier'];
+			totalAllocated: number;
+			totalSpent: number;
+			remaining: number;
+			percentageUsed: number;
+			categories: BudgetAllocation[];
+		}[]
+	> {
+		const budgetSummary = await this.getBudgetSummary();
+		const tierProgress: {
+			tier: Category['waterfallTier'];
+			totalAllocated: number;
+			totalSpent: number;
+			remaining: number;
+			percentageUsed: number;
+			categories: BudgetAllocation[];
+		}[] = [];
 
-        await db.categories.update(categoryId, {
-            ...updates,
-            updatedAt: new Date().toISOString()
-        });
-    }
+		const tiers: Category['waterfallTier'][] = ['survival', 'security', 'growth', 'lifestyle'];
 
-    /**
-     * Create a new category
-     */
-    async createCategory(categoryData: {
-        name: string;
-        type: Category['type'];
-        waterfallTier: Category['waterfallTier'];
-        priority: number;
-        budgetAmount?: number;
-        color?: string;
-        description?: string;
-        isActive?: boolean;
-    }): Promise<Category> {
-        const category: Category = {
-            id: generateUUID(),
-            name: categoryData.name,
-            type: categoryData.type,
-            waterfallTier: categoryData.waterfallTier,
-            priority: categoryData.priority,
-            budgetAmount: categoryData.budgetAmount,
-            color: categoryData.color,
-            description: categoryData.description,
-            isActive: categoryData.isActive ?? true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            deletedAt: null
-        };
+		tiers.forEach((tier) => {
+			const tierCategories = budgetSummary.allocations.filter((a) => a.waterfallTier === tier);
+			const tierData = budgetSummary.byTier[tier];
 
-        await db.categories.add(category);
-        return category;
-    }
+			tierProgress.push({
+				tier,
+				totalAllocated: tierData.allocated,
+				totalSpent: tierData.spent,
+				remaining: tierData.remaining,
+				percentageUsed: tierData.allocated > 0 ? (tierData.spent / tierData.allocated) * 100 : 0,
+				categories: tierCategories.sort((a, b) => a.priority - b.priority)
+			});
+		});
 
-    // ============================================================================
-    // PRIVATE METHODS
-    // ============================================================================
+		return tierProgress;
+	}
 
-    /**
-     * Calculate spending for a category
-     */
-    private calculateCategorySpending(categoryId: string, transactions: Transaction[]): number {
-        return transactions
-            .filter(tx => tx.categoryId === categoryId && tx.type === 'expense' && tx.status === 'cleared')
-            .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-    }
+	/**
+	 * Get all budget categories (for compatibility with old interface)
+	 */
+	async getBudgetCategories(): Promise<Category[]> {
+		return await db.getActiveCategories();
+	}
+
+	/**
+	 * Update a budget category (for compatibility with old interface)
+	 */
+	async updateBudgetCategory(categoryId: string, updates: Partial<Category>): Promise<void> {
+		const category = await db.categories.get(categoryId);
+		if (!category) {
+			throw new Error(`Category ${categoryId} not found`);
+		}
+
+		await db.categories.update(categoryId, {
+			...updates,
+			updatedAt: new Date().toISOString()
+		});
+	}
+
+	/**
+	 * Create a new category
+	 */
+	async createCategory(categoryData: {
+		name: string;
+		type: Category['type'];
+		waterfallTier: Category['waterfallTier'];
+		priority: number;
+		budgetAmount?: number;
+		color?: string;
+		description?: string;
+		isActive?: boolean;
+	}): Promise<Category> {
+		const category: Category = {
+			id: generateUUID(),
+			name: categoryData.name,
+			type: categoryData.type,
+			waterfallTier: categoryData.waterfallTier,
+			priority: categoryData.priority,
+			budgetAmount: categoryData.budgetAmount,
+			color: categoryData.color,
+			description: categoryData.description,
+			isActive: categoryData.isActive ?? true,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+			deletedAt: null
+		};
+
+		await db.categories.add(category);
+		return category;
+	}
+
+	// ============================================================================
+	// PRIVATE METHODS
+	// ============================================================================
+
+	/**
+	 * Calculate spending for a category
+	 */
+	private calculateCategorySpending(categoryId: string, transactions: Transaction[]): number {
+		return transactions
+			.filter(
+				(tx) => tx.categoryId === categoryId && tx.type === 'expense' && tx.status === 'cleared'
+			)
+			.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+	}
 }
 
 export const budgetService = new BudgetService();

@@ -1,6 +1,6 @@
 /**
  * Page Services
- * 
+ *
  * These services handle page-specific logic and data aggregation:
  * - Analyze page data processing and visualization
  * - Goals page comprehensive data management

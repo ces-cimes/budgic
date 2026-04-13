@@ -21,7 +21,12 @@ export const FLEXIBILITY_TIERS: FlexibilityTierInfo[] = [
 		description: 'Cannot be moved - must occur on scheduled date',
 		daysRange: '0 days',
 		icon: '🔒',
-		examples: ['Rent/mortgage payments', 'Fixed appointments', 'Contractual obligations', 'Non-negotiable dates']
+		examples: [
+			'Rent/mortgage payments',
+			'Fixed appointments',
+			'Contractual obligations',
+			'Non-negotiable dates'
+		]
 	},
 	{
 		value: 'semi-fixed',
@@ -53,7 +58,12 @@ export const FLEXIBILITY_TIERS: FlexibilityTierInfo[] = [
 		description: 'Can be postponed to next period - 30+ days flexibility',
 		daysRange: '30+ days',
 		icon: '⏭️',
-		examples: ['Discretionary shopping', 'Non-essential purchases', 'Optional upgrades', 'Luxury items']
+		examples: [
+			'Discretionary shopping',
+			'Non-essential purchases',
+			'Optional upgrades',
+			'Luxury items'
+		]
 	}
 ];
 
@@ -61,7 +71,7 @@ export const FLEXIBILITY_TIERS: FlexibilityTierInfo[] = [
  * Get flexibility tier information by value
  */
 export function getFlexibilityTierInfo(tier: FlexibilityTier): FlexibilityTierInfo | undefined {
-	return FLEXIBILITY_TIERS.find(t => t.value === tier);
+	return FLEXIBILITY_TIERS.find((t) => t.value === tier);
 }
 
 /**
@@ -102,7 +112,7 @@ export function getFlexibilityTierIcon(tier: FlexibilityTier): string {
  */
 export function getMaxFlexibilityDays(tier: FlexibilityTier | undefined): number {
 	if (!tier) return 0;
-	
+
 	switch (tier) {
 		case 'fixed':
 			return 0;
@@ -142,8 +152,8 @@ export function validateFlexibilityMovement(
 		const newTime = newDate.getTime();
 		const daysMoved = Math.round((newTime - originalTime) / (1000 * 60 * 60 * 24));
 		if (originalTime !== newTime) {
-			return { 
-				isValid: false, 
+			return {
+				isValid: false,
 				error: 'This transaction has a fixed date and cannot be moved',
 				daysMoved
 			};
@@ -159,8 +169,8 @@ export function validateFlexibilityMovement(
 
 	// Check if movement exceeds tier limits
 	if (absDaysMoved > maxDays) {
-		return { 
-			isValid: false, 
+		return {
+			isValid: false,
 			error: `This transaction can only be moved up to ${maxDays} days (${getFlexibilityTierDaysRange(tier)})`,
 			daysMoved
 		};
@@ -203,38 +213,63 @@ export function suggestFlexibilityTier(
 		const lowerName = categoryName.toLowerCase();
 
 		// Fixed expenses (rent, mortgage, fixed contracts)
-		if (lowerName.includes('rent') || lowerName.includes('mortgage') || 
-		    lowerName.includes('lease') || lowerName.includes('contract') ||
-		    lowerName.includes('fixed')) {
+		if (
+			lowerName.includes('rent') ||
+			lowerName.includes('mortgage') ||
+			lowerName.includes('lease') ||
+			lowerName.includes('contract') ||
+			lowerName.includes('fixed')
+		) {
 			return 'fixed';
 		}
 
 		// Semi-fixed expenses (bills, utilities, insurance, loans)
-		if (lowerName.includes('utility') || lowerName.includes('bill') || 
-		    lowerName.includes('insurance') || lowerName.includes('premium') ||
-		    lowerName.includes('loan') || lowerName.includes('debt') ||
-		    lowerName.includes('payment') || lowerName.includes('due')) {
+		if (
+			lowerName.includes('utility') ||
+			lowerName.includes('bill') ||
+			lowerName.includes('insurance') ||
+			lowerName.includes('premium') ||
+			lowerName.includes('loan') ||
+			lowerName.includes('debt') ||
+			lowerName.includes('payment') ||
+			lowerName.includes('due')
+		) {
 			return 'semi-fixed';
 		}
 
 		// Flexible-constrained expenses (groceries, gas, regular shopping)
-		if (lowerName.includes('grocery') || lowerName.includes('food') || 
-		    lowerName.includes('gas') || lowerName.includes('fuel') ||
-		    lowerName.includes('shopping') || lowerName.includes('store')) {
+		if (
+			lowerName.includes('grocery') ||
+			lowerName.includes('food') ||
+			lowerName.includes('gas') ||
+			lowerName.includes('fuel') ||
+			lowerName.includes('shopping') ||
+			lowerName.includes('store')
+		) {
 			return 'flexible-constrained';
 		}
 
 		// Flexible expenses (entertainment, dining, services)
-		if (lowerName.includes('entertainment') || lowerName.includes('dining') || 
-		    lowerName.includes('restaurant') || lowerName.includes('service') ||
-		    lowerName.includes('subscription') || lowerName.includes('streaming')) {
+		if (
+			lowerName.includes('entertainment') ||
+			lowerName.includes('dining') ||
+			lowerName.includes('restaurant') ||
+			lowerName.includes('service') ||
+			lowerName.includes('subscription') ||
+			lowerName.includes('streaming')
+		) {
 			return 'flexible';
 		}
 
 		// Deferrable expenses (discretionary, luxury, optional)
-		if (lowerName.includes('hobby') || lowerName.includes('luxury') || 
-		    lowerName.includes('optional') || lowerName.includes('discretionary') ||
-		    lowerName.includes('upgrade') || lowerName.includes('non-essential')) {
+		if (
+			lowerName.includes('hobby') ||
+			lowerName.includes('luxury') ||
+			lowerName.includes('optional') ||
+			lowerName.includes('discretionary') ||
+			lowerName.includes('upgrade') ||
+			lowerName.includes('non-essential')
+		) {
 			return 'deferrable';
 		}
 	}
@@ -260,13 +295,14 @@ export function suggestFlexibilityTierWithConstraint(
 		return 'fixed';
 	}
 
-	// If directional constraint is forward-only or backward-only, 
+	// If directional constraint is forward-only or backward-only,
 	// ensure flexibility tier is at least semi-fixed (allows some movement)
-	if ((directionalConstraint === 'forward-only' || directionalConstraint === 'backward-only') 
-	    && suggested === 'fixed') {
+	if (
+		(directionalConstraint === 'forward-only' || directionalConstraint === 'backward-only') &&
+		suggested === 'fixed'
+	) {
 		return 'semi-fixed';
 	}
 
 	return suggested;
 }
-

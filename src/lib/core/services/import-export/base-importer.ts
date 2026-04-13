@@ -1,11 +1,17 @@
 /**
  * Base Importer Interface
- * 
+ *
  * Abstract base class for importers, providing common functionality
  * for progress tracking, error handling, and rollback support.
  */
 
-import type { ImportOptions, ImportProgress, ImportResult, ImportStatistics, ImportError } from './types';
+import type {
+	ImportOptions,
+	ImportProgress,
+	ImportResult,
+	ImportStatistics,
+	ImportError
+} from './types';
 
 /**
  * Base importer class with common functionality
@@ -42,7 +48,7 @@ export abstract class BaseImporter {
 
 	/**
 	 * Execute the import process
-	 * 
+	 *
 	 * @param data - Optional data parameter for importers that need input (e.g., CSV files)
 	 * @returns Import result with statistics and errors
 	 */
@@ -50,7 +56,7 @@ export abstract class BaseImporter {
 
 	/**
 	 * Report progress to callback if provided
-	 * 
+	 *
 	 * @param step - Current step name
 	 * @param stepNumber - Current step number (1-based)
 	 * @param totalSteps - Total number of steps
@@ -82,7 +88,7 @@ export abstract class BaseImporter {
 
 	/**
 	 * Add an error to the error list
-	 * 
+	 *
 	 * @param error - Error to add
 	 */
 	protected addError(error: ImportError): void {
@@ -91,7 +97,7 @@ export abstract class BaseImporter {
 
 	/**
 	 * Add a warning to the warning list
-	 * 
+	 *
 	 * @param warning - Warning message
 	 */
 	protected addWarning(warning: string): void {
@@ -100,13 +106,13 @@ export abstract class BaseImporter {
 
 	/**
 	 * Create final import result
-	 * 
+	 *
 	 * @param success - Whether import was successful
 	 * @returns Import result
 	 */
 	protected createResult(success: boolean): ImportResult {
 		const duration = Date.now() - this.startTime;
-		
+
 		return {
 			success,
 			statistics: { ...this.statistics },
@@ -126,12 +132,12 @@ export abstract class BaseImporter {
 
 	/**
 	 * Validate import options
-	 * 
+	 *
 	 * @returns Whether options are valid
 	 */
 	protected validateOptions(): { isValid: boolean; errors: string[] } {
 		const errors: string[] = [];
-		
+
 		// At least one import type must be selected
 		if (
 			!this.options.importAccounts &&
@@ -141,21 +147,20 @@ export abstract class BaseImporter {
 		) {
 			errors.push('At least one import type must be selected');
 		}
-		
+
 		// Validate date range if provided
 		if (this.options.transactionDateStart && this.options.transactionDateEnd) {
 			const start = new Date(this.options.transactionDateStart);
 			const end = new Date(this.options.transactionDateEnd);
-			
+
 			if (start > end) {
 				errors.push('Transaction date start must be before end date');
 			}
 		}
-		
+
 		return {
 			isValid: errors.length === 0,
 			errors
 		};
 	}
 }
-

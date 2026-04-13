@@ -6,20 +6,14 @@
 		className?: string;
 	}
 
-	const {
-		title,
-		showBorder = false,
-		children,
-		className = ''
-	}: Props = $props();
+	const { title, showBorder = false, children, className = '' }: Props = $props();
 </script>
 
-<section class="mb-6 {showBorder ? 'border-t border-border pt-6 mt-6' : ''} {className}">
+<section class="mb-6 {showBorder ? 'border-border mt-6 border-t pt-6' : ''} {className}">
 	{#if title}
 		<div class="mb-4">
-			<h3 class="text-sm font-medium text-muted-foreground uppercase tracking-wide">{title}</h3>
+			<h3 class="text-muted-foreground text-sm font-medium tracking-wide uppercase">{title}</h3>
 		</div>
 	{/if}
 	{@render children()}
 </section>
-

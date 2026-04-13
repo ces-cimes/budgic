@@ -1,74 +1,72 @@
 <script lang="ts">
-  import type { CategoriesTabProps } from '../types.js';
-  import * as Card from '$lib/components/ui/card/index.ts';
-  import { PieChart, TrendingUp } from '@lucide/svelte';
-  import { formatMainCurrencyAmount, formatPercentage } from '$lib/utils/currency-utils';
+	import type { CategoriesTabProps } from '../types.js';
+	import * as Card from '$lib/components/ui/card/index.ts';
+	import { PieChart, TrendingUp } from '@lucide/svelte';
+	import { formatMainCurrencyAmount, formatPercentage } from '$lib/utils/currency-utils';
 
-  interface Props extends CategoriesTabProps {
-    children?: any;
-  }
+	interface Props extends CategoriesTabProps {
+		children?: any;
+	}
 
-  const { 
-    categoryData, 
-    userCurrency, 
-    timeRange,
-    children 
-  }: Props = $props();
+	const { categoryData, userCurrency, timeRange, children }: Props = $props();
 
-  function formatAmount(amount: number) {
-    return formatMainCurrencyAmount(amount, userCurrency);
-  }
+	function formatAmount(amount: number) {
+		return formatMainCurrencyAmount(amount, userCurrency);
+	}
 </script>
 
-<div class="py-2 sm:py-4 space-y-6">
-  <!-- Category Overview -->
-  <Card.Root class="p-6">
-    <div class="flex items-center gap-4 mb-4">
-      <div class="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
-        <PieChart class="w-5 h-5 text-primary" />
-      </div>
-      <div>
-        <h3 class="text-lg font-semibold text-primary">Spending by Category</h3>
-        <p class="text-sm text-muted-foreground">Current {timeRange} breakdown</p>
-      </div>
-    </div>
-    
-    <div class="space-y-4">
-      {#each categoryData as category (category.name)}
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-4 h-4 rounded" style="background-color: {category.color}"></div>
-            <span class="text-sm font-medium text-primary">{category.name}</span>
-          </div>
-          <div class="text-right">
-            <div class="text-sm font-semibold text-primary">{formatAmount(category.amount)}</div>
-            <div class="text-xs text-muted-foreground">{formatPercentage(category.percentage)}</div>
-          </div>
-        </div>
-      {/each}
-    </div>
-  </Card.Root>
+<div class="space-y-6 py-2 sm:py-4">
+	<!-- Category Overview -->
+	<Card.Root class="p-6">
+		<div class="mb-4 flex items-center gap-4">
+			<div class="bg-accent flex h-10 w-10 items-center justify-center rounded-lg">
+				<PieChart class="text-primary h-5 w-5" />
+			</div>
+			<div>
+				<h3 class="text-primary text-lg font-semibold">Spending by Category</h3>
+				<p class="text-muted-foreground text-sm">Current {timeRange} breakdown</p>
+			</div>
+		</div>
 
-  <!-- Category Trends -->
-  <Card.Root class="p-6">
-    <h3 class="text-lg font-semibold text-primary mb-4">Category Trends</h3>
-    <div class="space-y-4">
-      {#each categoryData.filter(c => c.trend) as category (category.name)}
-        <div class="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-          <div class="flex items-center gap-3">
-            <TrendingUp class="w-4 h-4 {category.trend?.isPositive ? 'text-green-500' : 'text-red-500'}" />
-            <span class="text-sm font-medium text-primary">{category.name}</span>
-          </div>
-          <div class="text-sm {category.trend?.isPositive ? 'text-green-500' : 'text-red-500'}">
-            {category.trend?.isPositive ? '+' : ''}{category.trend ? (category.trend.isPositive ? '+' : '') + formatPercentage(category.trend.value) : ''}
-          </div>
-        </div>
-      {/each}
-    </div>
-  </Card.Root>
-  
-  {#if children}
-    {@render children()}
-  {/if}
+		<div class="space-y-4">
+			{#each categoryData as category (category.name)}
+				<div class="flex items-center justify-between">
+					<div class="flex items-center gap-3">
+						<div class="h-4 w-4 rounded" style="background-color: {category.color}"></div>
+						<span class="text-primary text-sm font-medium">{category.name}</span>
+					</div>
+					<div class="text-right">
+						<div class="text-primary text-sm font-semibold">{formatAmount(category.amount)}</div>
+						<div class="text-muted-foreground text-xs">{formatPercentage(category.percentage)}</div>
+					</div>
+				</div>
+			{/each}
+		</div>
+	</Card.Root>
+
+	<!-- Category Trends -->
+	<Card.Root class="p-6">
+		<h3 class="text-primary mb-4 text-lg font-semibold">Category Trends</h3>
+		<div class="space-y-4">
+			{#each categoryData.filter((c) => c.trend) as category (category.name)}
+				<div class="bg-muted/50 flex items-center justify-between rounded-lg p-3">
+					<div class="flex items-center gap-3">
+						<TrendingUp
+							class="h-4 w-4 {category.trend?.isPositive ? 'text-green-500' : 'text-red-500'}"
+						/>
+						<span class="text-primary text-sm font-medium">{category.name}</span>
+					</div>
+					<div class="text-sm {category.trend?.isPositive ? 'text-green-500' : 'text-red-500'}">
+						{category.trend?.isPositive ? '+' : ''}{category.trend
+							? (category.trend.isPositive ? '+' : '') + formatPercentage(category.trend.value)
+							: ''}
+					</div>
+				</div>
+			{/each}
+		</div>
+	</Card.Root>
+
+	{#if children}
+		{@render children()}
+	{/if}
 </div>
-

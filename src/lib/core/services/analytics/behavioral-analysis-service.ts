@@ -8,7 +8,14 @@ import { userService } from '../core/user-service';
 
 export interface BehaviorPattern {
 	id: string;
-	type: 'day_of_week' | 'weekly' | 'monthly' | 'seasonal' | 'transaction_timing' | 'category_preference' | 'spending_velocity';
+	type:
+		| 'day_of_week'
+		| 'weekly'
+		| 'monthly'
+		| 'seasonal'
+		| 'transaction_timing'
+		| 'category_preference'
+		| 'spending_velocity';
 	title: string;
 	description: string;
 	confidence: number; // 0-100
@@ -79,7 +86,7 @@ class BehavioralAnalysisService {
 		const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 		// Count actions by day of week
-		actions.forEach(action => {
+		actions.forEach((action) => {
 			const date = new Date(action.timestamp);
 			const dayName = dayNames[date.getDay()];
 			const current = dayCounts.get(dayName) || { count: 0, amounts: [] };
@@ -89,7 +96,7 @@ class BehavioralAnalysisService {
 
 		// Count transactions by day of week if provided
 		if (transactions) {
-			transactions.forEach(tx => {
+			transactions.forEach((tx) => {
 				const date = new Date(tx.clearedDate || tx.plannedDate || tx.createdAt);
 				const dayName = dayNames[date.getDay()];
 				const current = dayCounts.get(dayName) || { count: 0, amounts: [] };
@@ -109,9 +116,10 @@ class BehavioralAnalysisService {
 		const patterns: DayOfWeekPattern[] = [];
 		dayCounts.forEach((data, day) => {
 			const percentage = (data.count / totalCount) * 100;
-			const averageAmount = data.amounts.length > 0
-				? data.amounts.reduce((sum, amt) => sum + amt, 0) / data.amounts.length
-				: undefined;
+			const averageAmount =
+				data.amounts.length > 0
+					? data.amounts.reduce((sum, amt) => sum + amt, 0) / data.amounts.length
+					: undefined;
 
 			// Only include patterns with significant frequency (>10% of total)
 			if (percentage >= 10) {
@@ -137,7 +145,7 @@ class BehavioralAnalysisService {
 		}
 
 		const expenseTransactions = transactions.filter(
-			tx => tx.type === 'expense' && tx.status === 'cleared' && tx.clearedDate
+			(tx) => tx.type === 'expense' && tx.status === 'cleared' && tx.clearedDate
 		);
 
 		if (expenseTransactions.length < 10) {
@@ -147,7 +155,7 @@ class BehavioralAnalysisService {
 		// Group by week
 		const weeklySpending = new Map<string, { amount: number; count: number; dates: string[] }>();
 
-		expenseTransactions.forEach(tx => {
+		expenseTransactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate!);
 			const weekStart = this.getWeekStart(date);
 			const weekKey = weekStart.toISOString().substring(0, 10);
@@ -163,7 +171,7 @@ class BehavioralAnalysisService {
 			return []; // Need at least 3 weeks
 		}
 
-		const amounts = Array.from(weeklySpending.values()).map(w => w.amount);
+		const amounts = Array.from(weeklySpending.values()).map((w) => w.amount);
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
 		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
@@ -171,18 +179,20 @@ class BehavioralAnalysisService {
 
 		// Pattern is significant if CV < 0.3 (low variance)
 		if (coefficientOfVariation < 0.3 && weeklySpending.size >= 3) {
-			const weeks = Array.from(weeklySpending.entries()).sort((a, b) => 
-				new Date(a[0]).getTime() - new Date(b[0]).getTime()
+			const weeks = Array.from(weeklySpending.entries()).sort(
+				(a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime()
 			);
 
-			return [{
-				type: 'weekly',
-				startDate: weeks[0][0],
-				endDate: weeks[weeks.length - 1][0],
-				averageAmount: avg,
-				confidence: Math.min(100, Math.round((1 - coefficientOfVariation) * 100)),
-				occurrences: weeklySpending.size
-			}];
+			return [
+				{
+					type: 'weekly',
+					startDate: weeks[0][0],
+					endDate: weeks[weeks.length - 1][0],
+					averageAmount: avg,
+					confidence: Math.min(100, Math.round((1 - coefficientOfVariation) * 100)),
+					occurrences: weeklySpending.size
+				}
+			];
 		}
 
 		return [];
@@ -198,7 +208,7 @@ class BehavioralAnalysisService {
 		}
 
 		const expenseTransactions = transactions.filter(
-			tx => tx.type === 'expense' && tx.status === 'cleared' && tx.clearedDate
+			(tx) => tx.type === 'expense' && tx.status === 'cleared' && tx.clearedDate
 		);
 
 		if (expenseTransactions.length < 15) {
@@ -208,7 +218,7 @@ class BehavioralAnalysisService {
 		// Group by month
 		const monthlySpending = new Map<string, { amount: number; count: number; dates: string[] }>();
 
-		expenseTransactions.forEach(tx => {
+		expenseTransactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate!);
 			const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
@@ -223,25 +233,25 @@ class BehavioralAnalysisService {
 			return [];
 		}
 
-		const amounts = Array.from(monthlySpending.values()).map(m => m.amount);
+		const amounts = Array.from(monthlySpending.values()).map((m) => m.amount);
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
 		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
 		if (coefficientOfVariation < 0.3 && monthlySpending.size >= 3) {
-			const months = Array.from(monthlySpending.entries()).sort((a, b) => 
-				a[0].localeCompare(b[0])
-			);
+			const months = Array.from(monthlySpending.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
-			return [{
-				type: 'monthly',
-				startDate: months[0][0] + '-01',
-				endDate: months[months.length - 1][0] + '-01',
-				averageAmount: avg,
-				confidence: Math.min(100, Math.round((1 - coefficientOfVariation) * 100)),
-				occurrences: monthlySpending.size
-			}];
+			return [
+				{
+					type: 'monthly',
+					startDate: months[0][0] + '-01',
+					endDate: months[months.length - 1][0] + '-01',
+					averageAmount: avg,
+					confidence: Math.min(100, Math.round((1 - coefficientOfVariation) * 100)),
+					occurrences: monthlySpending.size
+				}
+			];
 		}
 
 		return [];
@@ -257,7 +267,7 @@ class BehavioralAnalysisService {
 		}
 
 		const expenseTransactions = transactions.filter(
-			tx => tx.type === 'expense' && tx.status === 'cleared' && tx.clearedDate
+			(tx) => tx.type === 'expense' && tx.status === 'cleared' && tx.clearedDate
 		);
 
 		if (expenseTransactions.length < 30) {
@@ -267,7 +277,7 @@ class BehavioralAnalysisService {
 		// Group by quarter
 		const quarterlySpending = new Map<string, { amount: number; count: number; dates: string[] }>();
 
-		expenseTransactions.forEach(tx => {
+		expenseTransactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate!);
 			const quarter = Math.floor(date.getMonth() / 3) + 1;
 			const quarterKey = `Q${quarter}-${date.getFullYear()}`;
@@ -283,25 +293,27 @@ class BehavioralAnalysisService {
 			return []; // Need at least 4 quarters (1 year)
 		}
 
-		const amounts = Array.from(quarterlySpending.values()).map(q => q.amount);
+		const amounts = Array.from(quarterlySpending.values()).map((q) => q.amount);
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
 		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
 		if (coefficientOfVariation < 0.4 && quarterlySpending.size >= 4) {
-			const quarters = Array.from(quarterlySpending.entries()).sort((a, b) => 
+			const quarters = Array.from(quarterlySpending.entries()).sort((a, b) =>
 				a[0].localeCompare(b[0])
 			);
 
-			return [{
-				type: 'seasonal',
-				startDate: quarters[0][0],
-				endDate: quarters[quarters.length - 1][0],
-				averageAmount: avg,
-				confidence: Math.min(100, Math.round((1 - coefficientOfVariation) * 100)),
-				occurrences: quarterlySpending.size
-			}];
+			return [
+				{
+					type: 'seasonal',
+					startDate: quarters[0][0],
+					endDate: quarters[quarters.length - 1][0],
+					averageAmount: avg,
+					confidence: Math.min(100, Math.round((1 - coefficientOfVariation) * 100)),
+					occurrences: quarterlySpending.size
+				}
+			];
 		}
 
 		return [];
@@ -310,14 +322,16 @@ class BehavioralAnalysisService {
 	/**
 	 * Detect transaction timing patterns (hour of day)
 	 */
-	async detectTransactionTimingPatterns(transactions: Transaction[]): Promise<TransactionTimingPattern[]> {
+	async detectTransactionTimingPatterns(
+		transactions: Transaction[]
+	): Promise<TransactionTimingPattern[]> {
 		if (transactions.length < 5) {
 			return [];
 		}
 
 		const hourCounts = new Map<number, { count: number; amounts: number[] }>();
 
-		transactions.forEach(tx => {
+		transactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate || tx.plannedDate || tx.createdAt);
 			const hour = date.getHours();
 			const current = hourCounts.get(hour) || { count: 0, amounts: [] };
@@ -336,11 +350,13 @@ class BehavioralAnalysisService {
 		const patterns: TransactionTimingPattern[] = [];
 		hourCounts.forEach((data, hour) => {
 			const percentage = (data.count / totalCount) * 100;
-			const averageAmount = data.amounts.length > 0
-				? data.amounts.reduce((sum, amt) => sum + amt, 0) / data.amounts.length
-				: undefined;
+			const averageAmount =
+				data.amounts.length > 0
+					? data.amounts.reduce((sum, amt) => sum + amt, 0) / data.amounts.length
+					: undefined;
 
-			if (percentage >= 5) { // At least 5% of transactions
+			if (percentage >= 5) {
+				// At least 5% of transactions
 				patterns.push({
 					hour,
 					frequency: data.count,
@@ -361,7 +377,7 @@ class BehavioralAnalysisService {
 		const transactions = await db.transactions
 			.where('clearedDate')
 			.above(new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
-			.and(tx => !tx.deletedAt)
+			.and((tx) => !tx.deletedAt)
 			.toArray();
 
 		const patterns: BehaviorPattern[] = [];
@@ -394,7 +410,7 @@ class BehavioralAnalysisService {
 
 		// Weekly cycles
 		const weeklyCycles = await this.detectWeeklyCycles(transactions);
-		weeklyCycles.forEach(cycle => {
+		weeklyCycles.forEach((cycle) => {
 			patterns.push({
 				id: generateUUID(),
 				type: 'weekly',
@@ -419,7 +435,7 @@ class BehavioralAnalysisService {
 
 		// Monthly cycles
 		const monthlyCycles = await this.detectMonthlyCycles(transactions);
-		monthlyCycles.forEach(cycle => {
+		monthlyCycles.forEach((cycle) => {
 			patterns.push({
 				id: generateUUID(),
 				type: 'monthly',
@@ -444,7 +460,7 @@ class BehavioralAnalysisService {
 
 		// Seasonal patterns
 		const seasonalPatterns = await this.detectSeasonalPatterns(transactions);
-		seasonalPatterns.forEach(cycle => {
+		seasonalPatterns.forEach((cycle) => {
 			patterns.push({
 				id: generateUUID(),
 				type: 'seasonal',

@@ -406,7 +406,7 @@
 			<Card>
 				<CardContent class="py-8 pt-6 text-center">
 					<TrendingUp class="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-					<p class="text-sm text-muted-foreground">Nothing here yet.</p>
+					<p class="text-muted-foreground text-sm">Nothing here yet.</p>
 					<p class="text-muted-foreground">
 						{#if searchTerm || selectedAccountFilter !== 'all' || selectedHealthFilter !== 'all' || showOnlyWithDiscrepancies}
 							Try adjusting your filters to see more results.

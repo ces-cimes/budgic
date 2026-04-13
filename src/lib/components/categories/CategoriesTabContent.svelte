@@ -27,15 +27,9 @@
 	let categoriesWithBudget = $derived(
 		categories.map((category) => {
 			const categoryTransactions = transactions.filter(
-				(tx) =>
-					tx.categoryId === category.id &&
-					tx.type === 'expense' &&
-					tx.status === 'cleared'
+				(tx) => tx.categoryId === category.id && tx.type === 'expense' && tx.status === 'cleared'
 			);
-			const spent = categoryTransactions.reduce(
-				(sum, tx) => sum + Math.abs(tx.amount || 0),
-				0
-			);
+			const spent = categoryTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
 			const allocated = category.budgetAmount || 0;
 			const remaining = allocated - spent;
 			return {
@@ -79,12 +73,7 @@
 			groups.get(tier)!.push(category);
 		});
 		groups.forEach((cats) => cats.sort((a, b) => a.priority - b.priority));
-		const tierOrder: Category['waterfallTier'][] = [
-			'survival',
-			'security',
-			'growth',
-			'lifestyle'
-		];
+		const tierOrder: Category['waterfallTier'][] = ['survival', 'security', 'growth', 'lifestyle'];
 		return tierOrder
 			.filter((tier) => groups.has(tier))
 			.map((tier) => ({ tier, categories: groups.get(tier)! }));
@@ -92,15 +81,13 @@
 
 	let activeCount = $derived.by(() => {
 		let filtered = categoriesWithBudget;
-		if (categoryType !== 'all')
-			filtered = filtered.filter((cat) => cat.type === categoryType);
+		if (categoryType !== 'all') filtered = filtered.filter((cat) => cat.type === categoryType);
 		return filtered.filter((cat) => cat.isActive).length;
 	});
 
 	let inactiveCount = $derived.by(() => {
 		let filtered = categoriesWithBudget;
-		if (categoryType !== 'all')
-			filtered = filtered.filter((cat) => cat.type === categoryType);
+		if (categoryType !== 'all') filtered = filtered.filter((cat) => cat.type === categoryType);
 		return filtered.filter((cat) => !cat.isActive).length;
 	});
 
@@ -185,14 +172,8 @@
 		if (draggedGroupIndex === -1) return;
 
 		const draggedGroup = groupedCategories[draggedGroupIndex];
-		const draggedIndex = draggedGroup.categories.findIndex(
-			(cat) => cat.id === draggedCategoryId
-		);
-		if (
-			draggedGroupIndex === targetGroupIndex &&
-			draggedIndex === targetCategoryIndex
-		)
-			return;
+		const draggedIndex = draggedGroup.categories.findIndex((cat) => cat.id === draggedCategoryId);
+		if (draggedGroupIndex === targetGroupIndex && draggedIndex === targetCategoryIndex) return;
 
 		const isMovingBetweenTiers = draggedGroupIndex !== targetGroupIndex;
 
@@ -313,12 +294,8 @@
 			<div class="bg-card border-border rounded-2xl border shadow-sm">
 				<div class="text-muted-foreground p-8 text-center">
 					<div class="mb-2 text-lg">No categories found</div>
-					<div class="mb-4 text-sm">
-						Try adjusting your filters or add a new category
-					</div>
-					<Button onclick={() => goto('/plan?tab=budget')}>
-						Create your first category
-					</Button>
+					<div class="mb-4 text-sm">Try adjusting your filters or add a new category</div>
+					<Button onclick={() => goto('/plan?tab=budget')}>Create your first category</Button>
 				</div>
 			</div>
 		{:else}
@@ -341,8 +318,7 @@
 								draggable="true"
 								ondragstart={(e) => handleDragStart(e, category)}
 								ondragover={(e) => handleDragOver(e, categoryIndex)}
-								ondrop={(e) =>
-									handleDrop(e, category, groupIndex, categoryIndex)}
+								ondrop={(e) => handleDrop(e, category, groupIndex, categoryIndex)}
 								ondragend={handleDragEnd}
 								class="bg-card border-border flex cursor-move items-center gap-3 rounded-lg border p-4 shadow-sm transition-all
 									{dragOverIndex === categoryIndex && draggedCategory
@@ -350,9 +326,7 @@
 									: ''}
 									hover:border-[var(--color-border-hover)]"
 							>
-								<GripVertical
-									class="text-muted-foreground w-5 flex-shrink-0"
-								/>
+								<GripVertical class="text-muted-foreground w-5 flex-shrink-0" />
 
 								<div class="min-w-0 flex-1">
 									<div class="mb-1 flex items-center gap-2">
@@ -372,9 +346,7 @@
 											<span class="text-muted-foreground">·</span>
 											<span class="text-muted-foreground">
 												Spent:
-												<span
-													class="font-medium text-[var(--color-warm-coral)]"
-												>
+												<span class="font-medium text-[var(--color-warm-coral)]">
 													{formatAmount(category.spent, mainCurrency)}
 												</span>
 											</span>
@@ -404,11 +376,7 @@
 										checked={category.isActive}
 										onCheckedChange={() => toggleCategoryStatus(category)}
 									/>
-									<Button
-										variant="outline"
-										size="sm"
-										onclick={() => goto(`/plan?tab=budget`)}
-									>
+									<Button variant="outline" size="sm" onclick={() => goto(`/plan?tab=budget`)}>
 										View
 									</Button>
 								</div>

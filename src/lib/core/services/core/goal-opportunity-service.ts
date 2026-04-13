@@ -62,8 +62,7 @@ class GoalOpportunityService {
 	): Promise<ProjectedSurplusBreakdown> {
 		const now = new Date();
 		const start = periodStart ?? new Date(now.getFullYear(), now.getMonth(), 1);
-		const end =
-			periodEnd ?? new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+		const end = periodEnd ?? new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
 		const preferences = await userService.getUserPreferences();
 		const currency = preferences?.currency ?? 'USD';
@@ -169,10 +168,7 @@ class GoalOpportunityService {
 
 		// Cleared income in range
 		const cleared = await transactionService.getTransactionsByDateRange(startStr, endStr);
-		const planned = await db.transactions
-			.where('status')
-			.equals('planned')
-			.toArray();
+		const planned = await db.transactions.where('status').equals('planned').toArray();
 		const plannedInRange = planned.filter((t) => {
 			if (!t) return false;
 			const d = t.plannedDate;
@@ -183,7 +179,10 @@ class GoalOpportunityService {
 		// Dedupe: if a transaction is both cleared and planned we count once (use cleared set by id)
 		const clearedIds = new Set(cleared.map((t) => t.id));
 		const plannedOnly = plannedInRange.filter((t) => !clearedIds.has(t.id));
-		const allInPeriod = [...cleared.filter((t) => t.type === 'income'), ...plannedOnly.filter((t) => t.type === 'income')];
+		const allInPeriod = [
+			...cleared.filter((t) => t.type === 'income'),
+			...plannedOnly.filter((t) => t.type === 'income')
+		];
 
 		const accounts = await db.getActiveAccounts();
 		const accountMap: Record<string, { currency?: string }> = Object.fromEntries(
@@ -209,11 +208,7 @@ class GoalOpportunityService {
 				total += monthly;
 			} else {
 				const { exchangeRateService } = await import('$lib/core/services');
-				const converted = await exchangeRateService.convertAmount(
-					monthly,
-					goal.currency,
-					currency
-				);
+				const converted = await exchangeRateService.convertAmount(monthly, goal.currency, currency);
 				if (converted != null) total += converted;
 				else total += monthly;
 			}
@@ -221,11 +216,7 @@ class GoalOpportunityService {
 		return total;
 	}
 
-	private buildImpactMessage(
-		goal: Goal,
-		req: RequiredSavingsResult,
-		extraAmount: number
-	): string {
+	private buildImpactMessage(goal: Goal, req: RequiredSavingsResult, extraAmount: number): string {
 		if (req.isTimeBound && req.requiredMonthly != null && req.requiredMonthly > 0) {
 			const monthsSaved = extraAmount / req.requiredMonthly;
 			if (monthsSaved >= 1) {

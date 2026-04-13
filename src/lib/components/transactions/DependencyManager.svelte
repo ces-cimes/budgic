@@ -322,7 +322,7 @@
 					<Select.Trigger>
 						{selectedDependencyType
 							? dependencyTypes.find((t) => t.value === selectedDependencyType)?.label ||
-							  'Select dependency type'
+								'Select dependency type'
 							: 'Select dependency type'}
 					</Select.Trigger>
 					<Select.Content>

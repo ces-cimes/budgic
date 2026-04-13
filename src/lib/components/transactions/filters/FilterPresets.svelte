@@ -66,12 +66,7 @@
 
 <div class="flex flex-wrap gap-2">
 	{#each presets as preset}
-		<Button
-			variant="outline"
-			size="sm"
-			onclick={() => applyPreset(preset.id)}
-			class="text-xs"
-		>
+		<Button variant="outline" size="sm" onclick={() => applyPreset(preset.id)} class="text-xs">
 			{preset.label}
 		</Button>
 	{/each}

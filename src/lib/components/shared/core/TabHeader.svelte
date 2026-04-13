@@ -26,9 +26,7 @@
 	const sidebar = Sidebar.useSidebar();
 
 	/** Underline variant always shows; pill hides on desktop unless forced. */
-	const showTabRow = $derived(
-		variant === 'underline' || alwaysShow || sidebar.isMobile
-	);
+	const showTabRow = $derived(variant === 'underline' || alwaysShow || sidebar.isMobile);
 
 	const nTabs = $derived(tabs.length);
 	/** Full-width equal segments when a modest number of tabs; more → horizontal scroll with min widths. */
@@ -50,8 +48,7 @@
 	 */
 	function pillRadiusStyle(index: number, total: number): string {
 		const sm = 'var(--radius-sm)';
-		const cap =
-			'max(var(--radius-sm), min(1.75rem, calc(0.5 * (1lh + 0.5rem) - 0.5px)))';
+		const cap = 'max(var(--radius-sm), min(1.75rem, calc(0.5 * (1lh + 0.5rem) - 0.5px)))';
 		if (total <= 1) return `border-radius: ${cap};`;
 		if (index === 0) return `border-radius: ${cap} ${sm} ${sm} ${cap};`;
 		if (index === total - 1) return `border-radius: ${sm} ${cap} ${cap} ${sm};`;
@@ -97,10 +94,11 @@
 {#if variant === 'pill' && !showTabRow}
 	<!-- Desktop: tab switching lives in the sidebar; skip duplicate header pills. -->
 {:else}
-	<Tabs.Root value={activeTab} onValueChange={onTabChange} class="w-full min-w-0 max-w-full">
+	<Tabs.Root value={activeTab} onValueChange={onTabChange} class="w-full max-w-full min-w-0">
 		<div
 			bind:this={tabContainer}
-			class="scrollbar-hide box-border w-full min-w-0 max-w-full overflow-x-auto overflow-y-visible glass {variant === 'pill'
+			class="scrollbar-hide glass box-border w-full max-w-full min-w-0 overflow-x-auto overflow-y-visible {variant ===
+			'pill'
 				? 'rounded-full p-1'
 				: ''} {className}"
 			style="scrollbar-width: none; -ms-overflow-style: none;"
@@ -109,8 +107,8 @@
 			<Tabs.List
 				class={variant === 'pill'
 					? useEqualWidthPills
-						? 'flex h-auto w-full min-w-0 max-w-full items-stretch gap-0.5 bg-transparent p-0 rounded-none'
-						: 'inline-flex h-auto max-w-none items-stretch gap-0.5 bg-transparent p-0 rounded-none'
+						? 'flex h-auto w-full max-w-full min-w-0 items-stretch gap-0.5 rounded-none bg-transparent p-0'
+						: 'inline-flex h-auto max-w-none items-stretch gap-0.5 rounded-none bg-transparent p-0'
 					: 'h-auto w-full justify-start rounded-none bg-transparent p-0'}
 			>
 				{#each tabs as tab, i (tab.id)}
@@ -118,13 +116,15 @@
 						value={tab.id}
 						style={variant === 'pill' ? pillRadiusStyle(i, nTabs) : undefined}
 						class={variant === 'pill'
-							? `flex !h-auto min-h-0 min-w-0 items-center justify-center gap-1.5 overflow-visible border-0 bg-transparent px-2 py-1 text-xs font-medium leading-normal text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-text-primary)] data-[state=active]:bg-[var(--color-amber-subtle)] data-[state=active]:text-[var(--color-amber)] data-[state=active]:shadow-none ${useEqualWidthPills ? 'flex-1' : 'min-w-[4.25rem] shrink-0'}`
-							: 'flex items-center gap-2 rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-4 py-2 whitespace-nowrap transition-all hover:bg-secondary/20 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none'}
+							? `flex !h-auto min-h-0 min-w-0 items-center justify-center gap-1.5 overflow-visible border-0 bg-transparent px-2 py-1 text-xs leading-normal font-medium text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-text-primary)] data-[state=active]:bg-[var(--color-amber-subtle)] data-[state=active]:text-[var(--color-amber)] data-[state=active]:shadow-none ${useEqualWidthPills ? 'flex-1' : 'min-w-[4.25rem] shrink-0'}`
+							: 'hover:bg-secondary/20 data-[state=active]:border-primary flex items-center gap-2 rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-4 py-2 whitespace-nowrap transition-all data-[state=active]:bg-transparent data-[state=active]:shadow-none'}
 					>
 						{#if tab.icon}
 							<tab.icon class={variant === 'pill' ? 'size-3.5 shrink-0' : 'h-4 w-4 shrink-0'} />
 						{/if}
-						<span class={variant === 'pill' ? 'min-w-0 shrink whitespace-nowrap' : ''}>{tab.label}</span>
+						<span class={variant === 'pill' ? 'min-w-0 shrink whitespace-nowrap' : ''}
+							>{tab.label}</span
+						>
 					</Tabs.Trigger>
 				{/each}
 			</Tabs.List>
@@ -140,5 +140,4 @@
 	.scrollbar-hide::-webkit-scrollbar {
 		display: none;
 	}
-
 </style>

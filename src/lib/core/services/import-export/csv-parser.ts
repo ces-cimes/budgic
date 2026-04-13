@@ -1,6 +1,6 @@
 /**
  * CSV Parser Utility
- * 
+ *
  * Handles parsing of CSV files with proper escaping, quoted fields,
  * and conversion to structured data objects.
  */
@@ -9,12 +9,12 @@ import type { CSVFile } from './types';
 
 /**
  * Parse a CSV string into structured data
- * 
+ *
  * @param csvContent - Raw CSV content as string
  * @param fileName - Name of the file (for error reporting)
  * @returns Parsed CSV file structure
  * @throws {Error} If CSV parsing fails
- * 
+ *
  * @example
  * ```typescript
  * const csvContent = `"ID","NAME","AMOUNT"\n"1","Test","100.0"`;
@@ -29,24 +29,24 @@ export function parseCSV(csvContent: string, fileName: string): CSVFile {
 		// Splitting on newlines will corrupt those rows. Instead, split into records while
 		// respecting quotes.
 		const lines = splitCSVRecords(csvContent).filter((line) => line.trim().length > 0);
-		
+
 		if (lines.length === 0) {
 			throw new Error(`CSV file ${fileName} is empty`);
 		}
 
 		// Parse headers (first line)
 		const headers = parseCSVLine(lines[0]);
-		
+
 		if (headers.length === 0) {
 			throw new Error(`CSV file ${fileName} has no headers`);
 		}
 
 		// Parse data rows
 		const rows: Record<string, string>[] = [];
-		
+
 		for (let i = 1; i < lines.length; i++) {
 			const values = parseCSVLine(lines[i]);
-			
+
 			// Skip rows that don't match header count (likely incomplete)
 			if (values.length === headers.length) {
 				const row: Record<string, string> = {};
@@ -64,7 +64,9 @@ export function parseCSV(csvContent: string, fileName: string): CSVFile {
 			rowCount: rows.length
 		};
 	} catch (error) {
-		throw new Error(`Failed to parse CSV file ${fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		throw new Error(
+			`Failed to parse CSV file ${fileName}: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 	}
 }
 
@@ -119,7 +121,7 @@ function splitCSVRecords(csvContent: string): string[] {
 
 /**
  * Parse a single CSV line, handling quoted fields and escaped quotes
- * 
+ *
  * @param line - CSV line to parse
  * @returns Array of field values
  */
@@ -162,11 +164,11 @@ function parseCSVLine(line: string): string[] {
 
 /**
  * Read a CSV file from a File object
- * 
+ *
  * @param file - File object to read
  * @returns Parsed CSV file structure
  * @throws {Error} If file reading fails
- * 
+ *
  * @example
  * ```typescript
  * const fileInput = document.querySelector('input[type="file"]');
@@ -179,17 +181,19 @@ export async function readCSVFile(file: File): Promise<CSVFile> {
 		const content = await file.text();
 		return parseCSV(content, file.name);
 	} catch (error) {
-		throw new Error(`Failed to read CSV file ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		throw new Error(
+			`Failed to read CSV file ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 	}
 }
 
 /**
  * Read multiple CSV files
- * 
+ *
  * @param files - Array of File objects
  * @returns Map of file names to parsed CSV data
  * @throws {Error} If any file reading fails
- * 
+ *
  * @example
  * ```typescript
  * const files = Array.from(fileInput.files);
@@ -199,7 +203,7 @@ export async function readCSVFile(file: File): Promise<CSVFile> {
  */
 export async function readMultipleCSVFiles(files: File[]): Promise<Map<string, CSVFile>> {
 	const csvFiles = new Map<string, CSVFile>();
-	
+
 	await Promise.all(
 		files.map(async (file) => {
 			if (file.name.endsWith('.csv')) {
@@ -208,13 +212,13 @@ export async function readMultipleCSVFiles(files: File[]): Promise<Map<string, C
 			}
 		})
 	);
-	
+
 	return csvFiles;
 }
 
 /**
  * Validate CSV file structure
- * 
+ *
  * @param csvFile - Parsed CSV file to validate
  * @param requiredColumns - Array of required column names
  * @returns Validation result with errors if any
@@ -224,21 +228,20 @@ export function validateCSVStructure(
 	requiredColumns: string[]
 ): { isValid: boolean; errors: string[] } {
 	const errors: string[] = [];
-	
+
 	// Check if required columns exist
-	const missingColumns = requiredColumns.filter(col => !csvFile.headers.includes(col));
+	const missingColumns = requiredColumns.filter((col) => !csvFile.headers.includes(col));
 	if (missingColumns.length > 0) {
 		errors.push(`Missing required columns: ${missingColumns.join(', ')}`);
 	}
-	
+
 	// Check if file has data
 	if (csvFile.rowCount === 0) {
 		errors.push('CSV file has no data rows');
 	}
-	
+
 	return {
 		isValid: errors.length === 0,
 		errors
 	};
 }
-

@@ -21,7 +21,9 @@
 	// Computed properties
 	let isEditMode = $derived(!!account && !!accountId);
 	let pageTitle = $derived(isEditMode ? 'Edit account' : 'New account');
-	let submitButtonText = $derived(isLoading ? (isEditMode ? 'Updating…' : 'Creating…') : (isEditMode ? 'Update' : 'Create'));
+	let submitButtonText = $derived(
+		isLoading ? (isEditMode ? 'Updating…' : 'Creating…') : isEditMode ? 'Update' : 'Create'
+	);
 
 	onMount(async () => {
 		try {
@@ -72,7 +74,12 @@
 				goto(`/accounts/${newAccount.id}`);
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : (isEditMode ? 'Failed to update account' : 'Failed to create account');
+			error =
+				err instanceof Error
+					? err.message
+					: isEditMode
+						? 'Failed to update account'
+						: 'Failed to create account';
 			console.error(err);
 			throw err; // Let AccountForm handle the error
 		} finally {
@@ -92,7 +99,7 @@
 
 	async function handleDelete() {
 		if (!account) return;
-		
+
 		isDeleting = true;
 		error = '';
 
@@ -116,7 +123,7 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<Header 
+		<Header
 			title={pageTitle}
 			showBackButton={true}
 			backButtonLink={isEditMode && account ? `/accounts/${account.id}` : '/accounts'}
@@ -126,7 +133,9 @@
 
 	<div class="mx-auto max-w-2xl px-4 py-6">
 		{#if error && !isLoading}
-			<div class="mb-6 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-4">
+			<div
+				class="mb-6 rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-4"
+			>
 				<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
 			</div>
 		{/if}
@@ -137,9 +146,9 @@
 					<div class="h-12 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
 				{/each}
 			</div>
-		{:else if (!isEditMode || account)}
+		{:else if !isEditMode || account}
 			<!-- Account Form -->
-			<AccountForm 
+			<AccountForm
 				account={account || undefined}
 				onSubmit={handleSubmit}
 				onCancel={handleCancel}
@@ -153,13 +162,13 @@
 	{#snippet bottomBar()}
 		<FormActionBar
 			formId="account-form"
-			isEditMode={isEditMode}
+			{isEditMode}
 			isLoading={isSubmitting}
-			isDeleting={isDeleting}
+			{isDeleting}
 			submitLabel={submitButtonText}
 			cancelLabel="Cancel"
 			onCancel={handleCancel}
-			onDelete={isEditMode ? () => showDeleteDialog = true : undefined}
+			onDelete={isEditMode ? () => (showDeleteDialog = true) : undefined}
 		/>
 	{/snippet}
 
@@ -172,10 +181,9 @@
 				amount: account.currentBalance,
 				currency: account.currency
 			}}
-			isDeleting={isDeleting}
+			{isDeleting}
 			onConfirm={handleDelete}
-			onCancel={() => showDeleteDialog = false}
+			onCancel={() => (showDeleteDialog = false)}
 		/>
 	{/if}
 </PageLayout>
-

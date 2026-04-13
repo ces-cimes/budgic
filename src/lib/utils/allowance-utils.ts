@@ -110,30 +110,40 @@ export async function calculateEnhancedAllowance(
 
 	// Get all transactions for historical analysis
 	const allTransactions = await transactionService.getTransactionsByAccount(account.id);
-	const clearedTransactions = allTransactions.filter(t => t.status === 'cleared');
+	const clearedTransactions = allTransactions.filter((t) => t.status === 'cleared');
 
 	// Calculate days elapsed and remaining
-	const daysElapsed = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-	const daysRemaining = Math.max(1, Math.floor((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+	const daysElapsed = Math.max(
+		0,
+		Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+	);
+	const daysRemaining = Math.max(
+		1,
+		Math.floor((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+	);
 
 	// Get planned transactions for buffer calculation
 	const plannedTransactions = allTransactions.filter(
-		t => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
+		(t) => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
 	);
 
 	// Calculate historical spending data
 	const historicalData = calculateHistoricalSpending(clearedTransactions, start);
 
 	// Calculate method weights based on data availability
-	const methodWeights = calculateMethodWeights(historicalData.hasEnoughData, daysElapsed, daysRemaining);
+	const methodWeights = calculateMethodWeights(
+		historicalData.hasEnoughData,
+		daysElapsed,
+		daysRemaining
+	);
 
 	// Calculate spent so far in current period
 	const spentSoFar = calculateSpentSoFar(clearedTransactions, start, now);
 
 	// Calculate buffer amount
 	const bufferTransactions = clearedTransactions
-		.filter(t => t.amount !== undefined)
-		.map(t => ({
+		.filter((t) => t.amount !== undefined)
+		.map((t) => ({
 			amount: t.amount!,
 			clearedDate: t.clearedDate,
 			type: t.type
@@ -249,9 +259,9 @@ async function calculateTotalAllowance(
 	const confidence = Math.min(
 		1.0,
 		(historicalData.hasEnoughData ? 0.4 : 0.2) +
-			(methodWeights.buffer * 0.3) +
-			(methodWeights.velocity * 0.3) +
-			(daysElapsed > 7 ? 0.2 : daysElapsed / 7 * 0.2)
+			methodWeights.buffer * 0.3 +
+			methodWeights.velocity * 0.3 +
+			(daysElapsed > 7 ? 0.2 : (daysElapsed / 7) * 0.2)
 	);
 
 	return {
@@ -284,13 +294,13 @@ function calculateHistoricalSpending(
 
 	// Filter expenses from last 6 months
 	const historicalExpenses = transactions
-		.filter(t => {
+		.filter((t) => {
 			if (t.type !== 'expense') return false;
 			if (!t.clearedDate) return false;
 			const date = new Date(t.clearedDate);
 			return date >= sixMonthsAgo && date < periodStart;
 		})
-		.map(t => Math.abs(t.amount || 0));
+		.map((t) => Math.abs(t.amount || 0));
 
 	if (historicalExpenses.length === 0) {
 		return {
@@ -305,7 +315,7 @@ function calculateHistoricalSpending(
 	const monthlyTotals = new Map<string, number>();
 	historicalExpenses.forEach((amount, index) => {
 		const transaction = transactions.find(
-			t => t.type === 'expense' && Math.abs(t.amount || 0) === amount
+			(t) => t.type === 'expense' && Math.abs(t.amount || 0) === amount
 		);
 		if (transaction?.clearedDate) {
 			const date = new Date(transaction.clearedDate);
@@ -356,12 +366,12 @@ function calculateBufferBasedAllowance(
 	thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
 	const upcomingPlanned = plannedTransactions
-		.filter(t => {
+		.filter((t) => {
 			if (!t.plannedDate) return false;
 			const date = new Date(t.plannedDate);
 			return date >= now && date <= thirtyDaysFromNow;
 		})
-		.map(t => Math.abs(t.amount || 0));
+		.map((t) => Math.abs(t.amount || 0));
 
 	const nextMajorExpense = upcomingPlanned.length > 0 ? Math.max(...upcomingPlanned) : 0;
 	const totalPlannedExpenses = upcomingPlanned.reduce((sum, amt) => sum + amt, 0);
@@ -459,7 +469,7 @@ function calculateMethodWeights(
  */
 function calculateSpentSoFar(transactions: Transaction[], periodStart: Date, now: Date): number {
 	return transactions
-		.filter(t => {
+		.filter((t) => {
 			if (t.type !== 'expense') return false;
 			if (!t.clearedDate) return false;
 			const date = new Date(t.clearedDate);
@@ -503,7 +513,9 @@ async function calculateHistoricalSpendingWithConversion(
 			if (converted !== null) {
 				convertedAmount = converted;
 			} else {
-				console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${t.id}`);
+				console.warn(
+					`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${t.id}`
+				);
 			}
 		}
 
@@ -608,7 +620,9 @@ async function calculateSpentSoFarWithConversion(
 			if (converted !== null) {
 				convertedAmount = converted;
 			} else {
-				console.warn(`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${t.id}`);
+				console.warn(
+					`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${t.id}`
+				);
 			}
 		}
 
@@ -663,7 +677,7 @@ function generateAllowanceRecommendations(
 	} else if (spendingRatio > 1.0) {
 		recommendations.push({
 			type: 'warning',
-			message: 'You\'re slightly over your allowance. Monitor spending closely.',
+			message: "You're slightly over your allowance. Monitor spending closely.",
 			severity: 'medium',
 			actionable: true,
 			metadata: { spendingRatio }
@@ -672,7 +686,7 @@ function generateAllowanceRecommendations(
 		// Spending well under allowance after first week
 		recommendations.push({
 			type: 'maintain',
-			message: 'You\'re spending below your allowance. Great job staying on track!',
+			message: "You're spending below your allowance. Great job staying on track!",
 			severity: 'low',
 			actionable: false,
 			metadata: { spendingRatio }
@@ -721,8 +735,10 @@ export async function calculateGlobalAllowance(
 
 	// Get all active accounts
 	const accounts = await accountService.getAccounts();
-	const activeAccounts = accounts.filter(a => a.isActive && (a.type === 'checking' || a.type === 'savings'));
-	
+	const activeAccounts = accounts.filter(
+		(a) => a.isActive && (a.type === 'checking' || a.type === 'savings')
+	);
+
 	if (activeAccounts.length === 0) {
 		throw new Error('No active accounts found');
 	}
@@ -734,25 +750,44 @@ export async function calculateGlobalAllowance(
 
 	// Get all transactions across all accounts
 	const allTransactions = await transactionService.getAllTransactions();
-	const clearedTransactions = allTransactions.filter(t => t.status === 'cleared');
+	const clearedTransactions = allTransactions.filter((t) => t.status === 'cleared');
 
 	// Calculate days elapsed and remaining
-	const daysElapsed = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-	const daysRemaining = Math.max(1, Math.floor((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+	const daysElapsed = Math.max(
+		0,
+		Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+	);
+	const daysRemaining = Math.max(
+		1,
+		Math.floor((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+	);
 
 	// Get planned transactions for buffer calculation
 	const plannedTransactions = allTransactions.filter(
-		t => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
+		(t) => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
 	);
 
 	// Calculate historical spending data across all accounts (converted to main currency)
-	const historicalData = await calculateHistoricalSpendingWithConversion(clearedTransactions, start, userCurrency);
+	const historicalData = await calculateHistoricalSpendingWithConversion(
+		clearedTransactions,
+		start,
+		userCurrency
+	);
 
 	// Calculate method weights based on data availability
-	const methodWeights = calculateMethodWeights(historicalData.hasEnoughData, daysElapsed, daysRemaining);
+	const methodWeights = calculateMethodWeights(
+		historicalData.hasEnoughData,
+		daysElapsed,
+		daysRemaining
+	);
 
 	// Calculate spent so far in current period (converted to main currency)
-	const spentSoFar = await calculateSpentSoFarWithConversion(clearedTransactions, start, now, userCurrency);
+	const spentSoFar = await calculateSpentSoFarWithConversion(
+		clearedTransactions,
+		start,
+		now,
+		userCurrency
+	);
 
 	// Calculate total balance and total buffer across all accounts (converted to main currency)
 	let totalBalance = 0;
@@ -768,24 +803,26 @@ export async function calculateGlobalAllowance(
 			if (converted !== null) {
 				totalBalance += converted;
 			} else {
-				console.warn(`Failed to convert ${account.currency} to ${userCurrency} for account ${account.name}`);
+				console.warn(
+					`Failed to convert ${account.currency} to ${userCurrency} for account ${account.name}`
+				);
 				totalBalance += account.currentBalance;
 			}
 		}
 	}
-	
+
 	// Calculate total buffer (sum of all account buffers, converted to main currency)
 	let totalBufferAmount = 0;
 	for (const account of activeAccounts) {
 		const accountTransactions = clearedTransactions
-			.filter(t => t.accountId === account.id && t.amount !== undefined)
-			.map(t => ({
+			.filter((t) => t.accountId === account.id && t.amount !== undefined)
+			.map((t) => ({
 				amount: t.amount!,
 				clearedDate: t.clearedDate,
 				type: t.type
 			}));
 		const buffer = await calculateRecommendedBuffer(account, accountTransactions);
-		
+
 		// Convert buffer to main currency
 		if (account.currency === userCurrency) {
 			totalBufferAmount += buffer;
@@ -893,4 +930,3 @@ export async function getSimpleDailyAllowance(accountId?: string): Promise<{
 		projectedBalance: enhanced.total.projectedBalance
 	};
 }
-

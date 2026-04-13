@@ -9,12 +9,22 @@ import { currencyConfigService } from '$lib/core/services/core/currency-config-s
 /**
  * Get metadata fields relevant to a specific account type
  */
-export function getRelevantMetadataFields(accountType: Account['type']): Array<keyof AccountMetadata> {
+export function getRelevantMetadataFields(
+	accountType: Account['type']
+): Array<keyof AccountMetadata> {
 	switch (accountType) {
 		case 'checking':
-			return ['minimumBalance', 'overdraftLimit', 'overdraftFee', 'bufferAmount'] as Array<keyof AccountMetadata>;
+			return ['minimumBalance', 'overdraftLimit', 'overdraftFee', 'bufferAmount'] as Array<
+				keyof AccountMetadata
+			>;
 		case 'savings':
-			return ['interestRate', 'transferLimit', 'transferDelayDays', 'bufferAmount', 'isEmergencyFund'] as Array<keyof AccountMetadata>;
+			return [
+				'interestRate',
+				'transferLimit',
+				'transferDelayDays',
+				'bufferAmount',
+				'isEmergencyFund'
+			] as Array<keyof AccountMetadata>;
 		case 'credit':
 			return [
 				'creditLimit',
@@ -83,7 +93,11 @@ export function getAvailableCredit(account: Account): number | null {
  * Calculate credit utilization percentage (for credit accounts)
  */
 export function getCreditUtilization(account: Account): number | null {
-	if (account.type !== 'credit' || !account.metadata?.creditLimit || account.metadata.creditLimit === 0) {
+	if (
+		account.type !== 'credit' ||
+		!account.metadata?.creditLimit ||
+		account.metadata.creditLimit === 0
+	) {
 		return null;
 	}
 
@@ -105,9 +119,11 @@ export type CreditUtilizationStatus = 'excellent' | 'good' | 'fair' | 'poor' | '
  * - Poor: 50-80% (negative impact)
  * - Critical: 80-100% (significant negative impact)
  */
-export function getCreditUtilizationStatus(utilization: number | null): CreditUtilizationStatus | null {
+export function getCreditUtilizationStatus(
+	utilization: number | null
+): CreditUtilizationStatus | null {
 	if (utilization === null) return null;
-	
+
 	if (utilization <= 10) return 'excellent';
 	if (utilization <= 30) return 'good';
 	if (utilization <= 50) return 'fair';
@@ -125,15 +141,17 @@ export function getAggregateCreditUtilization(accounts: Account[]): {
 	totalCreditLimit: number;
 	accountCount: number;
 } | null {
-	const creditAccounts = accounts.filter(acc => acc.type === 'credit' && acc.metadata?.creditLimit);
-	
+	const creditAccounts = accounts.filter(
+		(acc) => acc.type === 'credit' && acc.metadata?.creditLimit
+	);
+
 	if (creditAccounts.length === 0) {
 		return null;
 	}
-	
+
 	let totalDebt = 0;
 	let totalCreditLimit = 0;
-	
+
 	for (const account of creditAccounts) {
 		const creditLimit = account.metadata?.creditLimit || 0;
 		if (creditLimit > 0) {
@@ -142,13 +160,13 @@ export function getAggregateCreditUtilization(accounts: Account[]): {
 			totalCreditLimit += creditLimit;
 		}
 	}
-	
+
 	if (totalCreditLimit === 0) {
 		return null;
 	}
-	
+
 	const utilization = (totalDebt / totalCreditLimit) * 100;
-	
+
 	return {
 		utilization,
 		totalDebt,
@@ -168,15 +186,15 @@ export function getRecommendedPaymentForTargetUtilization(
 	if (utilization === null || account.metadata?.creditLimit === undefined) {
 		return null;
 	}
-	
+
 	if (utilization <= targetUtilization) {
 		return 0; // Already at or below target
 	}
-	
+
 	const currentDebt = Math.abs(Math.min(0, account.currentBalance));
 	const targetDebt = (account.metadata.creditLimit * targetUtilization) / 100;
 	const paymentNeeded = currentDebt - targetDebt;
-	
+
 	return Math.max(0, paymentNeeded);
 }
 
@@ -199,7 +217,8 @@ export function wouldTriggerOverdraft(account: Account, amount: number): boolean
 	}
 
 	const projectedBalance = account.currentBalance - amount;
-	const minimumWithOverdraft = (account.metadata.minimumBalance || 0) - account.metadata.overdraftLimit;
+	const minimumWithOverdraft =
+		(account.metadata.minimumBalance || 0) - account.metadata.overdraftLimit;
 	return projectedBalance < minimumWithOverdraft;
 }
 
@@ -220,53 +239,63 @@ export async function calculateRecommendedBuffer(
 	switch (account.type) {
 		case 'checking': {
 			// Get currency-specific default buffer
-			const currencyDefaultBuffer = await currencyConfigService.getDefaultBuffer('checking', account.currency);
-			
+			const currencyDefaultBuffer = await currencyConfigService.getDefaultBuffer(
+				'checking',
+				account.currency
+			);
+
 			// For checking accounts, calculate based on average monthly expenses
 			let monthlyExpenses = 0;
-			
+
 			if (transactions && transactions.length > 0) {
 				// Get expenses from last 3 months
 				const now = new Date();
 				const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-				
+
 				const recentExpenses = transactions
-					.filter(t => {
+					.filter((t) => {
 						if (t.type !== 'expense') return false;
 						if (!t.clearedDate) return false;
 						const date = new Date(t.clearedDate);
 						return date >= threeMonthsAgo;
 					})
-					.map(t => Math.abs(t.amount || 0));
-				
+					.map((t) => Math.abs(t.amount || 0));
+
 				if (recentExpenses.length > 0) {
 					const totalExpenses = recentExpenses.reduce((sum, amt) => sum + amt, 0);
 					// Average over the number of months we have data for
-					const monthsOfData = Math.max(1, Math.ceil((now.getTime() - threeMonthsAgo.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+					const monthsOfData = Math.max(
+						1,
+						Math.ceil((now.getTime() - threeMonthsAgo.getTime()) / (1000 * 60 * 60 * 24 * 30))
+					);
 					monthlyExpenses = totalExpenses / monthsOfData;
 				}
 			}
-			
+
 			// Default buffer: 1 month of expenses, minimum currency-specific default, or minimum balance requirement
-			const calculatedBuffer = monthlyExpenses > 0 
-				? Math.max(monthlyExpenses, currencyDefaultBuffer)
-				: Math.max(currencyDefaultBuffer, account.metadata?.minimumBalance || 0);
-			
+			const calculatedBuffer =
+				monthlyExpenses > 0
+					? Math.max(monthlyExpenses, currencyDefaultBuffer)
+					: Math.max(currencyDefaultBuffer, account.metadata?.minimumBalance || 0);
+
 			return Math.max(calculatedBuffer, account.metadata?.minimumBalance || 0);
 		}
-		
+
 		case 'savings': {
 			// Get currency-specific default buffer
-			const currencyDefaultBuffer = await currencyConfigService.getDefaultBuffer('savings', account.currency);
+			const currencyDefaultBuffer = await currencyConfigService.getDefaultBuffer(
+				'savings',
+				account.currency
+			);
 			// Savings accounts: 10% of balance or currency-specific default, whichever is higher
 			return Math.max(currencyDefaultBuffer, account.currentBalance * 0.1);
 		}
-		
+
 		case 'credit': {
 			// Credit cards: typically don't need buffers (they have credit limits)
 			return 0;
 		}
-		
+
 		default:
 			return 0;
 	}
@@ -275,7 +304,7 @@ export async function calculateRecommendedBuffer(
 /**
  * Get buffer amount (user-defined or calculated default)
  * For async calculation with transaction data, use calculateRecommendedBuffer
- * 
+ *
  * Note: This is a synchronous fallback. For accurate currency-specific defaults,
  * use calculateRecommendedBuffer which is async and uses currency config service.
  */
@@ -309,13 +338,13 @@ export type BufferStatus = 'optimal' | 'comfort' | 'warning' | 'critical';
 export function getBufferStatus(account: Account): BufferStatus {
 	const buffer = getBufferAmount(account);
 	const balance = account.currentBalance;
-	
+
 	if (buffer === 0) {
 		return 'optimal'; // No buffer requirement
 	}
-	
+
 	const ratio = balance / buffer;
-	
+
 	if (ratio >= 1.5) {
 		return 'optimal'; // 150%+ of buffer
 	} else if (ratio >= 1.0) {
@@ -337,12 +366,12 @@ export function getBufferThresholds(account: Account): {
 	optimal: number;
 } {
 	const buffer = getBufferAmount(account);
-	
+
 	return {
-		critical: buffer * 0.5,  // Below 50% of buffer
-		warning: buffer * 1.0,    // At buffer level
-		comfort: buffer * 1.25,   // 25% above buffer
-		optimal: buffer * 1.5     // 50% above buffer
+		critical: buffer * 0.5, // Below 50% of buffer
+		warning: buffer * 1.0, // At buffer level
+		comfort: buffer * 1.25, // 25% above buffer
+		optimal: buffer * 1.5 // 50% above buffer
 	};
 }
 
@@ -483,7 +512,12 @@ export function formatMetadataFieldValue(
 	}
 
 	// Format date fields (day of month)
-	if (field === 'statementCloseDate' || field === 'paymentDueDate' || field === 'loanDueDate' || field === 'creditBureauReportingDate') {
+	if (
+		field === 'statementCloseDate' ||
+		field === 'paymentDueDate' ||
+		field === 'loanDueDate' ||
+		field === 'creditBureauReportingDate'
+	) {
 		const day = parseInt(value as string) || 1;
 		return `Day ${day} of month`;
 	}
@@ -502,4 +536,3 @@ export function formatMetadataFieldValue(
 	// Default: return as string
 	return String(value);
 }
-

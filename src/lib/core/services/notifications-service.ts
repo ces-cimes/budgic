@@ -48,9 +48,8 @@ class NotificationsService {
 	 */
 	async initialize(): Promise<void> {
 		try {
-			const { refreshFeeAndNegativeAllowanceInsights } = await import(
-				'$lib/core/services/alerts-aggregation-service'
-			);
+			const { refreshFeeAndNegativeAllowanceInsights } =
+				await import('$lib/core/services/alerts-aggregation-service');
 			await refreshFeeAndNegativeAllowanceInsights();
 		} catch (e) {
 			console.error('Error refreshing alert sources:', e);
@@ -188,4 +187,3 @@ class NotificationsService {
 
 // Export singleton instance
 export const notificationsService = new NotificationsService();
-

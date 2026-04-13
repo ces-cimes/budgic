@@ -32,9 +32,7 @@
 				: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30'
 	);
 
-	const dotClass = $derived(
-		tone === 'critical' ? 'bg-destructive' : 'bg-amber-500'
-	);
+	const dotClass = $derived(tone === 'critical' ? 'bg-destructive' : 'bg-amber-500');
 
 	const countAccentClass = $derived(
 		tone === 'critical'
@@ -48,24 +46,24 @@
 
 {#if insights.length > 0}
 	<div
-		class="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs border {toneClass}"
+		class="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs {toneClass}"
 		role="status"
 	>
-		<span class="shrink-0 w-1.5 h-1.5 rounded-full {dotClass}" aria-hidden="true"></span>
-		<span class="truncate max-w-[140px]">{displayLabel}</span>
+		<span class="h-1.5 w-1.5 shrink-0 rounded-full {dotClass}" aria-hidden="true"></span>
+		<span class="max-w-[140px] truncate">{displayLabel}</span>
 		{#if count > 1}
 			<span class="{countAccentClass} font-medium">+{count - 1}</span>
 		{/if}
 		<button
 			type="button"
-			class="shrink-0 p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+			class="focus-visible:ring-ring shrink-0 rounded p-0.5 hover:bg-black/10 focus-visible:ring-2 focus-visible:outline dark:hover:bg-white/10"
 			aria-label="Dismiss"
 			onclick={(e) => {
 				e.stopPropagation();
 				onDismiss(insights[0].id);
 			}}
 		>
-			<X class="w-3 h-3" />
+			<X class="h-3 w-3" />
 		</button>
 	</div>
 {/if}

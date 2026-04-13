@@ -5,8 +5,20 @@
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
-	import { Select, SelectContent, SelectItem, SelectTrigger, Root } from '$lib/components/ui/select/index.ts';
-	import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '$lib/components/ui/dialog/index.ts';
+	import {
+		Select,
+		SelectContent,
+		SelectItem,
+		SelectTrigger,
+		Root
+	} from '$lib/components/ui/select/index.ts';
+	import {
+		Dialog,
+		DialogContent,
+		DialogHeader,
+		DialogTitle,
+		DialogTrigger
+	} from '$lib/components/ui/dialog/index.ts';
 	import type { Account, Transaction } from '$lib/core/db';
 	import { formatAmount } from '$lib/utils/currency-utils';
 
@@ -152,10 +164,7 @@
 	}
 
 	const submitDisabled = $derived(
-		isLoading ||
-			!amount?.trim() ||
-			!plannedDate ||
-			(transactionType === 'transfer' && !toAccountId)
+		isLoading || !amount?.trim() || !plannedDate || (transactionType === 'transfer' && !toAccountId)
 	);
 
 	const previewAmountNum = $derived(parseFloat(amount));
@@ -288,7 +297,7 @@
 					<div class="text-muted-foreground">
 						{#if transactionType === 'transfer'}
 							{formatAmount(Math.abs(previewAmountNum), userCurrency)} transfer → {toAccountId
-								? destinationAccounts.find((a) => a.id === toAccountId)?.name ?? '…'
+								? (destinationAccounts.find((a) => a.id === toAccountId)?.name ?? '…')
 								: '…'}{#if description.trim()}
 								{' • '}{description.trim()}{/if}
 							{' • '}{formatDate(plannedDate)}

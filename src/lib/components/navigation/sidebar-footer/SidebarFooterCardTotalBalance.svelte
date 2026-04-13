@@ -30,18 +30,23 @@
 </script>
 
 {#snippet inner()}
-	<div class="flex flex-col gap-0.5 w-full group-data-[collapsible=icon]:items-center">
+	<div class="flex w-full flex-col gap-0.5 group-data-[collapsible=icon]:items-center">
 		<!-- Label row -->
 		<div class="flex items-center gap-1.5 group-data-[collapsible=icon]:justify-center">
 			<Wallet class="size-3 shrink-0 text-[var(--color-amber)]" />
-			<span class="text-[9px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] group-data-[collapsible=icon]:hidden">Balance</span>
+			<span
+				class="text-[9px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase group-data-[collapsible=icon]:hidden"
+				>Balance</span
+			>
 		</div>
 		<!-- Amount row -->
 		{#if loading}
-			<div class="h-[18px] w-20 rounded bg-[var(--color-bg-surface)]/60 animate-pulse mt-0.5 group-data-[collapsible=icon]:w-10"></div>
+			<div
+				class="mt-0.5 h-[18px] w-20 animate-pulse rounded bg-[var(--color-bg-surface)]/60 group-data-[collapsible=icon]:w-10"
+			></div>
 		{:else}
 			<span
-				class="text-sm font-semibold tabular-nums text-[var(--color-text-primary)] leading-tight break-all group-data-[collapsible=icon]:text-xs"
+				class="text-sm leading-tight font-semibold break-all text-[var(--color-text-primary)] tabular-nums group-data-[collapsible=icon]:text-xs"
 				title={formatAmount(balance ?? 0, currency)}
 			>
 				{formatAmount(balance ?? 0, currency)}

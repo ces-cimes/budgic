@@ -1,13 +1,13 @@
 /**
  * Learning & Adaptation Service
- * 
+ *
  * Implements the learning and adaptation system that:
  * - Detects spending and income patterns from transaction history
  * - Adapts budget allowances based on actual spending
  * - Learns user preferences from feedback
  * - Personalizes recommendations based on behavior
  * - Tracks and applies user feedback to improve suggestions
- * 
+ *
  * Features:
  * - Pattern Recognition (day-of-week, weekly, monthly, seasonal, income patterns)
  * - Adaptive Adjustments (allowance auto-tuning, buffer auto-tuning, flexibility learning)
@@ -158,7 +158,7 @@ class LearningAdaptationService {
 		const transactions = await db.transactions
 			.where('clearedDate')
 			.above(cutoffDate.toISOString())
-			.and(tx => !tx.deletedAt && tx.status === 'cleared')
+			.and((tx) => !tx.deletedAt && tx.status === 'cleared')
 			.toArray();
 
 		if (transactions.length < 10) {
@@ -209,8 +209,8 @@ class LearningAdaptationService {
 
 		// Group transactions by day of week
 		transactions
-			.filter(tx => tx.type === 'expense' && tx.clearedDate)
-			.forEach(tx => {
+			.filter((tx) => tx.type === 'expense' && tx.clearedDate)
+			.forEach((tx) => {
 				const date = parseISO(tx.clearedDate!);
 				const dayName = dayNames[date.getDay()];
 				const amounts = dayData.get(dayName) || [];
@@ -225,7 +225,8 @@ class LearningAdaptationService {
 			}
 
 			const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-			const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+			const variance =
+				amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 			const stdDev = Math.sqrt(variance);
 			const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -271,14 +272,16 @@ class LearningAdaptationService {
 	/**
 	 * Detect weekly spending patterns
 	 */
-	private async detectWeeklyPatterns(transactions: Transaction[]): Promise<PatternDetectionResult[]> {
+	private async detectWeeklyPatterns(
+		transactions: Transaction[]
+	): Promise<PatternDetectionResult[]> {
 		const results: PatternDetectionResult[] = [];
 		const weeklyData = new Map<string, number[]>();
 
 		// Group by week
 		transactions
-			.filter(tx => tx.type === 'expense' && tx.clearedDate)
-			.forEach(tx => {
+			.filter((tx) => tx.type === 'expense' && tx.clearedDate)
+			.forEach((tx) => {
 				const date = parseISO(tx.clearedDate!);
 				const weekStart = this.getWeekStart(date);
 				const weekKey = format(weekStart, 'yyyy-MM-dd');
@@ -291,11 +294,12 @@ class LearningAdaptationService {
 			return [];
 		}
 
-		const weeklyTotals = Array.from(weeklyData.values()).map(amounts =>
+		const weeklyTotals = Array.from(weeklyData.values()).map((amounts) =>
 			amounts.reduce((sum, amt) => sum + amt, 0)
 		);
 		const avg = weeklyTotals.reduce((sum, amt) => sum + amt, 0) / weeklyTotals.length;
-		const variance = weeklyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / weeklyTotals.length;
+		const variance =
+			weeklyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / weeklyTotals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -340,14 +344,16 @@ class LearningAdaptationService {
 	/**
 	 * Detect monthly spending patterns
 	 */
-	private async detectMonthlyPatterns(transactions: Transaction[]): Promise<PatternDetectionResult[]> {
+	private async detectMonthlyPatterns(
+		transactions: Transaction[]
+	): Promise<PatternDetectionResult[]> {
 		const results: PatternDetectionResult[] = [];
 		const monthlyData = new Map<string, number[]>();
 
 		// Group by month
 		transactions
-			.filter(tx => tx.type === 'expense' && tx.clearedDate)
-			.forEach(tx => {
+			.filter((tx) => tx.type === 'expense' && tx.clearedDate)
+			.forEach((tx) => {
 				const date = parseISO(tx.clearedDate!);
 				const monthKey = format(date, 'yyyy-MM');
 				const amounts = monthlyData.get(monthKey) || [];
@@ -359,11 +365,12 @@ class LearningAdaptationService {
 			return [];
 		}
 
-		const monthlyTotals = Array.from(monthlyData.values()).map(amounts =>
+		const monthlyTotals = Array.from(monthlyData.values()).map((amounts) =>
 			amounts.reduce((sum, amt) => sum + amt, 0)
 		);
 		const avg = monthlyTotals.reduce((sum, amt) => sum + amt, 0) / monthlyTotals.length;
-		const variance = monthlyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / monthlyTotals.length;
+		const variance =
+			monthlyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / monthlyTotals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -408,14 +415,16 @@ class LearningAdaptationService {
 	/**
 	 * Detect seasonal patterns (quarterly or yearly)
 	 */
-	private async detectSeasonalPatterns(transactions: Transaction[]): Promise<PatternDetectionResult[]> {
+	private async detectSeasonalPatterns(
+		transactions: Transaction[]
+	): Promise<PatternDetectionResult[]> {
 		const results: PatternDetectionResult[] = [];
 		const quarterlyData = new Map<string, number[]>();
 
 		// Group by quarter
 		transactions
-			.filter(tx => tx.type === 'expense' && tx.clearedDate)
-			.forEach(tx => {
+			.filter((tx) => tx.type === 'expense' && tx.clearedDate)
+			.forEach((tx) => {
 				const date = parseISO(tx.clearedDate!);
 				const quarter = Math.floor(date.getMonth() / 3) + 1;
 				const quarterKey = `Q${quarter}-${date.getFullYear()}`;
@@ -428,11 +437,13 @@ class LearningAdaptationService {
 			return [];
 		}
 
-		const quarterlyTotals = Array.from(quarterlyData.values()).map(amounts =>
+		const quarterlyTotals = Array.from(quarterlyData.values()).map((amounts) =>
 			amounts.reduce((sum, amt) => sum + amt, 0)
 		);
 		const avg = quarterlyTotals.reduce((sum, amt) => sum + amt, 0) / quarterlyTotals.length;
-		const variance = quarterlyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / quarterlyTotals.length;
+		const variance =
+			quarterlyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) /
+			quarterlyTotals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -478,9 +489,11 @@ class LearningAdaptationService {
 	/**
 	 * Detect income patterns (paycheck frequency, amount variations, bonus patterns)
 	 */
-	private async detectIncomePatterns(transactions: Transaction[]): Promise<PatternDetectionResult[]> {
+	private async detectIncomePatterns(
+		transactions: Transaction[]
+	): Promise<PatternDetectionResult[]> {
 		const results: PatternDetectionResult[] = [];
-		const incomeTransactions = transactions.filter(tx => tx.type === 'income' && tx.clearedDate);
+		const incomeTransactions = transactions.filter((tx) => tx.type === 'income' && tx.clearedDate);
 
 		if (incomeTransactions.length < this.MIN_PATTERN_OCCURRENCES.income_frequency) {
 			return [];
@@ -513,12 +526,14 @@ class LearningAdaptationService {
 
 		// Calculate intervals between paychecks
 		const dates = incomeTransactions
-			.map(tx => parseISO(tx.clearedDate!))
+			.map((tx) => parseISO(tx.clearedDate!))
 			.sort((a, b) => a.getTime() - b.getTime());
 
 		const intervals: number[] = [];
 		for (let i = 1; i < dates.length; i++) {
-			const days = Math.round((dates[i].getTime() - dates[i - 1].getTime()) / (1000 * 60 * 60 * 24));
+			const days = Math.round(
+				(dates[i].getTime() - dates[i - 1].getTime()) / (1000 * 60 * 60 * 24)
+			);
 			intervals.push(days);
 		}
 
@@ -527,7 +542,8 @@ class LearningAdaptationService {
 		}
 
 		const avgInterval = intervals.reduce((sum, days) => sum + days, 0) / intervals.length;
-		const variance = intervals.reduce((sum, days) => sum + Math.pow(days - avgInterval, 2), 0) / intervals.length;
+		const variance =
+			intervals.reduce((sum, days) => sum + Math.pow(days - avgInterval, 2), 0) / intervals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avgInterval > 0 ? stdDev / avgInterval : 0;
 
@@ -589,7 +605,7 @@ class LearningAdaptationService {
 			return null;
 		}
 
-		const amounts = incomeTransactions.map(tx => Math.abs(tx.amount || 0));
+		const amounts = incomeTransactions.map((tx) => Math.abs(tx.amount || 0));
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
 		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
@@ -646,7 +662,9 @@ class LearningAdaptationService {
 		const threeMonthsAgo = subMonths(now, 3);
 
 		// Get all active categories
-		const categories = await db.categories.filter(cat => cat.isActive && !cat.deletedAt).toArray();
+		const categories = await db.categories
+			.filter((cat) => cat.isActive && !cat.deletedAt)
+			.toArray();
 
 		for (const category of categories) {
 			if (!category.budgetAmount || category.budgetAmount === 0) {
@@ -657,7 +675,7 @@ class LearningAdaptationService {
 			const transactions = await db.transactions
 				.where('categoryId')
 				.equals(category.id)
-				.and(tx => {
+				.and((tx) => {
 					if (!tx.clearedDate) return false;
 					const date = parseISO(tx.clearedDate);
 					return (
@@ -676,7 +694,7 @@ class LearningAdaptationService {
 
 			// Group by month
 			const monthlySpending = new Map<string, number>();
-			transactions.forEach(tx => {
+			transactions.forEach((tx) => {
 				const date = parseISO(tx.clearedDate!);
 				const monthKey = format(date, 'yyyy-MM');
 				const current = monthlySpending.get(monthKey) || 0;
@@ -688,7 +706,8 @@ class LearningAdaptationService {
 			}
 
 			const monthlyAmounts = Array.from(monthlySpending.values());
-			const actualAverage = monthlyAmounts.reduce((sum, amt) => sum + amt, 0) / monthlyAmounts.length;
+			const actualAverage =
+				monthlyAmounts.reduce((sum, amt) => sum + amt, 0) / monthlyAmounts.length;
 			const budgeted = category.budgetAmount;
 			const variance = Math.abs(actualAverage - budgeted) / budgeted;
 
@@ -706,14 +725,16 @@ class LearningAdaptationService {
 			if (consecutiveMonths >= 3 && variance > this.ALLOWANCE_VARIANCE_THRESHOLD) {
 				// Calculate suggested allowance with smoothing
 				const suggestedAllowance =
-					budgeted * (1 - this.ALLOWANCE_TUNING_SMOOTHING) + actualAverage * this.ALLOWANCE_TUNING_SMOOTHING;
+					budgeted * (1 - this.ALLOWANCE_TUNING_SMOOTHING) +
+					actualAverage * this.ALLOWANCE_TUNING_SMOOTHING;
 
 				// Apply max change limit
 				const maxChange = budgeted * this.MAX_ALLOWANCE_CHANGE;
 				const change = suggestedAllowance - budgeted;
-				const finalSuggested = Math.abs(change) > maxChange
-					? budgeted + (change > 0 ? maxChange : -maxChange)
-					: suggestedAllowance;
+				const finalSuggested =
+					Math.abs(change) > maxChange
+						? budgeted + (change > 0 ? maxChange : -maxChange)
+						: suggestedAllowance;
 
 				const changePercent = Math.abs((finalSuggested - budgeted) / budgeted);
 				const requiresConfirmation = changePercent > this.MAX_ALLOWANCE_CHANGE;
@@ -764,12 +785,14 @@ class LearningAdaptationService {
 				const transactions = await db.transactions
 					.where('accountId')
 					.equals(account.id)
-					.and(tx => !tx.deletedAt && tx.status === 'cleared')
+					.and((tx) => !tx.deletedAt && tx.status === 'cleared')
 					.toArray();
 
 				if (transactions.length > 0) {
-					const avgTransaction = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0) / transactions.length;
-					
+					const avgTransaction =
+						transactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0) /
+						transactions.length;
+
 					// If buffer is much larger than average transaction, might be over-buffering
 					if (currentBuffer > avgTransaction * 10) {
 						suggestions.push({
@@ -800,12 +823,12 @@ class LearningAdaptationService {
 		const feedback = await db.userFeedback
 			.where('feedbackType')
 			.equals('category_flexibility')
-			.and(fb => !fb.deletedAt)
+			.and((fb) => !fb.deletedAt)
 			.toArray();
 
 		// Group feedback by category
 		const categoryFeedback = new Map<string, UserFeedback[]>();
-		feedback.forEach(fb => {
+		feedback.forEach((fb) => {
 			const details = fb.details ? JSON.parse(fb.details) : {};
 			const categoryId = details.categoryId;
 			if (categoryId) {
@@ -827,8 +850,8 @@ class LearningAdaptationService {
 			}
 
 			// Calculate acceptance rate
-			const accepted = feedbacks.filter(fb => fb.action === 'accepted').length;
-			const rejected = feedbacks.filter(fb => fb.action === 'rejected').length;
+			const accepted = feedbacks.filter((fb) => fb.action === 'accepted').length;
+			const rejected = feedbacks.filter((fb) => fb.action === 'rejected').length;
 			const acceptanceRate = feedbacks.length > 0 ? accepted / feedbacks.length : 0;
 
 			// Learn flexibility score (0-1, where 1 is most flexible)
@@ -839,7 +862,8 @@ class LearningAdaptationService {
 
 			// Gradual adjustment (don't jump immediately)
 			const adjustmentFactor = 0.3;
-			const adjustedFlexibility = currentFlexibility * (1 - adjustmentFactor) + learnedFlexibility * adjustmentFactor;
+			const adjustedFlexibility =
+				currentFlexibility * (1 - adjustmentFactor) + learnedFlexibility * adjustmentFactor;
 
 			results.push({
 				categoryId,
@@ -879,7 +903,7 @@ class LearningAdaptationService {
 		const transactions = await db.transactions
 			.where('clearedDate')
 			.above(cutoffDate.toISOString())
-			.and(tx => !tx.deletedAt && tx.status === 'cleared')
+			.and((tx) => !tx.deletedAt && tx.status === 'cleared')
 			.toArray();
 
 		// Check for duplicates
@@ -905,7 +929,7 @@ class LearningAdaptationService {
 		const seen = new Map<string, Transaction[]>();
 
 		// Group by amount, date, and description
-		transactions.forEach(tx => {
+		transactions.forEach((tx) => {
 			const key = `${tx.amount}_${tx.clearedDate?.substring(0, 10)}_${tx.description?.substring(0, 20)}`;
 			const existing = seen.get(key) || [];
 			existing.push(tx);
@@ -939,7 +963,7 @@ class LearningAdaptationService {
 
 		// Group by category
 		const categoryTransactions = new Map<string, Transaction[]>();
-		transactions.forEach(tx => {
+		transactions.forEach((tx) => {
 			if (tx.categoryId) {
 				const existing = categoryTransactions.get(tx.categoryId) || [];
 				existing.push(tx);
@@ -953,14 +977,15 @@ class LearningAdaptationService {
 				continue; // Need enough data
 			}
 
-			const amounts = txs.map(tx => Math.abs(tx.amount || 0));
+			const amounts = txs.map((tx) => Math.abs(tx.amount || 0));
 			const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-			const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+			const variance =
+				amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 			const stdDev = Math.sqrt(variance);
 
 			// Flag transactions more than 3 standard deviations away
 			const threshold = avg + 3 * stdDev;
-			txs.forEach(tx => {
+			txs.forEach((tx) => {
 				const amount = Math.abs(tx.amount || 0);
 				if (amount > threshold) {
 					issues.push({
@@ -987,7 +1012,7 @@ class LearningAdaptationService {
 		// For now, we'll flag transactions that seem unusual for their category based on amount patterns
 
 		const categoryTransactions = new Map<string, Transaction[]>();
-		transactions.forEach(tx => {
+		transactions.forEach((tx) => {
 			if (tx.categoryId) {
 				const existing = categoryTransactions.get(tx.categoryId) || [];
 				existing.push(tx);
@@ -1001,12 +1026,12 @@ class LearningAdaptationService {
 				continue;
 			}
 
-			const amounts = txs.map(tx => Math.abs(tx.amount || 0));
+			const amounts = txs.map((tx) => Math.abs(tx.amount || 0));
 			const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
 			const median = amounts.sort((a, b) => a - b)[Math.floor(amounts.length / 2)];
 
 			// Flag if transaction is very different from median (more than 5x)
-			txs.forEach(tx => {
+			txs.forEach((tx) => {
 				const amount = Math.abs(tx.amount || 0);
 				if (amount > median * 5 || amount < median / 5) {
 					issues.push({
@@ -1060,12 +1085,14 @@ class LearningAdaptationService {
 	/**
 	 * Analyze feedback and adjust optimization weights/preferences
 	 */
-	private async analyzeFeedbackAndAdjust(feedbackType: UserFeedback['feedbackType']): Promise<void> {
+	private async analyzeFeedbackAndAdjust(
+		feedbackType: UserFeedback['feedbackType']
+	): Promise<void> {
 		// Get all feedback of this type
 		const feedback = await db.userFeedback
 			.where('feedbackType')
 			.equals(feedbackType)
-			.and(fb => !fb.deletedAt)
+			.and((fb) => !fb.deletedAt)
 			.toArray();
 
 		if (feedback.length < 5) {
@@ -1073,7 +1100,7 @@ class LearningAdaptationService {
 		}
 
 		const analysis = this.analyzeFeedback(feedback);
-		
+
 		if (analysis.shouldAdjustWeight && analysis.newWeight !== undefined) {
 			// Store preference for this suggestion type
 			await this.storeOptimizationPreference({
@@ -1091,10 +1118,10 @@ class LearningAdaptationService {
 	 */
 	private analyzeFeedback(feedback: UserFeedback[]): FeedbackAnalysis {
 		const total = feedback.length;
-		const accepted = feedback.filter(fb => fb.action === 'accepted').length;
-		const rejected = feedback.filter(fb => fb.action === 'rejected').length;
-		const modified = feedback.filter(fb => fb.action === 'modified').length;
-		const dismissed = feedback.filter(fb => fb.action === 'dismissed').length;
+		const accepted = feedback.filter((fb) => fb.action === 'accepted').length;
+		const rejected = feedback.filter((fb) => fb.action === 'rejected').length;
+		const modified = feedback.filter((fb) => fb.action === 'modified').length;
+		const dismissed = feedback.filter((fb) => fb.action === 'dismissed').length;
 
 		const acceptanceRate = total > 0 ? accepted / total : 0;
 
@@ -1129,11 +1156,13 @@ class LearningAdaptationService {
 	/**
 	 * Get user preferences for optimization
 	 */
-	async getOptimizationPreferences(preferenceType?: OptimizationPreference['preferenceType']): Promise<OptimizationPreference[]> {
-		let query = db.optimizationPreferences.filter(pref => !pref.deletedAt);
-		
+	async getOptimizationPreferences(
+		preferenceType?: OptimizationPreference['preferenceType']
+	): Promise<OptimizationPreference[]> {
+		let query = db.optimizationPreferences.filter((pref) => !pref.deletedAt);
+
 		if (preferenceType) {
-			query = query.filter(pref => pref.preferenceType === preferenceType);
+			query = query.filter((pref) => pref.preferenceType === preferenceType);
 		}
 
 		return await query.toArray();
@@ -1146,7 +1175,7 @@ class LearningAdaptationService {
 		const preference = await db.optimizationPreferences
 			.where('key')
 			.equals(key)
-			.and(pref => !pref.deletedAt)
+			.and((pref) => !pref.deletedAt)
 			.first();
 
 		return preference?.value ?? null;
@@ -1164,7 +1193,7 @@ class LearningAdaptationService {
 		const existing = await db.learningPatterns
 			.where('patternType')
 			.equals(pattern.patternType)
-			.and(p => p.categoryId === pattern.categoryId && !p.deletedAt)
+			.and((p) => p.categoryId === pattern.categoryId && !p.deletedAt)
 			.first();
 
 		if (existing) {
@@ -1181,11 +1210,13 @@ class LearningAdaptationService {
 	/**
 	 * Get active learning patterns
 	 */
-	async getActivePatterns(patternType?: LearningPattern['patternType']): Promise<LearningPattern[]> {
-		let query = db.learningPatterns.filter(p => p.isActive && !p.deletedAt);
-		
+	async getActivePatterns(
+		patternType?: LearningPattern['patternType']
+	): Promise<LearningPattern[]> {
+		let query = db.learningPatterns.filter((p) => p.isActive && !p.deletedAt);
+
 		if (patternType) {
-			query = query.filter(p => p.patternType === patternType);
+			query = query.filter((p) => p.patternType === patternType);
 		}
 
 		return await query.toArray();
@@ -1207,7 +1238,7 @@ class LearningAdaptationService {
 		const existing = await db.optimizationPreferences
 			.where('key')
 			.equals(preference.key)
-			.and(p => !p.deletedAt)
+			.and((p) => !p.deletedAt)
 			.first();
 
 		const optimizationPreference: OptimizationPreference = {

@@ -107,7 +107,9 @@ class EnvelopeBorrowingService {
 			dueRepayBy: dueRepayBy.toISOString(),
 			repaidAmount: 0,
 			negativeAllowanceEventId: input.negativeAllowanceEventId,
-			metadata: input.userConfirmedRepeated ? JSON.stringify({ userConfirmedRepeated: true }) : undefined,
+			metadata: input.userConfirmedRepeated
+				? JSON.stringify({ userConfirmedRepeated: true })
+				: undefined,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null
@@ -124,15 +126,15 @@ class EnvelopeBorrowingService {
 		const accountFilter = accountId ?? '';
 		const items = await collection.toArray();
 		let result = items.filter(
-			(b) =>
-				(b.accountId ?? '') === accountFilter &&
-				b.repaidAmount < b.amount
+			(b) => (b.accountId ?? '') === accountFilter && b.repaidAmount < b.amount
 		);
 		if (periodStart) {
 			const periodStartStr = periodStart.toISOString();
 			result = result.filter((b) => b.periodStart === periodStartStr);
 		}
-		return result.sort((a, b) => new Date(a.dueRepayBy).getTime() - new Date(b.dueRepayBy).getTime());
+		return result.sort(
+			(a, b) => new Date(a.dueRepayBy).getTime() - new Date(b.dueRepayBy).getTime()
+		);
 	}
 
 	/**
@@ -151,7 +153,9 @@ class EnvelopeBorrowingService {
 		if (!includeRepaid) {
 			result = result.filter((b) => b.repaidAmount < b.amount);
 		}
-		result = result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+		result = result.sort(
+			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+		);
 		return result.slice(0, limit);
 	}
 
@@ -261,7 +265,9 @@ class EnvelopeBorrowingService {
 				suggestedAmount: outstanding
 			});
 		}
-		return suggestions.sort((a, b) => new Date(a.dueRepayBy).getTime() - new Date(b.dueRepayBy).getTime());
+		return suggestions.sort(
+			(a, b) => new Date(a.dueRepayBy).getTime() - new Date(b.dueRepayBy).getTime()
+		);
 	}
 
 	/**
@@ -272,7 +278,9 @@ class EnvelopeBorrowingService {
 		const now = new Date();
 		const threePeriodsAgo = new Date(now);
 		threePeriodsAgo.setMonth(threePeriodsAgo.getMonth() - 3);
-		const recent = history.filter((b) => new Date(b.periodStart).getTime() >= threePeriodsAgo.getTime());
+		const recent = history.filter(
+			(b) => new Date(b.periodStart).getTime() >= threePeriodsAgo.getTime()
+		);
 		const borrowCountLast3Periods = recent.length;
 		const prefs = await userService.getUserPreferences();
 		const requireConfirmation = prefs.envelopeBorrowRequireConfirmationRepeated ?? true;
@@ -280,7 +288,7 @@ class EnvelopeBorrowingService {
 		let suggestion = '';
 		if (isChronic) {
 			suggestion =
-				'You\'ve borrowed between categories several times recently. Consider increasing your discretionary or buffer allowance to reduce the need for borrowing.';
+				"You've borrowed between categories several times recently. Consider increasing your discretionary or buffer allowance to reduce the need for borrowing.";
 		}
 		return {
 			isChronic,
@@ -293,8 +301,14 @@ class EnvelopeBorrowingService {
 	/**
 	 * Get categories that have surplus (can lend) for a given allowance, for UI to offer "borrow from" options.
 	 */
-	getLenderCandidates(allowance: EnhancedAllowance): Array<{ category: AllowanceCategoryKey; available: number; currency: string }> {
-		const candidates: Array<{ category: AllowanceCategoryKey; available: number; currency: string }> = [];
+	getLenderCandidates(
+		allowance: EnhancedAllowance
+	): Array<{ category: AllowanceCategoryKey; available: number; currency: string }> {
+		const candidates: Array<{
+			category: AllowanceCategoryKey;
+			available: number;
+			currency: string;
+		}> = [];
 		for (const key of CATEGORY_KEYS) {
 			const calc = allowance[key];
 			const remaining = calc.monthly - calc.spentSoFar;

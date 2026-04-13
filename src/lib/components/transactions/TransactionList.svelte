@@ -1,12 +1,25 @@
 <script lang="ts">
-	import { Search, ChevronLeft, ChevronRight, Clock, Calendar, Group, Receipt } from '@lucide/svelte';
+	import {
+		Search,
+		ChevronLeft,
+		ChevronRight,
+		Clock,
+		Calendar,
+		Group,
+		Receipt
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
-	import * as ToggleGroup from "$lib/components/ui/toggle-group/index.ts";
+	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
 	import TransactionItem from '$lib/components/TransactionItem.svelte';
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
 	import { searchTransaction } from '$lib/utils/semantic-search';
-	import { getGroupKey, getGroupLabel, type DateGroup, type GroupingMode } from '$lib/utils/date-grouping';
+	import {
+		getGroupKey,
+		getGroupLabel,
+		type DateGroup,
+		type GroupingMode
+	} from '$lib/utils/date-grouping';
 	import { dateUtils } from '$lib/utils/date-utils';
 	import { transactionService } from '$lib/core/services';
 	import type { Transaction, Account, Category } from '$lib/core/db';
@@ -18,53 +31,53 @@
 	export interface FilterState {
 		// Search
 		searchQuery: string;
-		
+
 		// Basic filters (always visible)
 		showPendingOnly: boolean;
 		dateFilterEnabled: boolean;
 		groupingMode: GroupingMode;
 		currentMonth: Date;
-		
+
 		// Status filter (enhanced)
 		statuses?: ('cleared' | 'pending' | 'planned' | 'cancelled' | 'upcoming' | 'overdue')[];
-		
+
 		// Category filter
 		categoryIds?: string[];
 		categoryType?: 'expense' | 'income';
 		waterfallTier?: ('survival' | 'security' | 'growth' | 'lifestyle')[];
-		
+
 		// Account filter
 		accountIds?: string[];
 		accountTypes?: ('checking' | 'savings' | 'credit' | 'cash' | 'investment' | 'crypto')[];
-		
+
 		// Amount filter
 		minAmount?: number;
 		maxAmount?: number;
-		
+
 		// Date range filter (enhanced)
 		dateRange?: { start: Date; end: Date };
 		dateType?: 'cleared' | 'planned';
-		
+
 		// Transaction type filter
 		types?: ('income' | 'expense' | 'transfer' | 'adjustment')[];
-		
+
 		// Recurring filter
 		recurring?: boolean;
-		
+
 		// Grouped transactions filter
 		grouped?: boolean;
-		
+
 		// Variance filter
 		hasVariance?: boolean;
 		underBudget?: boolean;
 		overBudget?: boolean;
-		
+
 		// Confidence level filter
 		confidence?: ('confirmed' | 'expected' | 'estimated')[];
-		
+
 		// Currency filter
 		currencies?: string[];
-		
+
 		// Import source filter
 		importSource?: string;
 		hasNotes?: boolean;
@@ -76,32 +89,32 @@
 		transactions: Transaction[];
 		accounts: Record<string, Account>;
 		categories: Record<string, Category>;
-		
+
 		// Filter configuration
 		filters?: FilterState; // Optional external filter control
 		enableFilters?: boolean; // Show/hide filter UI
 		enableSearch?: boolean; // Show/hide search bar
 		enableBasicToggles?: boolean; // Show/hide pending/date/grouping toggles
 		enableAdvancedFilters?: boolean; // Show/hide advanced filter button
-		
+
 		// Display configuration
 		displayMode?: 'compact' | 'detailed';
 		groupingMode?: GroupingMode | 'none';
 		showSummary?: boolean; // Show income/expense/net summary
 		showDateNavigation?: boolean; // Show month navigation
-		
+
 		// Selection mode (for bulk editing)
 		enableSelection?: boolean; // Enable selection mode
 		selectionMode?: boolean; // Current selection mode state
 		selectedIds?: Set<string>; // Selected transaction IDs
 		onSelectionChange?: (ids: Set<string>) => void;
-		
+
 		// Callbacks
 		onTransactionClick?: (transaction: Transaction) => void;
 		onFiltersChange?: (filters: FilterState) => void;
 		/** When provided, empty state shows an "Add transaction" CTA button */
 		onAddTransaction?: () => void;
-		
+
 		// User currency for formatting
 		userCurrency?: string | null;
 	}
@@ -133,6 +146,8 @@
 	const currencyFormat = useCurrencyFormatting();
 
 	// Internal filter state (used when filters prop is not provided)
+	// Initial grouping comes from prop once; list manages grouping internally afterward.
+	// svelte-ignore state_referenced_locally
 	let internalFilters = $state<FilterState>({
 		searchQuery: '',
 		showPendingOnly: false,
@@ -150,12 +165,16 @@
 
 	// Use external or internal state based on props
 	const filters = $derived(externalFilters ?? internalFilters);
-	const selectionMode = $derived(enableSelection ? (externalSelectionMode ?? internalSelectionMode) : false);
-	const selectedIds = $derived(enableSelection ? (externalSelectedIds ?? internalSelectedIds) : new Set<string>());
+	const selectionMode = $derived(
+		enableSelection ? (externalSelectionMode ?? internalSelectionMode) : false
+	);
+	const selectedIds = $derived(
+		enableSelection ? (externalSelectedIds ?? internalSelectedIds) : new Set<string>()
+	);
 
 	// Sync toggle values with filter state
 	let toggleValues = $state<string[]>([]);
-	
+
 	// Initialize toggle values
 	$effect(() => {
 		const currentFilters = filters;
@@ -186,7 +205,7 @@
 			dateFilterEnabled: toggleValues.includes('date'),
 			groupingMode: toggleValues.includes('smart') ? 'smart' : 'simple'
 		};
-		
+
 		// Only update if something actually changed to avoid loops
 		if (
 			newFilters.showPendingOnly !== currentFilters.showPendingOnly ||
@@ -212,7 +231,9 @@
 			return categories[transaction.categoryId].name;
 		}
 		// Last resort: format the category ID if it exists
-		return transaction.categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+		return transaction.categoryId
+			.replace(/-/g, ' ')
+			.replace(/\b\w/g, (l: string) => l.toUpperCase());
 	}
 
 	function getAccountName(accountId: string | undefined | null): string {
@@ -233,7 +254,7 @@
 			getAccountName,
 			getTransactionAccountId
 		);
-		
+
 		return { match: result.match, score: result.score };
 	}
 
@@ -247,26 +268,26 @@
 	// Derived filtered transactions with fuzzy search and date grouping
 	let filteredTransactions = $derived(() => {
 		const currentFilters = filters;
-		
+
 		// Filter out null, undefined, or deleted transactions
-		let filtered = transactions.filter(t => t && !t.deletedAt);
-		
+		let filtered = transactions.filter((t) => t && !t.deletedAt);
+
 		// Filter by search query using fuzzy search
 		if (currentFilters.searchQuery.trim()) {
 			filtered = filtered
-				.map(t => ({ transaction: t, ...fuzzySearch(t, currentFilters.searchQuery) }))
+				.map((t) => ({ transaction: t, ...fuzzySearch(t, currentFilters.searchQuery) }))
 				.filter(({ match }) => match)
 				.sort((a, b) => b.score - a.score) // Sort by relevance score
 				.map(({ transaction }) => transaction);
 		}
-		
+
 		// Filter by pending status
 		if (currentFilters.showPendingOnly) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				return t.status === 'pending' || t.status === 'planned';
 			});
 		}
-		
+
 		// Filter by month (only if date filtering is enabled)
 		if (currentFilters.dateFilterEnabled) {
 			const monthStart = new Date(
@@ -282,16 +303,16 @@
 				59,
 				59
 			);
-			
-			filtered = filtered.filter(t => {
+
+			filtered = filtered.filter((t) => {
 				const transactionDate = new Date(getTransactionDate(t));
 				return transactionDate >= monthStart && transactionDate <= monthEnd;
 			});
 		}
-		
+
 		// Apply status filter (enhanced)
 		if (currentFilters.statuses && currentFilters.statuses.length > 0) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				const now = new Date();
 				// Check each selected status
 				for (const status of currentFilters.statuses!) {
@@ -312,140 +333,156 @@
 				return false;
 			});
 		}
-		
+
 		// Apply category filter
 		if (currentFilters.categoryIds && currentFilters.categoryIds.length > 0) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				if (currentFilters.categoryIds!.includes('__uncategorized__')) {
 					return !t.categoryId || currentFilters.categoryIds!.includes(t.categoryId);
 				}
 				return t.categoryId && currentFilters.categoryIds!.includes(t.categoryId);
 			});
 		}
-		
+
 		if (currentFilters.categoryType) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				if (!t.categoryId) return false;
 				const category = categories[t.categoryId];
 				return category && category.type === currentFilters.categoryType;
 			});
 		}
-		
+
 		if (currentFilters.waterfallTier && currentFilters.waterfallTier.length > 0) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				if (!t.categoryId) return false;
 				const category = categories[t.categoryId];
 				return category && currentFilters.waterfallTier!.includes(category.waterfallTier);
 			});
 		}
-		
+
 		// Apply account filter
 		if (currentFilters.accountIds && currentFilters.accountIds.length > 0) {
-			filtered = filtered.filter(t => t.accountId && currentFilters.accountIds!.includes(t.accountId));
+			filtered = filtered.filter(
+				(t) => t.accountId && currentFilters.accountIds!.includes(t.accountId)
+			);
 		}
-		
+
 		if (currentFilters.accountTypes && currentFilters.accountTypes.length > 0) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				if (!t.accountId) return false;
 				const account = accounts[t.accountId];
 				return account && currentFilters.accountTypes!.includes(account.type);
 			});
 		}
-		
+
 		// Apply amount filter
 		if (currentFilters.minAmount !== undefined) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				const amount = Math.abs(t.amount || 0);
 				return amount >= currentFilters.minAmount!;
 			});
 		}
-		
+
 		if (currentFilters.maxAmount !== undefined) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				const amount = Math.abs(t.amount || 0);
 				return amount <= currentFilters.maxAmount!;
 			});
 		}
-		
+
 		// Apply date range filter (enhanced)
 		if (currentFilters.dateRange) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				const dateType = currentFilters.dateType || 'cleared';
-				const transactionDate = dateType === 'planned' 
-					? (t.plannedDate ? new Date(t.plannedDate) : null)
-					: (t.clearedDate ? new Date(t.clearedDate) : null);
-				
+				const transactionDate =
+					dateType === 'planned'
+						? t.plannedDate
+							? new Date(t.plannedDate)
+							: null
+						: t.clearedDate
+							? new Date(t.clearedDate)
+							: null;
+
 				if (!transactionDate) return false;
-				return transactionDate >= currentFilters.dateRange!.start && transactionDate <= currentFilters.dateRange!.end;
+				return (
+					transactionDate >= currentFilters.dateRange!.start &&
+					transactionDate <= currentFilters.dateRange!.end
+				);
 			});
 		}
-		
+
 		// Apply transaction type filter
 		if (currentFilters.types && currentFilters.types.length > 0) {
-			filtered = filtered.filter(t => currentFilters.types!.includes(t.type));
+			filtered = filtered.filter((t) => currentFilters.types!.includes(t.type));
 		}
-		
+
 		// Apply recurring filter
 		if (currentFilters.recurring !== undefined) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				const isRecurring = !!t.recurrenceRule;
 				return currentFilters.recurring ? isRecurring : !isRecurring;
 			});
 		}
-		
+
 		// Apply grouped filter
 		if (currentFilters.grouped !== undefined) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				const isGrouped = !!t.groupId;
 				return currentFilters.grouped ? isGrouped : !isGrouped;
 			});
 		}
-		
+
 		// Apply variance filters
 		if (currentFilters.hasVariance !== undefined && currentFilters.hasVariance) {
-			filtered = filtered.filter(t => {
-				return t.status === 'cleared' && 
-					t.plannedAmount !== undefined && 
+			filtered = filtered.filter((t) => {
+				return (
+					t.status === 'cleared' &&
+					t.plannedAmount !== undefined &&
 					t.amount !== undefined &&
-					t.plannedAmount !== t.amount;
+					t.plannedAmount !== t.amount
+				);
 			});
 		}
-		
+
 		if (currentFilters.underBudget !== undefined && currentFilters.underBudget) {
-			filtered = filtered.filter(t => {
-				return t.status === 'cleared' && 
-					t.plannedAmount !== undefined && 
+			filtered = filtered.filter((t) => {
+				return (
+					t.status === 'cleared' &&
+					t.plannedAmount !== undefined &&
 					t.amount !== undefined &&
-					t.amount < t.plannedAmount;
+					t.amount < t.plannedAmount
+				);
 			});
 		}
-		
+
 		if (currentFilters.overBudget !== undefined && currentFilters.overBudget) {
-			filtered = filtered.filter(t => {
-				return t.status === 'cleared' && 
-					t.plannedAmount !== undefined && 
+			filtered = filtered.filter((t) => {
+				return (
+					t.status === 'cleared' &&
+					t.plannedAmount !== undefined &&
 					t.amount !== undefined &&
-					t.amount > t.plannedAmount;
+					t.amount > t.plannedAmount
+				);
 			});
 		}
-		
+
 		// Apply confidence filter
 		if (currentFilters.confidence && currentFilters.confidence.length > 0) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				return t.confidence && currentFilters.confidence!.includes(t.confidence);
 			});
 		}
-		
+
 		// Apply currency filter
 		if (currentFilters.currencies && currentFilters.currencies.length > 0) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				return t.currency && currentFilters.currencies!.includes(t.currency);
 			});
 		}
-		
+
 		// Apply import source filter
 		if (currentFilters.importSource) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				if (!t.importMetadata) return false;
 				try {
 					const metadata = JSON.parse(t.importMetadata);
@@ -455,35 +492,35 @@
 				}
 			});
 		}
-		
+
 		// Apply notes/reference filters
 		if (currentFilters.hasNotes !== undefined) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				const hasNotes = !!(t.description && t.description.trim().length > 0);
 				return currentFilters.hasNotes ? hasNotes : !hasNotes;
 			});
 		}
-		
+
 		if (currentFilters.hasReference !== undefined) {
-			filtered = filtered.filter(t => {
+			filtered = filtered.filter((t) => {
 				// Assuming reference might be in importMetadata or a separate field
 				const hasReference = !!(t.importMetadata && t.importMetadata.includes('reference'));
 				return currentFilters.hasReference ? hasReference : !hasReference;
 			});
 		}
-		
+
 		// Sort by date (most recent first)
 		filtered.sort((a, b) => {
 			const dateA = new Date(getTransactionDate(a));
 			const dateB = new Date(getTransactionDate(b));
 			return dateB.getTime() - dateA.getTime();
 		});
-		
+
 		// Group transactions by groupId first, then by date
 		const transactionGroups = new Map<string, Transaction[]>();
 		const standaloneTransactions: Transaction[] = [];
-		
-		filtered.forEach(transaction => {
+
+		filtered.forEach((transaction) => {
 			if (transaction.groupId) {
 				if (!transactionGroups.has(transaction.groupId)) {
 					transactionGroups.set(transaction.groupId, []);
@@ -493,7 +530,7 @@
 				standaloneTransactions.push(transaction);
 			}
 		});
-		
+
 		// Create group objects for grouped transactions
 		const groupedTransactions: any[] = [];
 		transactionGroups.forEach((groupTransactions, groupId) => {
@@ -503,11 +540,11 @@
 				const dateB = new Date(getTransactionDate(b));
 				return dateB.getTime() - dateA.getTime();
 			});
-			
+
 			// Create a group object representing the entire group
 			const firstTransaction = groupTransactions[0];
 			const totalAmount = groupTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
-			
+
 			groupedTransactions.push({
 				id: groupId,
 				type: firstTransaction.type,
@@ -516,7 +553,9 @@
 				groupName: firstTransaction.groupName || 'Grouped Transaction',
 				description: firstTransaction.description || 'Grouped Transaction',
 				amount: totalAmount,
-				currency: firstTransaction.currency || (firstTransaction.accountId ? accounts[firstTransaction.accountId]?.currency : undefined),
+				currency:
+					firstTransaction.currency ||
+					(firstTransaction.accountId ? accounts[firstTransaction.accountId]?.currency : undefined),
 				status: firstTransaction.status,
 				clearedDate: firstTransaction.clearedDate,
 				plannedDate: firstTransaction.plannedDate,
@@ -527,37 +566,39 @@
 				totalAmount: totalAmount
 			});
 		});
-		
+
 		// Combine grouped and standalone transactions
 		const allTransactions = [...groupedTransactions, ...standaloneTransactions];
-		
+
 		// Sort all transactions by date (most recent first)
 		allTransactions.sort((a, b) => {
 			const dateA = new Date(getTransactionDate(a));
 			const dateB = new Date(getTransactionDate(b));
 			return dateB.getTime() - dateA.getTime();
 		});
-		
+
 		// Group by date if grouping mode is not 'none'
 		if (propGroupingMode === 'none') {
 			// Return as single group with no date grouping
-			return [{
-				group: {
-					key: 'all',
-					date: new Date(),
-					label: 'All Transactions'
-				},
-				transactions: allTransactions
-			}];
+			return [
+				{
+					group: {
+						key: 'all',
+						date: new Date(),
+						label: 'All Transactions'
+					},
+					transactions: allTransactions
+				}
+			];
 		}
-		
+
 		// Group by date
 		const grouped = new Map<string, { group: DateGroup; transactions: any[] }>();
-		
-		allTransactions.forEach(transaction => {
+
+		allTransactions.forEach((transaction) => {
 			const transactionDate = new Date(getTransactionDate(transaction));
 			const groupKey = getGroupKey(transactionDate, currentFilters.groupingMode);
-			
+
 			if (!grouped.has(groupKey)) {
 				grouped.set(groupKey, {
 					group: {
@@ -568,10 +609,10 @@
 					transactions: []
 				});
 			}
-			
+
 			grouped.get(groupKey)!.transactions.push(transaction);
 		});
-		
+
 		// Convert to array and sort groups by date (most recent first)
 		return Array.from(grouped.values()).sort((a, b) => {
 			return b.group.date.getTime() - a.group.date.getTime();
@@ -579,8 +620,14 @@
 	});
 
 	// Summary stats and per-date-group totals, converted to main currency (async)
-	let summaryStats = $state<{ income: number; expenses: number; net: number }>({ income: 0, expenses: 0, net: 0 });
-	let dateGroupTotals = $state<Record<string, { income: number; expenses: number; net: number }>>({});
+	let summaryStats = $state<{ income: number; expenses: number; net: number }>({
+		income: 0,
+		expenses: 0,
+		net: 0
+	});
+	let dateGroupTotals = $state<Record<string, { income: number; expenses: number; net: number }>>(
+		{}
+	);
 
 	$effect(() => {
 		const groups = filteredTransactions();
@@ -588,11 +635,19 @@
 		const accts = accounts;
 		(async () => {
 			const flat = groups.flatMap((g) => g.transactions);
-			const summary = await transactionService.getTransactionStatisticsForTransactions(flat, accts, main);
+			const summary = await transactionService.getTransactionStatisticsForTransactions(
+				flat,
+				accts,
+				main
+			);
 			summaryStats = summary;
 			const map: Record<string, { income: number; expenses: number; net: number }> = {};
 			for (const g of groups) {
-				map[g.group.key] = await transactionService.getTransactionStatisticsForTransactions(g.transactions, accts, main);
+				map[g.group.key] = await transactionService.getTransactionStatisticsForTransactions(
+					g.transactions,
+					accts,
+					main
+				);
 			}
 			dateGroupTotals = map;
 		})();
@@ -601,13 +656,19 @@
 	// Month navigation functions
 	function goToPreviousMonth() {
 		const currentFilters = filters;
-		const newMonth = new Date(currentFilters.currentMonth.getFullYear(), currentFilters.currentMonth.getMonth() - 1);
+		const newMonth = new Date(
+			currentFilters.currentMonth.getFullYear(),
+			currentFilters.currentMonth.getMonth() - 1
+		);
 		updateFilters({ ...currentFilters, currentMonth: newMonth });
 	}
 
 	function goToNextMonth() {
 		const currentFilters = filters;
-		const newMonth = new Date(currentFilters.currentMonth.getFullYear(), currentFilters.currentMonth.getMonth() + 1);
+		const newMonth = new Date(
+			currentFilters.currentMonth.getFullYear(),
+			currentFilters.currentMonth.getMonth() + 1
+		);
 		updateFilters({ ...currentFilters, currentMonth: newMonth });
 	}
 
@@ -649,7 +710,7 @@
 		if (!transaction) {
 			return 0;
 		}
-		return transaction.isGroup ? transaction.totalAmount : (transaction.amount || 0);
+		return transaction.isGroup ? transaction.totalAmount : transaction.amount || 0;
 	}
 
 	function getTransactionCurrency(transaction: Transaction | any) {
@@ -674,14 +735,14 @@
 
 	function toggleTransactionSelection(transactionId: string) {
 		if (!enableSelection || !selectionMode) return;
-		
+
 		const newSelectedIds = new Set<string>(selectedIds);
 		if (newSelectedIds.has(transactionId)) {
 			newSelectedIds.delete(transactionId);
 		} else {
 			newSelectedIds.add(transactionId);
 		}
-		
+
 		if (externalSelectedIds !== undefined) {
 			onSelectionChange?.(newSelectedIds);
 		} else {
@@ -699,20 +760,23 @@
 <div class="transaction-list">
 	{#if enableFilters}
 		<!-- Filter Bar -->
-		<div class="mb-4 bg-background sticky">
+		<div class="bg-background sticky mb-4">
 			<!-- Desktop Layout -->
-			<div class="hidden md:flex items-center gap-2">
-				<div class="flex items-center gap-2 flex-1">
+			<div class="hidden items-center gap-2 md:flex">
+				<div class="flex flex-1 items-center gap-2">
 					<!-- Search -->
 					{#if enableSearch}
 						<div class="relative flex-1">
-							<Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
+							<Search
+								class="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 transform"
+								size={20}
+							/>
 							<Input
 								type="text"
 								value={filters.searchQuery}
 								oninput={(e) => updateSearchQuery(e.currentTarget.value)}
 								placeholder="Search transactions, categories, accounts... (fuzzy search)"
-								class="w-full pl-10 pr-4 py-2"
+								class="w-full py-2 pr-4 pl-10"
 							/>
 						</div>
 					{/if}
@@ -723,7 +787,11 @@
 								<ToggleGroup.Item value="pending" size="sm" title="Show pending transactions only">
 									<Clock size={16} />
 								</ToggleGroup.Item>
-								<ToggleGroup.Item value="smart" size="sm" title="Smart grouping (Today, Yesterday, etc.) vs Simple date grouping">
+								<ToggleGroup.Item
+									value="smart"
+									size="sm"
+									title="Smart grouping (Today, Yesterday, etc.) vs Simple date grouping"
+								>
 									<Group size={16} />
 								</ToggleGroup.Item>
 								<ToggleGroup.Item value="date" size="sm" title="Filter by current month">
@@ -734,9 +802,9 @@
 					{/if}
 					<!-- Advanced Filters Button -->
 					{#if enableAdvancedFilters}
-						<FilterButton 
-							activeFilterCount={getActiveFilterCount(filters)} 
-							onClick={() => filterSheetOpen = true} 
+						<FilterButton
+							activeFilterCount={getActiveFilterCount(filters)}
+							onClick={() => (filterSheetOpen = true)}
 						/>
 					{/if}
 				</div>
@@ -744,25 +812,25 @@
 				<!-- Month Navigation -->
 				{#if showDateNavigation}
 					<div class="flex items-center gap-1">
-						<Button 
-							variant="outline" 
-							size="square" 
+						<Button
+							variant="outline"
+							size="square"
 							onclick={goToPreviousMonth}
 							disabled={!filters.dateFilterEnabled}
 						>
 							<ChevronLeft />
 						</Button>
-						<Button 
-							variant="ghost" 
-							size="sm" 
+						<Button
+							variant="ghost"
+							size="sm"
 							onclick={goToCurrentMonth}
 							disabled={!filters.dateFilterEnabled}
 						>
 							{formatMonth(filters.currentMonth)}
 						</Button>
-						<Button 
-							variant="outline" 
-							size="square" 
+						<Button
+							variant="outline"
+							size="square"
 							onclick={goToNextMonth}
 							disabled={!filters.dateFilterEnabled}
 						>
@@ -773,17 +841,20 @@
 			</div>
 
 			<!-- Mobile Layout -->
-			<div class="md:hidden space-y-2">
+			<div class="space-y-2 md:hidden">
 				<!-- Search Row -->
 				{#if enableSearch}
 					<div class="relative">
-						<Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={20} />
+						<Search
+							class="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 transform"
+							size={20}
+						/>
 						<Input
 							type="text"
 							value={filters.searchQuery}
 							oninput={(e) => updateSearchQuery(e.currentTarget.value)}
 							placeholder="Search transactions, categories, accounts... (fuzzy search)"
-							class="w-full pl-10 pr-4 py-2"
+							class="w-full py-2 pr-4 pl-10"
 						/>
 					</div>
 				{/if}
@@ -797,7 +868,11 @@
 								<ToggleGroup.Item value="pending" size="sm" title="Show pending transactions only">
 									<Clock />
 								</ToggleGroup.Item>
-								<ToggleGroup.Item value="smart" size="sm" title="Smart grouping (Today, Yesterday, etc.) vs Simple date grouping">
+								<ToggleGroup.Item
+									value="smart"
+									size="sm"
+									title="Smart grouping (Today, Yesterday, etc.) vs Simple date grouping"
+								>
 									<Group />
 								</ToggleGroup.Item>
 								<ToggleGroup.Item value="date" size="sm" title="Filter by current month">
@@ -808,35 +883,35 @@
 					{/if}
 					<!-- Advanced Filters Button (Mobile) -->
 					{#if enableAdvancedFilters}
-						<FilterButton 
-							activeFilterCount={getActiveFilterCount(filters)} 
-							onClick={() => filterSheetOpen = true} 
+						<FilterButton
+							activeFilterCount={getActiveFilterCount(filters)}
+							onClick={() => (filterSheetOpen = true)}
 						/>
 					{/if}
 
 					<!-- Month Navigation - Full width on mobile -->
 					{#if showDateNavigation}
-						<div class="flex-1 flex items-center gap-1">
-							<Button 
-								variant="outline" 
-								size="square" 
+						<div class="flex flex-1 items-center gap-1">
+							<Button
+								variant="outline"
+								size="square"
 								onclick={goToPreviousMonth}
 								disabled={!filters.dateFilterEnabled}
 							>
 								<ChevronLeft />
 							</Button>
-							<Button 
-								variant="ghost" 
-								size="sm" 
-								class="flex-1" 
+							<Button
+								variant="ghost"
+								size="sm"
+								class="flex-1"
 								onclick={goToCurrentMonth}
 								disabled={!filters.dateFilterEnabled}
 							>
 								{formatMonth(filters.currentMonth)}
 							</Button>
-							<Button 
-								variant="outline" 
-								size="square" 
+							<Button
+								variant="outline"
+								size="square"
 								onclick={goToNextMonth}
 								disabled={!filters.dateFilterEnabled}
 							>
@@ -853,40 +928,71 @@
 	{#if enableAdvancedFilters}
 		<FilterSheet
 			bind:open={filterSheetOpen}
-			filters={filters}
+			{filters}
 			{accounts}
 			{categories}
 			{userCurrency}
 			activeFilterCount={getActiveFilterCount(filters)}
 			onFiltersChange={updateFilters}
 			onClearAll={() => {}}
-			onApply={() => filterSheetOpen = false}
+			onApply={() => (filterSheetOpen = false)}
 		/>
 	{/if}
 
 	<!-- Summary bar: period, totals, entry count (UX_SPEC §3.3) -->
 	{#if showSummary}
 		<section class="mb-4">
-			<div class="bg-[var(--color-bg-tertiary)] rounded-xl px-5 py-3.5 border border-border">
-				<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
-					{formatMonth(filters.currentMonth)} · {filteredTransactions().length} {filteredTransactions().length === 1 ? 'entry' : 'entries'}
+			<div class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5">
+				<div
+					class="mb-2 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
+					{formatMonth(filters.currentMonth)} · {filteredTransactions().length}
+					{filteredTransactions().length === 1 ? 'entry' : 'entries'}
 				</div>
 				<div class="grid grid-cols-3 gap-4 text-center">
 					<div>
-						<div class="text-amount {summaryStats.income === 0 ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-sage-green)]'}">
+						<div
+							class="text-amount {summaryStats.income === 0
+								? 'text-[var(--color-text-tertiary)]'
+								: 'text-[var(--color-sage-green)]'}"
+						>
 							{formatAmountWithSign(summaryStats.income, true)}
 						</div>
-						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Income</div>
+						<div
+							class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Income
+						</div>
 					</div>
 					<div>
-						<div class="text-amount {summaryStats.expenses === 0 ? 'text-[var(--color-text-tertiary)]' : 'text-foreground'}">{formatAmountWithSign(summaryStats.expenses)}</div>
-						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Expenses</div>
+						<div
+							class="text-amount {summaryStats.expenses === 0
+								? 'text-[var(--color-text-tertiary)]'
+								: 'text-foreground'}"
+						>
+							{formatAmountWithSign(summaryStats.expenses)}
+						</div>
+						<div
+							class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Expenses
+						</div>
 					</div>
 					<div>
-						<div class="text-amount {summaryStats.net === 0 ? 'text-[var(--color-text-tertiary)]' : (summaryStats.net >= 0 ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-warm-coral)]')}">
+						<div
+							class="text-amount {summaryStats.net === 0
+								? 'text-[var(--color-text-tertiary)]'
+								: summaryStats.net >= 0
+									? 'text-[var(--color-sage-green)]'
+									: 'text-[var(--color-warm-coral)]'}"
+						>
 							{formatAmountWithSign(summaryStats.net, true)}
 						</div>
-						<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-0.5">Net</div>
+						<div
+							class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Net
+						</div>
 					</div>
 				</div>
 			</div>
@@ -896,7 +1002,7 @@
 	<!-- Transaction List -->
 	<section class="space-y-6">
 		{#if filters.searchQuery.trim()}
-			<div class="text-center text-sm text-muted-foreground">
+			<div class="text-muted-foreground text-center text-sm">
 				Search results for "{filters.searchQuery}"
 			</div>
 		{/if}
@@ -906,20 +1012,28 @@
 			<!-- Date Group Section -->
 			<div class="space-y-1">
 				<!-- Date Group Header -->
-				<div class="flex items-center justify-between px-4 py-2 bg-[var(--color-bg-secondary)] rounded-lg">
-					<h3 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">
+				<div
+					class="flex items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2"
+				>
+					<h3
+						class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+					>
 						{dateGroup.group.label}
 					</h3>
 					<div class="flex items-center gap-3">
 						{#if totals.income > 0}
-							<span class="text-amount-sm text-[var(--color-sage-green)]">{formatAmountWithSign(totals.income, true)}</span>
+							<span class="text-amount-sm text-[var(--color-sage-green)]"
+								>{formatAmountWithSign(totals.income, true)}</span
+							>
 						{/if}
 						{#if totals.expenses !== 0}
-							<span class="text-amount-sm text-[var(--color-text-secondary)]">{formatAmountWithSign(totals.expenses)}</span>
+							<span class="text-amount-sm text-[var(--color-text-secondary)]"
+								>{formatAmountWithSign(totals.expenses)}</span
+							>
 						{/if}
 					</div>
 				</div>
-				
+
 				<!-- Transactions in this date group -->
 				<div class="space-y-1">
 					{#each dateGroup.transactions as transactionOrGroup}
@@ -929,12 +1043,15 @@
 								<input
 									type="checkbox"
 									checked={isTransactionSelected(transactionOrGroup)}
-									onchange={() => toggleTransactionSelection(transactionOrGroup.id || transactionOrGroup.groupId || '')}
-									class="w-4 h-4"
+									onchange={() =>
+										toggleTransactionSelection(
+											transactionOrGroup.id || transactionOrGroup.groupId || ''
+										)}
+									class="h-4 w-4"
 								/>
 								<div class="flex-1">
 									{#if transactionOrGroup.isGroup}
-										<TransactionItem 
+										<TransactionItem
 											transaction={transactionOrGroup}
 											onClick={handleTransactionClick}
 											context="transactions"
@@ -947,7 +1064,7 @@
 											groupCurrency={getTransactionCurrency(transactionOrGroup)}
 										/>
 									{:else}
-										<TransactionItem 
+										<TransactionItem
 											transaction={transactionOrGroup}
 											onClick={() => handleTransactionClick(transactionOrGroup)}
 											context="transactions"
@@ -956,36 +1073,34 @@
 									{/if}
 								</div>
 							</div>
+						{:else if transactionOrGroup.isGroup}
+							<!-- Grouped Transaction -->
+							<TransactionItem
+								transaction={transactionOrGroup}
+								onClick={handleTransactionClick}
+								context="transactions"
+								showDate={false}
+								isGroup={true}
+								groupTransactions={transactionOrGroup.transactions}
+								totalAmount={getTransactionAmount(transactionOrGroup)}
+								groupDescription={transactionOrGroup.description || 'Grouped Transaction'}
+								groupCategory={getCategoryName(transactionOrGroup)}
+								groupCurrency={getTransactionCurrency(transactionOrGroup)}
+							/>
 						{:else}
-							{#if transactionOrGroup.isGroup}
-								<!-- Grouped Transaction -->
-								<TransactionItem 
-									transaction={transactionOrGroup}
-									onClick={handleTransactionClick}
-									context="transactions"
-									showDate={false}
-									isGroup={true}
-									groupTransactions={transactionOrGroup.transactions}
-									totalAmount={getTransactionAmount(transactionOrGroup)}
-									groupDescription={transactionOrGroup.description || 'Grouped Transaction'}
-									groupCategory={getCategoryName(transactionOrGroup)}
-									groupCurrency={getTransactionCurrency(transactionOrGroup)}
-								/>
-							{:else}
-								<!-- Single Transaction -->
-								<TransactionItem 
-									transaction={transactionOrGroup}
-									onClick={() => handleTransactionClick(transactionOrGroup)}
-									context="transactions"
-									showDate={false}
-								/>
-							{/if}
+							<!-- Single Transaction -->
+							<TransactionItem
+								transaction={transactionOrGroup}
+								onClick={() => handleTransactionClick(transactionOrGroup)}
+								context="transactions"
+								showDate={false}
+							/>
 						{/if}
 					{/each}
 				</div>
 			</div>
 		{/each}
-		
+
 		{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
 			<div class="flex flex-col items-center justify-center py-16 text-center">
 				<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
@@ -1001,12 +1116,24 @@
 						variant="ghost"
 						size="sm"
 						class="mt-3 text-[var(--color-text-tertiary)]"
-						onclick={() => updateFilters({ searchQuery: '', showPendingOnly: false, dateFilterEnabled: true, groupingMode: 'smart', currentMonth: new Date() })}
+						onclick={() =>
+							updateFilters({
+								searchQuery: '',
+								showPendingOnly: false,
+								dateFilterEnabled: true,
+								groupingMode: 'smart',
+								currentMonth: new Date()
+							})}
 					>
 						Clear filters
 					</Button>
 				{:else if onAddTransaction}
-					<Button variant="ghost" size="sm" class="mt-3 text-[var(--color-amber)]" onclick={onAddTransaction}>Add transaction</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						class="mt-3 text-[var(--color-amber)]"
+						onclick={onAddTransaction}>Add transaction</Button
+					>
 				{/if}
 			</div>
 		{/if}

@@ -190,8 +190,7 @@
 	{/snippet}
 
 	{#snippet children()}
-		<div class="mx-auto max-w-2xl px-4 py-6 space-y-6">
-
+		<div class="mx-auto max-w-2xl space-y-6 px-4 py-6">
 			<!-- Stats overview — compact pill row -->
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				{#if isLoadingStats}
@@ -199,27 +198,73 @@
 						<div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
 					{/each}
 				{:else if statsError}
-					<div class="col-span-full squircle-2xl squircle-border px-4 py-3" style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);">
+					<div
+						class="squircle-2xl squircle-border col-span-full px-4 py-3"
+						style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);"
+					>
 						<p class="text-sm text-[var(--color-warm-coral)]">{statsError}</p>
 					</div>
 				{:else}
-					{@const allGood = reconciliationStats.needsReconciliation === 0 && reconciliationStats.hasDiscrepancies === 0}
+					{@const allGood =
+						reconciliationStats.needsReconciliation === 0 &&
+						reconciliationStats.hasDiscrepancies === 0}
 					<div class="squircle-2xl squircle-border squircle-fill-tertiary px-4 py-3">
-						<p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-1">Accounts</p>
-						<p class="text-xl font-semibold text-[var(--color-text-primary)]">{reconciliationStats.totalAccounts}</p>
+						<p
+							class="mb-1 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Accounts
+						</p>
+						<p class="text-xl font-semibold text-[var(--color-text-primary)]">
+							{reconciliationStats.totalAccounts}
+						</p>
 					</div>
 					<div class="squircle-2xl squircle-border px-4 py-3" style={needReviewCardStyle}>
-						<p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-1">Need review</p>
-						<p class="text-xl font-semibold {reconciliationStats.needsReconciliation > 0 ? 'text-[var(--color-amber)]' : 'text-[var(--color-text-primary)]'}">{reconciliationStats.needsReconciliation}</p>
+						<p
+							class="mb-1 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Need review
+						</p>
+						<p
+							class="text-xl font-semibold {reconciliationStats.needsReconciliation > 0
+								? 'text-[var(--color-amber)]'
+								: 'text-[var(--color-text-primary)]'}"
+						>
+							{reconciliationStats.needsReconciliation}
+						</p>
 					</div>
 					<div class="squircle-2xl squircle-border px-4 py-3" style={discrepanciesCardStyle}>
-						<p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-1">Discrepancies</p>
-						<p class="text-xl font-semibold {reconciliationStats.hasDiscrepancies > 0 ? 'text-[var(--color-warm-coral)]' : 'text-[var(--color-text-primary)]'}">{reconciliationStats.hasDiscrepancies}</p>
+						<p
+							class="mb-1 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Discrepancies
+						</p>
+						<p
+							class="text-xl font-semibold {reconciliationStats.hasDiscrepancies > 0
+								? 'text-[var(--color-warm-coral)]'
+								: 'text-[var(--color-text-primary)]'}"
+						>
+							{reconciliationStats.hasDiscrepancies}
+						</p>
 					</div>
-					<div class="squircle-2xl squircle-border squircle-fill-tertiary px-4 py-3" style={allGood ? '--squircle-border-color: color-mix(in oklch, var(--color-sage-green) 30%, transparent);' : ''}>
-						<p class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-1">Last reconciled</p>
-						<p class="text-sm font-medium {allGood ? 'text-[var(--color-sage-green)]' : 'text-[var(--color-text-primary)]'}">
-							{reconciliationStats.lastReconciled ? formatDate(reconciliationStats.lastReconciled) : 'Never'}
+					<div
+						class="squircle-2xl squircle-border squircle-fill-tertiary px-4 py-3"
+						style={allGood
+							? '--squircle-border-color: color-mix(in oklch, var(--color-sage-green) 30%, transparent);'
+							: ''}
+					>
+						<p
+							class="mb-1 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Last reconciled
+						</p>
+						<p
+							class="text-sm font-medium {allGood
+								? 'text-[var(--color-sage-green)]'
+								: 'text-[var(--color-text-primary)]'}"
+						>
+							{reconciliationStats.lastReconciled
+								? formatDate(reconciliationStats.lastReconciled)
+								: 'Never'}
 						</p>
 					</div>
 				{/if}
@@ -232,8 +277,8 @@
 					onclick={() => handleTabChange('reconcile')}
 					class="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors
 						{activeTab === 'reconcile'
-							? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
-							: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
+						? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
+						: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
 				>
 					<Plus class="size-3.5" />
 					New reconciliation
@@ -243,13 +288,16 @@
 					onclick={() => handleTabChange('history')}
 					class="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors
 						{activeTab === 'history'
-							? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
-							: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
+						? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
+						: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
 				>
 					<History class="size-3.5" />
 					History
 					{#if reconciliationStats.hasDiscrepancies > 0}
-						<span class="ml-0.5 rounded-full bg-[var(--color-warm-coral)] px-1.5 py-0.5 text-[10px] font-bold text-white">{reconciliationStats.hasDiscrepancies}</span>
+						<span
+							class="ml-0.5 rounded-full bg-[var(--color-warm-coral)] px-1.5 py-0.5 text-[10px] font-bold text-white"
+							>{reconciliationStats.hasDiscrepancies}</span
+						>
 					{/if}
 				</button>
 			</div>

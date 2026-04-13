@@ -1,10 +1,10 @@
 /**
  * Transaction Optimization Service
- * 
+ *
  * Implements the core transaction optimization algorithm that analyzes planned transactions,
  * account limits, and spending patterns to help users avoid overdrafts, minimize fees,
  * optimize credit utilization, and maintain financial stability.
- * 
+ *
  * Features:
  * - Constraint satisfaction engine (hard/soft constraints)
  * - Transaction scheduling optimizer with simulated annealing
@@ -23,15 +23,22 @@ import { dependencyTrackingService } from '../core/dependency-tracking-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { feeAvoidanceService } from './fee-avoidance-service';
 import { learningAdaptationService } from './learning-adaptation-service';
-import { getBufferAmount, getBufferStatus, getBufferThresholds } from '$lib/utils/account-metadata-utils';
-import { getMaxFlexibilityDays, validateFlexibilityMovement } from '$lib/utils/flexibility-tier-utils';
-import { 
-	addDays, 
-	subDays, 
-	startOfDay, 
-	isAfter, 
-	isBefore, 
-	format, 
+import {
+	getBufferAmount,
+	getBufferStatus,
+	getBufferThresholds
+} from '$lib/utils/account-metadata-utils';
+import {
+	getMaxFlexibilityDays,
+	validateFlexibilityMovement
+} from '$lib/utils/flexibility-tier-utils';
+import {
+	addDays,
+	subDays,
+	startOfDay,
+	isAfter,
+	isBefore,
+	format,
 	parseISO,
 	differenceInDays,
 	isEqual
@@ -49,14 +56,14 @@ export interface OptimizationConstraints {
 	criticalThreshold?: number; // Account balance below this is critical
 	warningThreshold?: number; // Account balance below this triggers warning
 	comfortThreshold?: number; // Account balance below this is suboptimal
-	
+
 	// Soft constraints (optimize for)
 	preferBufferMaintenance?: boolean;
 	preferFeeAvoidance?: boolean;
 	preferCreditUtilization?: boolean; // Keep credit utilization optimal
 	targetCreditUtilization?: number; // Target credit utilization (0-1)
 	maxCreditUtilization?: number; // Maximum acceptable credit utilization
-	
+
 	// Account-specific constraints
 	accountConstraints?: Map<string, AccountConstraints>;
 }
@@ -217,7 +224,7 @@ class OptimizationService {
 	async optimize(options: OptimizationOptions = {}): Promise<OptimizationResult> {
 		const startTime = Date.now();
 		console.log('[Optimization] Starting optimization', { options });
-		
+
 		try {
 			// Validate dependencies first
 			console.log('[Optimization] Validating dependencies...');
@@ -248,11 +255,11 @@ class OptimizationService {
 			console.log('[Optimization] Getting transactions to optimize...');
 			const transactions = await this.getTransactionsToOptimize(options);
 			console.log('[Optimization] Found transactions:', transactions.length);
-			
+
 			// Create original plan
 			console.log('[Optimization] Creating original plan...');
 			const originalPlan = new Map<string, Transaction>();
-			transactions.forEach(tx => {
+			transactions.forEach((tx) => {
 				if (!tx) {
 					console.error('[Optimization] Found undefined transaction!');
 					return;
@@ -324,9 +331,7 @@ class OptimizationService {
 	/**
 	 * Get transactions to optimize
 	 */
-	private async getTransactionsToOptimize(
-		options: OptimizationOptions
-	): Promise<Transaction[]> {
+	private async getTransactionsToOptimize(options: OptimizationOptions): Promise<Transaction[]> {
 		const startDate = options.startDate || startOfDay(new Date());
 		const daysAhead = options.daysAhead || 90;
 		const endDate = options.endDate || addDays(startDate, daysAhead);
@@ -342,21 +347,24 @@ class OptimizationService {
 			endDate.toISOString()
 		);
 		console.log('[Optimization] Retrieved', allTransactions.length, 'transactions from date range');
-		console.log('[Optimization] Transaction sample:', allTransactions.slice(0, 3).map(tx => ({
-			id: tx?.id,
-			accountId: tx?.accountId,
-			status: tx?.status,
-			hasDeletedAt: tx ? 'deletedAt' in tx : 'tx is undefined'
-		})));
+		console.log(
+			'[Optimization] Transaction sample:',
+			allTransactions.slice(0, 3).map((tx) => ({
+				id: tx?.id,
+				accountId: tx?.accountId,
+				status: tx?.status,
+				hasDeletedAt: tx ? 'deletedAt' in tx : 'tx is undefined'
+			}))
+		);
 
 		// Get valid account IDs to filter transactions
 		console.log('[Optimization] Getting valid accounts...');
 		const allAccounts = await accountService.getAccounts();
 		console.log('[Optimization] Found', allAccounts.length, 'valid accounts');
-		const validAccountIds = new Set(allAccounts.map(a => a.id));
+		const validAccountIds = new Set(allAccounts.map((a) => a.id));
 
 		// Filter by account if specified, and ensure accounts exist
-		let transactions = allTransactions.filter(tx => {
+		let transactions = allTransactions.filter((tx) => {
 			if (!tx) {
 				console.warn('[Optimization] Found undefined transaction in filter step');
 				return false;
@@ -374,7 +382,7 @@ class OptimizationService {
 		console.log('[Optimization] After account filtering:', transactions.length, 'transactions');
 
 		// Only include planned transactions with flexibility
-		transactions = transactions.filter(tx => {
+		transactions = transactions.filter((tx) => {
 			if (!tx) {
 				console.warn('[Optimization] Found undefined transaction in flexibility filter');
 				return false;
@@ -404,7 +412,11 @@ class OptimizationService {
 			// Get all planned transactions
 			console.log('[Optimization] Getting planned transactions for dependency validation...');
 			const transactions = await transactionService.getTransactionsByStatus('planned');
-			console.log('[Optimization] Found', transactions.length, 'planned transactions for validation');
+			console.log(
+				'[Optimization] Found',
+				transactions.length,
+				'planned transactions for validation'
+			);
 
 			// Validate dependency graph
 			// Note: validateDependencyGraph already checks for circular dependencies internally
@@ -413,7 +425,7 @@ class OptimizationService {
 				if (!tx || !tx.id) continue;
 				if (checkedTransactions.has(tx.id)) continue; // Avoid checking same transaction twice
 				checkedTransactions.add(tx.id);
-				
+
 				// Only validate transactions that have dependencies
 				if (tx.dependencies && tx.dependencies.length > 0) {
 					try {
@@ -425,8 +437,14 @@ class OptimizationService {
 							warnings.push(...validation.warnings);
 						}
 					} catch (error) {
-						console.error('[Optimization] Error validating dependencies for transaction', tx.id, error);
-						warnings.push(`Could not validate dependencies for transaction ${tx.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+						console.error(
+							'[Optimization] Error validating dependencies for transaction',
+							tx.id,
+							error
+						);
+						warnings.push(
+							`Could not validate dependencies for transaction ${tx.id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+						);
 					}
 				}
 			}
@@ -467,7 +485,7 @@ class OptimizationService {
 		let previousScore = currentScore;
 
 		// Get flexible transactions
-		const flexibleTransactions = Array.from(currentPlan.values()).filter(tx => {
+		const flexibleTransactions = Array.from(currentPlan.values()).filter((tx) => {
 			return tx.flexibilityTier && tx.flexibilityTier !== 'fixed';
 		});
 
@@ -478,7 +496,7 @@ class OptimizationService {
 			// Try moving each flexible transaction
 			for (const transaction of flexibleTransactions) {
 				const validDateRange = this.getValidDateRange(transaction, options);
-				
+
 				// Try a few candidate dates
 				const candidates = this.generateCandidateDates(
 					transaction,
@@ -490,18 +508,18 @@ class OptimizationService {
 					// Create candidate plan
 					const candidatePlan = new Map(currentPlan);
 					const candidateTx = { ...transaction };
-					
+
 					if (candidateTx.plannedDate) {
 						const originalDate = parseISO(candidateTx.plannedDate);
 						candidateTx.plannedDate = candidateDate.toISOString();
-						
+
 						// Handle dependency propagation
 						const propagatedPlan = await this.propagateDependencies(
 							candidatePlan,
 							candidateTx,
 							candidateDate
 						);
-						
+
 						// Validate constraints
 						const isValid = await this.validateConstraints(propagatedPlan, options);
 						if (!isValid) continue;
@@ -548,7 +566,8 @@ class OptimizationService {
 			}
 
 			// Check convergence
-			const scoreChange = Math.abs(currentScore - previousScore) / Math.max(Math.abs(previousScore), 1);
+			const scoreChange =
+				Math.abs(currentScore - previousScore) / Math.max(Math.abs(previousScore), 1);
 			if (scoreChange < convergenceThreshold) {
 				convergenceCount++;
 				if (convergenceCount >= requiredConvergence) {
@@ -593,7 +612,7 @@ class OptimizationService {
 
 		const originalDate = parseISO(transaction.plannedDate);
 		const maxDays = getMaxFlexibilityDays(transaction.flexibilityTier);
-		
+
 		// Apply directional constraint
 		let startDate = originalDate;
 		let endDate = originalDate;
@@ -613,7 +632,7 @@ class OptimizationService {
 		// Respect optimization window
 		const optStart = options.startDate || startOfDay(new Date());
 		const optEnd = options.endDate || addDays(optStart, options.daysAhead || 90);
-		
+
 		startDate = isAfter(startDate, optStart) ? startDate : optStart;
 		endDate = isBefore(endDate, optEnd) ? endDate : optEnd;
 
@@ -630,7 +649,7 @@ class OptimizationService {
 	): Date[] {
 		const candidates: Date[] = [];
 		const daysDiff = differenceInDays(validRange.end, validRange.start);
-		
+
 		if (daysDiff === 0) {
 			return [validRange.start];
 		}
@@ -647,7 +666,7 @@ class OptimizationService {
 		const step = Math.max(1, Math.floor(daysDiff / (count - 1)));
 		for (let i = 0; i < count && candidates.length < count; i++) {
 			const candidate = addDays(validRange.start, i * step);
-			if (!candidates.some(c => isEqual(c, candidate))) {
+			if (!candidates.some((c) => isEqual(c, candidate))) {
 				candidates.push(candidate);
 			}
 		}
@@ -664,18 +683,18 @@ class OptimizationService {
 		newDate: Date
 	): Promise<Map<string, Transaction>> {
 		const propagatedPlan = new Map(plan);
-		
+
 		// Find all transactions that depend on the moved transaction
-		const dependents = Array.from(plan.values()).filter(tx => {
+		const dependents = Array.from(plan.values()).filter((tx) => {
 			return tx.dependencies && tx.dependencies.includes(movedTransaction.id);
 		});
 
 		// Adjust dependent transactions if needed
 		for (const dependent of dependents) {
 			if (!dependent.plannedDate) continue;
-			
+
 			const dependentDate = parseISO(dependent.plannedDate);
-			
+
 			// If dependent is scheduled before the moved transaction, move it
 			if (isBefore(dependentDate, newDate)) {
 				// Try to move dependent to after the moved transaction
@@ -706,27 +725,25 @@ class OptimizationService {
 	): Promise<boolean> {
 		// Get constraints
 		const constraints = options.constraints || {};
-		
+
 		// Get valid account IDs from transactions in the plan
 		const transactionAccountIds = Array.from(plan.values())
-			.map(tx => tx.accountId)
+			.map((tx) => tx.accountId)
 			.filter((id): id is string => !!id);
-		
+
 		// Get valid accounts to ensure we only project for existing accounts
 		const allAccounts = await accountService.getAccounts();
-		const validAccountIds = allAccounts
-			.filter(a => a.isActive)
-			.map(a => a.id);
-		
+		const validAccountIds = allAccounts.filter((a) => a.isActive).map((a) => a.id);
+
 		// Use intersection of transaction accounts and valid accounts
-		const accountIdsToProject = options.accountIds 
-			? options.accountIds.filter(id => validAccountIds.includes(id))
-			: transactionAccountIds.filter(id => validAccountIds.includes(id));
+		const accountIdsToProject = options.accountIds
+			? options.accountIds.filter((id) => validAccountIds.includes(id))
+			: transactionAccountIds.filter((id) => validAccountIds.includes(id));
 
 		if (accountIdsToProject.length === 0) {
 			return true; // No valid accounts to validate
 		}
-		
+
 		// Generate projections for the plan
 		const projections = await balanceProjectionService.generateProjections({
 			daysAhead: options.daysAhead || 90,
@@ -742,10 +759,11 @@ class OptimizationService {
 			// Use account-specific buffer thresholds if available, otherwise use constraints or defaults
 			const accountConstraints = constraints.accountConstraints?.get(projection.accountId);
 			const bufferThresholds = getBufferThresholds(account);
-			
+
 			// Priority: accountConstraints > constraints > account buffer thresholds > 0
-			const criticalThreshold = accountConstraints?.criticalThreshold ?? 
-				constraints.criticalThreshold ?? 
+			const criticalThreshold =
+				accountConstraints?.criticalThreshold ??
+				constraints.criticalThreshold ??
 				bufferThresholds.critical;
 
 			for (const daily of projection.projections) {
@@ -760,11 +778,11 @@ class OptimizationService {
 
 	/**
 	 * Evaluate plan score
-	 * 
+	 *
 	 * The score is a composite metric that evaluates the financial health of a transaction plan:
 	 * - Lower (more negative) scores indicate more problems (buffer violations, fees, etc.)
 	 * - Higher (less negative or positive) scores indicate better financial position
-	 * 
+	 *
 	 * Score components:
 	 * 1. Buffer violations: Penalties for balances below critical/warning/comfort thresholds
 	 *    - Critical: -10,000 per day per violation (balance below 50% of buffer)
@@ -774,7 +792,7 @@ class OptimizationService {
 	 *    - Penalty = priority * days moved * delayPenalty weight
 	 * 3. Fee avoidance: Reward for avoiding fees
 	 *    - Reward = fees avoided * feeAvoidance weight
-	 * 
+	 *
 	 * The absolute score value is less important than the improvement (optimized - baseline).
 	 * A positive improvement means the optimized plan is better than the baseline.
 	 */
@@ -787,19 +805,17 @@ class OptimizationService {
 
 		// Get valid account IDs from transactions in the plan
 		const transactionAccountIds = Array.from(plan.values())
-			.map(tx => tx.accountId)
+			.map((tx) => tx.accountId)
 			.filter((id): id is string => !!id);
-		
+
 		// Get valid accounts to ensure we only project for existing accounts
 		const allAccounts = await accountService.getAccounts();
-		const validAccountIds = allAccounts
-			.filter(a => a.isActive)
-			.map(a => a.id);
-		
+		const validAccountIds = allAccounts.filter((a) => a.isActive).map((a) => a.id);
+
 		// Use intersection of transaction accounts and valid accounts
-		const accountIdsToProject = options.accountIds 
-			? options.accountIds.filter(id => validAccountIds.includes(id))
-			: transactionAccountIds.filter(id => validAccountIds.includes(id));
+		const accountIdsToProject = options.accountIds
+			? options.accountIds.filter((id) => validAccountIds.includes(id))
+			: transactionAccountIds.filter((id) => validAccountIds.includes(id));
 
 		// Get projections for the plan
 		const projections = await balanceProjectionService.generateProjections({
@@ -817,18 +833,21 @@ class OptimizationService {
 			// Use account-specific buffer thresholds if available, otherwise use constraints or defaults
 			const accountConstraints = constraints.accountConstraints?.get(projection.accountId);
 			const bufferThresholds = getBufferThresholds(account);
-			
+
 			// Priority: accountConstraints > constraints > account buffer thresholds
 			// If all are 0 or undefined, skip buffer violation checks for this account
 			// (this prevents massive penalties when accounts have no buffer requirements)
-			const criticalThreshold = accountConstraints?.criticalThreshold ?? 
-				constraints.criticalThreshold ?? 
+			const criticalThreshold =
+				accountConstraints?.criticalThreshold ??
+				constraints.criticalThreshold ??
 				bufferThresholds.critical;
-			const warningThreshold = accountConstraints?.warningThreshold ?? 
-				constraints.warningThreshold ?? 
+			const warningThreshold =
+				accountConstraints?.warningThreshold ??
+				constraints.warningThreshold ??
 				bufferThresholds.warning;
-			const comfortThreshold = accountConstraints?.comfortThreshold ?? 
-				constraints.comfortThreshold ?? 
+			const comfortThreshold =
+				accountConstraints?.comfortThreshold ??
+				constraints.comfortThreshold ??
 				bufferThresholds.comfort;
 
 			// Only check buffer violations if we have meaningful thresholds
@@ -905,7 +924,7 @@ class OptimizationService {
 			daysAhead: options.daysAhead || 90,
 			accountIds: options.accountIds
 		});
-		
+
 		// TODO: Recalculate with optimized plan (would need to temporarily update transactions)
 		// For now, we'll estimate based on movements
 
@@ -943,19 +962,21 @@ class OptimizationService {
 		}
 
 		// Get learned preferences for optimization suggestions
-		const suggestionWeight = await learningAdaptationService.getPreferenceValue('optimization_suggestion_weight') || 1.0;
-		
+		const suggestionWeight =
+			(await learningAdaptationService.getPreferenceValue('optimization_suggestion_weight')) || 1.0;
+
 		// Filter movements based on learned category flexibility
 		const filteredMovements = await this.filterMovementsByFlexibility(optimizedPlan.movements);
 
 		// Group movements by impact
-		const highImpactMovements = filteredMovements.filter(m => Math.abs(m.daysMoved) > 7);
-		const mediumImpactMovements = filteredMovements.filter(m => 
-			Math.abs(m.daysMoved) > 3 && Math.abs(m.daysMoved) <= 7
+		const highImpactMovements = filteredMovements.filter((m) => Math.abs(m.daysMoved) > 7);
+		const mediumImpactMovements = filteredMovements.filter(
+			(m) => Math.abs(m.daysMoved) > 3 && Math.abs(m.daysMoved) <= 7
 		);
 
 		// Apply learned weight to recommendation priority
-		const basePriority = suggestionWeight < 0.5 ? 'low' : suggestionWeight > 1.5 ? 'high' : 'medium';
+		const basePriority =
+			suggestionWeight < 0.5 ? 'low' : suggestionWeight > 1.5 ? 'high' : 'medium';
 
 		// Create recommendation for high-impact changes
 		if (highImpactMovements.length > 0) {
@@ -966,10 +987,11 @@ class OptimizationService {
 				title: 'Significant Transaction Adjustments',
 				description: `${highImpactMovements.length} transactions can be moved to improve your financial position.`,
 				estimatedSavings: optimizedPlan.improvements
-					.filter(i => i.type === 'fee_avoidance')
+					.filter((i) => i.type === 'fee_avoidance')
 					.reduce((sum, i) => sum + i.value, 0),
-				estimatedImprovement: optimizedPlan.score - (await this.evaluatePlan(originalPlan, options)),
-				transactionsAffected: highImpactMovements.map(m => m.transactionId),
+				estimatedImprovement:
+					optimizedPlan.score - (await this.evaluatePlan(originalPlan, options)),
+				transactionsAffected: highImpactMovements.map((m) => m.transactionId),
 				suggestedMovements: highImpactMovements,
 				actionable: true,
 				metadata: {
@@ -989,9 +1011,9 @@ class OptimizationService {
 				title: 'Optimize Transaction Timing',
 				description: `Small adjustments to ${mediumImpactMovements.length} transactions can help avoid fees and maintain better balances.`,
 				estimatedSavings: optimizedPlan.improvements
-					.filter(i => i.type === 'fee_avoidance')
+					.filter((i) => i.type === 'fee_avoidance')
 					.reduce((sum, i) => sum + i.value, 0),
-				transactionsAffected: mediumImpactMovements.map(m => m.transactionId),
+				transactionsAffected: mediumImpactMovements.map((m) => m.transactionId),
 				suggestedMovements: mediumImpactMovements,
 				actionable: true,
 				metadata: {
@@ -1055,7 +1077,7 @@ class OptimizationService {
 			const entries = Array.from(this.history.values());
 			entries.sort((a, b) => b.runAt.getTime() - a.runAt.getTime());
 			const toRemove = entries.slice(this.MAX_HISTORY_ENTRIES);
-			toRemove.forEach(e => this.history.delete(e.id));
+			toRemove.forEach((e) => this.history.delete(e.id));
 		}
 	}
 
@@ -1063,9 +1085,7 @@ class OptimizationService {
 	 * Get optimization history
 	 */
 	getHistory(): OptimizationHistoryEntry[] {
-		return Array.from(this.history.values()).sort(
-			(a, b) => b.runAt.getTime() - a.runAt.getTime()
-		);
+		return Array.from(this.history.values()).sort((a, b) => b.runAt.getTime() - a.runAt.getTime());
 	}
 
 	/**
@@ -1091,7 +1111,7 @@ class OptimizationService {
 
 		// Mark as applied in history
 		const historyEntry = Array.from(this.history.values()).find(
-			e => e.result.optimizedPlan?.id === optimizedPlan.id
+			(e) => e.result.optimizedPlan?.id === optimizedPlan.id
 		);
 		if (historyEntry) {
 			historyEntry.applied = true;
@@ -1116,16 +1136,16 @@ class OptimizationService {
 		const movements1 = result1.optimizedPlan?.movements || [];
 		const movements2 = result2.optimizedPlan?.movements || [];
 
-		const commonMovements = movements1.filter(m1 =>
-			movements2.some(m2 => m1.transactionId === m2.transactionId)
+		const commonMovements = movements1.filter((m1) =>
+			movements2.some((m2) => m1.transactionId === m2.transactionId)
 		);
 
-		const uniqueMovements1 = movements1.filter(m1 =>
-			!movements2.some(m2 => m1.transactionId === m2.transactionId)
+		const uniqueMovements1 = movements1.filter(
+			(m1) => !movements2.some((m2) => m1.transactionId === m2.transactionId)
 		);
 
-		const uniqueMovements2 = movements2.filter(m2 =>
-			!movements1.some(m1 => m1.transactionId === m2.transactionId)
+		const uniqueMovements2 = movements2.filter(
+			(m2) => !movements1.some((m1) => m1.transactionId === m2.transactionId)
 		);
 
 		return {

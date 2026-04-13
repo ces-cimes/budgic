@@ -16,12 +16,7 @@
 		Settings
 	} from '@lucide/svelte';
 
-	import {
-		TabHeader,
-		TabContent,
-		TabContentWrapper,
-		type TabConfig
-	} from '$lib/components/shared';
+	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
 
 	import {
 		BudgetTab,
@@ -41,7 +36,12 @@
 		type Goal
 	} from '$lib/components/goals';
 
-	import { planService, userService, negativeAllowanceService, goalsService } from '$lib/core/services';
+	import {
+		planService,
+		userService,
+		negativeAllowanceService,
+		goalsService
+	} from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import type {
 		NegativeAllowanceStatus,
@@ -192,121 +192,177 @@
 				{ text: 'Add goal', onclick: () => goto('/plan?tab=goals'), size: 'sm', icon: Plus }
 			]}
 		>
-			<TabHeader tabs={planTabs} activeTab={activeTab} onTabChange={handleTabChange} />
+			<TabHeader tabs={planTabs} {activeTab} onTabChange={handleTabChange} />
 		</Header>
 	{/snippet}
 
 	{#snippet children()}
-			<TabContentWrapper
-				tabs={planTabs}
-				activeTab={activeTab}
-				onTabChange={handleTabChange}
-			>
-				{#snippet children()}
-					<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
-						<div class="space-y-5 py-5">
-							{#if enhancedAllowance}
-								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5 space-y-4">
-									<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
-									<!-- Week view: 7 mini bars Mon–Sun (UX_SPEC §3.2) -->
-									<AllowanceWeekView allowance={enhancedAllowance} currency={userCurrency} />
-									<PlanRulesSummary />
-								</div>
-								<!-- 30-day cash flow chart (UX_SPEC §3.2) -->
-								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
-									<h3 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">30-day cash flow</h3>
-									<BalanceProjectionChart daysAhead={30} showDetails={false} />
-								</div>
-							{:else if dailyAllowance}
-								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
-									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">Daily allowance</p>
-									<div class="text-hero-sm">{formatTransactionAmount(dailyAllowance.amount, userCurrency)}</div>
-									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">{dailyAllowance.daysRemaining} days remaining</p>
-								</div>
-							{:else}
-								<div class="flex flex-col items-center py-12 text-center">
-									<p class="text-sm text-[var(--color-text-secondary)]">No allowance data yet.</p>
-									<p class="text-xs text-[var(--color-text-tertiary)] mt-1">Add accounts and budget categories to see your safe-to-spend.</p>
-								</div>
-							{/if}
-							<Button variant="ghost" size="sm" onclick={() => goto('/settings/plan')} class="text-[var(--color-text-tertiary)]">
-								<Settings class="mr-2 size-3.5" />
-								Budget & allowance settings
-							</Button>
-						</div>
-					</TabContent>
-
-					<TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
-						<div class="space-y-5 py-5">
-							<!-- Financial summary -->
+		<TabContentWrapper tabs={planTabs} {activeTab} onTabChange={handleTabChange}>
+			{#snippet children()}
+				<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
+					<div class="space-y-5 py-5">
+						{#if enhancedAllowance}
+							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
+								<AllowanceVisualization
+									allowance={enhancedAllowance}
+									showDetails={true}
+									showRecommendations={true}
+									negativeStatus={negativeAllowanceStatus}
+									{recoverySuggestions}
+								/>
+								<!-- Week view: 7 mini bars Mon–Sun (UX_SPEC §3.2) -->
+								<AllowanceWeekView allowance={enhancedAllowance} currency={userCurrency} />
+								<PlanRulesSummary />
+							</div>
+							<!-- 30-day cash flow chart (UX_SPEC §3.2) -->
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
-								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Financial summary</h2>
-								<div class="grid grid-cols-2 gap-4 mb-4">
-									<div class="text-center">
-										<div class="text-hero-sm text-[var(--color-sage-green)]">
-											{formatTransactionAmount(totalPlannedIncome, userCurrency)}
-										</div>
-										<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-1">Income</div>
-									</div>
-									<div class="text-center">
-										<div class="text-hero-sm text-[var(--color-warm-coral)]">
-											{formatTransactionAmount(totalPlannedExpenses, userCurrency)}
-										</div>
-										<div class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-1">Expenses</div>
-									</div>
-								</div>
-								<div class="border-t border-border pt-4 text-center">
-									<div class="flex items-center justify-center gap-2">
-										{#if netProjectedChange >= 0}
-											<TrendingUp class="size-4 text-[var(--color-amber)]" />
-											<span class="text-hero-sm text-[var(--color-amber)]">+{formatTransactionAmount(netProjectedChange, userCurrency)}</span>
-										{:else}
-											<TrendingDown class="size-4 text-[var(--color-warm-coral)]" />
-											<span class="text-hero-sm text-[var(--color-warm-coral)]">{formatTransactionAmount(netProjectedChange, userCurrency)}</span>
-										{/if}
-									</div>
-									<p class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mt-1">Net projected</p>
-								</div>
+								<h3
+									class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									30-day cash flow
+								</h3>
+								<BalanceProjectionChart daysAhead={30} showDetails={false} />
 							</div>
-							<BudgetTab userCurrency={userCurrency} selectedAccountId={selectedAccountId} planningData={planningData} onSetGoal={() => goto('/plan?tab=goals')} />
-							<PlanRulesSummary />
-						</div>
-					</TabContent>	
+						{:else if dailyAllowance}
+							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
+								<p
+									class="mb-2 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Daily allowance
+								</p>
+								<div class="text-hero-sm">
+									{formatTransactionAmount(dailyAllowance.amount, userCurrency)}
+								</div>
+								<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+									{dailyAllowance.daysRemaining} days remaining
+								</p>
+							</div>
+						{:else}
+							<div class="flex flex-col items-center py-12 text-center">
+								<p class="text-sm text-[var(--color-text-secondary)]">No allowance data yet.</p>
+								<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+									Add accounts and budget categories to see your safe-to-spend.
+								</p>
+							</div>
+						{/if}
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => goto('/settings/plan')}
+							class="text-[var(--color-text-tertiary)]"
+						>
+							<Settings class="mr-2 size-3.5" />
+							Budget & allowance settings
+						</Button>
+					</div>
+				</TabContent>
 
-					<TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
-						<div class="py-5">
-							<!-- Goals sub-tabs — pill style -->
-							<div class="flex items-center gap-1 mb-5">
-								{#each goalsSubTabs as t}
-									<button
-										type="button"
-										onclick={() => handleGoalsSubTabChange(t.id)}
-										class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors
-											{goalsSubTab === t.id
-												? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
-												: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
+				<TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
+					<div class="space-y-5 py-5">
+						<!-- Financial summary -->
+						<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
+							<h2
+								class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+							>
+								Financial summary
+							</h2>
+							<div class="mb-4 grid grid-cols-2 gap-4">
+								<div class="text-center">
+									<div class="text-hero-sm text-[var(--color-sage-green)]">
+										{formatTransactionAmount(totalPlannedIncome, userCurrency)}
+									</div>
+									<div
+										class="mt-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 									>
-										{t.label}
-									</button>
-								{/each}
-								<div class="ml-auto">
-									<Button variant="ghost" size="sm" onclick={() => goto('/plan?tab=goals')} class="text-[var(--color-amber)] gap-1.5">
-										<Plus class="size-3.5" />
-										Add goal
-									</Button>
+										Income
+									</div>
+								</div>
+								<div class="text-center">
+									<div class="text-hero-sm text-[var(--color-warm-coral)]">
+										{formatTransactionAmount(totalPlannedExpenses, userCurrency)}
+									</div>
+									<div
+										class="mt-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+									>
+										Expenses
+									</div>
 								</div>
 							</div>
-							{#if goalsSubTab === 'overview'}
-								<GoalsOverviewTab goalsData={goalsData} activeGoals={activeGoals} completedGoals={completedGoals} userCurrency={userCurrency} onGoalAction={handleGoalAction} />
-							{:else if goalsSubTab === 'active'}
-								<GoalsActiveTab activeGoals={activeGoals} userCurrency={userCurrency} onGoalAction={handleGoalAction} />
-							{:else}
-								<GoalsCompletedTab completedGoals={completedGoals} userCurrency={userCurrency} onGoalAction={handleGoalAction} />
-							{/if}
+							<div class="border-border border-t pt-4 text-center">
+								<div class="flex items-center justify-center gap-2">
+									{#if netProjectedChange >= 0}
+										<TrendingUp class="size-4 text-[var(--color-amber)]" />
+										<span class="text-hero-sm text-[var(--color-amber)]"
+											>+{formatTransactionAmount(netProjectedChange, userCurrency)}</span
+										>
+									{:else}
+										<TrendingDown class="size-4 text-[var(--color-warm-coral)]" />
+										<span class="text-hero-sm text-[var(--color-warm-coral)]"
+											>{formatTransactionAmount(netProjectedChange, userCurrency)}</span
+										>
+									{/if}
+								</div>
+								<p
+									class="mt-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Net projected
+								</p>
+							</div>
 						</div>
-					</TabContent>
+						<BudgetTab
+							{userCurrency}
+							{selectedAccountId}
+							{planningData}
+							onSetGoal={() => goto('/plan?tab=goals')}
+						/>
+						<PlanRulesSummary />
+					</div>
+				</TabContent>
 
-				{/snippet}
-			</TabContentWrapper>
+				<TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
+					<div class="py-5">
+						<!-- Goals sub-tabs — pill style -->
+						<div class="mb-5 flex items-center gap-1">
+							{#each goalsSubTabs as t}
+								<button
+									type="button"
+									onclick={() => handleGoalsSubTabChange(t.id)}
+									class="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors
+											{goalsSubTab === t.id
+										? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
+										: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
+								>
+									{t.label}
+								</button>
+							{/each}
+							<div class="ml-auto">
+								<Button
+									variant="ghost"
+									size="sm"
+									onclick={() => goto('/plan?tab=goals')}
+									class="gap-1.5 text-[var(--color-amber)]"
+								>
+									<Plus class="size-3.5" />
+									Add goal
+								</Button>
+							</div>
+						</div>
+						{#if goalsSubTab === 'overview'}
+							<GoalsOverviewTab
+								{goalsData}
+								{activeGoals}
+								{completedGoals}
+								{userCurrency}
+								onGoalAction={handleGoalAction}
+							/>
+						{:else if goalsSubTab === 'active'}
+							<GoalsActiveTab {activeGoals} {userCurrency} onGoalAction={handleGoalAction} />
+						{:else}
+							<GoalsCompletedTab {completedGoals} {userCurrency} onGoalAction={handleGoalAction} />
+						{/if}
+					</div>
+				</TabContent>
+			{/snippet}
+		</TabContentWrapper>
 	{/snippet}
 </PageLayout>

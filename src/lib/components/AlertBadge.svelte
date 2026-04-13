@@ -15,7 +15,12 @@
 		compact?: boolean;
 	}
 
-	let { count = 0, variant = 'destructive', class: className = '', compact = false }: Props = $props();
+	let {
+		count = 0,
+		variant = 'destructive',
+		class: className = '',
+		compact = false
+	}: Props = $props();
 
 	let bump = $state(false);
 	let prevCountBump = $state(0);
@@ -75,7 +80,9 @@
 		>
 			<Badge
 				variant={variant === 'warning' ? 'secondary' : 'destructive'}
-				class="flex items-center justify-center font-semibold transition-transform duration-200 {badgeClass} {bump ? 'animate-alert-badge-bump' : ''}"
+				class="flex items-center justify-center font-semibold transition-transform duration-200 {badgeClass} {bump
+					? 'animate-alert-badge-bump'
+					: ''}"
 			>
 				{displayCount}
 			</Badge>

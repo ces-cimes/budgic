@@ -43,23 +43,23 @@
 	<Drawer.Content
 		class="bg-background flex flex-col {isMobile
 			? 'max-h-[70vh] rounded-t-xl border-t'
-			: 'w-full max-w-md border-l rounded-l-xl'} {contentClass}"
+			: 'w-full max-w-md rounded-l-xl border-l'} {contentClass}"
 	>
-		<Drawer.Header class="flex flex-row items-start justify-between gap-2 shrink-0">
+		<Drawer.Header class="flex shrink-0 flex-row items-start justify-between gap-2">
 			<div class="min-w-0">
-				<Drawer.Title class="text-base font-semibold truncate">{title}</Drawer.Title>
+				<Drawer.Title class="truncate text-base font-semibold">{title}</Drawer.Title>
 				{#if description}
-					<Drawer.Description class="text-xs text-muted-foreground mt-0.5">
+					<Drawer.Description class="text-muted-foreground mt-0.5 text-xs">
 						{description}
 					</Drawer.Description>
 				{/if}
 			</div>
 			<Drawer.Close
-				class="rounded-md p-1.5 opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring shrink-0"
+				class="focus:ring-ring shrink-0 rounded-md p-1.5 opacity-70 hover:opacity-100 focus:ring-2 focus:outline-none"
 				aria-label="Close"
 			/>
 		</Drawer.Header>
-		<div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-6">
+		<div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-6">
 			{@render children?.()}
 		</div>
 	</Drawer.Content>

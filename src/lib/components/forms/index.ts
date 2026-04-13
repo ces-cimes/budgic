@@ -7,4 +7,3 @@ export { default as CurrencySelectionSheet } from './CurrencySelectionSheet.svel
 export { default as FormActionBar } from './FormActionBar.svelte';
 export { default as DeleteConfirmationDialog } from './DeleteConfirmationDialog.svelte';
 export { default as LabelWithTooltip } from './LabelWithTooltip.svelte';
-

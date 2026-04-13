@@ -7,11 +7,7 @@
 		className?: string;
 	}
 
-	const {
-		error,
-		title = 'Error',
-		className = ''
-	}: Props = $props();
+	const { error, title = 'Error', className = '' }: Props = $props();
 </script>
 
 {#if error}
@@ -20,4 +16,3 @@
 		<Alert.Description>{error}</Alert.Description>
 	</Alert.Root>
 {/if}
-

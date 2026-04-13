@@ -51,24 +51,34 @@
 </script>
 
 {#snippet inner()}
-	<div class="flex flex-col gap-0.5 w-full group-data-[collapsible=icon]:items-center">
+	<div class="flex w-full flex-col gap-0.5 group-data-[collapsible=icon]:items-center">
 		<!-- Label row -->
 		<div class="flex items-center gap-1.5 group-data-[collapsible=icon]:justify-center">
 			<Wallet class="size-3 shrink-0 text-[var(--color-amber)]" />
-			<span class="text-[9px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] group-data-[collapsible=icon]:hidden">Allowance</span>
+			<span
+				class="text-[9px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase group-data-[collapsible=icon]:hidden"
+				>Allowance</span
+			>
 		</div>
 		<!-- Amount + /day -->
 		{#if loading}
-			<div class="flex flex-col gap-1 mt-0.5">
-				<div class="h-[18px] w-20 rounded bg-[var(--color-bg-surface)]/60 animate-pulse"></div>
-				<div class="h-1.5 w-16 rounded-full bg-[var(--color-bg-surface)]/40 animate-pulse group-data-[collapsible=icon]:hidden"></div>
+			<div class="mt-0.5 flex flex-col gap-1">
+				<div class="h-[18px] w-20 animate-pulse rounded bg-[var(--color-bg-surface)]/60"></div>
+				<div
+					class="h-1.5 w-16 animate-pulse rounded-full bg-[var(--color-bg-surface)]/40 group-data-[collapsible=icon]:hidden"
+				></div>
 			</div>
 		{:else if dailySafe != null}
-			<div class="flex items-baseline gap-1 min-w-0">
-				<span class="text-sm font-semibold tabular-nums text-[var(--color-text-primary)] leading-tight break-all group-data-[collapsible=icon]:text-xs">
+			<div class="flex min-w-0 items-baseline gap-1">
+				<span
+					class="text-sm leading-tight font-semibold break-all text-[var(--color-text-primary)] tabular-nums group-data-[collapsible=icon]:text-xs"
+				>
 					{formatTransactionAmount(dailySafe, currency)}
 				</span>
-				<span class="text-[9px] text-[var(--color-text-tertiary)] shrink-0 group-data-[collapsible=icon]:hidden">/day</span>
+				<span
+					class="shrink-0 text-[9px] text-[var(--color-text-tertiary)] group-data-[collapsible=icon]:hidden"
+					>/day</span
+				>
 			</div>
 			{#if monthly != null && monthly > 0}
 				<div class="budget-progress mt-0.5 group-data-[collapsible=icon]:hidden">

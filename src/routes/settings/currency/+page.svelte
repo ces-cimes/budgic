@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { userService, currencyConfigService, exchangeRateService, insightsService } from '$lib/core/services';
+	import {
+		userService,
+		currencyConfigService,
+		exchangeRateService,
+		insightsService
+	} from '$lib/core/services';
 	import { db, generateUUID } from '$lib/core/db';
 	import { PageLayout } from '$lib/components/layouts';
 	import * as Card from '$lib/components/ui/card/index.ts';
@@ -13,7 +18,20 @@
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { formatAmount, sortCurrencies, sortInactiveCurrencies } from '$lib/utils/currency-utils';
 	import type { CurrencyConfiguration, Currency, ExchangeRate } from '$lib/core/db';
-	import { RefreshCw, Save, Edit2, Trash2, Plus, Eye, Settings, GripVertical, AlertCircle, CheckCircle2, Info, BarChart2 } from '@lucide/svelte';
+	import {
+		RefreshCw,
+		Save,
+		Edit2,
+		Trash2,
+		Plus,
+		Eye,
+		Settings,
+		GripVertical,
+		AlertCircle,
+		CheckCircle2,
+		Info,
+		BarChart2
+	} from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { toast } from 'svelte-sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
@@ -27,32 +45,34 @@
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
 	let lastErrorAction = $state<(() => Promise<void>) | null>(null); // For error recovery
-	
+
 	// Drag and drop state
 	let draggedCurrency = $state<Currency | null>(null);
 	let dragOverIndex = $state<number | null>(null);
-	
+
 	// Edited currency name in drawer
 	let editedCurrencyName = $state<string>('');
-	
+
 	// Main currency selection
 	let mainCurrency = $state('USD');
 	let oldMainCurrency = $state('USD'); // Track previous main currency for conversion
 	let activeCurrencies = $state<Currency[]>([]);
 	let currencyOptions = $state<Array<{ value: string; label: string; symbol: string }>>([]);
-	
+
 	// Currency configurations
 	let currencyConfigs = $state<Map<string, CurrencyConfiguration>>(new Map());
 	let editingCurrency = $state<string | null>(null);
 	let editedConfigs = $state<Map<string, Partial<CurrencyConfiguration>>>(new Map());
-	
+
 	// Exchange rates
 	let exchangeRates = $state<ExchangeRate[]>([]);
 	let editingRate = $state<string | null>(null);
-	let editedRates = $state<Map<string, { fromCurrency: string; toCurrency: string; rate: number }>>(new Map());
+	let editedRates = $state<Map<string, { fromCurrency: string; toCurrency: string; rate: number }>>(
+		new Map()
+	);
 	let showAddRateForm = $state(false);
 	let newRate = $state({ fromCurrency: 'USD', toCurrency: 'EUR', rate: 1 });
-	
+
 	// Currency management sheet
 	let showAddCurrencySheet = $state(false);
 	let showInactiveCurrencies = $state(false);
@@ -107,19 +127,19 @@
 			event.preventDefault();
 			saveAllChanges();
 		}
-		
+
 		// Ctrl/Cmd + R to refresh rates
 		if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
 			event.preventDefault();
 			updateRatesFromAPI();
 		}
-		
+
 		// Ctrl/Cmd + N to add new currency
 		if ((event.ctrlKey || event.metaKey) && event.key === 'n') {
 			event.preventDefault();
 			showAddCurrencySheet = true;
 		}
-		
+
 		// Esc to close drawers/sheets
 		if (event.key === 'Escape') {
 			if (showConfigDrawer) {
@@ -136,16 +156,18 @@
 
 	// Load data on mount
 	onMount(() => {
-		loadData().catch((err) => {
-			error = 'Failed to load currency settings';
-			console.error('Error loading currency settings:', err);
-		}).finally(() => {
-			isLoading = false;
-		});
-		
+		loadData()
+			.catch((err) => {
+				error = 'Failed to load currency settings';
+				console.error('Error loading currency settings:', err);
+			})
+			.finally(() => {
+				isLoading = false;
+			});
+
 		// Add keyboard event listener
 		window.addEventListener('keydown', handleKeydown);
-		
+
 		return () => {
 			window.removeEventListener('keydown', handleKeydown);
 		};
@@ -161,19 +183,17 @@
 
 		// Load all currencies (active and inactive)
 		const allCurrencies = await db.getActiveCurrencies();
-		
+
 		// Separate active and inactive, sorting with main currency at top
 		activeCurrencies = sortCurrencies(
-			allCurrencies.filter(c => c.isActive),
+			allCurrencies.filter((c) => c.isActive),
 			mainCurrency
 		);
 
 		// Sort inactive currencies: custom first, then system, then by code
-		inactiveCurrencies = sortInactiveCurrencies(
-			allCurrencies.filter(c => !c.isActive)
-		);
+		inactiveCurrencies = sortInactiveCurrencies(allCurrencies.filter((c) => !c.isActive));
 
-		currencyOptions = activeCurrencies.map(c => ({
+		currencyOptions = activeCurrencies.map((c) => ({
 			value: c.code,
 			label: `${c.name} (${c.code})`,
 			symbol: c.symbol
@@ -187,7 +207,7 @@
 
 		// Load all currency configurations
 		await loadCurrencyConfigurations();
-		
+
 		// Load exchange rates
 		await loadExchangeRates();
 	}
@@ -197,11 +217,11 @@
 		try {
 			const configs = await currencyConfigService.getAllConfigurations();
 			const configMap = new Map<string, CurrencyConfiguration>();
-			
+
 			for (const config of configs) {
 				configMap.set(config.currencyCode, config);
 			}
-			
+
 			currencyConfigs = configMap;
 		} catch (err) {
 			console.error('Error loading currency configurations:', err);
@@ -236,10 +256,10 @@
 
 	async function handleDrop(event: DragEvent, targetIndex: number) {
 		event.preventDefault();
-		
+
 		if (!draggedCurrency) return;
 
-		const draggedIndex = activeCurrencies.findIndex(c => c.id === draggedCurrency!.id);
+		const draggedIndex = activeCurrencies.findIndex((c) => c.id === draggedCurrency!.id);
 		if (draggedIndex === targetIndex) {
 			draggedCurrency = null;
 			dragOverIndex = null;
@@ -256,7 +276,7 @@
 
 		draggedCurrency = null;
 		dragOverIndex = null;
-		
+
 		toast.success('Currency order updated');
 	}
 
@@ -313,11 +333,11 @@
 	// Save currency configuration
 	async function saveCurrencyConfig(currencyCode: string) {
 		if (isSaving || !configCurrency) return;
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
-		
+
 		try {
 			// Update currency name if changed
 			if (editedCurrencyName !== configCurrency.name && editedCurrencyName.trim()) {
@@ -327,14 +347,14 @@
 				});
 				await loadData(); // Reload to refresh currency list
 			}
-			
+
 			// Update configuration
 			const updates = editedConfigs.get(currencyCode);
 			if (updates) {
 				await currencyConfigService.updateCurrencyConfig(currencyCode, updates);
 				await loadCurrencyConfigurations();
 			}
-			
+
 			editedConfigs.delete(currencyCode);
 			editingCurrency = null;
 			toast.success(`${currencyCode} saved`);
@@ -360,12 +380,12 @@
 	// Reset to system defaults
 	async function resetToDefaults(currencyCode: string) {
 		if (isSaving || !currencyCode) return;
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
 		showResetDefaultsDialog = false;
-		
+
 		try {
 			await currencyConfigService.resetToDefaults(currencyCode);
 			await loadCurrencyConfigurations();
@@ -402,7 +422,7 @@
 	// Save main currency preference
 	async function saveMainCurrency() {
 		if (isSaving) return;
-		
+
 		if (mainCurrency === oldMainCurrency) {
 			// No change, just save preference
 			await userService.updateUserPreferences({ currency: mainCurrency });
@@ -412,7 +432,7 @@
 
 		// Check if user wants to convert exchange rates
 		const hasRates = exchangeRates.length > 0;
-		
+
 		if (hasRates) {
 			// Show dialog to ask about conversion
 			showConvertRatesDialog = true;
@@ -425,40 +445,53 @@
 	// Perform the actual main currency change
 	async function performMainCurrencyChange(shouldConvert: boolean) {
 		if (isSaving) return;
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
 		showConvertRatesDialog = false;
-		
+
 		try {
 			// Update preference first
 			await userService.updateUserPreferences({ currency: mainCurrency });
-			
+
 			// Convert exchange rates if requested
 			if (shouldConvert) {
 				try {
 					await convertExchangeRates(oldMainCurrency, mainCurrency);
-					toast.success(`Main currency changed to ${mainCurrency}. Exchange rates have been converted.`);
+					toast.success(
+						`Main currency changed to ${mainCurrency}. Exchange rates have been converted.`
+					);
 				} catch (convertErr) {
 					console.error('Error converting exchange rates:', convertErr);
-					toast.success(`Main currency changed to ${mainCurrency}. Some exchange rates may need manual adjustment.`);
+					toast.success(
+						`Main currency changed to ${mainCurrency}. Some exchange rates may need manual adjustment.`
+					);
 				}
 			} else {
-				toast.success(`Main currency changed to ${mainCurrency}. You may need to update exchange rates manually.`);
+				toast.success(
+					`Main currency changed to ${mainCurrency}. You may need to update exchange rates manually.`
+				);
 			}
 
 			// Invalidate and regenerate prediction insights with new currency
 			try {
-				console.log(`[CurrencySettings] Invalidating old predictions and regenerating with new currency: ${mainCurrency}`);
+				console.log(
+					`[CurrencySettings] Invalidating old predictions and regenerating with new currency: ${mainCurrency}`
+				);
 				await insightsService.invalidatePredictionInsights();
 				// Regenerate predictions with new currency - force update to bypass rate limiting
-				await insightsService.generateCrossRouteInsights({
-					timeRange: 'month',
-					includePredictions: true,
-					includeBehavioral: false // Only regenerate predictions, not behavioral insights
-				}, true); // Force regeneration
-				console.log(`[CurrencySettings] Successfully regenerated predictions with currency: ${mainCurrency}`);
+				await insightsService.generateCrossRouteInsights(
+					{
+						timeRange: 'month',
+						includePredictions: true,
+						includeBehavioral: false // Only regenerate predictions, not behavioral insights
+					},
+					true
+				); // Force regeneration
+				console.log(
+					`[CurrencySettings] Successfully regenerated predictions with currency: ${mainCurrency}`
+				);
 			} catch (insightErr) {
 				console.error('[CurrencySettings] Error regenerating prediction insights:', insightErr);
 				// Don't fail the currency change if insight regeneration fails
@@ -480,7 +513,10 @@
 	}
 
 	// Get edited value or current value
-	function getValue(currencyCode: string, field: keyof CurrencyConfiguration): number | string | undefined {
+	function getValue(
+		currencyCode: string,
+		field: keyof CurrencyConfiguration
+	): number | string | undefined {
 		const edited = editedConfigs.get(currencyCode);
 		if (edited && field in edited) {
 			return edited[field as keyof typeof edited] as number | string | undefined;
@@ -493,7 +529,11 @@
 	}
 
 	// Update edited value
-	function updateValue(currencyCode: string, field: keyof CurrencyConfiguration, value: number | string | undefined) {
+	function updateValue(
+		currencyCode: string,
+		field: keyof CurrencyConfiguration,
+		value: number | string | undefined
+	) {
 		const edited = editedConfigs.get(currencyCode) || {};
 		edited[field as keyof typeof edited] = value as any;
 		editedConfigs.set(currencyCode, edited);
@@ -522,7 +562,7 @@
 
 	// Start editing a rate
 	function startEditingRate(rateId: string) {
-		const rate = exchangeRates.find(r => r.id === rateId);
+		const rate = exchangeRates.find((r) => r.id === rateId);
 		if (rate) {
 			editedRates.set(rateId, {
 				fromCurrency: rate.fromCurrency,
@@ -553,13 +593,13 @@
 			isPulling = true;
 		}
 	}
-	
+
 	function handlePullMove(distance: number) {
 		if (isPulling && window.scrollY === 0 && distance > 0) {
 			pullDistance = Math.min(distance, PULL_THRESHOLD * 1.5);
 		}
 	}
-	
+
 	function handlePullEnd(direction: 'left' | 'right' | 'up' | 'down' | null) {
 		// Only trigger refresh on downward pull
 		if (isPulling && direction === 'down' && pullDistance >= PULL_THRESHOLD) {
@@ -572,18 +612,17 @@
 
 	// Swipe action handlers for currency cards
 
-
 	// Save exchange rate
 	async function saveExchangeRate(rateId: string) {
 		if (isSaving) return;
-		
+
 		const edited = editedRates.get(rateId);
 		if (!edited) return;
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
-		
+
 		try {
 			await exchangeRateService.setExchangeRate(
 				edited.fromCurrency,
@@ -608,11 +647,11 @@
 	// Add new exchange rate
 	async function addExchangeRate() {
 		if (isSaving) return;
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
-		
+
 		try {
 			await exchangeRateService.setExchangeRate(
 				newRate.fromCurrency,
@@ -637,23 +676,23 @@
 	// Update exchange rates from API
 	async function updateRatesFromAPI() {
 		if (isSaving || isRefreshing) return;
-		
+
 		isSaving = true;
 		isRefreshing = true;
 		error = null;
 		lastErrorAction = null;
-		
+
 		try {
 			await exchangeRateService.updateAllRates();
 			await loadExchangeRates();
-			
+
 			// Trigger success animation
 			showSuccessConfetti = true;
 			confettiTrigger++;
 			setTimeout(() => {
 				showSuccessConfetti = false;
 			}, 3000);
-			
+
 			toast.success('Exchange rates updated from API');
 		} catch (err) {
 			const errorMsg = `Failed to update rates: ${err instanceof Error ? err.message : 'Unknown error'}`;
@@ -672,14 +711,14 @@
 	// Reset a rate pair and update from API (delegates to service)
 	async function resetRateToAPI(rateId: string) {
 		if (isSaving) return;
-		
-		const rate = exchangeRates.find(r => r.id === rateId);
+
+		const rate = exchangeRates.find((r) => r.id === rateId);
 		if (!rate) return;
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
-		
+
 		try {
 			await exchangeRateService.resetRateToAPI(rate.fromCurrency, rate.toCurrency);
 			await loadExchangeRates();
@@ -696,17 +735,24 @@
 	}
 
 	// Get edited rate value
-	function getRateValue(rateId: string, field: 'fromCurrency' | 'toCurrency' | 'rate'): string | number {
+	function getRateValue(
+		rateId: string,
+		field: 'fromCurrency' | 'toCurrency' | 'rate'
+	): string | number {
 		const edited = editedRates.get(rateId);
 		if (edited) {
 			return edited[field];
 		}
-		const rate = exchangeRates.find(r => r.id === rateId);
-		return rate ? rate[field] : (field === 'rate' ? 0 : '');
+		const rate = exchangeRates.find((r) => r.id === rateId);
+		return rate ? rate[field] : field === 'rate' ? 0 : '';
 	}
 
 	// Update edited rate value
-	function updateRateValue(rateId: string, field: 'fromCurrency' | 'toCurrency' | 'rate', value: string | number) {
+	function updateRateValue(
+		rateId: string,
+		field: 'fromCurrency' | 'toCurrency' | 'rate',
+		value: string | number
+	) {
 		const edited = editedRates.get(rateId) || { fromCurrency: '', toCurrency: '', rate: 1 };
 		if (field === 'fromCurrency') {
 			edited.fromCurrency = value as string;
@@ -721,33 +767,42 @@
 	// Toggle currency active status
 	async function toggleCurrencyActive(currency: Currency) {
 		if (isSaving) return;
-		
+
 		// Can't deactivate main currency
 		if (!currency.isActive && currency.code === mainCurrency) {
-			const errorMsg = 'Cannot deactivate the main currency. Please change your main currency first.';
+			const errorMsg =
+				'Cannot deactivate the main currency. Please change your main currency first.';
 			error = errorMsg;
 			toast.error(errorMsg);
 			return;
 		}
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
-		
+
 		try {
 			await db.currencies.update(currency.id, {
 				isActive: !currency.isActive,
 				updatedAt: new Date().toISOString()
 			});
-			
+
 			// If activating, create exchange rate pair to main currency if it doesn't exist
 			if (!currency.isActive) {
 				const today = new Date();
-				const existingRate = await exchangeRateService.getExchangeRate(mainCurrency, currency.code, today);
+				const existingRate = await exchangeRateService.getExchangeRate(
+					mainCurrency,
+					currency.code,
+					today
+				);
 				if (existingRate === null) {
 					// Try to fetch from API, or set a default rate of 1 (user can adjust)
 					try {
-						const rate = await exchangeRateService.getExchangeRate(mainCurrency, currency.code, today);
+						const rate = await exchangeRateService.getExchangeRate(
+							mainCurrency,
+							currency.code,
+							today
+						);
 						if (rate === null) {
 							// Set default rate of 1, user can update later
 							await exchangeRateService.setExchangeRate(mainCurrency, currency.code, 1, today);
@@ -758,9 +813,11 @@
 					}
 				}
 			}
-			
+
 			await loadData();
-			toast.success(`Currency ${currency.code} ${!currency.isActive ? 'activated' : 'deactivated'}`);
+			toast.success(
+				`Currency ${currency.code} ${!currency.isActive ? 'activated' : 'deactivated'}`
+			);
 		} catch (err) {
 			const errorMsg = `Failed to update currency: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			error = errorMsg;
@@ -775,7 +832,7 @@
 	// Add custom currency
 	async function addCustomCurrency() {
 		if (isSaving) return;
-		
+
 		// Validate currency code
 		if (!/^[A-Z]{3}$/.test(newCurrency.code)) {
 			const errorMsg = 'Currency code must be 3 uppercase letters (ISO 4217 format)';
@@ -783,7 +840,7 @@
 			toast.error(errorMsg);
 			return;
 		}
-		
+
 		// Check if currency already exists
 		const existing = await db.getCurrencyByCode(newCurrency.code);
 		if (existing) {
@@ -792,11 +849,11 @@
 			toast.error(errorMsg);
 			return;
 		}
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
-		
+
 		try {
 			await db.currencies.add({
 				id: generateUUID(),
@@ -811,7 +868,7 @@
 				updatedAt: new Date().toISOString(),
 				deletedAt: null
 			});
-			
+
 			// Automatically create exchange rate pair to main currency
 			const today = new Date();
 			await exchangeRateService.setExchangeRate(
@@ -820,12 +877,14 @@
 				1, // Default rate of 1, user should update this
 				today
 			);
-			
+
 			const addedCode = newCurrency.code.toUpperCase();
 			await loadData();
 			showAddCurrencySheet = false;
 			newCurrency = { code: '', name: '', symbol: '', placement: 'before', decimalPlaces: 2 };
-			toast.success(`Currency ${addedCode} added. Please set the exchange rate in the Exchange Rates section.`);
+			toast.success(
+				`Currency ${addedCode} added. Please set the exchange rate in the Exchange Rates section.`
+			);
 		} catch (err) {
 			const errorMsg = `Failed to add currency: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			error = errorMsg;
@@ -837,7 +896,6 @@
 		}
 	}
 
-
 	// Open delete currency dialog
 	function openDeleteCurrencyDialog(currency: Currency) {
 		// System currencies cannot be deleted
@@ -847,7 +905,7 @@
 			toast.error(errorMsg);
 			return;
 		}
-		
+
 		// Can't delete main currency
 		if (currency.code === mainCurrency) {
 			const errorMsg = 'Cannot delete the main currency. Please change your main currency first.';
@@ -855,7 +913,7 @@
 			toast.error(errorMsg);
 			return;
 		}
-		
+
 		currencyToDelete = currency;
 		showDeleteCurrencyDialog = true;
 	}
@@ -873,38 +931,38 @@
 	}
 
 	function handleCurrencySwipeEnd(currencyId: string, direction: 'left' | 'right' | null) {
-		const currency = activeCurrencies.find(c => c.id === currencyId) || 
-		                 inactiveCurrencies.find(c => c.id === currencyId);
-		
+		const currency =
+			activeCurrencies.find((c) => c.id === currencyId) ||
+			inactiveCurrencies.find((c) => c.id === currencyId);
+
 		if (direction === 'left' && currency) {
 			// Swipe left shows delete action
 			if (!currency.isSystem && currency.code !== mainCurrency) {
 				openDeleteCurrencyDialog(currency);
 			}
 		}
-		
+
 		// Reset swipe
 		swipeOffset[currencyId] = 0;
 		swipingCurrency = null;
 	}
 
-
 	// Delete custom currency (soft delete)
 	async function deleteCurrency(currency: Currency) {
 		if (isSaving || !currency) return;
-		
+
 		isSaving = true;
 		error = null;
 		lastErrorAction = null;
 		showDeleteCurrencyDialog = false;
-		
+
 		try {
 			await db.currencies.update(currency.id, {
 				deletedAt: new Date().toISOString(),
 				isActive: false,
 				updatedAt: new Date().toISOString()
 			});
-			
+
 			await loadData();
 			toast.success(`${currency.code} removed`);
 		} catch (err) {
@@ -926,48 +984,49 @@
 
 <PageLayout>
 	{#snippet topBar()}
-			<Header title="Currency Settings" />
+		<Header title="Currency Settings" />
 	{/snippet}
 
-	<div 
-		class="container mx-auto p-2 sm:p-4 max-w-4xl space-y-6"
-		use:swipe={sidebar.isMobile ? {
-			axis: 'vertical',
-			threshold: PULL_THRESHOLD,
-			canStart: () => window.scrollY === 0 && !isLoading,
-			onSwipeStart: handlePullStart,
-			onSwipeMove: handlePullMove,
-			onSwipeEnd: handlePullEnd
-		} : undefined}
-		style="transform: translateY({Math.min(pullDistance, PULL_THRESHOLD)}px); transition: {isPulling ? 'none' : 'transform 200ms ease-out'};"
+	<div
+		class="container mx-auto max-w-4xl space-y-6 p-2 sm:p-4"
+		use:swipe={sidebar.isMobile
+			? {
+					axis: 'vertical',
+					threshold: PULL_THRESHOLD,
+					canStart: () => window.scrollY === 0 && !isLoading,
+					onSwipeStart: handlePullStart,
+					onSwipeMove: handlePullMove,
+					onSwipeEnd: handlePullEnd
+				}
+			: undefined}
+		style="transform: translateY({Math.min(pullDistance, PULL_THRESHOLD)}px); transition: {isPulling
+			? 'none'
+			: 'transform 200ms ease-out'};"
 	>
 		<!-- Pull to Refresh Indicator -->
 		{#if sidebar.isMobile && pullDistance > 0}
-			<div 
+			<div
 				class="flex items-center justify-center py-2 transition-opacity duration-200"
 				style="opacity: {Math.min(pullDistance / PULL_THRESHOLD, 1)};"
 			>
-				<RefreshCw 
-					class="h-5 w-5 text-primary {pullDistance >= PULL_THRESHOLD ? 'animate-spin' : ''}"
+				<RefreshCw
+					class="text-primary h-5 w-5 {pullDistance >= PULL_THRESHOLD ? 'animate-spin' : ''}"
 					style="transform: rotate({Math.min((pullDistance / PULL_THRESHOLD) * 360, 360)}deg);"
 				/>
-				<span class="ml-2 text-sm text-muted-foreground">
+				<span class="text-muted-foreground ml-2 text-sm">
 					{pullDistance >= PULL_THRESHOLD ? 'Release to refresh...' : 'Pull to refresh...'}
 				</span>
 			</div>
 		{/if}
 
 		{#if error && lastErrorAction}
-			<Alert.Root 
-				variant="destructive"
-				class="animate-in slide-in-from-top-2 fade-in duration-300"
-			>
+			<Alert.Root variant="destructive" class="animate-in slide-in-from-top-2 fade-in duration-300">
 				<AlertCircle class="h-4 w-4" />
 				<Alert.Title>Error</Alert.Title>
 				<Alert.Description class="flex items-center justify-between gap-4">
 					<span>{error}</span>
-					<Button.Root 
-						variant="outline" 
+					<Button.Root
+						variant="outline"
 						size="sm"
 						onclick={async () => {
 							error = null;
@@ -975,7 +1034,7 @@
 						}}
 						class="flex-shrink-0"
 					>
-						<RefreshCw class="h-4 w-4 mr-2" />
+						<RefreshCw class="mr-2 h-4 w-4" />
 						Retry
 					</Button.Root>
 				</Alert.Description>
@@ -983,8 +1042,8 @@
 		{/if}
 
 		{#if isLoading}
-			<div class="text-center py-8 space-y-4">
-				<div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+			<div class="space-y-4 py-8 text-center">
+				<div class="border-primary inline-block h-8 w-8 animate-spin rounded-full border-b-2"></div>
 				<p class="text-muted-foreground animate-pulse">Loading currency settings...</p>
 			</div>
 		{:else}
@@ -1000,17 +1059,16 @@
 					<div class="space-y-2">
 						<div class="flex items-center justify-between">
 							<Label.Root for="main-currency">Main Currency</Label.Root>
-							<span class="text-xs text-muted-foreground hidden md:inline">Press Ctrl+S to save</span>
+							<span class="text-muted-foreground hidden text-xs md:inline"
+								>Press Ctrl+S to save</span
+							>
 						</div>
-						<Select.Root
-							type="single"
-							bind:value={mainCurrency}
-						>
+						<Select.Root type="single" bind:value={mainCurrency}>
 							<Select.Trigger class="w-full" id="main-currency">
 								{#if mainCurrency}
-									{@const option = currencyOptions.find(o => o.value === mainCurrency)}
+									{@const option = currencyOptions.find((o) => o.value === mainCurrency)}
 									{#if option}
-										<span class="flex items-center justify-between w-full">
+										<span class="flex w-full items-center justify-between">
 											<span>{option.label}</span>
 											<span class="text-muted-foreground ml-2">{option.symbol}</span>
 										</span>
@@ -1022,28 +1080,28 @@
 								{/if}
 							</Select.Trigger>
 							<Select.Content>
-							{#each currencyOptions as option}
-								<Select.Item value={option.value}>
-									<span class="flex items-center justify-between w-full">
-										<span>{option.label}</span>
-										<span class="text-muted-foreground ml-2">{option.symbol}</span>
-									</span>
-								</Select.Item>
-							{/each}
+								{#each currencyOptions as option}
+									<Select.Item value={option.value}>
+										<span class="flex w-full items-center justify-between">
+											<span>{option.label}</span>
+											<span class="text-muted-foreground ml-2">{option.symbol}</span>
+										</span>
+									</Select.Item>
+								{/each}
 							</Select.Content>
 						</Select.Root>
-						<p class="text-xs text-muted-foreground">
+						<p class="text-muted-foreground text-xs">
 							Your main currency is used for displaying totals and calculations throughout the app
 						</p>
 					</div>
 
 					<div class="border-t pt-4">
-						<div class="flex items-center justify-between mb-3">
+						<div class="mb-3 flex items-center justify-between">
 							<Label.Root>Active Currencies ({activeCurrencies.length})</Label.Root>
 							<Sheet.Root bind:open={showAddCurrencySheet}>
 								<Sheet.Trigger>
 									<Button.Root variant="outline" size="sm" disabled={isSaving}>
-										<Plus class="h-4 w-4 mr-2" />
+										<Plus class="mr-2 h-4 w-4" />
 										Add Currency
 									</Button.Root>
 								</Sheet.Trigger>
@@ -1051,11 +1109,12 @@
 									<Sheet.Header>
 										<Sheet.Title>Add Currency</Sheet.Title>
 										<Sheet.Description>
-											Create a custom currency or activate a system currency from the inactive list below.
+											Create a custom currency or activate a system currency from the inactive list
+											below.
 										</Sheet.Description>
 									</Sheet.Header>
-									
-									<div class="space-y-6 py-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
+
+									<div class="max-h-[calc(100vh-8rem)] space-y-6 overflow-y-auto py-4">
 										<div class="space-y-4">
 											<div class="space-y-2">
 												<Label.Root for="new-currency-code">Currency Code (ISO 4217)</Label.Root>
@@ -1069,7 +1128,9 @@
 														newCurrency.code = target.value.toUpperCase();
 													}}
 												/>
-												<p class="text-xs text-muted-foreground">3 uppercase letters (e.g., USD, EUR, INR)</p>
+												<p class="text-muted-foreground text-xs">
+													3 uppercase letters (e.g., USD, EUR, INR)
+												</p>
 											</div>
 											<div class="space-y-2">
 												<Label.Root for="new-currency-name">Currency Name</Label.Root>
@@ -1091,12 +1152,11 @@
 											</div>
 											<div class="space-y-2">
 												<Label.Root for="new-currency-placement">Symbol Placement</Label.Root>
-												<Select.Root
-													type="single"
-													bind:value={newCurrency.placement}
-												>
+												<Select.Root type="single" bind:value={newCurrency.placement}>
 													<Select.Trigger id="new-currency-placement">
-														{newCurrency.placement === 'before' ? 'Before amount ($100)' : 'After amount (100₽)'}
+														{newCurrency.placement === 'before'
+															? 'Before amount ($100)'
+															: 'After amount (100₽)'}
 													</Select.Trigger>
 													<Select.Content>
 														<Select.Item value="before">Before amount ($100)</Select.Item>
@@ -1123,10 +1183,13 @@
 											</div>
 											<Button.Root
 												onclick={addCustomCurrency}
-												disabled={isSaving || !newCurrency.code || !newCurrency.name || !newCurrency.symbol}
+												disabled={isSaving ||
+													!newCurrency.code ||
+													!newCurrency.name ||
+													!newCurrency.symbol}
 												class="w-full"
 											>
-												<Save class="h-4 w-4 mr-2" />
+												<Save class="mr-2 h-4 w-4" />
 												Create Currency
 											</Button.Root>
 										</div>
@@ -1136,18 +1199,19 @@
 						</div>
 
 						{#if activeCurrencies.length === 0 && inactiveCurrencies.length === 0}
-							<div class="text-center py-12 space-y-4">
-								<div class="text-6xl mb-4">💱</div>
-								<h3 class="text-lg font-semibold text-primary">No currencies yet</h3>
-								<p class="text-muted-foreground max-w-md mx-auto">
-									Get started by adding your first currency. You can create custom currencies or activate system currencies.
+							<div class="space-y-4 py-12 text-center">
+								<div class="mb-4 text-6xl">💱</div>
+								<h3 class="text-primary text-lg font-semibold">No currencies yet</h3>
+								<p class="text-muted-foreground mx-auto max-w-md">
+									Get started by adding your first currency. You can create custom currencies or
+									activate system currencies.
 								</p>
-								<Button.Root 
-									variant="outline" 
-									onclick={() => showAddCurrencySheet = true}
+								<Button.Root
+									variant="outline"
+									onclick={() => (showAddCurrencySheet = true)}
 									class="mt-4"
 								>
-									<Plus class="h-4 w-4 mr-2" />
+									<Plus class="mr-2 h-4 w-4" />
 									Add Your First Currency
 								</Button.Root>
 							</div>
@@ -1156,7 +1220,7 @@
 								{#each activeCurrencies as currency, index (currency.id)}
 									{@const isMain = currency.code === mainCurrency}
 									<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-									<div 
+									<div
 										role="button"
 										tabindex="0"
 										draggable="true"
@@ -1180,13 +1244,17 @@
 												}
 											}
 										}}
-										class="flex items-center gap-3 p-3 border rounded-lg transition-all duration-200 hover:shadow-md hover:border-primary/50 cursor-pointer group {isMain ? 'bg-muted border-primary/30' : 'hover:bg-muted/50'} {dragOverIndex === index ? 'border-primary bg-primary/10' : ''}"
+										class="hover:border-primary/50 group flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-all duration-200 hover:shadow-md {isMain
+											? 'bg-muted border-primary/30'
+											: 'hover:bg-muted/50'} {dragOverIndex === index
+											? 'border-primary bg-primary/10'
+											: ''}"
 										style="animation: slideIn 0.3s ease-out {index * 0.05}s both"
 									>
 										<Tooltip.Root>
 											<Tooltip.Trigger>
-												<GripVertical 
-													class="h-5 w-5 text-muted-foreground flex-shrink-0 drag-handle cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+												<GripVertical
+													class="text-muted-foreground drag-handle h-5 w-5 flex-shrink-0 cursor-grab opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
 													aria-label="Drag to reorder"
 												/>
 											</Tooltip.Trigger>
@@ -1194,15 +1262,18 @@
 												<p>Drag to reorder</p>
 											</Tooltip.Content>
 										</Tooltip.Root>
-										<div class="flex items-center gap-3 flex-1 min-w-0">
-											<div class="flex-1 min-w-0">
-												<div class="font-medium flex items-center gap-2">
+										<div class="flex min-w-0 flex-1 items-center gap-3">
+											<div class="min-w-0 flex-1">
+												<div class="flex items-center gap-2 font-medium">
 													<span class="truncate">{currency.name}</span>
 													<span class="text-muted-foreground">({currency.code})</span>
 													{#if isMain}
 														<Tooltip.Root>
 															<Tooltip.Trigger>
-																<span class="text-xs px-2 py-0.5 bg-primary text-primary-foreground rounded">Main</span>
+																<span
+																	class="bg-primary text-primary-foreground rounded px-2 py-0.5 text-xs"
+																	>Main</span
+																>
 															</Tooltip.Trigger>
 															<Tooltip.Content>
 																<p>This is your main currency used for totals and calculations</p>
@@ -1210,7 +1281,7 @@
 														</Tooltip.Root>
 													{/if}
 												</div>
-												<div class="text-sm text-muted-foreground flex items-center gap-2">
+												<div class="text-muted-foreground flex items-center gap-2 text-sm">
 													<span>{currency.symbol}</span>
 													<span>•</span>
 													<span>{currency.isSystem ? 'System' : 'Custom'}</span>
@@ -1218,9 +1289,9 @@
 											</div>
 										</div>
 										<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-										<div 
-											role="group" 
-											class="flex gap-2 flex-shrink-0" 
+										<div
+											role="group"
+											class="flex flex-shrink-0 gap-2"
 											onclick={(e) => e.stopPropagation()}
 											onkeydown={(e) => e.stopPropagation()}
 										>
@@ -1251,7 +1322,7 @@
 															size="sm"
 															onclick={() => openDeleteCurrencyDialog(currency)}
 															disabled={isSaving}
-															class="transition-transform hover:scale-110 active:scale-95 hover:text-destructive"
+															class="hover:text-destructive transition-transform hover:scale-110 active:scale-95"
 															title="Delete currency"
 														>
 															<Trash2 class="h-4 w-4" />
@@ -1267,34 +1338,43 @@
 								{/each}
 
 								{#if inactiveCurrencies.length > 0}
-									<div class="mt-4 pt-4 border-t">
+									<div class="mt-4 border-t pt-4">
 										<Button.Root
 											variant="ghost"
 											size="sm"
-											onclick={() => showInactiveCurrencies = !showInactiveCurrencies}
-											class="w-full mb-2 transition-all duration-200 hover:bg-muted"
+											onclick={() => (showInactiveCurrencies = !showInactiveCurrencies)}
+											class="hover:bg-muted mb-2 w-full transition-all duration-200"
 										>
 											<span class="flex items-center justify-center gap-2">
-												<span>{showInactiveCurrencies ? 'Hide' : 'Show'} Inactive Currencies ({inactiveCurrencies.length})</span>
-												<svg 
-													class="h-4 w-4 transition-transform duration-200 {showInactiveCurrencies ? 'rotate-180' : ''}"
-													fill="none" 
-													stroke="currentColor" 
+												<span
+													>{showInactiveCurrencies ? 'Hide' : 'Show'} Inactive Currencies ({inactiveCurrencies.length})</span
+												>
+												<svg
+													class="h-4 w-4 transition-transform duration-200 {showInactiveCurrencies
+														? 'rotate-180'
+														: ''}"
+													fill="none"
+													stroke="currentColor"
 													viewBox="0 0 24 24"
 												>
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M19 9l-7 7-7-7"
+													/>
 												</svg>
 											</span>
 										</Button.Root>
 
 										{#if showInactiveCurrencies}
-											<div 
+											<div
 												class="space-y-2 overflow-hidden"
 												style="animation: slideDown 0.3s ease-out"
 											>
 												{#each inactiveCurrencies as currency, index (currency.id)}
 													<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-													<div 
+													<div
 														role="button"
 														tabindex="0"
 														onclick={(e) => {
@@ -1312,16 +1392,18 @@
 																}
 															}
 														}}
-														class="flex items-center justify-between p-3 border rounded-lg opacity-60 transition-all duration-200 hover:opacity-100 hover:shadow-md hover:bg-muted/30 cursor-pointer group"
+														class="hover:bg-muted/30 group flex cursor-pointer items-center justify-between rounded-lg border p-3 opacity-60 transition-all duration-200 hover:opacity-100 hover:shadow-md"
 														style="animation: fadeIn 0.3s ease-out {index * 0.05}s both"
 													>
-														<div class="flex items-center gap-3 flex-1 min-w-0">
-															<div class="flex-1 min-w-0">
-																<div class="font-medium flex items-center gap-2 text-muted-foreground">
+														<div class="flex min-w-0 flex-1 items-center gap-3">
+															<div class="min-w-0 flex-1">
+																<div
+																	class="text-muted-foreground flex items-center gap-2 font-medium"
+																>
 																	<span class="truncate">{currency.name}</span>
 																	<span class="text-muted-foreground">({currency.code})</span>
 																</div>
-																<div class="text-sm text-muted-foreground flex items-center gap-2">
+																<div class="text-muted-foreground flex items-center gap-2 text-sm">
 																	<span>{currency.symbol}</span>
 																	<span>•</span>
 																	<span>{currency.isSystem ? 'System' : 'Custom'}</span>
@@ -1329,9 +1411,9 @@
 															</div>
 														</div>
 														<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-														<div 
-															role="group" 
-															class="flex gap-2 flex-shrink-0" 
+														<div
+															role="group"
+															class="flex flex-shrink-0 gap-2"
 															onclick={(e) => e.stopPropagation()}
 															onkeydown={(e) => e.stopPropagation()}
 														>
@@ -1342,7 +1424,7 @@
 																		size="sm"
 																		onclick={() => toggleCurrencyActive(currency)}
 																		disabled={isSaving}
-																		class="transition-transform hover:scale-110 active:scale-95 hover:text-primary"
+																		class="hover:text-primary transition-transform hover:scale-110 active:scale-95"
 																		title="Activate currency"
 																	>
 																		<Eye class="h-4 w-4" />
@@ -1360,7 +1442,7 @@
 																			size="sm"
 																			onclick={() => openDeleteCurrencyDialog(currency)}
 																			disabled={isSaving}
-																			class="transition-transform hover:scale-110 active:scale-95 hover:text-destructive"
+																			class="hover:text-destructive transition-transform hover:scale-110 active:scale-95"
 																			title="Delete currency"
 																		>
 																			<Trash2 class="h-4 w-4" />
@@ -1389,7 +1471,9 @@
 				<Card.Header>
 					<Card.Title>Exchange Rates</Card.Title>
 					<Card.Description>
-						View and edit conversion rates. Click "Update from API" to fetch current rates (required for correct multi-currency totals). You can also add or edit rates manually for currencies that can't be fetched.
+						View and edit conversion rates. Click "Update from API" to fetch current rates (required
+						for correct multi-currency totals). You can also add or edit rates manually for
+						currencies that can't be fetched.
 					</Card.Description>
 				</Card.Header>
 				<Card.Content class="space-y-4">
@@ -1399,35 +1483,35 @@
 							disabled={isSaving}
 							class="transition-all duration-200"
 						>
-							<RefreshCw class="h-4 w-4 mr-2 {isSaving ? 'animate-spin' : ''}" />
+							<RefreshCw class="mr-2 h-4 w-4 {isSaving ? 'animate-spin' : ''}" />
 							{isSaving ? 'Updating...' : 'Update from API'}
 						</Button.Root>
 						<Button.Root
 							variant="outline"
-							onclick={() => showAddRateForm = !showAddRateForm}
+							onclick={() => (showAddRateForm = !showAddRateForm)}
 							disabled={isSaving}
 						>
-							<Plus class="h-4 w-4 mr-2" />
+							<Plus class="mr-2 h-4 w-4" />
 							{showAddRateForm ? 'Cancel' : 'Add Rate'}
 						</Button.Root>
 					</div>
 
 					{#if showAddRateForm}
-						<div 
-							class="border rounded-lg p-4 space-y-4 bg-muted/30"
+						<div
+							class="bg-muted/30 space-y-4 rounded-lg border p-4"
 							style="animation: slideDown 0.3s ease-out"
 						>
 							<h3 class="font-semibold">Add Manual Rate</h3>
-							<p class="text-sm text-muted-foreground">1 from-currency = rate to-currency (e.g. 1 USD = 78 RUB means rate 78 for USD→RUB)</p>
-							<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<p class="text-muted-foreground text-sm">
+								1 from-currency = rate to-currency (e.g. 1 USD = 78 RUB means rate 78 for USD→RUB)
+							</p>
+							<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 								<div class="space-y-2">
 									<Label.Root for="new-rate-from">From</Label.Root>
-									<Select.Root
-										type="single"
-										bind:value={newRate.fromCurrency}
-									>
+									<Select.Root type="single" bind:value={newRate.fromCurrency}>
 										<Select.Trigger id="new-rate-from">
-											{currencyOptions.find(o => o.value === newRate.fromCurrency)?.label || newRate.fromCurrency}
+											{currencyOptions.find((o) => o.value === newRate.fromCurrency)?.label ||
+												newRate.fromCurrency}
 										</Select.Trigger>
 										<Select.Content>
 											{#each currencyOptions as o}
@@ -1438,12 +1522,10 @@
 								</div>
 								<div class="space-y-2">
 									<Label.Root for="new-rate-to">To</Label.Root>
-									<Select.Root
-										type="single"
-										bind:value={newRate.toCurrency}
-									>
+									<Select.Root type="single" bind:value={newRate.toCurrency}>
 										<Select.Trigger id="new-rate-to">
-											{currencyOptions.find(o => o.value === newRate.toCurrency)?.label || newRate.toCurrency}
+											{currencyOptions.find((o) => o.value === newRate.toCurrency)?.label ||
+												newRate.toCurrency}
 										</Select.Trigger>
 										<Select.Content>
 											{#each currencyOptions as o}
@@ -1460,18 +1542,24 @@
 										min="0"
 										step="0.000001"
 										value={newRate.rate}
-										oninput={(e) => { const v = parseFloat((e.currentTarget as HTMLInputElement).value); newRate.rate = isNaN(v) ? 1 : v; }}
+										oninput={(e) => {
+											const v = parseFloat((e.currentTarget as HTMLInputElement).value);
+											newRate.rate = isNaN(v) ? 1 : v;
+										}}
 									/>
 								</div>
 							</div>
 							<div class="flex gap-2">
 								<Button.Root onclick={addExchangeRate} disabled={isSaving}>
-									<Save class="h-4 w-4 mr-2" />
+									<Save class="mr-2 h-4 w-4" />
 									Add Rate
 								</Button.Root>
 								<Button.Root
 									variant="outline"
-									onclick={() => { showAddRateForm = false; newRate = { fromCurrency: mainCurrency, toCurrency: 'EUR', rate: 1 }; }}
+									onclick={() => {
+										showAddRateForm = false;
+										newRate = { fromCurrency: mainCurrency, toCurrency: 'EUR', rate: 1 };
+									}}
 									disabled={isSaving}
 								>
 									Cancel
@@ -1481,33 +1569,30 @@
 					{/if}
 
 					{#if exchangeRates.length === 0}
-						<div class="text-center py-12 space-y-4">
-							<BarChart2 class="h-16 w-16 text-[var(--color-text-tertiary)] mb-4 mx-auto" />
-							<h3 class="text-lg font-semibold text-primary">No exchange rates yet</h3>
-							<p class="text-muted-foreground max-w-md mx-auto">
-								Exchange rates are needed for accurate multi-currency calculations. Update from API or add rates manually.
+						<div class="space-y-4 py-12 text-center">
+							<BarChart2 class="mx-auto mb-4 h-16 w-16 text-[var(--color-text-tertiary)]" />
+							<h3 class="text-primary text-lg font-semibold">No exchange rates yet</h3>
+							<p class="text-muted-foreground mx-auto max-w-md">
+								Exchange rates are needed for accurate multi-currency calculations. Update from API
+								or add rates manually.
 							</p>
-							<div class="flex flex-wrap gap-2 justify-center mt-4">
-								<Button.Root 
-									variant="outline" 
-									onclick={updateRatesFromAPI}
-									disabled={isSaving}
-								>
-									<RefreshCw class="h-4 w-4 mr-2" />
+							<div class="mt-4 flex flex-wrap justify-center gap-2">
+								<Button.Root variant="outline" onclick={updateRatesFromAPI} disabled={isSaving}>
+									<RefreshCw class="mr-2 h-4 w-4" />
 									Update from API
 								</Button.Root>
-								<Button.Root 
-									variant="outline" 
-									onclick={() => showAddRateForm = true}
+								<Button.Root
+									variant="outline"
+									onclick={() => (showAddRateForm = true)}
 									disabled={isSaving}
 								>
-									<Plus class="h-4 w-4 mr-2" />
+									<Plus class="mr-2 h-4 w-4" />
 									Add Manual Rate
 								</Button.Root>
 							</div>
 						</div>
 					{:else}
-						<div class="border rounded-lg overflow-hidden">
+						<div class="overflow-hidden rounded-lg border">
 							<div class="overflow-x-auto">
 								<table class="w-full">
 									<thead class="bg-muted">
@@ -1523,13 +1608,19 @@
 									<tbody>
 										{#each exchangeRates as rate (rate.id)}
 											{@const isEditing = editingRate === rate.id}
-											<tr 
-												class="border-t transition-all duration-150 hover:bg-muted/50 {isEditing ? 'bg-muted/70' : ''}"
-												style="animation: fadeIn 0.2s ease-out {exchangeRates.indexOf(rate) * 0.03}s both"
+											<tr
+												class="hover:bg-muted/50 border-t transition-all duration-150 {isEditing
+													? 'bg-muted/70'
+													: ''}"
+												style="animation: fadeIn 0.2s ease-out {exchangeRates.indexOf(rate) *
+													0.03}s both"
 											>
 												<td class="px-4 py-3">
 													{#if isEditing}
-														{@const fromCurrencyValue = getRateValue(rate.id, 'fromCurrency') as string}
+														{@const fromCurrencyValue = getRateValue(
+															rate.id,
+															'fromCurrency'
+														) as string}
 														<Select.Root
 															type="single"
 															value={fromCurrencyValue}
@@ -1540,7 +1631,8 @@
 															}}
 														>
 															<Select.Trigger class="w-full text-sm">
-																{currencyOptions.find(o => o.value === fromCurrencyValue)?.label || fromCurrencyValue}
+																{currencyOptions.find((o) => o.value === fromCurrencyValue)
+																	?.label || fromCurrencyValue}
 															</Select.Trigger>
 															<Select.Content>
 																{#each currencyOptions as o}
@@ -1565,7 +1657,8 @@
 															}}
 														>
 															<Select.Trigger class="w-full text-sm">
-																{currencyOptions.find(o => o.value === toCurrencyValue)?.label || toCurrencyValue}
+																{currencyOptions.find((o) => o.value === toCurrencyValue)?.label ||
+																	toCurrencyValue}
 															</Select.Trigger>
 															<Select.Content>
 																{#each currencyOptions as o}
@@ -1596,35 +1689,51 @@
 													{/if}
 												</td>
 												<td class="px-4 py-3">
-													<span class="text-xs text-muted-foreground">
+													<span class="text-muted-foreground text-xs">
 														{rate.source === 'manual' ? 'Manual' : 'API'}
 													</span>
 												</td>
-											<td class="px-4 py-3">
-												<div class="flex items-center gap-2">
-													<span class="text-xs {isRateOutdated(rate) ? 'text-amber-600 dark:text-amber-400 font-medium' : 'text-muted-foreground'}">
-														{new Date(rate.date).toLocaleDateString()}
-													</span>
-													{#if isRateOutdated(rate)}
-														<Tooltip.Root>
-															<Tooltip.Trigger>
-																<AlertCircle class="h-3 w-3 text-amber-600 dark:text-amber-400" aria-hidden="true" />
-															</Tooltip.Trigger>
-															<Tooltip.Content>
-																<p>This rate is more than 1 day old. Consider updating it.</p>
-															</Tooltip.Content>
-														</Tooltip.Root>
-													{/if}
-												</div>
-											</td>
+												<td class="px-4 py-3">
+													<div class="flex items-center gap-2">
+														<span
+															class="text-xs {isRateOutdated(rate)
+																? 'font-medium text-amber-600 dark:text-amber-400'
+																: 'text-muted-foreground'}"
+														>
+															{new Date(rate.date).toLocaleDateString()}
+														</span>
+														{#if isRateOutdated(rate)}
+															<Tooltip.Root>
+																<Tooltip.Trigger>
+																	<AlertCircle
+																		class="h-3 w-3 text-amber-600 dark:text-amber-400"
+																		aria-hidden="true"
+																	/>
+																</Tooltip.Trigger>
+																<Tooltip.Content>
+																	<p>This rate is more than 1 day old. Consider updating it.</p>
+																</Tooltip.Content>
+															</Tooltip.Root>
+														{/if}
+													</div>
+												</td>
 												<td class="px-4 py-3 text-right">
 													{#if isEditing}
-														<div class="flex gap-2 justify-end">
-															<Button.Root variant="outline" size="sm" onclick={() => cancelEditingRate()} disabled={isSaving}>
+														<div class="flex justify-end gap-2">
+															<Button.Root
+																variant="outline"
+																size="sm"
+																onclick={() => cancelEditingRate()}
+																disabled={isSaving}
+															>
 																Cancel
 															</Button.Root>
-															<Button.Root size="sm" onclick={() => saveExchangeRate(rate.id)} disabled={isSaving}>
-																<Save class="h-4 w-4 mr-1" />
+															<Button.Root
+																size="sm"
+																onclick={() => saveExchangeRate(rate.id)}
+																disabled={isSaving}
+															>
+																<Save class="mr-1 h-4 w-4" />
 																Save
 															</Button.Root>
 														</div>
@@ -1664,22 +1773,24 @@
 						<Sheet.Header>
 							<Sheet.Title>{configCurrency.code} Settings</Sheet.Title>
 							<Sheet.Description>
-								Configure default values and display name for this currency. These values are used when creating accounts and calculating buffers.
+								Configure default values and display name for this currency. These values are used
+								when creating accounts and calculating buffers.
 							</Sheet.Description>
 						</Sheet.Header>
-						
+
 						<div class="space-y-6 py-4">
 							{#if configCurrency}
 								{@const currency = configCurrency}
 								{@const config = getConfig(currency.code)}
 								{@const isEditing = editingCurrency === currency.code}
-								
+
 								<div class="flex items-center justify-between">
 									<div>
 										{#if config?.isCustom}
-											<span class="text-xs text-muted-foreground">Customized Configuration</span>
+											<span class="text-muted-foreground text-xs">Customized Configuration</span>
 										{:else}
-											<span class="text-xs text-muted-foreground">System Default Configuration</span>
+											<span class="text-muted-foreground text-xs">System Default Configuration</span
+											>
 										{/if}
 									</div>
 									<div class="flex gap-2">
@@ -1697,7 +1808,7 @@
 												onclick={() => saveCurrencyConfig(currency.code)}
 												disabled={isSaving}
 											>
-												<Save class="h-4 w-4 mr-2" />
+												<Save class="mr-2 h-4 w-4" />
 												Save
 											</Button.Root>
 										{:else}
@@ -1707,7 +1818,7 @@
 												onclick={() => openResetDefaultsDialog(currency.code)}
 												disabled={isSaving}
 											>
-												<RefreshCw class="h-4 w-4 mr-2" />
+												<RefreshCw class="mr-2 h-4 w-4" />
 												Reset to Defaults
 											</Button.Root>
 											<Button.Root
@@ -1715,7 +1826,7 @@
 												onclick={() => startEditing(currency.code)}
 												disabled={isSaving}
 											>
-												<Edit2 class="h-4 w-4 mr-2" />
+												<Edit2 class="mr-2 h-4 w-4" />
 												Edit
 											</Button.Root>
 										{/if}
@@ -1735,7 +1846,7 @@
 												}}
 												placeholder="Enter currency name"
 											/>
-											<p class="text-xs text-muted-foreground">Display name for this currency</p>
+											<p class="text-muted-foreground text-xs">Display name for this currency</p>
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="checking-buffer-drawer">Checking Buffer</Label.Root>
@@ -1747,10 +1858,16 @@
 												value={getValue(currency.code, 'defaultCheckingBuffer')?.toString() || ''}
 												oninput={(e) => {
 													const target = e.currentTarget as HTMLInputElement;
-													updateValue(currency.code, 'defaultCheckingBuffer', parseFloat(target.value) || 0);
+													updateValue(
+														currency.code,
+														'defaultCheckingBuffer',
+														parseFloat(target.value) || 0
+													);
 												}}
 											/>
-											<p class="text-xs text-muted-foreground">Default buffer amount for checking accounts</p>
+											<p class="text-muted-foreground text-xs">
+												Default buffer amount for checking accounts
+											</p>
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="savings-buffer-drawer">Savings Buffer</Label.Root>
@@ -1762,10 +1879,16 @@
 												value={getValue(currency.code, 'defaultSavingsBuffer')?.toString() || ''}
 												oninput={(e) => {
 													const target = e.currentTarget as HTMLInputElement;
-													updateValue(currency.code, 'defaultSavingsBuffer', parseFloat(target.value) || 0);
+													updateValue(
+														currency.code,
+														'defaultSavingsBuffer',
+														parseFloat(target.value) || 0
+													);
 												}}
 											/>
-											<p class="text-xs text-muted-foreground">Default buffer amount for savings accounts</p>
+											<p class="text-muted-foreground text-xs">
+												Default buffer amount for savings accounts
+											</p>
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="min-balance-drawer">Minimum Balance</Label.Root>
@@ -1776,10 +1899,16 @@
 												value={getValue(currency.code, 'defaultMinimumBalance')?.toString() || ''}
 												oninput={(e) => {
 													const target = e.currentTarget as HTMLInputElement;
-													updateValue(currency.code, 'defaultMinimumBalance', parseFloat(target.value) || 0);
+													updateValue(
+														currency.code,
+														'defaultMinimumBalance',
+														parseFloat(target.value) || 0
+													);
 												}}
 											/>
-											<p class="text-xs text-muted-foreground">Default minimum balance (can be negative for credit accounts)</p>
+											<p class="text-muted-foreground text-xs">
+												Default minimum balance (can be negative for credit accounts)
+											</p>
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="max-amount-drawer">Max Amount Limit</Label.Root>
@@ -1791,15 +1920,21 @@
 												value={getValue(currency.code, 'maxAmountLimit')?.toString() || ''}
 												oninput={(e) => {
 													const target = e.currentTarget as HTMLInputElement;
-													updateValue(currency.code, 'maxAmountLimit', parseFloat(target.value) || 0);
+													updateValue(
+														currency.code,
+														'maxAmountLimit',
+														parseFloat(target.value) || 0
+													);
 												}}
 											/>
-											<p class="text-xs text-muted-foreground">Maximum transaction amount limit (leave empty for unlimited)</p>
+											<p class="text-muted-foreground text-xs">
+												Maximum transaction amount limit (leave empty for unlimited)
+											</p>
 										</div>
 									</div>
 								{:else}
 									<div class="space-y-4">
-										<div class="flex justify-between items-center py-2 border-b">
+										<div class="flex items-center justify-between border-b py-2">
 											<span class="text-muted-foreground">Checking Buffer:</span>
 											<span class="font-medium">
 												{#if config?.defaultCheckingBuffer !== undefined}
@@ -1809,7 +1944,7 @@
 												{/if}
 											</span>
 										</div>
-										<div class="flex justify-between items-center py-2 border-b">
+										<div class="flex items-center justify-between border-b py-2">
 											<span class="text-muted-foreground">Savings Buffer:</span>
 											<span class="font-medium">
 												{#if config?.defaultSavingsBuffer !== undefined}
@@ -1819,7 +1954,7 @@
 												{/if}
 											</span>
 										</div>
-										<div class="flex justify-between items-center py-2 border-b">
+										<div class="flex items-center justify-between border-b py-2">
 											<span class="text-muted-foreground">Minimum Balance:</span>
 											<span class="font-medium">
 												{#if config?.defaultMinimumBalance !== undefined}
@@ -1829,7 +1964,7 @@
 												{/if}
 											</span>
 										</div>
-										<div class="flex justify-between items-center py-2 border-b">
+										<div class="flex items-center justify-between border-b py-2">
 											<span class="text-muted-foreground">Max Amount Limit:</span>
 											<span class="font-medium">
 												{#if config?.maxAmountLimit !== undefined}
@@ -1853,7 +1988,8 @@
 					<AlertDialog.Header>
 						<AlertDialog.Title>Reset to Defaults</AlertDialog.Title>
 						<AlertDialog.Description>
-							Are you sure you want to reset {resetDefaultsCurrencyCode} configuration to system defaults? This will overwrite any custom settings you've configured.
+							Are you sure you want to reset {resetDefaultsCurrencyCode} configuration to system defaults?
+							This will overwrite any custom settings you've configured.
 						</AlertDialog.Description>
 					</AlertDialog.Header>
 					<AlertDialog.Footer>
@@ -1926,7 +2062,8 @@
 					<AlertDialog.Header>
 						<AlertDialog.Title>Delete Currency</AlertDialog.Title>
 						<AlertDialog.Description>
-							Are you sure you want to delete {currencyToDelete?.name} ({currencyToDelete?.code})? This will also deactivate it. This action cannot be undone.
+							Are you sure you want to delete {currencyToDelete?.name} ({currencyToDelete?.code})?
+							This will also deactivate it. This action cannot be undone.
 						</AlertDialog.Description>
 					</AlertDialog.Header>
 					<AlertDialog.Footer>
@@ -1949,16 +2086,16 @@
 	</div>
 
 	{#snippet bottomBar()}
-			<div class="px-4 justify-center max-w-xs mx-auto">
-				<Button.Root 
-					onclick={saveAllChanges} 
-					disabled={isSaving || !hasUnsavedChanges}
-					class="w-full max-w-xs mx-auto transition-all duration-200"
-				>
-					<Save class="h-4 w-4 mr-2 {isSaving ? 'animate-pulse' : ''}" />
-					{isSaving ? 'Saving...' : 'Save Changes'}
-				</Button.Root>
-			</div>
+		<div class="mx-auto max-w-xs justify-center px-4">
+			<Button.Root
+				onclick={saveAllChanges}
+				disabled={isSaving || !hasUnsavedChanges}
+				class="mx-auto w-full max-w-xs transition-all duration-200"
+			>
+				<Save class="mr-2 h-4 w-4 {isSaving ? 'animate-pulse' : ''}" />
+				{isSaving ? 'Saving...' : 'Save Changes'}
+			</Button.Root>
+		</div>
 	{/snippet}
 </PageLayout>
 
@@ -1996,4 +2133,3 @@
 		}
 	}
 </style>
-

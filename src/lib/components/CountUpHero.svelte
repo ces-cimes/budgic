@@ -23,7 +23,9 @@
 	}
 
 	function runAnimation(endVal: number) {
-		const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		const prefersReducedMotion =
+			typeof window !== 'undefined' &&
+			window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 		if (prefersReducedMotion) {
 			displayValue = endVal;
 			hasAnimated = true;

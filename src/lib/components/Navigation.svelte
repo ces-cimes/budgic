@@ -11,23 +11,33 @@
 	import type { NavItemConfig } from '$lib/stores/navigation-store.svelte';
 
 	// Lucide icons – single source for sidebar nav
-	import { Home, Receipt, Target, Wallet, TrendingUp, Bell, Settings, CreditCard, Plus } from '@lucide/svelte';
+	import {
+		Home,
+		Receipt,
+		Target,
+		Wallet,
+		TrendingUp,
+		Bell,
+		Settings,
+		CreditCard,
+		Plus
+	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import * as Popover from '$lib/components/ui/popover/index.ts';
 	import { TypePicker } from '$lib/components/transactions';
 	import type { Transaction } from '$lib/core/db';
 
 	const iconMap: Record<string, typeof Home> = {
-		'home': Home,
-		'receipt': Receipt,
-		'target': Target,
-		'wallet': Wallet,
+		home: Home,
+		receipt: Receipt,
+		target: Target,
+		wallet: Wallet,
 		'trending-up': TrendingUp,
-		'bell': Bell,
-		'settings': Settings,
+		bell: Bell,
+		settings: Settings,
 		'credit-card': CreditCard,
-		'plan': Wallet,
-		'reports': TrendingUp
+		plan: Wallet,
+		reports: TrendingUp
 	};
 
 	// Which section (path) is expanded for tab sub-menus. Chevron toggles; current route auto-expands.
@@ -80,12 +90,17 @@
 
 	function getBadgeColorClass(color?: string): string {
 		switch (color) {
-			case 'success': return 'bg-[var(--color-sage-green)] text-white';
-			case 'warning': return 'bg-[var(--color-golden-amber)] text-[var(--color-warm-charcoal)]';
-			case 'danger': return 'bg-[var(--color-warm-coral)] text-white';
-			case 'info': return 'bg-[var(--color-info)] text-white';
+			case 'success':
+				return 'bg-[var(--color-sage-green)] text-white';
+			case 'warning':
+				return 'bg-[var(--color-golden-amber)] text-[var(--color-warm-charcoal)]';
+			case 'danger':
+				return 'bg-[var(--color-warm-coral)] text-white';
+			case 'info':
+				return 'bg-[var(--color-info)] text-white';
 			case 'primary':
-			default: return 'bg-primary text-primary-foreground';
+			default:
+				return 'bg-primary text-primary-foreground';
 		}
 	}
 
@@ -113,16 +128,25 @@
 	<Sidebar.Root variant="inset" collapsible="icon">
 		<Sidebar.Content>
 			<Sidebar.Header>
-				<div class="flex items-center gap-2 px-2 py-3 w-full min-w-0 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:py-2">
-					<div class="flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-gradient-to-br from-[var(--color-sage-green)] to-[var(--color-golden-amber)] group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6">
-						<Target class="w-5 h-5 text-white group-data-[collapsible=icon]:w-4 group-data-[collapsible=icon]:h-4" />
+				<div
+					class="flex w-full min-w-0 items-center gap-2 px-2 py-3 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:py-2"
+				>
+					<div
+						class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[var(--color-sage-green)] to-[var(--color-golden-amber)] group-data-[collapsible=icon]:h-6 group-data-[collapsible=icon]:w-6"
+					>
+						<Target
+							class="h-5 w-5 text-white group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:w-4"
+						/>
 					</div>
-					<span class="text-lg font-semibold text-[var(--color-text-primary)] truncate group-data-[collapsible=icon]:hidden">Budgic</span>
+					<span
+						class="truncate text-lg font-semibold text-[var(--color-text-primary)] group-data-[collapsible=icon]:hidden"
+						>Budgic</span
+					>
 					<Sidebar.Trigger class="ml-auto size-8 shrink-0 group-data-[collapsible=icon]:ml-0" />
 				</div>
 			</Sidebar.Header>
 
-			<div class="flex-1 min-h-0 overflow-auto flex flex-col gap-2">
+			<div class="flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
 				<!-- Main: Home, Transactions, Plan (+ tabs), Insights (+ tabs) -->
 				<Sidebar.Group>
 					<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">Main</Sidebar.GroupLabel>
@@ -131,13 +155,15 @@
 							{#if loading}
 								{#each Array(4) as _, i}
 									<Sidebar.MenuItem>
-										<div class="h-10 bg-[var(--color-bg-tertiary)] rounded-md animate-pulse"></div>
+										<div class="h-10 animate-pulse rounded-md bg-[var(--color-bg-tertiary)]"></div>
 									</Sidebar.MenuItem>
 								{/each}
 							{:else}
 								{#each mainItems as item (item.id)}
 									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
-									{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
+									{@const badgeValue = item.badge?.countKey
+										? badges.get(item.badge.countKey)
+										: undefined}
 									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
 									{#if item.tabs?.length}
 										<SidebarNavCollapsible
@@ -148,8 +174,8 @@
 											isParentActive={isParentActive(item.path)}
 											expanded={!!expandedByPath[item.path]}
 											onToggle={() => toggleExpanded(item.path)}
-											isTabActive={isTabActive}
-											showBadge={showBadge}
+											{isTabActive}
+											{showBadge}
 											{badgeValue}
 											badgeColorClass={getBadgeColorClass(item.badge?.color)}
 										/>
@@ -158,7 +184,7 @@
 											{item}
 											iconComponent={IconComponent}
 											isActive={isActive(item.path)}
-											showBadge={showBadge}
+											{showBadge}
 											{badgeValue}
 											badgeColorClass={getBadgeColorClass(item.badge?.color)}
 										/>
@@ -171,12 +197,16 @@
 
 				{#if moreItems.length > 0}
 					<Sidebar.Group>
-						<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">More</Sidebar.GroupLabel>
+						<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden"
+							>More</Sidebar.GroupLabel
+						>
 						<Sidebar.GroupContent>
 							<Sidebar.Menu>
 								{#each moreItems as item (item.id)}
 									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
-									{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
+									{@const badgeValue = item.badge?.countKey
+										? badges.get(item.badge.countKey)
+										: undefined}
 									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
 									{#if item.tabs?.length}
 										<SidebarNavCollapsible
@@ -187,8 +217,8 @@
 											isParentActive={isParentActive(item.path)}
 											expanded={!!expandedByPath[item.path]}
 											onToggle={() => toggleExpanded(item.path)}
-											isTabActive={isTabActive}
-											showBadge={showBadge}
+											{isTabActive}
+											{showBadge}
 											{badgeValue}
 											badgeColorClass={getBadgeColorClass(item.badge?.color)}
 										/>
@@ -197,7 +227,7 @@
 											{item}
 											iconComponent={IconComponent}
 											isActive={isActive(item.path)}
-											showBadge={showBadge}
+											{showBadge}
 											{badgeValue}
 											badgeColorClass={getBadgeColorClass(item.badge?.color)}
 										/>
@@ -210,7 +240,7 @@
 			</div>
 
 			<!-- Footer: Slot A (widgets), Slot B (quick-add), then Alerts + Settings -->
-			<div class="mt-auto shrink-0 flex flex-col gap-2 pt-2">
+			<div class="mt-auto flex shrink-0 flex-col gap-2 pt-2">
 				<SidebarFooterCards />
 				<!-- Slot B: quick-add → Popover type picker (desktop; sidebar is desktop-only) -->
 				<Sidebar.Group>
@@ -219,17 +249,24 @@
 							<Sidebar.MenuItem>
 								<Popover.Root bind:open={slotBPopoverOpen}>
 									<Popover.Trigger
-										class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-150
-											text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]
-											group-data-[collapsible=icon]:justify-center border border-transparent outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
+										class="group flex w-full items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-left
+											text-[var(--color-text-secondary)] transition-all duration-150
+											outline-none group-data-[collapsible=icon]:justify-center hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
 										aria-label="Add transaction"
 									>
 										<Plus class="h-4 w-4 shrink-0" />
-										<span class="text-sm truncate group-data-[collapsible=icon]:hidden">Add transaction</span>
+										<span class="truncate text-sm group-data-[collapsible=icon]:hidden"
+											>Add transaction</span
+										>
 									</Popover.Trigger>
-									<Popover.Content class="w-[min(calc(100vw-2rem),20rem)] p-0" align="start" side="right" sideOffset={8}>
+									<Popover.Content
+										class="w-[min(calc(100vw-2rem),20rem)] p-0"
+										align="start"
+										side="right"
+										sideOffset={8}
+									>
 										<div class="p-2">
-											<p class="px-2 pb-2 text-xs font-medium text-muted-foreground">Choose type</p>
+											<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
 											<TypePicker onSelect={handleSlotBTypeSelect} />
 										</div>
 									</Popover.Content>
@@ -244,7 +281,9 @@
 							<Sidebar.Menu>
 								{#each bottomItems as item (item.id)}
 									{@const IconComponent = iconMap[item.icon || 'home'] || Home}
-									{@const badgeValue = item.badge?.countKey ? badges.get(item.badge.countKey) : undefined}
+									{@const badgeValue = item.badge?.countKey
+										? badges.get(item.badge.countKey)
+										: undefined}
 									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
 									{#if item.opensPanel}
 										<Sidebar.MenuItem>
@@ -258,14 +297,17 @@
 												{#snippet child({ props })}
 													<button
 														type="button"
-														class="group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 w-full group-data-[collapsible=icon]:justify-center
-															text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-surface)]"
+														class="group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[var(--color-text-secondary)] transition-all duration-150
+															group-data-[collapsible=icon]:justify-center hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
 														{...props}
 													>
 														<div class="relative flex-shrink-0">
-															<IconComponent class="w-4 h-4" />
+															<IconComponent class="h-4 w-4" />
 														</div>
-														<span class="flex-1 text-sm truncate text-left group-data-[collapsible=icon]:hidden">{item.label}</span>
+														<span
+															class="flex-1 truncate text-left text-sm group-data-[collapsible=icon]:hidden"
+															>{item.label}</span
+														>
 														<div class="ml-auto shrink-0 overflow-visible">
 															<AlertBadge
 																count={typeof badgeValue === 'number' ? badgeValue : 0}
@@ -284,7 +326,7 @@
 											iconComponent={IconComponent}
 											isActive={isActive(item.path)}
 											variant="outline"
-											showBadge={showBadge}
+											{showBadge}
 											{badgeValue}
 											badgeColorClass={getBadgeColorClass(item.badge?.color)}
 										/>

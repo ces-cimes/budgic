@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { userService } from '$lib/core/services';
-	import { SIDEBAR_FOOTER_CARD_IDS, type SidebarFooterCardId } from '$lib/config/sidebar-footer-cards';
+	import {
+		SIDEBAR_FOOTER_CARD_IDS,
+		type SidebarFooterCardId
+	} from '$lib/config/sidebar-footer-cards';
 	import SidebarFooterCardTotalBalance from './SidebarFooterCardTotalBalance.svelte';
 	import SidebarFooterCardTodayAllowance from './SidebarFooterCardTodayAllowance.svelte';
 	import { ChevronLeft, ChevronRight, CreditCard, Wallet } from '@lucide/svelte';
@@ -115,10 +118,10 @@
 		<a
 			href={CARD_HREF[currentCardId]}
 			title={CARD_LABEL[currentCardId]}
-			class="hidden group-data-[collapsible=icon]:flex items-center justify-center
-				size-9 mx-auto rounded-xl glass
-				text-[var(--color-amber)] hover:text-[var(--color-amber)]
-				hover:bg-[var(--color-amber-subtle)] transition-colors
+			class="glass mx-auto hidden size-9
+				items-center justify-center rounded-xl text-[var(--color-amber)]
+				transition-colors group-data-[collapsible=icon]:flex
+				hover:bg-[var(--color-amber-subtle)] hover:text-[var(--color-amber)]
 				focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
 		>
 			<CurrentIcon class="size-4" />
@@ -135,14 +138,14 @@
 		-->
 		<div
 			bind:this={wrapperEl}
-			class="glass rounded-xl relative overflow-hidden group-data-[collapsible=icon]:hidden"
+			class="glass relative overflow-hidden rounded-xl group-data-[collapsible=icon]:hidden"
 			style="transition: height 200ms ease-out;"
 			ontransitionend={onTransitionEnd}
 		>
 			<!-- Widget slots -->
 			{#each cardIds as cardId, i (cardId)}
 				<div
-					class="left-0 right-0 top-0 transition-opacity duration-150 ease-out"
+					class="top-0 right-0 left-0 transition-opacity duration-150 ease-out"
 					class:relative={i === currentIndex}
 					class:z-10={i === currentIndex}
 					class:absolute={i !== currentIndex}
@@ -157,7 +160,7 @@
 						href={CARD_HREF[cardId]}
 						class="flex w-full px-7 pt-3 transition-colors
 							hover:bg-[var(--color-bg-surface)]/20
-							focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-amber)]
+							focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)] focus-visible:ring-inset
 							{multiWidget ? 'pb-6' : 'pb-3'}"
 					>
 						{#if cardId === 'total_balance'}
@@ -171,7 +174,9 @@
 
 			<!-- Dot indicators: absolute at the bottom, z-20, never affect card height -->
 			{#if multiWidget}
-				<div class="absolute bottom-0 left-0 right-0 z-20 flex justify-center gap-1.5 pb-1.5 pointer-events-none">
+				<div
+					class="pointer-events-none absolute right-0 bottom-0 left-0 z-20 flex justify-center gap-1.5 pb-1.5"
+				>
 					{#each cardIds as _, i}
 						<button
 							type="button"
@@ -180,10 +185,10 @@
 								e.stopPropagation();
 								switchTo(i);
 							}}
-							class="h-1 rounded-full transition-all duration-200 focus:outline-none pointer-events-auto
+							class="pointer-events-auto h-1 rounded-full transition-all duration-200 focus:outline-none
 								{i === currentIndex
-									? 'w-4 bg-[var(--color-amber)]'
-									: 'w-1 bg-[var(--color-text-tertiary)]/40 hover:bg-[var(--color-text-tertiary)]/70'}"
+								? 'w-4 bg-[var(--color-amber)]'
+								: 'w-1 bg-[var(--color-text-tertiary)]/40 hover:bg-[var(--color-text-tertiary)]/70'}"
 							aria-label="Widget {i + 1}"
 						></button>
 					{/each}
@@ -199,12 +204,12 @@
 				type="button"
 				onclick={goPrev}
 				aria-label="Previous widget"
-				class="absolute left-0 top-0 bottom-0 z-30 w-7 flex items-center justify-center
-					rounded-l-xl transition-all duration-150
-					text-[var(--color-text-tertiary)]/60 hover:text-[var(--color-text-secondary)]
-					hover:bg-[var(--color-bg-surface)]/30 active:bg-[var(--color-bg-surface)]/50
-					focus:outline-none
-					{multiWidget ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
+				class="absolute top-0 bottom-0 left-0 z-30 flex w-7 items-center justify-center
+					rounded-l-xl text-[var(--color-text-tertiary)]/60 transition-all
+					duration-150 hover:bg-[var(--color-bg-surface)]/30
+					hover:text-[var(--color-text-secondary)] focus:outline-none
+					active:bg-[var(--color-bg-surface)]/50
+					{multiWidget ? 'opacity-100' : 'pointer-events-none opacity-0'}"
 			>
 				<ChevronLeft class="size-3.5" />
 			</button>
@@ -212,12 +217,12 @@
 				type="button"
 				onclick={goNext}
 				aria-label="Next widget"
-				class="absolute right-0 top-0 bottom-0 z-30 w-7 flex items-center justify-center
-					rounded-r-xl transition-all duration-150
-					text-[var(--color-text-tertiary)]/60 hover:text-[var(--color-text-secondary)]
-					hover:bg-[var(--color-bg-surface)]/30 active:bg-[var(--color-bg-surface)]/50
-					focus:outline-none
-					{multiWidget ? 'opacity-100' : 'opacity-0 pointer-events-none'}"
+				class="absolute top-0 right-0 bottom-0 z-30 flex w-7 items-center justify-center
+					rounded-r-xl text-[var(--color-text-tertiary)]/60 transition-all
+					duration-150 hover:bg-[var(--color-bg-surface)]/30
+					hover:text-[var(--color-text-secondary)] focus:outline-none
+					active:bg-[var(--color-bg-surface)]/50
+					{multiWidget ? 'opacity-100' : 'pointer-events-none opacity-0'}"
 			>
 				<ChevronRight class="size-3.5" />
 			</button>

@@ -151,39 +151,47 @@
 	{/snippet}
 
 	{#snippet children()}
-			<TabContentWrapper
-				tabs={insightsTabs}
-				{activeTab}
-				onTabChange={handleTabChange}
-			>
-				{#snippet children()}
-					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
-						<PatternsTabContent {isLoading} {userCurrency} insightTypeFilter={insightTypeFilter ?? undefined} />
-					</TabContent>
+		<TabContentWrapper tabs={insightsTabs} {activeTab} onTabChange={handleTabChange}>
+			{#snippet children()}
+				<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
+					<PatternsTabContent
+						{isLoading}
+						{userCurrency}
+						insightTypeFilter={insightTypeFilter ?? undefined}
+					/>
+				</TabContent>
 
-					{#if insightsTabs.some((t) => t.id === 'optimize')}
-						<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
-							<div class="space-y-6 py-5">
-								<section>
-									<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Fee avoidance</h2>
-									<FeeAvoidancePanel
-										showAllAccounts={true}
-										initialMaxRisks={20}
-										onRecommendationApplied={handleRefresh}
-									/>
-								</section>
-								<section>
-									<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Optimize</h2>
-									<OptimizeTab />
-								</section>
-							</div>
-						</TabContent>
-					{/if}
-
-					<TabContent tabId="badges" isActive={activeTab === 'badges'} tabs={insightsTabs}>
-						<BadgesTab {isLoading} />
+				{#if insightsTabs.some((t) => t.id === 'optimize')}
+					<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
+						<div class="space-y-6 py-5">
+							<section>
+								<h2
+									class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Fee avoidance
+								</h2>
+								<FeeAvoidancePanel
+									showAllAccounts={true}
+									initialMaxRisks={20}
+									onRecommendationApplied={handleRefresh}
+								/>
+							</section>
+							<section>
+								<h2
+									class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Optimize
+								</h2>
+								<OptimizeTab />
+							</section>
+						</div>
 					</TabContent>
-				{/snippet}
-			</TabContentWrapper>
+				{/if}
+
+				<TabContent tabId="badges" isActive={activeTab === 'badges'} tabs={insightsTabs}>
+					<BadgesTab {isLoading} />
+				</TabContent>
+			{/snippet}
+		</TabContentWrapper>
 	{/snippet}
 </PageLayout>

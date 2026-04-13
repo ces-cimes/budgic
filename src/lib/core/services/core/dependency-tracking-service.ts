@@ -350,7 +350,7 @@ class DependencyTrackingService {
 
 			for (const depId of dependencies) {
 				if (!depId) continue; // Skip invalid dependency IDs
-				
+
 				if (!visited.has(depId)) {
 					await dfs(depId);
 				} else if (recursionStack.has(depId)) {

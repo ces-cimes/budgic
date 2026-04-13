@@ -57,13 +57,17 @@
 
 	// Form data
 	let formData = $state<ReconciliationFormData>({
-		accountId: selectedAccountId,
+		accountId: '',
 		statementBalance: 0,
 		tolerance: 0.01,
 		includePendingTransactions: false,
 		autoResolveSmallDiscrepancies: true,
 		autoResolveThreshold: 0.01,
 		notes: ''
+	});
+
+	$effect.pre(() => {
+		formData.accountId = selectedAccountId;
 	});
 
 	// Computed values
@@ -235,8 +239,10 @@
 					<div class="space-y-2">
 						<Label for="account-select">Account</Label>
 						<Select
-							onValueChange={(value: string) => {
-								const account = accounts.find((a) => a.id === value);
+							type="single"
+							onValueChange={(value) => {
+								const id = value ?? '';
+								const account = accounts.find((a) => a.id === id);
 								if (account) selectAccount(account);
 							}}
 							value={formData.accountId}

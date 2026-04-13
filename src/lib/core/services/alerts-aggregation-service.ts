@@ -42,7 +42,9 @@ export async function refreshFeeAndNegativeAllowanceInsights(): Promise<void> {
 			'budget_exceeded',
 			NEGATIVE_ALLOWANCE_INSIGHT_TITLE
 		);
-		const existingUnreadNegative = anyNegativeInsights.find((i) => !i.readAt && !i.dismissedAt && i.isActive);
+		const existingUnreadNegative = anyNegativeInsights.find(
+			(i) => !i.readAt && !i.dismissedAt && i.isActive
+		);
 		if (negativeStatus.isNegative) {
 			if (anyNegativeInsights.length === 0) {
 				await insightsService.createInsight({
@@ -61,7 +63,8 @@ export async function refreshFeeAndNegativeAllowanceInsights(): Promise<void> {
 
 		// Fee risks: one insight per account (Critical/High by likelihood).
 		// Only create if no insight exists for this account (read or dismissed) — don't recreate after user dismissed.
-		const allFeeInsights = await insightsService.getInsightsByTypeIncludingDismissed('savings_opportunity');
+		const allFeeInsights =
+			await insightsService.getInsightsByTypeIncludingDismissed('savings_opportunity');
 		const existingFeeByAccount = new Set(
 			allFeeInsights
 				.filter((i) => i.actionUrl?.startsWith('/accounts/'))

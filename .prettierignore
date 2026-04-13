@@ -4,3 +4,13 @@ pnpm-lock.yaml
 yarn.lock
 bun.lock
 bun.lockb
+
+# Build & tooling output
+.svelte-kit/
+build/
+dist/
+coverage/
+
+# Capacitor / native shells — synced web bundles, not hand-edited source
+android/app/src/main/assets/
+ios/App/App/public/
