@@ -1,14 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { appUsageAnalyticsService, type AppUsageMetrics, type FeatureUsage } from '$lib/core/services';
+  import { appUsageAnalyticsService } from '$lib/core/services';
+  import type { AppUsageMetrics, FeatureUsage } from '$lib/core/services/analytics/app-usage-analytics-service';
   import { Activity, Clock, Calendar, TrendingUp, Smartphone } from '@lucide/svelte';
 
   interface Props {
     days?: number;
     className?: string;
+    /** When true and metrics are empty/zero, show a single line instead of full panels. */
+    compactWhenEmpty?: boolean;
   }
 
-  const { days = 30, className = '' }: Props = $props();
+  const { days = 30, className = '', compactWhenEmpty = false }: Props = $props();
 
   let metrics = $state<AppUsageMetrics | null>(null);
   let isLoading = $state(true);
@@ -88,6 +91,10 @@
         Start using the app to see your usage analytics.
       </p>
     </div>
+  {:else if compactWhenEmpty && metrics.totalSessions === 0 && metrics.mostActiveDay === 'Unknown'}
+    <p class="text-sm text-muted-foreground py-1">
+      App usage insights will appear here once you use the app more.
+    </p>
   {:else}
     <div class="space-y-6">
       <!-- Summary Cards -->

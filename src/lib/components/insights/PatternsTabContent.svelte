@@ -2,14 +2,20 @@
 	/**
 	 * Patterns tab content aligned with UX_SPEC §3.4:
 	 * Spending pulse, Recurring, Anomalies, Your patterns, Upcoming.
+	 * Spending primary; app usage secondary and de-emphasized.
 	 */
 	import { onMount } from 'svelte';
 	import { insightsService } from '$lib/core/services';
 	import { recurringTransactionIntelligenceService } from '$lib/core/services';
 	import { transactionService } from '$lib/core/services';
-	import { formatAmount } from '$lib/utils/currency-utils';
+	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { dismissedAnomalies, dismissAnomaly } from '$lib/stores/dismissed-anomalies';
+	import { db } from '$lib/core/db';
 	import BehavioralPatterns from './BehavioralPatterns.svelte';
 	import AppUsageAnalytics from './AppUsageAnalytics.svelte';
+	import { goto } from '$app/navigation';
+	import RecurringPatternSheet from './RecurringPatternSheet.svelte';
+	import { ChevronRight } from '@lucide/svelte';
 
 	interface Props {
 		isLoading: boolean;
@@ -19,12 +25,28 @@
 
 	const { isLoading: parentLoading = false, userCurrency = 'USD', className = '' }: Props = $props();
 
-	const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
 	let spendingPulse = $state<string>('Loading your spending pulse…');
 	let isNewUser = $state(false);
-	let recurringList = $state<Array<{ description: string; amount: string; nextDate: string; inferred: boolean }>>([]);
-	let anomalies = $state<Array<{ description: string }>>([]);
+	let recurringList = $state<
+		Array<{
+			patternId: string;
+			description: string;
+			amount: string;
+			nextDate: string;
+			inferred: boolean;
+		}>
+	>([]);
+	let anomalies = $state<
+		Array<{
+			type: 'unusual_amount' | 'unusual_timing' | 'unusual_category';
+			transactionId: string;
+			description?: string;
+			amount?: number;
+			currency?: string;
+			txType?: 'expense' | 'income' | 'transfer' | 'adjustment';
+			categoryName?: string;
+		}>
+	>([]);
 	let patternStats = $state<{
 		peakDay: string;
 		peakTime: string;
@@ -33,7 +55,42 @@
 		avgAmount: number;
 	} | null>(null);
 	let upcomingSummary = $state<string>('');
+	let upcomingWeekAmount = $state<number | null>(null);
 	let loading = $state(true);
+	let recurringSheetOpen = $state(false);
+	let selectedPatternId = $state<string | null>(null);
+
+	function formatPeakTime(hour: number): string {
+		const period = hour >= 12 ? 'PM' : 'AM';
+		const h = hour % 12 || 12;
+		return `${h}:00 ${period}`;
+	}
+
+	function anomalyTypeLabel(type: 'unusual_amount' | 'unusual_timing' | 'unusual_category'): string {
+		switch (type) {
+			case 'unusual_amount':
+				return 'Unusual amount';
+			case 'unusual_timing':
+				return 'Unusual timing';
+			case 'unusual_category':
+				return 'Unusual category';
+			default:
+				return 'Anomaly';
+		}
+	}
+
+	function anomalyBadgeClass(type: 'unusual_amount' | 'unusual_timing' | 'unusual_category'): string {
+		switch (type) {
+			case 'unusual_amount':
+				return 'bg-[var(--color-warm-coral)]/15 text-[var(--color-warm-coral)] border border-[var(--color-warm-coral)]/40';
+			case 'unusual_timing':
+				return 'bg-[var(--color-info)]/15 text-[var(--color-info)] border border-[var(--color-info)]/40';
+			case 'unusual_category':
+				return 'bg-[var(--color-amber)]/15 text-[var(--color-amber)] border border-[var(--color-amber)]/40';
+			default:
+				return 'bg-muted text-muted-foreground border border-border';
+		}
+	}
 
 	onMount(async () => {
 		loading = true;
@@ -60,19 +117,29 @@
 			if (isNewUser) {
 				spendingPulse = "We're building your picture. Keep logging transactions and we'll start spotting patterns in about 2 weeks.";
 			} else if (behavioral?.length > 0) {
-				const first = behavioral[0];
-				const text = [first.description, first.title].filter(Boolean).join(' ').trim();
-				spendingPulse = text || 'Your spending looks consistent. No notable patterns to highlight this week.';
+				// Never use "Predictions Updated" / "X predictions available" as pulse — reserve for real spending summary only
+				const spendingInsight = behavioral.find(
+					(i) =>
+						i.title !== 'Predictions Updated' &&
+						!(i.description?.toLowerCase().includes('prediction') && i.description?.toLowerCase().includes('available'))
+				);
+				if (spendingInsight) {
+					const text = [spendingInsight.description, spendingInsight.title].filter(Boolean).join(' ').trim();
+					spendingPulse = text || 'Your spending looks consistent. No notable patterns to highlight this week.';
+				} else {
+					spendingPulse = 'Your spending looks consistent. No notable patterns to highlight this week.';
+				}
 			} else {
 				spendingPulse = 'Your spending looks consistent. No notable patterns to highlight this week.';
 			}
 
-			// Recurring
+			// Recurring (include patternId for drill-in sheet)
 			const recurringPatterns = await recurringTransactionIntelligenceService.detectPatterns(90, 2);
 			recurringList = [];
 			for (const p of recurringPatterns.slice(0, 5)) {
 				const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(p.id);
 				recurringList.push({
+					patternId: p.id,
 					description: p.metadata?.notes || p.descriptionPattern || 'Recurring',
 					amount: pred ? `~${formatAmount(pred.predictedAmount, p.metadata?.currency || userCurrency)}` : '—',
 					nextDate: pred?.nextOccurrenceDate
@@ -82,8 +149,30 @@
 				});
 			}
 
-			// Anomalies
-			anomalies = (patternsResult.anomalyPatterns || []).slice(0, 5).map((a) => ({ description: a.description }));
+			// Anomalies: enrich with transaction + category for transaction-like display (no "Unusually large..." text)
+			const rawAnomalies = (patternsResult.anomalyPatterns || []).slice(0, 10);
+			const enriched: typeof anomalies = [];
+			for (const a of rawAnomalies) {
+				const tx = await transactionService.getTransaction(a.transactionId);
+				let categoryName: string | undefined;
+				if (tx?.categoryId) {
+					const cat = await db.categories.get(tx.categoryId);
+					categoryName = cat?.name;
+				}
+				const rawAmount = tx?.amount ?? 0;
+				const displayAmount =
+					tx?.type === 'expense' ? -Math.abs(rawAmount) : tx?.type === 'income' ? Math.abs(rawAmount) : rawAmount;
+				enriched.push({
+					type: a.type,
+					transactionId: a.transactionId,
+					description: tx?.description || 'Transaction',
+					amount: displayAmount,
+					currency: tx?.currency,
+					txType: tx?.type,
+					categoryName
+				});
+			}
+			anomalies = enriched;
 
 			// Your patterns (compact stats)
 			const tp = patternsResult.timingPatterns;
@@ -93,7 +182,7 @@
 			const mostFreq = [...cp].sort((a, b) => (b.frequency || 0) - (a.frequency || 0))[0];
 			patternStats = {
 				peakDay: tp?.mostActiveDay || '—',
-				peakTime: tp?.mostActiveHour != null ? `${tp.mostActiveHour}:00` : '—',
+				peakTime: tp?.mostActiveHour != null ? formatPeakTime(tp.mostActiveHour) : '—',
 				biggestCategory: biggest?.categoryName || '—',
 				mostFrequentCategory: mostFreq?.categoryName || '—',
 				avgAmount: vp?.averageTransactionAmount ?? 0
@@ -114,8 +203,10 @@
 				}
 			}
 			if (weekTotal > 0) {
+				upcomingWeekAmount = weekTotal;
 				upcomingSummary = `Expected recurring spending this week: ~${formatAmount(weekTotal, userCurrency)}.`;
 			} else {
+				upcomingWeekAmount = null;
 				upcomingSummary = 'No major recurring spending predicted this week.';
 			}
 		} catch (e) {
@@ -131,6 +222,7 @@
 				avgAmount: 0
 			};
 			upcomingSummary = 'Prediction unavailable.';
+			upcomingWeekAmount = null;
 		} finally {
 			loading = false;
 		}
@@ -163,7 +255,7 @@
 				</div>
 			</section>
 
-			<!-- 2. Recurring transactions -->
+			<!-- 2. Recurring (transaction-like cards) -->
 			<section>
 				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
 					Recurring
@@ -173,28 +265,87 @@
 				{:else}
 					<ul class="space-y-2">
 						{#each recurringList as item}
-							<li
-								class="flex items-center justify-between squircle-2xl squircle-border bg-card px-4 py-2.5 text-sm"
-							>
-								<span>{item.inferred ? '~' : ''}{item.description}</span>
-								<span class="text-muted-foreground">
-									{item.amount} · {item.nextDate}
-								</span>
+							<li>
+								<button
+									type="button"
+									class="w-full text-left rounded-xl border-2 border-border bg-card px-4 py-3 flex items-center gap-2 hover:bg-muted/30 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									onclick={() => {
+										selectedPatternId = item.patternId;
+										recurringSheetOpen = true;
+									}}
+								>
+									<div class="flex-1 min-w-0">
+										<p class="font-semibold text-foreground text-base truncate">
+											{item.inferred ? '~' : ''}{item.description}
+										</p>
+										<p class="text-sm text-muted-foreground truncate mt-0.5">Next: {item.nextDate}</p>
+									</div>
+									<div class="flex items-center gap-2 shrink-0">
+										<span class="text-amount text-foreground">{item.amount}</span>
+										<ChevronRight class="w-4 h-4 text-muted-foreground" />
+									</div>
+								</button>
 							</li>
 						{/each}
 					</ul>
 				{/if}
 			</section>
 
-			<!-- 3. Anomalies (only if any) -->
-			{#if anomalies.length > 0}
+			<!-- 3. Anomalies (transaction-like: description + category left, amount + type badge right; no "Unusually large..." text) -->
+			{@const visibleAnomalies = anomalies.filter((a) => !$dismissedAnomalies.has(a.transactionId))}
+			{#if visibleAnomalies.length > 0}
 				<section>
 					<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
 						Anomalies
 					</h2>
-					<ul class="space-y-1.5">
-						{#each anomalies as a}
-							<li class="text-sm text-[var(--color-text-secondary)]">{a.description}</li>
+					<ul class="space-y-2">
+						{#each visibleAnomalies as a (a.transactionId)}
+							<li class="rounded-xl border-2 border-border bg-card overflow-hidden">
+								<div
+									role="button"
+									tabindex="0"
+									class="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-muted/30 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									onclick={() => goto(`/transactions/add/${a.transactionId}`)}
+									onkeydown={(e) => e.key === 'Enter' && goto(`/transactions/add/${a.transactionId}`)}
+								>
+									<div class="flex-1 min-w-0">
+										<p class="font-semibold text-foreground text-base truncate">
+											{a.description ?? 'Transaction'}
+										</p>
+										{#if a.categoryName}
+											<p class="text-sm text-muted-foreground truncate mt-0.5">{a.categoryName}</p>
+										{/if}
+									</div>
+									<div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+										<span
+											class="text-amount {a.txType === 'income'
+												? 'text-[var(--color-sage-green)]'
+												: a.txType === 'transfer'
+													? 'text-[var(--color-info)]'
+													: 'text-foreground'}"
+										>
+											{formatTransactionAmount(a.amount ?? 0, a.currency ?? userCurrency, true)}
+										</span>
+										<span
+											class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider border {anomalyBadgeClass(a.type)}"
+										>
+											{anomalyTypeLabel(a.type)}
+										</span>
+										<button
+											type="button"
+											class="text-muted-foreground text-xs font-medium hover:text-foreground"
+											onclick={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+												dismissAnomaly(a.transactionId);
+											}}
+											title="This transaction is normal for you"
+										>
+											This is normal
+										</button>
+									</div>
+								</div>
+							</li>
 						{/each}
 					</ul>
 				</section>
@@ -231,23 +382,48 @@
 				{/if}
 			</section>
 
-			<!-- 5. Upcoming (one-line predicted spending this week) -->
+			<!-- 5. Upcoming (amount prominent) -->
 			<section>
 				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">
 					Upcoming
 				</h2>
-				<p class="text-sm text-[var(--color-text-secondary)]">{upcomingSummary}</p>
+				{#if upcomingWeekAmount != null && upcomingWeekAmount > 0}
+					<p class="text-sm text-[var(--color-text-secondary)]">
+						Expected recurring spending this week:
+						<span class="font-semibold text-foreground tabular-nums ml-1">~{formatAmount(upcomingWeekAmount, userCurrency)}</span>
+					</p>
+				{:else}
+					<p class="text-sm text-[var(--color-text-secondary)]">{upcomingSummary}</p>
+				{/if}
 			</section>
 
-			<!-- Existing behavioral + app usage (kept below spec sections) -->
+			<!-- Spending patterns (primary — based on transactions only) -->
 			<div class="pt-4 border-t border-border">
-				<h3 class="text-sm font-semibold text-foreground mb-3">Spending & transaction patterns</h3>
+				<h3 class="text-sm font-semibold text-foreground mb-1">Spending patterns</h3>
+				<p class="text-xs text-muted-foreground mb-3">Based on your transactions</p>
 				<BehavioralPatterns days={90} />
 			</div>
-			<div>
-				<h3 class="text-sm font-semibold text-foreground mb-3">App usage analytics</h3>
-				<AppUsageAnalytics days={30} />
+
+			<!-- App usage (always visible; illustrative / for reference) -->
+			<div class="pt-4 border-t border-border">
+				<div class="rounded-lg border border-border bg-muted/20 px-3 py-2 mb-3">
+					<p class="text-xs text-muted-foreground">
+						<strong class="text-[var(--color-text-tertiary)]">App usage</strong> — for reference only. This data is used to improve your experience and is not part of your financial insights.
+					</p>
+				</div>
+				<AppUsageAnalytics days={30} compactWhenEmpty />
 			</div>
 		{/if}
 	</div>
+
+	<!-- Recurring pattern drill-in sheet -->
+	<RecurringPatternSheet
+		open={recurringSheetOpen}
+		patternId={selectedPatternId}
+		userCurrency={userCurrency}
+		onClose={() => {
+			recurringSheetOpen = false;
+			selectedPatternId = null;
+		}}
+	/>
 </div>
