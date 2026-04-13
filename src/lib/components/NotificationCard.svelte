@@ -11,6 +11,8 @@
 		/** One or more insights (grouped panel card uses same type/title/severity). */
 		insights: Insight[];
 		onDismiss?: (insights: Insight[]) => void;
+		/** Swipe right (and underlay hint); panel only. */
+		onSnooze?: (insights: Insight[]) => void;
 		onClick?: (insights: Insight[]) => void;
 		/** When provided, card will auto-mark as read after 1s in viewport (single insight only). */
 		onMarkAsRead?: (insight: Insight) => void;
@@ -23,6 +25,7 @@
 	const {
 		insights,
 		onDismiss,
+		onSnooze,
 		onClick,
 		onMarkAsRead,
 		categoryLabel,
@@ -99,12 +102,63 @@
 	let isDismissing = $state(false);
 	let isSwiping = $state(false);
 	let dismissConfirmOpen = $state(false);
+	/** Critical dismiss started via left-swipe — confirm runs the same handler as ✕. */
+	let pendingCriticalSwipeDismiss = $state(false);
 	let containerElement: HTMLElement;
 	let cardRootElement: HTMLElement | undefined;
 	let hasFiredMarkAsRead = $state(false);
 
-	const SWIPE_THRESHOLD = 80;
+	/** Finger travel before hint text starts to appear (per side). */
+	const HINT_LABEL_START_PX = 6;
+	/** Finger travel at which hint text reaches full opacity. */
+	const HINT_LABEL_FULL_PX = 40;
+	/** Must swipe past this (px) to commit snooze/dismiss; below = cancel and snap back. */
+	const SWIPE_COMMIT_THRESHOLD_PX = 132;
+	/** If the pointer moved this far horizontally during a swipe, swallow the following click (desktop ghost-click after cancel). */
+	const SWIPE_CLICK_SUPPRESS_MIN_PX = 12;
 	const isCritical = $derived(insights.some((i) => i.severity === 'alert'));
+
+	let maxAbsSwipeDistanceThisGesture = 0;
+	let suppressClickAfterSwipeGesture = $state(false);
+	let suppressClickFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function clearSuppressClickFallback() {
+		if (suppressClickFallbackTimer != null) {
+			clearTimeout(suppressClickFallbackTimer);
+			suppressClickFallbackTimer = null;
+		}
+	}
+
+	function armClickSuppressionAfterSwipe() {
+		if (maxAbsSwipeDistanceThisGesture < SWIPE_CLICK_SUPPRESS_MIN_PX) return;
+		suppressClickAfterSwipeGesture = true;
+		clearSuppressClickFallback();
+		suppressClickFallbackTimer = setTimeout(() => {
+			suppressClickAfterSwipeGesture = false;
+			suppressClickFallbackTimer = null;
+		}, 500);
+	}
+
+	/** Block synthetic click after a horizontal drag (desktop); same gesture can otherwise fire primary CTA → mark read. */
+	function consumeSwipeGhostClick(e: MouseEvent): boolean {
+		if (!suppressClickAfterSwipeGesture) return false;
+		e.preventDefault();
+		e.stopPropagation();
+		suppressClickAfterSwipeGesture = false;
+		clearSuppressClickFallback();
+		return true;
+	}
+
+	const snoozeHintOpacity = $derived(
+		swipeOffset <= HINT_LABEL_START_PX
+			? 0
+			: Math.min(1, (swipeOffset - HINT_LABEL_START_PX) / (HINT_LABEL_FULL_PX - HINT_LABEL_START_PX))
+	);
+	const dismissHintOpacity = $derived(
+		swipeOffset >= -HINT_LABEL_START_PX
+			? 0
+			: Math.min(1, (-swipeOffset - HINT_LABEL_START_PX) / (HINT_LABEL_FULL_PX - HINT_LABEL_START_PX))
+	);
 
 	function getMaxSwipeTravel() {
 		return containerElement?.offsetWidth ?? 400;
@@ -112,15 +166,35 @@
 
 	function handleSwipeStart() {
 		isSwiping = true;
+		maxAbsSwipeDistanceThisGesture = 0;
 	}
 
 	function handleSwipeMove(distance: number) {
+		maxAbsSwipeDistanceThisGesture = Math.max(maxAbsSwipeDistanceThisGesture, Math.abs(distance));
 		const maxTravel = getMaxSwipeTravel();
 		swipeOffset = Math.max(-maxTravel, Math.min(maxTravel, distance));
 	}
 
 	function handleSwipeEnd(direction: SwipeDirection | null) {
+		armClickSuppressionAfterSwipe();
+		maxAbsSwipeDistanceThisGesture = 0;
+
+		// Left = dismiss; right = snooze (panel). Matches underlay hints.
 		if (direction === 'left') {
+			if (!onDismiss) {
+				swipeOffset = 0;
+				setTimeout(() => {
+					isSwiping = false;
+				}, 280);
+				return;
+			}
+			if (isCritical) {
+				swipeOffset = 0;
+				isSwiping = false;
+				pendingCriticalSwipeDismiss = true;
+				dismissConfirmOpen = true;
+				return;
+			}
 			isDismissing = true;
 			swipeOffset = -getMaxSwipeTravel();
 			setTimeout(() => {
@@ -128,21 +202,31 @@
 				isSwiping = false;
 			}, 300);
 		} else if (direction === 'right') {
+			if (!onSnooze) {
+				swipeOffset = 0;
+				setTimeout(() => {
+					isSwiping = false;
+				}, 280);
+				return;
+			}
 			isDismissing = true;
 			swipeOffset = getMaxSwipeTravel();
 			setTimeout(() => {
-				onDismiss?.(insights);
+				onSnooze?.(insights);
 				isSwiping = false;
+				swipeOffset = 0;
+				isDismissing = false;
 			}, 300);
 		} else {
 			swipeOffset = 0;
 			setTimeout(() => {
 				isSwiping = false;
-			}, 100);
+			}, 280);
 		}
 	}
 
 	function handleDismissClick(e: MouseEvent) {
+		if (consumeSwipeGhostClick(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		if (isCritical) {
@@ -154,10 +238,12 @@
 
 	function handleConfirmDismiss() {
 		dismissConfirmOpen = false;
+		pendingCriticalSwipeDismiss = false;
 		onDismiss?.(insights);
 	}
 
 	function handleCtaClick(e: MouseEvent) {
+		if (consumeSwipeGhostClick(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		if (onClick) {
@@ -168,6 +254,7 @@
 	}
 
 	function handleViewSimilarClick(e: MouseEvent) {
+		if (consumeSwipeGhostClick(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		goto(insightsDeepLinkForType(primary.type));
@@ -233,6 +320,7 @@
 	);
 
 	function handlePrimaryClick(e: MouseEvent) {
+		if (consumeSwipeGhostClick(e)) return;
 		e.stopPropagation();
 		if (hasPrimaryAction) {
 			handleCtaClick(e);
@@ -243,6 +331,7 @@
 	}
 
 	function handleExpandClick(e: MouseEvent) {
+		if (consumeSwipeGhostClick(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		isExpanded = !isExpanded;
@@ -286,29 +375,37 @@
 <div bind:this={cardRootElement} class="relative select-none">
 	<div class="absolute inset-0 pointer-events-none z-0 flex">
 		<div
-			class="flex items-center justify-start h-full px-6 transition-opacity duration-150 ease-out"
-			style="opacity: {swipeOffset > SWIPE_THRESHOLD ? 1 : 0};"
+			class="flex items-center justify-start h-full px-6 {isSwiping ? '' : 'transition-opacity duration-200 ease-out'}"
+			style="opacity: {snoozeHintOpacity};"
 		>
-			<div class="text-destructive font-semibold text-sm">Swipe to dismiss</div>
+			<div class="text-muted-foreground font-semibold text-sm">
+				{onSnooze ? 'Swipe to snooze' : ''}
+			</div>
 		</div>
 		<div
-			class="flex flex-1 items-center justify-end h-full px-6 transition-opacity duration-150 ease-out"
-			style="opacity: {swipeOffset < -SWIPE_THRESHOLD ? 1 : 0};"
+			class="flex flex-1 items-center justify-end h-full px-6 {isSwiping ? '' : 'transition-opacity duration-200 ease-out'}"
+			style="opacity: {dismissHintOpacity};"
 		>
-			<div class="text-destructive font-semibold text-sm">Swipe to dismiss</div>
+			<div class="text-destructive font-semibold text-sm">
+				{onDismiss ? 'Swipe to dismiss' : ''}
+			</div>
 		</div>
 	</div>
 
 	<div
 		bind:this={containerElement}
 		use:swipe={{
-			threshold: 100,
+			threshold: SWIPE_COMMIT_THRESHOLD_PX,
 			onSwipeStart: handleSwipeStart,
 			onSwipeMove: handleSwipeMove,
 			onSwipeEnd: handleSwipeEnd
 		}}
 		class="relative z-10"
-		style="touch-action: pan-y; transform: translateX({swipeOffset}px); transition: {isDismissing ? 'transform 300ms ease-out' : swipeOffset === 0 ? 'transform 200ms ease-out' : 'none'};"
+		style="touch-action: pan-y; transform: translateX({swipeOffset}px); transition: {isDismissing
+			? 'transform 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+			: swipeOffset === 0
+				? 'transform 260ms cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+				: 'none'};"
 	>
 		<div
 			class="relative rounded-lg border overflow-hidden transition-colors {panelSurfaceClass}"
@@ -432,7 +529,10 @@
 					</AlertDialog.Description>
 				</AlertDialog.Header>
 				<AlertDialog.Footer>
-					<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+					<AlertDialog.Cancel
+						onclick={() => {
+							pendingCriticalSwipeDismiss = false;
+						}}>Cancel</AlertDialog.Cancel>
 					<AlertDialog.Action onclick={handleConfirmDismiss}>
 						Dismiss
 					</AlertDialog.Action>

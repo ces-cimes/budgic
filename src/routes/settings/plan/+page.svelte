@@ -33,6 +33,8 @@
   let rolloverSurplusHybridRatio = $state(50);
   let rolloverDeficitBehavior = $state<'reduce_next_period' | 'borrow_from_other' | 'one_time_exception'>('reduce_next_period');
   let savingsOpportunityMinSurplus = $state<string>('');
+  let budgetAlertWarningAtPercent = $state(80);
+  let budgetAlertCriticalAtPercent = $state(100);
 
   // Occasions (merged from /settings/occasions)
   let occasions = $state<Occasion[]>([]);
@@ -63,6 +65,10 @@
         const rdb = p.rolloverDeficitBehavior;
         rolloverDeficitBehavior = (rdb === 'reduce_next_period' || rdb === 'borrow_from_other' || rdb === 'one_time_exception') ? rdb : 'reduce_next_period';
         savingsOpportunityMinSurplus = typeof p.savingsOpportunityMinSurplus === 'number' ? String(p.savingsOpportunityMinSurplus) : '';
+        budgetAlertWarningAtPercent =
+          typeof p.budgetAlertWarningAtPercent === 'number' ? p.budgetAlertWarningAtPercent : 80;
+        budgetAlertCriticalAtPercent =
+          typeof p.budgetAlertCriticalAtPercent === 'number' ? p.budgetAlertCriticalAtPercent : 100;
       }
     } catch (e) {
       console.error('Failed to load plan settings', e);
@@ -157,12 +163,25 @@
     return o.occasionType;
   }
 
+  function clampBudgetAlertThresholds(): { warn: number; crit: number } {
+    let w = Math.round(Number(budgetAlertWarningAtPercent));
+    let c = Math.round(Number(budgetAlertCriticalAtPercent));
+    if (Number.isNaN(w)) w = 80;
+    if (Number.isNaN(c)) c = 100;
+    w = Math.min(99, Math.max(50, w));
+    c = Math.min(200, Math.max(Math.max(100, w + 1), c));
+    budgetAlertWarningAtPercent = w;
+    budgetAlertCriticalAtPercent = c;
+    return { warn: w, crit: c };
+  }
+
   async function save() {
     if (isSaving) return;
     isSaving = true;
     try {
       const prefs = await userService.getUserPreferences();
       if (!prefs) return;
+      const { warn, crit } = clampBudgetAlertThresholds();
       await userService.updateUserPreferences({
         ...prefs,
         negativeAllowanceHandling,
@@ -176,7 +195,9 @@
         savingsOpportunityMinSurplus:
           savingsOpportunityMinSurplus !== '' && !Number.isNaN(Number(savingsOpportunityMinSurplus))
             ? Number(savingsOpportunityMinSurplus)
-            : undefined
+            : undefined,
+        budgetAlertWarningAtPercent: warn,
+        budgetAlertCriticalAtPercent: crit
       });
     } catch (e) {
       console.error('Failed to save plan settings', e);
@@ -229,6 +250,44 @@
               </SelectContent>
             </Select>
             <p class="text-xs text-[var(--color-text-tertiary)]">"Allow with strong warning" permits spending but surfaces recovery suggestions.</p>
+          </div>
+        </div>
+
+        <!-- Budget category alerts (bell / insights) -->
+        <div class="rounded-2xl border border-border bg-[var(--color-bg-tertiary)] overflow-hidden">
+          <div class="px-5 py-3 border-b border-border">
+            <h2 class="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Budget alert thresholds</h2>
+            <p class="text-xs text-[var(--color-text-tertiary)] mt-0.5">
+              When category spending crosses these percentages of the category budget, Budgic creates High (approaching) or Critical (exceeded) alerts.
+            </p>
+          </div>
+          <div class="px-5 py-4 space-y-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="space-y-1.5">
+                <label for="budget-alert-warn" class="text-sm font-medium text-[var(--color-text-primary)]">Warn at (% used)</label>
+                <input
+                  id="budget-alert-warn"
+                  type="number"
+                  min="50"
+                  max="99"
+                  bind:value={budgetAlertWarningAtPercent}
+                  class="w-24 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+                />
+                <p class="text-xs text-[var(--color-text-tertiary)]">High-tier alert from this level until the critical threshold.</p>
+              </div>
+              <div class="space-y-1.5">
+                <label for="budget-alert-crit" class="text-sm font-medium text-[var(--color-text-primary)]">Critical at (% used)</label>
+                <input
+                  id="budget-alert-crit"
+                  type="number"
+                  min="100"
+                  max="200"
+                  bind:value={budgetAlertCriticalAtPercent}
+                  class="w-24 rounded-xl border border-border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+                />
+                <p class="text-xs text-[var(--color-text-tertiary)]">Must be at least 100% and greater than the warn threshold (adjusted on save if needed).</p>
+              </div>
+            </div>
           </div>
         </div>
 

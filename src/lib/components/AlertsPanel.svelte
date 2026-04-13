@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { notificationsService, userService } from '$lib/core/services';
+	import {
+		trackAlertPanelEvent,
+		trackAlertPanelMarkAllRead
+	} from '$lib/utils/alert-panel-telemetry';
 	import { groupPanelAlertsForDisplay, splitByTier } from '$lib/utils/alert-tiers';
 	import { alertsPanelStore } from '$lib/stores/alerts-panel-store.svelte';
 	import { onMount } from 'svelte';
@@ -25,6 +29,9 @@
 	let alertsCriticalCoachmarkSeen = $state(true);
 	/** Expanded "Earlier" row id for message + link review */
 	let expandedEarlierId = $state<string | null>(null);
+
+	/** Default snooze length when user swipes right on a panel card (no extra UI). */
+	const ALERT_SNOOZE_DURATION_MS = 24 * 60 * 60 * 1000;
 
 	// Sync with global store: store opens panel; closing panel updates store
 	$effect(() => {
@@ -112,6 +119,7 @@
 		for (const i of group) {
 			await notificationsService.markAsRead(i.id);
 		}
+		void trackAlertPanelEvent('alerts_panel_cta', group);
 		await refreshData();
 		window.dispatchEvent(new CustomEvent('alerts-updated'));
 		if (primary.actionUrl) {
@@ -123,7 +131,9 @@
 	}
 
 	async function handleMarkAllRead() {
+		const markedCount = unreadInsights.length;
 		await notificationsService.markAllAsRead();
+		void trackAlertPanelMarkAllRead(markedCount);
 		await refreshData();
 		window.dispatchEvent(new CustomEvent('alerts-updated'));
 	}
@@ -132,6 +142,18 @@
 		for (const i of group) {
 			await notificationsService.dismiss(i.id);
 		}
+		void trackAlertPanelEvent('alerts_panel_dismiss', group);
+		await refreshData();
+		window.dispatchEvent(new CustomEvent('alerts-updated'));
+	}
+
+	async function handleSnoozeGroup(group: Insight[]) {
+		const until = new Date(Date.now() + ALERT_SNOOZE_DURATION_MS).toISOString();
+		await notificationsService.snoozeInsights(
+			group.map((i) => i.id),
+			until
+		);
+		void trackAlertPanelEvent('alerts_panel_snooze', group);
 		await refreshData();
 		window.dispatchEvent(new CustomEvent('alerts-updated'));
 	}
@@ -257,6 +279,7 @@
 										<p>
 											<strong>Tap the alert</strong> to mark read and open the linked screen.
 											<strong>Details</strong> expands the full message when there is more to read.
+											<strong>Swipe left</strong> to dismiss, <strong>swipe right</strong> to snooze for 24 hours.
 											<strong>Dismiss</strong> (✕) removes it until the issue returns.
 											<strong>Mark all read</strong> in the header marks every unread alert here as read.
 										</p>
@@ -276,6 +299,7 @@
 											numberLocale={alertsNumberLocale}
 											onClick={handleInsightClickGroup}
 											onDismiss={handleDismissGroup}
+											onSnooze={handleSnoozeGroup}
 										/>
 									{/each}
 								</div>
@@ -294,6 +318,7 @@
 										numberLocale={alertsNumberLocale}
 										onClick={handleInsightClickGroup}
 										onDismiss={handleDismissGroup}
+										onSnooze={handleSnoozeGroup}
 									/>
 								{/each}
 							</div>

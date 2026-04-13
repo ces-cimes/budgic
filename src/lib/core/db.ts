@@ -1084,7 +1084,12 @@ const UserPreferencesSchema = BaseSchema.extend({
 	sidebarFooterCards: z.array(z.string()).default(['total_balance', 'today_allowance']),
 
 	/** One-time Alerts panel coachmark when first critical alerts appear */
-	alertsCriticalCoachmarkSeen: z.boolean().default(false)
+	alertsCriticalCoachmarkSeen: z.boolean().default(false),
+
+	/** Budget category spend % at or above which a High-tier approaching insight is created */
+	budgetAlertWarningAtPercent: z.number().min(1).max(200).default(80),
+	/** Budget category spend % at or above which a Critical-tier exceeded insight is created */
+	budgetAlertCriticalAtPercent: z.number().min(1).max(200).default(100)
 });
 
 // User Actions Schema
@@ -1169,6 +1174,8 @@ const InsightSchema = BaseSchema.extend({
 	actionUrl: z.string().optional(),
 	dismissedAt: z.string().datetime().optional(),
 	readAt: z.string().datetime().optional(),
+	/** When set and in the future, insight is hidden from unread/bell/inline until this time (local ISO). */
+	snoozedUntil: z.string().datetime().optional(),
 	expiresAt: z.string().datetime().optional(),
 	isActive: z.boolean().default(true),
 	metadata: z.string().optional() // JSON string
@@ -2854,7 +2861,9 @@ export class BudgicDB extends Dexie {
 
 	/** Unread / inline queries ignore insights past expiresAt until cleanup runs. */
 	private insightEffectiveForUnread(insight: Insight, nowIso: string): boolean {
-		return !insight.expiresAt || insight.expiresAt >= nowIso;
+		const notExpired = !insight.expiresAt || insight.expiresAt >= nowIso;
+		const notSnoozed = !insight.snoozedUntil || insight.snoozedUntil <= nowIso;
+		return notExpired && notSnoozed;
 	}
 
 	/**
@@ -2945,6 +2954,7 @@ export class BudgicDB extends Dexie {
 	async markInsightAsRead(id: string): Promise<void> {
 		await this.insights.update(id, {
 			readAt: new Date().toISOString(),
+			snoozedUntil: undefined,
 			updatedAt: new Date().toISOString()
 		});
 	}
@@ -2954,6 +2964,7 @@ export class BudgicDB extends Dexie {
 		const updates = unread.map((insight) =>
 			this.insights.update(insight.id, {
 				readAt: new Date().toISOString(),
+				snoozedUntil: undefined,
 				updatedAt: new Date().toISOString()
 			})
 		);
@@ -2999,6 +3010,7 @@ export class BudgicDB extends Dexie {
 			panel.map((insight) =>
 				this.insights.update(insight.id, {
 					readAt: new Date().toISOString(),
+					snoozedUntil: undefined,
 					updatedAt: new Date().toISOString()
 				})
 			)
@@ -3041,8 +3053,22 @@ export class BudgicDB extends Dexie {
 		await this.insights.update(id, {
 			dismissedAt: new Date().toISOString(),
 			isActive: false,
+			snoozedUntil: undefined,
 			updatedAt: new Date().toISOString()
 		});
+	}
+
+	/** Snooze one or more insights until the given ISO time (hidden from unread until then). */
+	async snoozeInsights(ids: string[], snoozedUntilIso: string): Promise<void> {
+		const now = new Date().toISOString();
+		await Promise.all(
+			ids.map((id) =>
+				this.insights.update(id, {
+					snoozedUntil: snoozedUntilIso,
+					updatedAt: now
+				})
+			)
+		);
 	}
 
 	// ============================================================================

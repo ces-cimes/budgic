@@ -112,6 +112,22 @@ class NotificationsService {
 	}
 
 	/**
+	 * Snooze panel insights until a future time (hidden from badge until then).
+	 */
+	async snoozeInsights(insightIds: string[], snoozedUntilIso: string): Promise<void> {
+		try {
+			await insightsService.snoozeInsights(insightIds, snoozedUntilIso);
+			const idSet = new Set(insightIds);
+			this._panelUnreadInsights = this._panelUnreadInsights.filter((i) => !idSet.has(i.id));
+			this._panelUnreadCount = this._panelUnreadInsights.length;
+			await this.refresh();
+		} catch (error) {
+			console.error('Error snoozing insights:', error);
+			throw error;
+		}
+	}
+
+	/**
 	 * Mark all panel alerts (Critical + High) as read. Used by "Mark all read" in Alerts panel.
 	 */
 	async markAllAsRead(): Promise<void> {

@@ -53,7 +53,15 @@ class UserService {
             rolloverDeficitBehavior: (prefs.rolloverDeficitBehavior as UserPreferences['rolloverDeficitBehavior']) ?? 'reduce_next_period',
             sidebarFooterCards: Array.isArray(prefs.sidebarFooterCards) ? prefs.sidebarFooterCards : ['total_balance', 'today_allowance'],
             firstRunChecklistComplete: prefs.firstRunChecklistComplete ?? false,
-            alertsCriticalCoachmarkSeen: prefs.alertsCriticalCoachmarkSeen ?? false
+            alertsCriticalCoachmarkSeen: prefs.alertsCriticalCoachmarkSeen ?? false,
+            budgetAlertWarningAtPercent:
+                typeof prefs.budgetAlertWarningAtPercent === 'number'
+                    ? prefs.budgetAlertWarningAtPercent
+                    : 80,
+            budgetAlertCriticalAtPercent:
+                typeof prefs.budgetAlertCriticalAtPercent === 'number'
+                    ? prefs.budgetAlertCriticalAtPercent
+                    : 100
         } as UserPreferences;
     }
 
@@ -87,6 +95,8 @@ class UserService {
             onboardingCompleted: false,
             firstRunChecklistComplete: false,
             alertsCriticalCoachmarkSeen: false,
+            budgetAlertWarningAtPercent: 80,
+            budgetAlertCriticalAtPercent: 100,
             enableAdvancedFeatures: false,
             enablePredictiveAnalytics: true,
                 analyticsEnabled: true,
@@ -429,6 +439,8 @@ class UserService {
             onboardingCompleted: false,
             firstRunChecklistComplete: false,
             alertsCriticalCoachmarkSeen: false,
+            budgetAlertWarningAtPercent: 80,
+            budgetAlertCriticalAtPercent: 100,
             enableAdvancedFeatures: false,
             enablePredictiveAnalytics: true,
             analyticsEnabled: true,

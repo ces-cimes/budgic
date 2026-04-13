@@ -1,4 +1,5 @@
 import { insightsService } from './insights-service';
+import { userService } from '../core/user-service';
 import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { analyticsService } from './analytics-service';
@@ -426,6 +427,12 @@ class CrossRouteSyncService {
 
         const budgetPercentage = (spentAmount / category.budgetAmount) * 100;
 
+        const prefs = await userService.getUserPreferences();
+        let warnAt = Math.round(prefs.budgetAlertWarningAtPercent ?? 80);
+        let critAt = Math.round(prefs.budgetAlertCriticalAtPercent ?? 100);
+        warnAt = Math.min(99, Math.max(50, warnAt));
+        critAt = Math.min(200, Math.max(Math.max(100, warnAt + 1), critAt));
+
         // Remove old budget insights for this category
         const oldInsights = await insightsService.getInsightsByType('budget_approaching');
         for (const insight of oldInsights) {
@@ -435,30 +442,30 @@ class CrossRouteSyncService {
         }
 
         // Create new budget insights if needed
-        if (budgetPercentage >= 80 && budgetPercentage < 100) {
+        if (budgetPercentage >= warnAt && budgetPercentage < critAt) {
             await insightsService.createInsight({
                 type: 'budget_approaching',
                 severity: 'warning',
-                title: `${category.name} Budget - 80% Used`,
-                message: `You've used 80% of your ${category.name} budget. Consider reducing spending in this category.`,
+                title: `${category.name} Budget - ${warnAt}% Used`,
+                message: `You've used ${warnAt}% of your ${category.name} budget. Consider reducing spending in this category.`,
                 categoryId: category.id,
                 percentage: budgetPercentage,
-                threshold: 80,
+                threshold: warnAt,
                 confidence: 95,
                 actionable: true,
                 actionText: 'Review Budget'
             });
         }
 
-        if (budgetPercentage >= 100) {
+        if (budgetPercentage >= critAt) {
             await insightsService.createInsight({
                 type: 'budget_exceeded',
                 severity: 'alert',
                 title: `${category.name} Budget Exceeded`,
-                message: `You've exceeded your ${category.name} budget. Immediate action needed.`,
+                message: `You've exceeded your ${category.name} budget (${critAt}% or more of the allocation). Immediate action needed.`,
                 categoryId: category.id,
                 percentage: budgetPercentage,
-                threshold: 100,
+                threshold: critAt,
                 confidence: 100,
                 actionable: true,
                 actionText: 'Adjust Budget'

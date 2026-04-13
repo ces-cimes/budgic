@@ -18,7 +18,7 @@ export function swipe(
 	node: HTMLElement,
 	options: SwipeOptions | undefined = {}
 ): { destroy: () => void } {
-	// Check if we're in a browser environment
+	// Check for a browser environment
 	if (typeof window === 'undefined' || typeof document === 'undefined' || !options) {
 		return { destroy: () => {} };
 	}
@@ -33,70 +33,30 @@ export function swipe(
 	let swipeStarted = false;
 	// Once vertical scroll intent is detected, this gesture is scroll-only — don't start horizontal swipe
 	let verticalLocked = false;
+	/** Primary button is down after mousedown on this node; drives document-level mouse tracking. */
+	let mousePointerDown = false;
 
-	const handleStart = (e: Event) => {
-		// Don't interfere with drag and drop - check if the target is draggable or inside a draggable element
-		const target = e.target as HTMLElement;
-		if (target?.closest('[draggable="true"]') || target?.closest('.drag-handle')) {
-			return;
-		}
+	function reset() {
+		document.removeEventListener('mousemove', documentMouseMove, true);
+		document.removeEventListener('mouseup', documentMouseUp, true);
+		mousePointerDown = false;
+		startX = 0;
+		startY = 0;
+		currentX = 0;
+		currentY = 0;
+		isSwiping = false;
+		swipeStarted = false;
+		verticalLocked = false;
+	}
 
-		// Check if swipe can start (e.g., check scroll position)
-		if (options.canStart && !options.canStart()) {
-			return;
-		}
-
-		// Check if TouchEvent is available and if event is a TouchEvent
-		if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0) {
-			startX = e.touches[0].clientX;
-			startY = e.touches[0].clientY;
-			currentX = startX;
-			currentY = startY;
-			isSwiping = false;
-			swipeStarted = false;
-			verticalLocked = false;
-		} else if (typeof MouseEvent !== 'undefined' && e instanceof MouseEvent) {
-			startX = e.clientX;
-			startY = e.clientY;
-			currentX = startX;
-			currentY = startY;
-			isSwiping = false;
-			swipeStarted = false;
-			verticalLocked = false;
-		}
-	};
-
-	const handleMove = (e: Event) => {
-		if (!startX && !startY) return;
-
-		// Don't interfere with drag and drop
-		const target = e.target as HTMLElement;
-		if (target?.closest('[draggable="true"]')) {
-			reset();
-			return;
-		}
-
-		let clientX = 0;
-		let clientY = 0;
-
-		// Check if TouchEvent is available and if event is a TouchEvent
-		if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0) {
-			clientX = e.touches[0].clientX;
-			clientY = e.touches[0].clientY;
-		} else if (typeof MouseEvent !== 'undefined' && e instanceof MouseEvent) {
-			clientX = e.clientX;
-			clientY = e.clientY;
-		}
-
+	function applyMove(clientX: number, clientY: number, e: Event) {
 		const deltaX = clientX - startX;
 		const deltaY = clientY - startY;
 
-		// Axis lock: first gesture to dominate (past threshold) wins — horizontal = card swipe, vertical = panel scroll.
 		const lockThreshold = 8;
 		const horizontalDominates = axis === 'horizontal' && Math.abs(deltaX) > Math.abs(deltaY);
 		const verticalDominates = axis === 'horizontal' && Math.abs(deltaY) > Math.abs(deltaX);
 
-		// If user clearly started scrolling vertically, lock this gesture to scroll — don't start horizontal swipe even if they then move horizontally.
 		if (!verticalLocked && verticalDominates && Math.abs(deltaY) >= lockThreshold) {
 			verticalLocked = true;
 		}
@@ -119,27 +79,43 @@ export function swipe(
 			}
 		}
 
-		// Prevent panel scroll only when we've committed to horizontal swipe (never when verticalLocked).
-		const shouldLockScroll = isSwiping || (axis === 'horizontal' && horizontalDominates && !verticalLocked && Math.abs(deltaX) >= lockThreshold);
+		const shouldLockScroll =
+			isSwiping ||
+			(axis === 'horizontal' && horizontalDominates && !verticalLocked && Math.abs(deltaX) >= lockThreshold);
 		if (shouldLockScroll) {
 			e.preventDefault();
 			if (isSwiping) {
-				e.stopPropagation(); // Prevent drawer from closing
+				e.stopPropagation();
 				currentX = clientX;
 				currentY = clientY;
 				const distance = axis === 'horizontal' ? deltaX : deltaY;
 				options.onSwipeMove?.(distance);
 			}
 		}
-	};
+	}
 
-	const handleEnd = (e?: Event) => {
+	function documentMouseMove(e: MouseEvent) {
+		if (!mousePointerDown) return;
+		const target = e.target as HTMLElement;
+		if (target?.closest('[draggable="true"]')) {
+			handleEnd(e);
+			return;
+		}
+		applyMove(e.clientX, e.clientY, e);
+	}
+
+	function documentMouseUp(e: MouseEvent) {
+		if (!mousePointerDown) return;
+		if (e.button !== 0) return;
+		handleEnd(e);
+	}
+
+	function handleEnd(e?: Event) {
 		if (!isSwiping || !swipeStarted) {
 			reset();
 			return;
 		}
 
-		// Prevent drawer from closing
 		if (e) {
 			e.stopPropagation();
 		}
@@ -173,44 +149,74 @@ export function swipe(
 
 		options.onSwipeEnd?.(direction);
 		reset();
+	}
+
+	const handleStart = (e: Event) => {
+		const target = e.target as HTMLElement;
+		if (target?.closest('[draggable="true"]') || target?.closest('.drag-handle')) {
+			return;
+		}
+
+		if (options.canStart && !options.canStart()) {
+			return;
+		}
+
+		if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0) {
+			startX = e.touches[0].clientX;
+			startY = e.touches[0].clientY;
+			currentX = startX;
+			currentY = startY;
+			isSwiping = false;
+			swipeStarted = false;
+			verticalLocked = false;
+		} else if (typeof MouseEvent !== 'undefined' && e instanceof MouseEvent) {
+			if (e.button !== 0) return;
+			startX = e.clientX;
+			startY = e.clientY;
+			currentX = startX;
+			currentY = startY;
+			isSwiping = false;
+			swipeStarted = false;
+			verticalLocked = false;
+			mousePointerDown = true;
+			document.addEventListener('mousemove', documentMouseMove, true);
+			document.addEventListener('mouseup', documentMouseUp, true);
+		}
 	};
 
-	const reset = () => {
-		startX = 0;
-		startY = 0;
-		currentX = 0;
-		currentY = 0;
-		isSwiping = false;
-		swipeStarted = false;
-		verticalLocked = false;
+	const handleTouchMove = (e: Event) => {
+		if (!(typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0)) {
+			return;
+		}
+
+		const target = e.target as HTMLElement;
+		if (target?.closest('[draggable="true"]')) {
+			reset();
+			return;
+		}
+
+		const clientX = e.touches[0].clientX;
+		const clientY = e.touches[0].clientY;
+		applyMove(clientX, clientY, e);
 	};
 
-	node.addEventListener('mousedown', handleStart);
-	node.addEventListener('touchstart', handleStart, { passive: true });
-	node.addEventListener('mousemove', handleMove);
-	node.addEventListener('touchmove', handleMove, { passive: false });
-	
-	const mouseUpHandler = (e: Event) => handleEnd(e);
-	const mouseLeaveHandler = (e: Event) => handleEnd(e);
 	const touchEndHandler = (e: Event) => handleEnd(e);
 	const touchCancelHandler = (e: Event) => handleEnd(e);
 
-	node.addEventListener('mouseup', mouseUpHandler);
-	node.addEventListener('mouseleave', mouseLeaveHandler);
+	node.addEventListener('mousedown', handleStart);
+	node.addEventListener('touchstart', handleStart, { passive: true });
+	node.addEventListener('touchmove', handleTouchMove, { passive: false });
 	node.addEventListener('touchend', touchEndHandler);
 	node.addEventListener('touchcancel', touchCancelHandler);
 
 	return {
 		destroy() {
+			reset();
 			node.removeEventListener('mousedown', handleStart);
 			node.removeEventListener('touchstart', handleStart);
-			node.removeEventListener('mousemove', handleMove);
-			node.removeEventListener('touchmove', handleMove);
-			node.removeEventListener('mouseup', mouseUpHandler);
-			node.removeEventListener('mouseleave', mouseLeaveHandler);
+			node.removeEventListener('touchmove', handleTouchMove);
 			node.removeEventListener('touchend', touchEndHandler);
 			node.removeEventListener('touchcancel', touchCancelHandler);
 		}
 	};
 }
-

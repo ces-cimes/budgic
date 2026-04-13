@@ -134,6 +134,14 @@ class InsightsService {
     }
 
     /**
+     * Snooze insights until a future ISO time (hidden from unread/bell until then).
+     */
+    async snoozeInsights(insightIds: string[], snoozedUntilIso: string): Promise<void> {
+        if (insightIds.length === 0) return;
+        await db.snoozeInsights(insightIds, snoozedUntilIso);
+    }
+
+    /**
      * Mark all insights as read
      */
     async markAllAsRead(): Promise<void> {
