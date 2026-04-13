@@ -2046,6 +2046,13 @@ export class BudgicDB extends Dexie {
 
 				const validated = TransactionSchema.parse(obj);
 				Object.assign(obj, validated);
+
+				if (obj.type === 'transfer') {
+					const transferCheck = validateTransfer(obj as Transaction);
+					if (!transferCheck.isValid) {
+						throw new Error(transferCheck.errors.join('; '));
+					}
+				}
 			} catch (error) {
 				console.error('Transaction validation failed:', error);
 				console.error('Transaction data:', obj);
@@ -2084,7 +2091,13 @@ export class BudgicDB extends Dexie {
 						}
 					}
 
-					TransactionSchema.parse(updated);
+					const parsedUpdate = TransactionSchema.parse(updated);
+					if (parsedUpdate.type === 'transfer') {
+						const transferCheck = validateTransfer(parsedUpdate);
+						if (!transferCheck.isValid) {
+							throw new Error(transferCheck.errors.join('; '));
+						}
+					}
 				} catch (error) {
 					console.error('Transaction update validation failed:', error);
 					console.error('Transaction data:', obj);

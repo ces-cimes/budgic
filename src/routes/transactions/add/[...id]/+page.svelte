@@ -288,14 +288,29 @@
 					// Populate form with existing transaction data
 					selectedAccount = transaction.accountId || '';
 					description = transaction.description || '';
-					amount = transaction.amount || 0;
+					if (transaction.type === 'transfer' && transaction.transferDetails) {
+						amount =
+							transaction.transferDetails.transferAmount ??
+							Math.abs(transaction.amount ?? 0);
+						toAccountId =
+							transaction.transferDetails.toAccountId ?? transaction.toAccountId ?? '';
+						const td = transaction.transferDetails;
+						if (td.feeAmount && td.feeAmount > 0) {
+							hasTransferFee = true;
+							transferFeeAmount = td.feeAmount;
+							transferFeeAccountId = td.feeAccountId || transaction.accountId || '';
+							transferFeeCategoryId = td.feeCategoryId || '';
+						}
+					} else {
+						amount = transaction.amount ?? 0;
+						toAccountId = transaction.toAccountId || '';
+					}
 					currency = transaction.currency || currency || null;
 					transactionType = transaction.type;
 					status = transaction.status;
 					selectedCategory = transaction.categoryId || '';
 					notes = transaction.notes || '';
 					reference = transaction.reference || '';
-					toAccountId = transaction.toAccountId || '';
 					// Convert UTC dates to local datetime-local format for input
 					plannedDate = transaction.plannedDate
 						? dateUtils.toLocalDateTimeInput(transaction.plannedDate)
@@ -467,11 +482,8 @@
 			) {
 				throw new Error('Please select an account');
 			}
-			if (!description.trim()) {
-				throw new Error('Enter a description');
-			}
-			if (amount === 0) {
-				throw new Error('Enter an amount');
+			if (transactionType === 'transfer' && Math.abs(amount) === 0) {
+				throw new Error('Enter a transfer amount');
 			}
 			if (transactionType === 'transfer' && !toAccountId) {
 				throw new Error('Please select a destination account for transfers');
@@ -485,10 +497,11 @@
 			}
 
 			// Prepare transaction data
+			const transferMagnitude = Math.abs(amount);
 			const transactionData: any = {
 				accountId: selectedAccount || undefined, // Optional for planned transactions
-				description: description.trim(),
-				amount: amount,
+				description: description.trim() || undefined,
+				amount: transactionType === 'transfer' ? -transferMagnitude : amount,
 				type: transactionType,
 				status: status,
 				currency: currency,
@@ -522,7 +535,7 @@
 			if (transactionType === 'transfer') {
 				transactionData.transferDetails = {
 					toAccountId: toAccountId!,
-					transferAmount: Math.abs(amount),
+					transferAmount: transferMagnitude,
 					feeAmount: hasTransferFee ? transferFeeAmount : 0,
 					feeAccountId: hasTransferFee ? transferFeeAccountId || selectedAccount : undefined,
 					feeCategoryId: hasTransferFee ? transferFeeCategoryId : undefined
@@ -704,12 +717,11 @@
 				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Details</h2>
 
 				<div class="space-y-2">
-					<Label.Root for="description">Description *</Label.Root>
+					<Label.Root for="description">Description</Label.Root>
 					<Input.Root
 						id="description"
 						bind:value={description}
 						placeholder="e.g., Grocery shopping, Salary deposit"
-						required
 						onfocus={handleInputFocus}
 					/>
 				</div>
