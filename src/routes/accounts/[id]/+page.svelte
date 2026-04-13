@@ -2,8 +2,9 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import * as Button from '$lib/components/ui/button/index.ts';
-	import { accountService, transactionService, userService, reconciliationService } from '$lib/core/services';
-	import type { Account, Transaction } from '$lib/core/db';
+	import { accountService, transactionService, userService, reconciliationService, insightsService } from '$lib/core/services';
+	import type { Account, Insight, Transaction } from '$lib/core/db';
+	import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
 	import { page } from '$app/stores';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { PageLayout } from '$lib/components/layouts';
@@ -37,6 +38,7 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 		daysSinceLastReconciliation: number;
 		unresolvedDiscrepancies: number;
 	} | null>(null);
+	let accountInlineInsights = $state<Insight[]>([]);
 
 	const accountId = $derived($page.params.id);
 
@@ -47,6 +49,7 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 
 		await loadAccount();
 		await loadTransactions();
+		await loadAccountInlineInsights();
 		await loadEnhancedAllowance();
 		if (accountId) {
 			try {
@@ -91,6 +94,21 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 		} catch (error) {
 			console.error('Error loading transactions:', error);
 		}
+	}
+
+	async function loadAccountInlineInsights() {
+		if (!accountId) return;
+		try {
+			accountInlineInsights = await insightsService.getAccountScopedInlineInsights(accountId);
+		} catch {
+			accountInlineInsights = [];
+		}
+	}
+
+	async function dismissAccountInlineAlert(insightId: string) {
+		await insightsService.dismissInsight(insightId);
+		await loadAccountInlineInsights();
+		window.dispatchEvent(new CustomEvent('alerts-updated'));
 	}
 
 	async function loadEnhancedAllowance() {
@@ -171,6 +189,11 @@ import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte
 					<p class="mt-2 text-xs text-[var(--color-text-tertiary)]">
 						Started at {formatBalance(account.initialBalance, account.currency)}
 					</p>
+				{/if}
+				{#if accountInlineInsights.length > 0}
+					<div class="mt-4 flex justify-center">
+						<InlineAlertBadge insights={accountInlineInsights} onDismiss={dismissAccountInlineAlert} />
+					</div>
 				{/if}
 			</section>
 

@@ -14,16 +14,26 @@
 	import BehavioralPatterns from './BehavioralPatterns.svelte';
 	import AppUsageAnalytics from './AppUsageAnalytics.svelte';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import RecurringPatternSheet from './RecurringPatternSheet.svelte';
 	import { ChevronRight } from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
+	import type { Insight } from '$lib/core/db';
 
 	interface Props {
 		isLoading: boolean;
 		userCurrency: string;
 		className?: string;
+		/** When set (e.g. from /insights?insightType=…), show matching stored insights at top. */
+		insightTypeFilter?: string;
 	}
 
-	const { isLoading: parentLoading = false, userCurrency = 'USD', className = '' }: Props = $props();
+	const {
+		isLoading: parentLoading = false,
+		userCurrency = 'USD',
+		className = '',
+		insightTypeFilter
+	}: Props = $props();
 
 	let spendingPulse = $state<string>('Loading your spending pulse…');
 	let isNewUser = $state(false);
@@ -59,6 +69,34 @@
 	let loading = $state(true);
 	let recurringSheetOpen = $state(false);
 	let selectedPatternId = $state<string | null>(null);
+	let alertTypeInsights = $state<Insight[]>([]);
+
+	function clearInsightTypeFilter() {
+		const url = new URL($page.url);
+		url.searchParams.delete('insightType');
+		goto(url.pathname + url.search, { replaceState: true, noScroll: true });
+	}
+
+	$effect(() => {
+		const t = insightTypeFilter;
+		if (!t || typeof window === 'undefined') {
+			alertTypeInsights = [];
+			return;
+		}
+		let cancelled = false;
+		(async () => {
+			try {
+				const all = await insightsService.getInsights();
+				if (cancelled) return;
+				alertTypeInsights = all.filter((i) => i.isActive && i.type === t);
+			} catch {
+				if (!cancelled) alertTypeInsights = [];
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	function formatPeakTime(hour: number): string {
 		const period = hour >= 12 ? 'PM' : 'AM';
@@ -241,6 +279,26 @@
 				</div>
 			</div>
 		{:else}
+			{#if insightTypeFilter && alertTypeInsights.length > 0}
+				<section class="mb-4 rounded-xl border border-border bg-muted/30 px-4 py-3">
+					<div class="flex items-start justify-between gap-2 mb-2">
+						<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">
+							From alerts ({insightTypeFilter})
+						</h2>
+						<Button variant="ghost" size="sm" class="h-7 shrink-0 text-xs" onclick={clearInsightTypeFilter}>
+							Clear filter
+						</Button>
+					</div>
+					<ul class="space-y-2">
+						{#each alertTypeInsights as ins (ins.id)}
+							<li class="text-sm">
+								<p class="font-medium text-foreground">{ins.title}</p>
+								<p class="text-xs text-muted-foreground mt-0.5">{ins.message}</p>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
 			<!-- 1. Spending pulse (UX_SPEC §3.4) -->
 			<section>
 				<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-2">

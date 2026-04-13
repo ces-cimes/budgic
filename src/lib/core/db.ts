@@ -1081,7 +1081,10 @@ const UserPreferencesSchema = BaseSchema.extend({
 	savingsOpportunityMinSurplus: z.number().min(0).optional(),
 
 	// Sidebar footer info cards (desktop): which cards to show and in what order
-	sidebarFooterCards: z.array(z.string()).default(['total_balance', 'today_allowance'])
+	sidebarFooterCards: z.array(z.string()).default(['total_balance', 'today_allowance']),
+
+	/** One-time Alerts panel coachmark when first critical alerts appear */
+	alertsCriticalCoachmarkSeen: z.boolean().default(false)
 });
 
 // User Actions Schema
@@ -2849,22 +2852,58 @@ export class BudgicDB extends Dexie {
 			.toArray();
 	}
 
+	/** Unread / inline queries ignore insights past expiresAt until cleanup runs. */
+	private insightEffectiveForUnread(insight: Insight, nowIso: string): boolean {
+		return !insight.expiresAt || insight.expiresAt >= nowIso;
+	}
+
 	/**
 	 * Get low-tier (success/info) insights for inline display on Budget/Goals. Never shown in bell panel.
 	 */
 	async getLowTierInlineInsights(): Promise<Insight[]> {
+		const nowIso = new Date().toISOString();
 		return await this.insights
 			.filter(
 				(insight) =>
 					insight.isActive &&
 					!insight.dismissedAt &&
 					(insight.severity === 'success' || insight.severity === 'info') &&
-					(insight.categoryId != null || insight.goalId != null)
+					(insight.categoryId != null || insight.goalId != null) &&
+					this.insightEffectiveForUnread(insight, nowIso)
 			)
 			.toArray();
 	}
 
+	/**
+	 * Unread insights for a specific account (fee risk, etc.): actionUrl or metadata.accountId match.
+	 */
+	async getAccountScopedInlineInsights(accountId: string): Promise<Insight[]> {
+		const nowIso = new Date().toISOString();
+		const prefix = `/accounts/${accountId}`;
+		const candidates = await this.insights
+			.filter(
+				(insight) =>
+					insight.isActive &&
+					!insight.dismissedAt &&
+					!insight.readAt &&
+					insight.type !== 'prediction' &&
+					this.insightEffectiveForUnread(insight, nowIso)
+			)
+			.toArray();
+		return candidates.filter((insight) => {
+			if (insight.actionUrl?.startsWith(prefix)) return true;
+			if (!insight.metadata) return false;
+			try {
+				const m = JSON.parse(insight.metadata) as { accountId?: string };
+				return m.accountId === accountId;
+			} catch {
+				return false;
+			}
+		});
+	}
+
 	async getUnreadInsights(): Promise<Insight[]> {
+		const nowIso = new Date().toISOString();
 		return await this.insights
 			.filter(
 				(insight) =>
@@ -2872,7 +2911,8 @@ export class BudgicDB extends Dexie {
 					!insight.dismissedAt &&
 					!insight.readAt &&
 					// Exclude prediction insights from notifications - they're available on insights page
-					insight.type !== 'prediction'
+					insight.type !== 'prediction' &&
+					this.insightEffectiveForUnread(insight, nowIso)
 			)
 			.toArray();
 	}
@@ -2883,6 +2923,7 @@ export class BudgicDB extends Dexie {
 	}
 
 	async getUnreadBySeverity(severity?: Insight['severity']): Promise<Insight[]> {
+		const nowIso = new Date().toISOString();
 		if (severity) {
 			return await this.insights
 				.where('severity')
@@ -2893,7 +2934,8 @@ export class BudgicDB extends Dexie {
 						!insight.dismissedAt &&
 						!insight.readAt &&
 						// Exclude prediction insights from notifications
-						insight.type !== 'prediction'
+						insight.type !== 'prediction' &&
+						this.insightEffectiveForUnread(insight, nowIso)
 				)
 				.toArray();
 		}
@@ -2921,8 +2963,11 @@ export class BudgicDB extends Dexie {
 	/**
 	 * Get "Earlier (read)" insights: read or dismissed, for panel collapsed section.
 	 * Excludes prediction type. Sorted by readAt/dismissedAt desc, limit 30.
+	 * Drops rows older than EARLIER_INSIGHTS_MAX_AGE_DAYS to bound growth.
 	 */
 	async getEarlierInsights(limit = 30): Promise<Insight[]> {
+		const maxAgeDays = 180;
+		const cutoff = new Date(Date.now() - maxAgeDays * 86400000).toISOString();
 		const all = await this.insights
 			.filter(
 				(insight) =>
@@ -2930,7 +2975,11 @@ export class BudgicDB extends Dexie {
 					insight.type !== 'prediction'
 			)
 			.toArray();
-		const sorted = all.sort((a, b) => {
+		const recent = all.filter((insight) => {
+			const eventAt = insight.dismissedAt || insight.readAt || '';
+			return !eventAt || eventAt >= cutoff;
+		});
+		const sorted = recent.sort((a, b) => {
 			const dateA = a.dismissedAt || a.readAt || a.updatedAt || '';
 			const dateB = b.dismissedAt || b.readAt || b.updatedAt || '';
 			return dateB.localeCompare(dateA);

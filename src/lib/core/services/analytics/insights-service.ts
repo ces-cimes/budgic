@@ -161,6 +161,18 @@ class InsightsService {
         return await db.getLowTierInlineInsights();
     }
 
+    /** Unread insights scoped to one account (inline fee risk on account detail). */
+    async getAccountScopedInlineInsights(accountId: string): Promise<Insight[]> {
+        return await db.getAccountScopedInlineInsights(accountId);
+    }
+
+    /**
+     * Soft-delete insights past expiresAt. Safe to call often (e.g. bell refresh).
+     */
+    async expireStaleInsights(): Promise<void> {
+        await this.cleanupExpiredInsights();
+    }
+
     /**
      * Get unread alerts count (severity === 'alert')
      */

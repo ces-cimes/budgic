@@ -1,20 +1,98 @@
 <script lang="ts">
 	import { swipe, type SwipeDirection } from '$lib/actions/swipe';
 	import { goto } from '$app/navigation';
-	import { AlertCircle, CheckCircle, ChevronDown, ChevronUp, Info, TrendingUp, X } from '@lucide/svelte';
+	import { AlertCircle, CheckCircle, ChevronDown, Info, TrendingUp, X } from '@lucide/svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
-	import { Button } from '$lib/components/ui/button';
+	import { formatCurrencyWithLocale } from '$lib/utils/currency-utils';
+	import { insightsDeepLinkForType } from '$lib/utils/alert-tiers';
 	import type { Insight } from '$lib/core/db';
 
 	interface Props {
-		insight: Insight;
-		onDismiss?: (insight: Insight) => void;
-		onClick?: (insight: Insight) => void;
-		/** When provided, card will auto-mark as read after 1s in viewport (IntersectionObserver). */
+		/** One or more insights (grouped panel card uses same type/title/severity). */
+		insights: Insight[];
+		onDismiss?: (insights: Insight[]) => void;
+		onClick?: (insights: Insight[]) => void;
+		/** When provided, card will auto-mark as read after 1s in viewport (single insight only). */
 		onMarkAsRead?: (insight: Insight) => void;
+		categoryLabel?: string;
+		goalLabel?: string;
+		displayCurrency?: string;
+		numberLocale?: string;
 	}
 
-	const { insight, onDismiss, onClick, onMarkAsRead }: Props = $props();
+	const {
+		insights,
+		onDismiss,
+		onClick,
+		onMarkAsRead,
+		categoryLabel,
+		goalLabel,
+		displayCurrency,
+		numberLocale = 'en-US'
+	}: Props = $props();
+
+	const primary = $derived(insights[0]);
+	const groupSize = $derived(insights.length);
+
+	const displaySeverity = $derived.by((): Insight['severity'] => {
+		if (insights.some((i) => i.severity === 'alert')) return 'alert';
+		if (insights.some((i) => i.severity === 'warning')) return 'warning';
+		if (insights.some((i) => i.severity === 'success')) return 'success';
+		return 'info';
+	});
+
+	/** Match Earlier-row severity tint language (unread: critical vs high). */
+	const panelSurfaceClass = $derived(
+		displaySeverity === 'alert'
+			? 'border-destructive/40 bg-destructive/[0.08] dark:border-destructive/35 dark:bg-destructive/[0.12]'
+			: displaySeverity === 'warning'
+				? 'border-amber-500/35 bg-amber-500/[0.07] dark:border-amber-400/30 dark:bg-amber-500/[0.09]'
+				: 'border-border bg-muted/30'
+	);
+
+	function panelSeverityLabel(sev: Insight['severity']): string {
+		if (sev === 'alert') return 'Critical';
+		if (sev === 'warning') return 'High';
+		return sev;
+	}
+
+	function metadataAccountLine(metadata: string | undefined): string | null {
+		if (!metadata) return null;
+		try {
+			const o = JSON.parse(metadata) as Record<string, unknown>;
+			const id = o.accountId;
+			if (typeof id === 'string' && id.length > 0) {
+				return id.length > 12 ? `Account · ${id.slice(0, 8)}…` : `Account · ${id}`;
+			}
+		} catch {
+			/* non-JSON or unexpected shape */
+		}
+		return null;
+	}
+
+	const detailLines = $derived.by(() => {
+		const lines: string[] = [];
+		const cur = displayCurrency ?? 'USD';
+		const ins = primary;
+		if (ins.amount != null && !Number.isNaN(ins.amount)) {
+			lines.push(formatCurrencyWithLocale(ins.amount, cur, numberLocale));
+		}
+		if (ins.percentage != null && !Number.isNaN(ins.percentage)) {
+			const p = ins.percentage;
+			lines.push(`${Number.isInteger(p) ? String(p) : p.toFixed(1)}%`);
+		}
+		if (ins.remaining != null && !Number.isNaN(ins.remaining)) {
+			lines.push(`Remaining ${formatCurrencyWithLocale(ins.remaining, cur, numberLocale)}`);
+		}
+		if (ins.threshold != null && !Number.isNaN(ins.threshold)) {
+			lines.push(`Threshold ${formatCurrencyWithLocale(ins.threshold, cur, numberLocale)}`);
+		}
+		if (categoryLabel) lines.push(`Category · ${categoryLabel}`);
+		if (goalLabel) lines.push(`Goal · ${goalLabel}`);
+		const metaLine = metadataAccountLine(ins.metadata);
+		if (metaLine) lines.push(metaLine);
+		return lines;
+	});
 
 	let isExpanded = $state(false);
 	let swipeOffset = $state(0);
@@ -26,7 +104,7 @@
 	let hasFiredMarkAsRead = $state(false);
 
 	const SWIPE_THRESHOLD = 80;
-	const isCritical = $derived(insight.severity === 'alert');
+	const isCritical = $derived(insights.some((i) => i.severity === 'alert'));
 
 	function getMaxSwipeTravel() {
 		return containerElement?.offsetWidth ?? 400;
@@ -37,7 +115,6 @@
 	}
 
 	function handleSwipeMove(distance: number) {
-		// Always follow the finger so canceling (dragging back) works; clamp to max travel
 		const maxTravel = getMaxSwipeTravel();
 		swipeOffset = Math.max(-maxTravel, Math.min(maxTravel, distance));
 	}
@@ -47,38 +124,22 @@
 			isDismissing = true;
 			swipeOffset = -getMaxSwipeTravel();
 			setTimeout(() => {
-				onDismiss?.(insight);
+				onDismiss?.(insights);
 				isSwiping = false;
 			}, 300);
 		} else if (direction === 'right') {
 			isDismissing = true;
 			swipeOffset = getMaxSwipeTravel();
 			setTimeout(() => {
-				onDismiss?.(insight);
+				onDismiss?.(insights);
 				isSwiping = false;
 			}, 300);
 		} else {
-			// Snap back to center (release before threshold or canceled)
 			swipeOffset = 0;
 			setTimeout(() => {
 				isSwiping = false;
 			}, 100);
 		}
-	}
-	
-	function handleClick(e: MouseEvent | KeyboardEvent) {
-		// Don't trigger click if we're swiping
-		if (isSwiping || Math.abs(swipeOffset) > 10) {
-			e.preventDefault();
-			e.stopPropagation();
-			return;
-		}
-		onClick?.(insight);
-	}
-	
-	function toggleExpanded(e: MouseEvent) {
-		e.stopPropagation();
-		isExpanded = !isExpanded;
 	}
 
 	function handleDismissClick(e: MouseEvent) {
@@ -87,39 +148,44 @@
 		if (isCritical) {
 			dismissConfirmOpen = true;
 		} else {
-			onDismiss?.(insight);
+			onDismiss?.(insights);
 		}
 	}
 
 	function handleConfirmDismiss() {
 		dismissConfirmOpen = false;
-		onDismiss?.(insight);
+		onDismiss?.(insights);
 	}
 
 	function handleCtaClick(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
-		// Use parent handler when provided so alert is marked read and panel can close/navigate
 		if (onClick) {
-			onClick(insight);
-		} else if (insight.actionUrl) {
-			goto(insight.actionUrl);
+			onClick(insights);
+		} else if (primary.actionUrl) {
+			goto(primary.actionUrl);
 		}
 	}
-	
+
+	function handleViewSimilarClick(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		goto(insightsDeepLinkForType(primary.type));
+	}
+
 	function getSeverityColor(severity: Insight['severity']) {
 		switch (severity) {
 			case 'alert':
 				return 'text-destructive';
 			case 'warning':
-				return 'text-warning';
+				return 'text-amber-600 dark:text-amber-400';
 			case 'success':
 				return 'text-green-600';
 			default:
 				return 'text-muted-foreground';
 		}
 	}
-	
+
 	function getSeverityIcon(severity: Insight['severity']) {
 		switch (severity) {
 			case 'alert':
@@ -132,33 +198,60 @@
 				return Info;
 		}
 	}
-	
+
 	function getRelativeTime(timestamp: string) {
 		const date = new Date(timestamp);
 		const now = new Date();
 		const diff = now.getTime() - date.getTime();
-		
+
 		const minutes = Math.floor(diff / 60000);
 		const hours = Math.floor(diff / 3600000);
 		const days = Math.floor(diff / 86400000);
-		
+
 		if (minutes < 1) return 'Just now';
 		if (minutes < 60) return `${minutes}m ago`;
 		if (hours < 24) return `${hours}h ago`;
 		if (days < 7) return `${days}d ago`;
-		
+
 		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 	}
-	
-	const Icon = $derived(getSeverityIcon(insight.severity));
-	const iconColor = $derived(getSeverityColor(insight.severity));
-	const relativeTime = $derived(getRelativeTime(insight.createdAt));
 
-	// Auto-mark as read after 1s in viewport (IntersectionObserver). Badge updates in real time.
+	const Icon = $derived(getSeverityIcon(displaySeverity));
+	const iconColor = $derived(getSeverityColor(displaySeverity));
+	const relativeTime = $derived(getRelativeTime(primary.createdAt));
+
+	const hasPrimaryAction = $derived(!!primary.actionUrl || !!onClick);
+
+	const hasExpandableContent = $derived(
+		groupSize > 1 ||
+			detailLines.length > 0 ||
+			(primary.message?.trim()?.length ?? 0) > 0
+	);
+
+	const primaryActionLabel = $derived(
+		primary.actionUrl ? primary.actionText || 'Take action' : 'View in Insights'
+	);
+
+	function handlePrimaryClick(e: MouseEvent) {
+		e.stopPropagation();
+		if (hasPrimaryAction) {
+			handleCtaClick(e);
+		} else if (hasExpandableContent) {
+			e.preventDefault();
+			isExpanded = !isExpanded;
+		}
+	}
+
+	function handleExpandClick(e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		isExpanded = !isExpanded;
+	}
+
 	$effect(() => {
 		const el = cardRootElement;
 		const callback = onMarkAsRead;
-		if (!el || !callback || hasFiredMarkAsRead) return;
+		if (!el || !callback || hasFiredMarkAsRead || insights.length !== 1) return;
 
 		let timeoutId: ReturnType<typeof setTimeout> | null = null;
 		const observer = new IntersectionObserver(
@@ -169,7 +262,7 @@
 					timeoutId = setTimeout(() => {
 						timeoutId = null;
 						hasFiredMarkAsRead = true;
-						callback(insight);
+						callback(primary);
 						observer.disconnect();
 					}, 1000);
 				} else {
@@ -191,16 +284,13 @@
 </script>
 
 <div bind:this={cardRootElement} class="relative select-none">
-	<!-- Swipe indicator backgrounds: left when swiping right, right when swiping left -->
 	<div class="absolute inset-0 pointer-events-none z-0 flex">
-		<!-- Left side (visible when card is swiped right) -->
 		<div
 			class="flex items-center justify-start h-full px-6 transition-opacity duration-150 ease-out"
 			style="opacity: {swipeOffset > SWIPE_THRESHOLD ? 1 : 0};"
 		>
 			<div class="text-destructive font-semibold text-sm">Swipe to dismiss</div>
 		</div>
-		<!-- Right side (visible when card is swiped left) -->
 		<div
 			class="flex flex-1 items-center justify-end h-full px-6 transition-opacity duration-150 ease-out"
 			style="opacity: {swipeOffset < -SWIPE_THRESHOLD ? 1 : 0};"
@@ -209,7 +299,6 @@
 		</div>
 	</div>
 
-	<!-- Card that moves over the background -->
 	<div
 		bind:this={containerElement}
 		use:swipe={{
@@ -222,81 +311,124 @@
 		style="touch-action: pan-y; transform: translateX({swipeOffset}px); transition: {isDismissing ? 'transform 300ms ease-out' : swipeOffset === 0 ? 'transform 200ms ease-out' : 'none'};"
 	>
 		<div
-			role="button"
-			tabindex="0"
-			class="relative w-full text-left bg-secondary squircle-border squircle-fill-surface squircle-2xl overflow-hidden cursor-pointer transition-all duration-100 ease-out active:bg-accent active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-			style="-webkit-tap-highlight-color: transparent; opacity: {Math.max(0.5, Math.min(1, 1 - Math.abs(swipeOffset) / 600))};"
-			onclick={handleClick}
-			onkeydown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					handleClick(e);
-				}
-			}}
+			class="relative rounded-lg border overflow-hidden transition-colors {panelSurfaceClass}"
+			style="opacity: {Math.max(0.5, Math.min(1, 1 - Math.abs(swipeOffset) / 600))};"
 		>
-			<!-- Header: icon + content + dismiss -->
-			<div class="px-4 py-3 flex items-start gap-3">
-				<div class="mt-0.5 shrink-0">
-					<Icon class="w-5 h-5 {iconColor}" />
-				</div>
-				<div class="flex-1 min-w-0">
-					<div class="flex items-start justify-between gap-2 mb-1">
-						<h4 class="text-sm font-semibold leading-tight text-primary flex-1">
-							{insight.title}
-						</h4>
-						<span class="text-xs text-muted-foreground shrink-0">
-							{relativeTime}
-						</span>
+			<div class="flex min-w-0">
+				<button
+					type="button"
+					class="min-w-0 flex-1 text-left py-2 flex gap-2 items-start rounded-none hover:bg-black/[0.04] dark:hover:bg-white/[0.05] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring {onDismiss || hasExpandableContent
+						? 'pl-3 pr-2'
+						: 'px-3'}"
+					onclick={handlePrimaryClick}
+				>
+					<span class="mt-0.5 shrink-0" aria-hidden="true">
+						<Icon class="w-4 h-4 {iconColor}" />
+					</span>
+					<div class="min-w-0 flex-1">
+						<div
+							class="mb-0.5 flex min-w-0 items-center justify-between gap-x-2 gap-y-0.5"
+						>
+							<span
+								class="text-[10px] font-semibold uppercase tracking-wider {displaySeverity === 'alert'
+									? 'text-destructive'
+									: displaySeverity === 'warning'
+										? 'text-amber-700 dark:text-amber-400'
+										: 'text-muted-foreground'}"
+							>
+								{panelSeverityLabel(displaySeverity)}
+							</span>
+							<span class="shrink-0 text-[10px] text-muted-foreground tabular-nums">
+								{relativeTime}
+							</span>
+						</div>
+						<div class="font-medium text-foreground text-sm leading-snug">
+							{primary.title}
+						</div>
+						{#if hasPrimaryAction}
+							<span
+								class="mt-1.5 inline-flex max-w-full items-center gap-0.5 rounded border border-border bg-background/60 px-1.5 py-0.5 text-[10px] font-medium leading-tight text-muted-foreground"
+							>
+								<span class="truncate">{primaryActionLabel}</span>
+								<span class="shrink-0 opacity-70" aria-hidden="true">→</span>
+							</span>
+						{/if}
+					</div>
+				</button>
+
+				{#if onDismiss || hasExpandableContent}
+					<div
+						class="flex w-11 shrink-0 flex-col divide-y divide-border/50 self-stretch border-l border-border/50"
+					>
 						{#if onDismiss}
 							<button
 								type="button"
-								class="shrink-0 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline focus-visible:ring-2 focus-visible:ring-ring"
+								class="flex min-h-10 flex-1 items-center justify-center text-muted-foreground hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.08] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
 								aria-label="Dismiss"
 								onclick={handleDismissClick}
 							>
 								<X class="w-4 h-4" />
 							</button>
 						{/if}
+						{#if hasExpandableContent}
+							<button
+								type="button"
+								class="flex min-h-10 flex-1 items-center justify-center text-muted-foreground hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/[0.08] focus-visible:outline focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+								aria-expanded={isExpanded}
+								aria-label={isExpanded ? 'Hide details' : 'Show details'}
+								onclick={handleExpandClick}
+							>
+								<ChevronDown
+									class="w-4 h-4 transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}"
+									aria-hidden="true"
+								/>
+							</button>
+						{/if}
 					</div>
-					<p class="text-xs text-muted-foreground leading-relaxed {isExpanded ? '' : 'line-clamp-2'}">
-						{insight.message}
-					</p>
-					{#if insight.message.length > 80}
-						<button
-							class="mt-1 flex items-center gap-1 text-xs text-primary/70 hover:text-primary transition-colors"
-							onclick={toggleExpanded}
+				{/if}
+			</div>
+
+			{#if isExpanded && hasExpandableContent}
+				<div class="border-t border-border/60 px-3 pb-3 pt-2 space-y-2" role="region">
+					{#if groupSize > 1}
+						<p class="text-xs text-muted-foreground">
+							+{groupSize - 1} similar alert{groupSize - 2 === 0 ? '' : 's'}
+						</p>
+					{/if}
+					{#if detailLines.length > 0}
+						<ul
+							class="space-y-0.5 text-xs text-muted-foreground list-none pl-0"
+							aria-label="Details"
 						>
-							{#if isExpanded}
-								<ChevronUp class="w-3 h-3" />
-								<span>Show less</span>
-							{:else}
-								<ChevronDown class="w-3 h-3" />
-								<span>Show more</span>
-							{/if}
+							{#each detailLines as line, i (i)}
+								<li>{line}</li>
+							{/each}
+						</ul>
+					{/if}
+					<p class="text-xs text-muted-foreground leading-relaxed">
+						{primary.message}
+					</p>
+					{#if groupSize > 1}
+						<button
+							type="button"
+							class="text-xs text-primary font-medium hover:underline text-left"
+							onclick={handleViewSimilarClick}
+						>
+							View in Insights
 						</button>
 					{/if}
-					{#if insight.actionUrl}
-						<Button
-							variant="outline"
-							size="sm"
-							class="mt-2 w-full sm:w-auto"
-							onclick={handleCtaClick}
-						>
-							{insight.actionText || 'Take action'}
-							<span class="ml-1">→</span>
-						</Button>
-					{/if}
 				</div>
-			</div>
+			{/if}
 		</div>
 
-		<!-- Critical: dismiss confirmation -->
 		<AlertDialog.Root bind:open={dismissConfirmOpen}>
 			<AlertDialog.Content>
 				<AlertDialog.Header>
-					<AlertDialog.Title>Dismiss this alert?</AlertDialog.Title>
+					<AlertDialog.Title>Dismiss {groupSize > 1 ? 'these alerts' : 'this alert'}?</AlertDialog.Title>
 					<AlertDialog.Description>
-						This alert will reappear if the risk persists.
+						{groupSize > 1
+							? 'These alerts will reappear if the risk persists.'
+							: 'This alert will reappear if the risk persists.'}
 					</AlertDialog.Description>
 				</AlertDialog.Header>
 				<AlertDialog.Footer>

@@ -43,6 +43,7 @@
 
 	// Derived values
 	const insightsCount = $derived(() => insights.filter((i) => i.isActive).length);
+	const insightTypeFilter = $derived($page.url.searchParams.get('insightType'));
 
 	onMount(async () => {
 		try {
@@ -158,7 +159,7 @@
 			>
 				{#snippet children()}
 					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
-						<PatternsTabContent {isLoading} {userCurrency} />
+						<PatternsTabContent {isLoading} {userCurrency} insightTypeFilter={insightTypeFilter ?? undefined} />
 					</TabContent>
 
 					<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>

@@ -64,6 +64,7 @@ class NotificationsService {
 	 */
 	async refresh(): Promise<void> {
 		try {
+			await insightsService.expireStaleInsights();
 			const [allUnread, earlier] = await Promise.all([
 				insightsService.getUnreadInsights(),
 				insightsService.getEarlierInsights()

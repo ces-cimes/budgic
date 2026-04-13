@@ -58,3 +58,45 @@ export function splitByTier(insights: Insight[]): {
 		high: panel.filter((i) => i.severity === 'warning')
 	};
 }
+
+/** Stable key for deduping panel rows (same type + title + severity → one card). */
+export function panelInsightGroupKey(i: Insight): string {
+	return `${i.type}\0${i.title}\0${i.severity}`;
+}
+
+/**
+ * Group panel-tier insights for display: newest-first globally, one row per key.
+ * Within each group, insights are newest-first (primary = group[0]).
+ */
+export function groupPanelAlertsForDisplay(insights: Insight[]): Insight[][] {
+	const sorted = [...insights].sort((a, b) =>
+		(b.createdAt || '').localeCompare(a.createdAt || '')
+	);
+	const byKey = new Map<string, Insight[]>();
+	for (const i of sorted) {
+		const k = panelInsightGroupKey(i);
+		const arr = byKey.get(k) ?? [];
+		arr.push(i);
+		byKey.set(k, arr);
+	}
+	const out: Insight[][] = [];
+	const seen = new Set<string>();
+	for (const i of sorted) {
+		const k = panelInsightGroupKey(i);
+		if (seen.has(k)) continue;
+		seen.add(k);
+		const g = byKey.get(k);
+		if (g) out.push(g);
+	}
+	return out;
+}
+
+/** Insights deep-link tab: fee-style savings → Optimize; else Patterns. */
+export function insightsTabForAlertType(type: Insight['type']): 'optimize' | 'patterns' {
+	return type === 'savings_opportunity' ? 'optimize' : 'patterns';
+}
+
+export function insightsDeepLinkForType(type: Insight['type']): string {
+	const tab = insightsTabForAlertType(type);
+	return `/insights?tab=${tab}&insightType=${encodeURIComponent(type)}`;
+}
