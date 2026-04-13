@@ -20,7 +20,7 @@ These are the **core flows** you can ship to testers on **Android (Capacitor)** 
 - **Settings** — profile, display, currency, plan preferences, data **export / reset**.
 - **Onboarding** — `/onboarding` flow; completion stored in preferences (first-run polish still tracked in docs).
 - **Offline-first data** — **IndexedDB** (Dexie); optional network for **exchange rates** when configured.
-- **Native Android build** — Capacitor wraps the production frontend build; see [docs/actionable/MVP_USER_TESTING.md](./docs/actionable/MVP_USER_TESTING.md).
+- **Native Android build** — Capacitor wraps the production frontend build; see [docs/actionable/MVP_READY.md](./docs/actionable/MVP_READY.md).
 
 ## Aspirations (roadmap, not MVP promises)
 
@@ -28,7 +28,7 @@ Longer-horizon or partially implemented directions—**do not** treat README bul
 
 - **Tauri** packaging for **desktop + mobile** (migration target from Capacitor-only Android).
 - **Deeper predictive / behavioral** analytics and richer “financial health” storytelling.
-- **Full UX spec parity** (global FAB patterns, desktop sidebar widgets, alerts panel spec, first-run checklist)—tracked in [docs/actionable/DISCREPANCY_QUICK_REF.md](./docs/actionable/DISCREPANCY_QUICK_REF.md) and [docs/actionable/UX_MIGRATION_TASKS.md](./docs/actionable/UX_MIGRATION_TASKS.md).
+- **Full UX spec parity** (global FAB patterns, desktop sidebar widgets, alerts panel spec, first-run checklist)—working checklist [docs/actionable/MVP_READY.md](./docs/actionable/MVP_READY.md); detail in [docs/00_legacy/DISCREPANCY_QUICK_REF.md](./docs/00_legacy/DISCREPANCY_QUICK_REF.md) and [docs/00_legacy/UX_MIGRATION_TASKS.md](./docs/00_legacy/UX_MIGRATION_TASKS.md).
 - **Progressive maturity** of the UI (hide or reveal advanced surfaces by user level) where not fully wired.
 - **Bank linking / cloud sync** — not in scope for current architecture (local-first).
 
@@ -37,7 +37,7 @@ Longer-horizon or partially implemented directions—**do not** treat README bul
 | Type | Location |
 |------|-----------|
 | **Index (actionable vs informational vs legacy)** | [docs/README.md](./docs/README.md) |
-| **User-test MVP, Android checklist, Tauri outline** | [docs/actionable/MVP_USER_TESTING.md](./docs/actionable/MVP_USER_TESTING.md) |
+| **User-test MVP, Android checklist** | [docs/actionable/MVP_READY.md](./docs/actionable/MVP_READY.md) · archived narrative [docs/00_legacy/MVP_USER_TESTING.md](./docs/00_legacy/MVP_USER_TESTING.md) |
 | **Design Bible (canonical)** | [docs/informational/DESIGN_BIBLE.md](./docs/informational/DESIGN_BIBLE.md) |
 | **UX spec** | [docs/informational/UX_SPEC.md](./docs/informational/UX_SPEC.md) |
 | **Service architecture** | [docs/informational/architecture/](docs/informational/architecture/) (see README in that folder) |
