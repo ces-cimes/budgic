@@ -197,16 +197,14 @@
 	{/snippet}
 
 	{#snippet children()}
-		<div class="mx-auto h-full max-w-2xl w-full px-5 sm:px-6">
 			<TabContentWrapper
 				tabs={planTabs}
 				activeTab={activeTab}
 				onTabChange={handleTabChange}
-				class="flex-1"
 			>
 				{#snippet children()}
 					<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
-						<div class="space-y-5 px-4 py-5">
+						<div class="space-y-5 py-5">
 							{#if enhancedAllowance}
 								<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5 space-y-4">
 									<AllowanceVisualization allowance={enhancedAllowance} showDetails={true} showRecommendations={true} negativeStatus={negativeAllowanceStatus} recoverySuggestions={recoverySuggestions} />
@@ -239,7 +237,7 @@
 					</TabContent>
 
 					<TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
-						<div class="space-y-5 px-4 py-5">
+						<div class="space-y-5 py-5">
 							<!-- Financial summary -->
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
 								<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Financial summary</h2>
@@ -276,7 +274,7 @@
 					</TabContent>	
 
 					<TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
-						<div class="px-4 py-5">
+						<div class="py-5">
 							<!-- Goals sub-tabs — pill style -->
 							<div class="flex items-center gap-1 mb-5">
 								{#each goalsSubTabs as t}
@@ -310,6 +308,5 @@
 
 				{/snippet}
 			</TabContentWrapper>
-		</div>
 	{/snippet}
 </PageLayout>

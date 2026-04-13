@@ -107,7 +107,7 @@
 </script>
 
 <div class="predictions-tab h-full overflow-y-auto {className}">
-  <div class="p-2 sm:p-4 max-w-4xl mx-auto space-y-4 sm:space-y-6">
+  <div class="py-2 sm:py-4 space-y-4 sm:space-y-6">
 
     <!-- Loading State -->
     {#if isLoading || localLoading}

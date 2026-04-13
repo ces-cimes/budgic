@@ -267,8 +267,8 @@
 	});
 </script>
 
-<div class="patterns-tab h-full overflow-y-auto {className}">
-	<div class="p-2 sm:p-4 max-w-4xl mx-auto space-y-6">
+<div class="patterns-tab {className}">
+	<div class="py-2 sm:py-4 space-y-6">
 		{#if parentLoading || loading}
 			<div class="space-y-4">
 				<div class="h-20 rounded-xl bg-[var(--color-bg-tertiary)] animate-pulse"></div>

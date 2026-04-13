@@ -151,12 +151,10 @@
 	{/snippet}
 
 	{#snippet children()}
-		<div class="mx-auto h-full max-w-2xl w-full px-5 sm:px-6">
 			<TabContentWrapper
 				tabs={insightsTabs}
 				{activeTab}
 				onTabChange={handleTabChange}
-				class="flex-1"
 			>
 				{#snippet children()}
 					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
@@ -165,7 +163,7 @@
 
 					{#if insightsTabs.some((t) => t.id === 'optimize')}
 						<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
-							<div class="space-y-6 px-4 py-5">
+							<div class="space-y-6 py-5">
 								<section>
 									<h2 class="text-xs font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)] mb-4">Fee avoidance</h2>
 									<FeeAvoidancePanel
@@ -187,6 +185,5 @@
 					</TabContent>
 				{/snippet}
 			</TabContentWrapper>
-		</div>
 	{/snippet}
 </PageLayout>

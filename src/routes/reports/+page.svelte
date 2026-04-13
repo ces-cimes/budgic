@@ -210,13 +210,12 @@
   {/snippet}
 
   {#snippet children()}
-    <TabContentWrapper
-      tabs={reportTabs}
-      activeTab={activeTab}
-      onTabChange={handleTabChange}
-      class="flex-1"
-    >
-      {#snippet children()}
+      <TabContentWrapper
+        tabs={reportTabs}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+      >
+        {#snippet children()}
         <TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={reportTabs}>
           <OverviewTab
             totalSpending={totalSpending()}
@@ -265,7 +264,7 @@
             onUpdateSettings={handleUpdateSettings}
           />
         </TabContent>
-      {/snippet}
-    </TabContentWrapper>
+        {/snippet}
+      </TabContentWrapper>
   {/snippet}
 </PageLayout>

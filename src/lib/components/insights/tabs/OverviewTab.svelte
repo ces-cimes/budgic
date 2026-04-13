@@ -79,7 +79,7 @@
 </script>
 
 <div class="overview-tab h-full overflow-y-auto {className}">
-  <div class="px-4 py-5 max-w-4xl mx-auto space-y-6">
+  <div class="py-5 space-y-6">
     <!-- Loading State — skeleton, no spinner -->
     {#if isLoading}
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">

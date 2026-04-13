@@ -117,14 +117,14 @@
 
 <div 
   bind:this={contentContainer}
-  class="overflow-hidden h-full {className} {classProp}"
+  class="min-h-0 w-full overflow-x-hidden overflow-y-visible {className} {classProp}"
   ontouchstart={handleTouchStart}
   ontouchmove={handleTouchMove}
   ontouchend={handleTouchEnd}
 >
   <!-- Swipe-aware content slider -->
   <div 
-    class="tab-slider flex transition-transform duration-200 ease-out h-full"
+    class="tab-slider flex items-start transition-transform duration-200 ease-out"
     class:transition-none={isDragging}
     style="transform: {contentTransform}; width: {Math.max(tabs.length, 1) * 100}%"
   >
@@ -135,6 +135,6 @@
 <style>
   .tab-slider {
     transform: translateZ(0); /* Force GPU acceleration */
-    contain: layout style paint; /* Optimize rendering */
+    contain: layout style; /* Avoid paint containment clipping during horizontal tab transitions */
   }
 </style>

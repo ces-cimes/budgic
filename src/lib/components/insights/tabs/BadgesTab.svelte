@@ -63,8 +63,8 @@
   const unlockedPercentage = $derived(totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0);
 </script>
 
-<div class="badges-tab h-full overflow-y-auto {className}">
-  <div class="p-2 sm:p-4 max-w-4xl mx-auto space-y-4 sm:space-y-6">
+<div class="badges-tab {className}">
+  <div class="py-2 sm:py-4 space-y-4 sm:space-y-6">
     <!-- Loading State -->
     {#if isLoading || localLoading}
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -97,7 +97,7 @@
             <div
               class="bg-primary h-2 rounded-full transition-all duration-500"
               style="width: {unlockedPercentage}%"
-            />
+            ></div>
           </div>
         </div>
 

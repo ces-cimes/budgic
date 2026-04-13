@@ -20,7 +20,7 @@
   }
 </script>
 
-<div class="p-2 sm:p-4 space-y-6 max-w-4xl mx-auto">
+<div class="py-2 sm:py-4 space-y-6">
   <!-- Category Overview -->
   <Card.Root class="p-6">
     <div class="flex items-center gap-4 mb-4">

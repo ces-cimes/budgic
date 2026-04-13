@@ -13,7 +13,7 @@
 </script>
 
 <div class="patterns-tab h-full overflow-y-auto {className}">
-  <div class="p-2 sm:p-4 max-w-4xl mx-auto space-y-4 sm:space-y-6">
+  <div class="py-2 sm:py-4 space-y-4 sm:space-y-6">
     <!-- Header -->
     <div>
       <h2 class="text-base sm:text-lg font-semibold text-foreground mb-2">Behavioral Patterns</h2>

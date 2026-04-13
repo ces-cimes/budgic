@@ -25,7 +25,7 @@
   }
 </script>
 
-<div class="p-2 sm:p-4 space-y-6">
+<div class="py-2 sm:py-4 space-y-6">
   <!-- Quick Stats -->
   <div class="grid grid-cols-2 gap-4">
     <QuickStatsCard

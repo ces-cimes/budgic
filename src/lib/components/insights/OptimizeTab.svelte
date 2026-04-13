@@ -83,7 +83,7 @@
 	}
 </script>
 
-<div class="space-y-6 p-2 sm:p-4">
+<div class="space-y-6 py-2 sm:py-4">
 	{#if error}
 		<Card.Root class="border-destructive">
 			<Card.Content class="p-4">

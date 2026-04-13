@@ -12,10 +12,12 @@
 </script>
 
 <div 
-  class="tab-panel flex-shrink-0 h-full {isActive ? 'tab-panel--active overflow-y-auto' : 'overflow-hidden'} {className}"
+  class="tab-panel min-w-0 flex-shrink-0 {isActive ? 'tab-panel--active' : 'h-0 min-h-0 overflow-hidden'} {className}"
   style="width: {100 / tabCount}%"
 >
-  {@render children()}
+  <div class="mx-auto w-full max-w-4xl px-5 sm:px-6">
+    {@render children()}
+  </div>
 </div>
 
 <style>
