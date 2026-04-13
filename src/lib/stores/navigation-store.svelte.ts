@@ -42,6 +42,8 @@ class NavigationStore {
 	private _mobileItems = $state<NavItemConfig[]>([]);
 	private _desktopItems = $state<NavItemConfig[]>([]);
 	private _badges = $state<Map<string, number | boolean | string>>(new Map());
+	/** Matches `notificationsService.badgeVariant` after each alerts refresh (sidebar bell). */
+	private _alertsBadgeVariant = $state<'destructive' | 'warning' | null>(null);
 	private _loading = $state(true);
 	private _initialized = $state(false);
 
@@ -68,6 +70,11 @@ class NavigationStore {
 
 	get badges() {
 		return this._badges;
+	}
+
+	/** Red if any Critical unread, amber if only High; null when no panel unread alerts. */
+	get alertsBadgeVariant() {
+		return this._alertsBadgeVariant;
 	}
 
 	get loading() {
@@ -259,7 +266,7 @@ class NavigationStore {
 					const uniqueOrder = [...new Set(mappedIds)];
 					const orderedItems = uniqueOrder
 						.map((id) => defaultItems.find((item) => item.id === id))
-						.filter(Boolean);
+						.filter((item): item is NavItemConfig => item != null);
 					const existingIds = new Set(uniqueOrder);
 					const newItems = defaultItems.filter((item) => !existingIds.has(item.id));
 
@@ -309,8 +316,10 @@ class NavigationStore {
 			try {
 				await notificationsService.refresh();
 				this.setBadge('alerts', notificationsService.unreadCount);
+				this._alertsBadgeVariant = notificationsService.badgeVariant;
 			} catch {
 				this.setBadge('alerts', 0);
+				this._alertsBadgeVariant = null;
 			}
 
 			// Update reconciliation badge - count accounts needing reconciliation

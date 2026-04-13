@@ -92,6 +92,7 @@
 	const sidebar = Sidebar.useSidebar();
 	let desktopItems = $derived(navigationStore.desktopItems);
 	let badges = $derived(navigationStore.badges);
+	let alertsBadgeVariant = $derived(navigationStore.alertsBadgeVariant);
 	let loading = $derived(navigationStore.loading);
 
 	let mainItems = $derived(desktopItems.filter((i) => i.group === 'main'));
@@ -268,7 +269,9 @@
 														<div class="ml-auto shrink-0 overflow-visible">
 															<AlertBadge
 																count={typeof badgeValue === 'number' ? badgeValue : 0}
-																variant="destructive"
+																variant={alertsBadgeVariant === 'warning'
+																	? 'warning'
+																	: 'destructive'}
 															/>
 														</div>
 													</button>
