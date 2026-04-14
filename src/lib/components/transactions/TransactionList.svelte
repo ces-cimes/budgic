@@ -26,6 +26,8 @@
 	import FilterButton from './filters/FilterButton.svelte';
 	import FilterSheet from './filters/FilterSheet.svelte';
 	import { getActiveFilterCount } from './filters/filter-utils';
+	import { swipe, type SwipeDirection } from '$lib/actions/swipe';
+	import { tick } from 'svelte';
 
 	// Filter state interface
 	export interface FilterState {
@@ -163,6 +165,46 @@
 	// Filter sheet state
 	let filterSheetOpen = $state(false);
 
+	/**
+	 * Month swipe attaches whenever `showDateNavigation` is true (not only narrow viewports).
+	 * `canStart` + ghost-click suppression still gate behavior; threshold remains in swipe.ts.
+	 */
+	/** Default 100px matches swipe action; documented in swipe.ts (no update()). */
+	const MONTH_SWIPE_THRESHOLD_PX = 100;
+	/** Matches `duration-200` on the slider / month pill */
+	const MONTH_SWIPE_TRANSITION_MS = 200;
+
+	/** Horizontal translation for the list slider (px: drag, exit, and enter phases). */
+	let monthSwipeTxPx = $state(0);
+	let isMonthSwipeDragging = $state(false);
+	/** Skip transform transition when snapping translate back to 0 after commit exit. */
+	let monthSwipeInstantReset = $state(false);
+
+	/** Month pill: only animates on committed month change, not during list drag. */
+	const PILL_NUDGE_PX = 18;
+	let pillTranslatePx = $state(0);
+	let pillOpacity = $state(1);
+	let pillInstantReset = $state(false);
+
+	/** If the pointer moved this far horizontally during a month swipe, swallow the following click (ghost click). */
+	const SWIPE_CLICK_SUPPRESS_MIN_PX = 12;
+	let maxAbsMonthSwipeThisGesture = 0;
+	let suppressClickAfterMonthSwipe = false;
+	let suppressMonthSwipeClickTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Handoff from onSwipeLeft/Right to onSwipeEnd (same gesture, synchronous). */
+	let monthSwipeCommittedDirection: SwipeDirection | null = null;
+
+	let monthSwipeSurfaceEl = $state<HTMLDivElement | undefined>(undefined);
+	let monthSwipeSliderEl = $state<HTMLDivElement | undefined>(undefined);
+
+	/** Slide distance for px phases: prefer slider box, then surface, then viewport. */
+	function monthSwipeTravelPx(): number {
+		if (typeof window === 'undefined') return 400;
+		const sw = monthSwipeSliderEl?.offsetWidth ?? 0;
+		const cw = monthSwipeSurfaceEl?.clientWidth ?? 0;
+		return Math.round(sw > 0 ? sw : cw > 0 ? cw : window.innerWidth);
+	}
+
 	// Use external or internal state based on props
 	const filters = $derived(externalFilters ?? internalFilters);
 	const selectionMode = $derived(
@@ -170,6 +212,10 @@
 	);
 	const selectedIds = $derived(
 		enableSelection ? (externalSelectedIds ?? internalSelectedIds) : new Set<string>()
+	);
+
+	const monthNavKey = $derived(
+		`${filters.currentMonth.getFullYear()}-${String(filters.currentMonth.getMonth() + 1).padStart(2, '0')}`
 	);
 
 	// Sync toggle values with filter state
@@ -677,6 +723,166 @@
 		updateFilters({ ...currentFilters, currentMonth: new Date() });
 	}
 
+	function canStartMonthSwipe() {
+		return (
+			showDateNavigation &&
+			filters.dateFilterEnabled &&
+			!selectionMode &&
+			!filterSheetOpen
+		);
+	}
+
+	function clearSuppressMonthSwipeClickTimer() {
+		if (suppressMonthSwipeClickTimer != null) {
+			clearTimeout(suppressMonthSwipeClickTimer);
+			suppressMonthSwipeClickTimer = null;
+		}
+	}
+
+	function armClickSuppressionAfterMonthSwipe() {
+		if (maxAbsMonthSwipeThisGesture < SWIPE_CLICK_SUPPRESS_MIN_PX) return;
+		suppressClickAfterMonthSwipe = true;
+		clearSuppressMonthSwipeClickTimer();
+		suppressMonthSwipeClickTimer = setTimeout(() => {
+			suppressClickAfterMonthSwipe = false;
+			suppressMonthSwipeClickTimer = null;
+		}, 500);
+	}
+
+	function doubleRaf(): Promise<void> {
+		return new Promise((resolve) => {
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => resolve());
+			});
+		});
+	}
+
+	/**
+	 * List: full-width exit → navigate → enter from opposite edge (rAF so the enter frame paints).
+	 * Pill: short nudge + fade out, then after navigate enter from opposite + fade in (decoupled from list drag).
+	 */
+	async function runMonthChangeTransition(
+		direction: 'forward' | 'back',
+		navigate: () => void
+	) {
+		await tick();
+		const w = monthSwipeTravelPx();
+		const listExitTo = direction === 'forward' ? -w : w;
+		const listEnterFrom = direction === 'forward' ? w : -w;
+		const pillExitX = direction === 'forward' ? -PILL_NUDGE_PX : PILL_NUDGE_PX;
+		const pillEnterStartX = direction === 'forward' ? PILL_NUDGE_PX : -PILL_NUDGE_PX;
+
+		monthSwipeTxPx = listExitTo;
+		pillTranslatePx = pillExitX;
+		pillOpacity = 0;
+		await new Promise<void>((r) => setTimeout(r, MONTH_SWIPE_TRANSITION_MS));
+
+		navigate();
+		const listEnterSnapPx =
+			direction === 'forward'
+				? typeof window !== 'undefined'
+					? Math.round(window.innerWidth)
+					: listEnterFrom
+				: typeof window !== 'undefined'
+					? -Math.round(window.innerWidth)
+					: listEnterFrom;
+		monthSwipeInstantReset = true;
+		pillInstantReset = true;
+		monthSwipeTxPx = listEnterSnapPx;
+		pillTranslatePx = pillEnterStartX;
+		pillOpacity = 0;
+
+		await tick();
+		await doubleRaf();
+
+		monthSwipeInstantReset = false;
+		pillInstantReset = false;
+		await tick();
+		monthSwipeTxPx = 0;
+		pillTranslatePx = 0;
+		pillOpacity = 1;
+	}
+
+	function navigateToPreviousMonthWithExitAnimation() {
+		if (!filters.dateFilterEnabled) return;
+		void runMonthChangeTransition('back', () => goToPreviousMonth());
+	}
+
+	function navigateToNextMonthWithExitAnimation() {
+		if (!filters.dateFilterEnabled) return;
+		void runMonthChangeTransition('forward', () => goToNextMonth());
+	}
+
+	/** Jump to today with the same horizontal transition when the month actually changes. */
+	function navigateToCurrentMonthWithExitAnimation() {
+		if (!filters.dateFilterEnabled) return;
+		const cur = filters.currentMonth;
+		const now = new Date();
+		const diff =
+			(now.getFullYear() - cur.getFullYear()) * 12 + (now.getMonth() - cur.getMonth());
+		if (diff === 0) return;
+		const dir = diff > 0 ? 'forward' : 'back';
+		void runMonthChangeTransition(dir, () => goToCurrentMonth());
+	}
+
+	$effect(() => {
+		const surface = monthSwipeSurfaceEl;
+		if (!surface) return;
+
+		function consumeGhostClick(e: MouseEvent) {
+			const surf = monthSwipeSurfaceEl;
+			if (!surf || !suppressClickAfterMonthSwipe) return;
+			if (!(e.target instanceof Node) || !surf.contains(e.target)) return;
+			e.preventDefault();
+			e.stopImmediatePropagation();
+			suppressClickAfterMonthSwipe = false;
+			clearSuppressMonthSwipeClickTimer();
+		}
+
+		surface.addEventListener('click', consumeGhostClick, true);
+		return () => {
+			surface.removeEventListener('click', consumeGhostClick, true);
+		};
+	});
+
+	const monthSwipeActionOptions = {
+		axis: 'horizontal' as const,
+		threshold: MONTH_SWIPE_THRESHOLD_PX,
+		canStart: canStartMonthSwipe,
+		onSwipeStart: () => {
+			isMonthSwipeDragging = true;
+			maxAbsMonthSwipeThisGesture = 0;
+		},
+		onSwipeMove: (distance: number) => {
+			maxAbsMonthSwipeThisGesture = Math.max(
+				maxAbsMonthSwipeThisGesture,
+				Math.abs(distance)
+			);
+			monthSwipeTxPx = distance;
+		},
+		onSwipeLeft: () => {
+			monthSwipeCommittedDirection = 'left';
+		},
+		onSwipeRight: () => {
+			monthSwipeCommittedDirection = 'right';
+		},
+		onSwipeEnd: (_direction: SwipeDirection | null) => {
+			armClickSuppressionAfterMonthSwipe();
+			const committed = monthSwipeCommittedDirection;
+			monthSwipeCommittedDirection = null;
+			isMonthSwipeDragging = false;
+			maxAbsMonthSwipeThisGesture = 0;
+
+			if (committed === 'left') {
+				void runMonthChangeTransition('forward', () => goToNextMonth());
+			} else if (committed === 'right') {
+				void runMonthChangeTransition('back', () => goToPreviousMonth());
+			} else {
+				monthSwipeTxPx = 0;
+			}
+		}
+	};
+
 	// Update filters helper
 	function updateFilters(newFilters: FilterState) {
 		if (externalFilters) {
@@ -757,13 +963,13 @@
 	}
 </script>
 
-<div class="transaction-list">
+<div class="transaction-list max-w-full min-w-0 overflow-x-hidden">
 	{#if enableFilters}
 		<!-- Filter Bar -->
-		<div class="bg-background sticky mb-4">
+		<div class="bg-background sticky top-0 z-10 mb-4">
 			<!-- Desktop Layout -->
 			<div class="hidden items-center gap-2 md:flex">
-				<div class="flex flex-1 items-center gap-2">
+				<div class="flex min-w-0 flex-1 items-center gap-2">
 					<!-- Search -->
 					{#if enableSearch}
 						<div class="relative flex-1">
@@ -809,29 +1015,35 @@
 					{/if}
 				</div>
 
-				<!-- Month Navigation -->
 				{#if showDateNavigation}
-					<div class="flex items-center gap-1">
+					<div class="flex shrink-0 items-center gap-1">
 						<Button
 							variant="outline"
 							size="square"
-							onclick={goToPreviousMonth}
+							onclick={navigateToPreviousMonthWithExitAnimation}
 							disabled={!filters.dateFilterEnabled}
 						>
 							<ChevronLeft />
 						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={goToCurrentMonth}
-							disabled={!filters.dateFilterEnabled}
+						<span
+							class="inline-flex shrink-0 transition-[transform,opacity] duration-200 ease-out will-change-transform"
+							class:transition-none={pillInstantReset}
+							style="transform: translate3d({pillTranslatePx}px, 0, 0); opacity: {pillOpacity}"
 						>
-							{formatMonth(filters.currentMonth)}
-						</Button>
+							<Button
+								variant="ghost"
+								size="sm"
+								class="whitespace-nowrap"
+								onclick={navigateToCurrentMonthWithExitAnimation}
+								disabled={!filters.dateFilterEnabled}
+							>
+								{formatMonth(filters.currentMonth)}
+							</Button>
+						</span>
 						<Button
 							variant="outline"
 							size="square"
-							onclick={goToNextMonth}
+							onclick={navigateToNextMonthWithExitAnimation}
 							disabled={!filters.dateFilterEnabled}
 						>
 							<ChevronRight />
@@ -861,9 +1073,8 @@
 
 				<!-- Toggle and Date Row -->
 				<div class="flex items-center gap-2">
-					<!-- Toggle Group -->
 					{#if enableBasicToggles}
-						<div class="flex items-center gap-2">
+						<div class="flex shrink-0 items-center gap-2">
 							<ToggleGroup.Root type="multiple" bind:value={toggleValues}>
 								<ToggleGroup.Item value="pending" size="sm" title="Show pending transactions only">
 									<Clock />
@@ -889,30 +1100,37 @@
 						/>
 					{/if}
 
-					<!-- Month Navigation - Full width on mobile -->
 					{#if showDateNavigation}
-						<div class="flex flex-1 items-center gap-1">
+						<div class="flex min-w-0 flex-1 items-center gap-1">
 							<Button
 								variant="outline"
 								size="square"
-								onclick={goToPreviousMonth}
+								onclick={navigateToPreviousMonthWithExitAnimation}
 								disabled={!filters.dateFilterEnabled}
 							>
 								<ChevronLeft />
 							</Button>
-							<Button
-								variant="ghost"
-								size="sm"
-								class="flex-1"
-								onclick={goToCurrentMonth}
-								disabled={!filters.dateFilterEnabled}
-							>
-								{formatMonth(filters.currentMonth)}
-							</Button>
+							<div class="flex min-w-0 flex-1 justify-center">
+								<span
+									class="inline-flex shrink-0 transition-[transform,opacity] duration-200 ease-out will-change-transform"
+									class:transition-none={pillInstantReset}
+									style="transform: translate3d({pillTranslatePx}px, 0, 0); opacity: {pillOpacity}"
+								>
+									<Button
+										variant="ghost"
+										size="sm"
+										class="max-w-full whitespace-nowrap px-2"
+										onclick={navigateToCurrentMonthWithExitAnimation}
+										disabled={!filters.dateFilterEnabled}
+									>
+										{formatMonth(filters.currentMonth)}
+									</Button>
+								</span>
+							</div>
 							<Button
 								variant="outline"
 								size="square"
-								onclick={goToNextMonth}
+								onclick={navigateToNextMonthWithExitAnimation}
 								disabled={!filters.dateFilterEnabled}
 							>
 								<ChevronRight />
@@ -939,203 +1157,226 @@
 		/>
 	{/if}
 
-	<!-- Summary bar: period, totals, entry count (UX_SPEC §3.3) -->
-	{#if showSummary}
-		<section class="mb-4">
-			<div class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5">
-				<div
-					class="mb-2 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-				>
-					{formatMonth(filters.currentMonth)} · {filteredTransactions().length}
-					{filteredTransactions().length === 1 ? 'entry' : 'entries'}
-				</div>
-				<div class="grid grid-cols-3 gap-4 text-center">
-					<div>
-						<div
-							class="text-amount {summaryStats.income === 0
-								? 'text-[var(--color-text-tertiary)]'
-								: 'text-[var(--color-sage-green)]'}"
-						>
-							{formatAmountWithSign(summaryStats.income, true)}
-						</div>
-						<div
-							class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-						>
-							Income
-						</div>
-					</div>
-					<div>
-						<div
-							class="text-amount {summaryStats.expenses === 0
-								? 'text-[var(--color-text-tertiary)]'
-								: 'text-foreground'}"
-						>
-							{formatAmountWithSign(summaryStats.expenses)}
-						</div>
-						<div
-							class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-						>
-							Expenses
-						</div>
-					</div>
-					<div>
-						<div
-							class="text-amount {summaryStats.net === 0
-								? 'text-[var(--color-text-tertiary)]'
-								: summaryStats.net >= 0
-									? 'text-[var(--color-sage-green)]'
-									: 'text-[var(--color-warm-coral)]'}"
-						>
-							{formatAmountWithSign(summaryStats.net, true)}
-						</div>
-						<div
-							class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-						>
-							Net
-						</div>
-					</div>
-				</div>
-			</div>
-		</section>
-	{/if}
-
-	<!-- Transaction List -->
-	<section class="space-y-6">
-		{#if filters.searchQuery.trim()}
-			<div class="text-muted-foreground text-center text-sm">
-				Search results for "{filters.searchQuery}"
-			</div>
-		{/if}
-
-		{#each filteredTransactions() as dateGroup}
-			{@const totals = dateGroupTotals[dateGroup.group.key] ?? { income: 0, expenses: 0, net: 0 }}
-			<!-- Date Group Section -->
-			<div class="space-y-1">
-				<!-- Date Group Header -->
-				<div
-					class="flex items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2"
-				>
-					<h3
-						class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-					>
-						{dateGroup.group.label}
-					</h3>
-					<div class="flex items-center gap-3">
-						{#if totals.income > 0}
-							<span class="text-amount-sm text-[var(--color-sage-green)]"
-								>{formatAmountWithSign(totals.income, true)}</span
-							>
-						{/if}
-						{#if totals.expenses !== 0}
-							<span class="text-amount-sm text-[var(--color-text-secondary)]"
-								>{formatAmountWithSign(totals.expenses)}</span
-							>
-						{/if}
-					</div>
-				</div>
-
-				<!-- Transactions in this date group -->
-				<div class="space-y-1">
-					{#each dateGroup.transactions as transactionOrGroup}
-						{#if selectionMode}
-							<!-- Selection checkbox -->
-							<div class="flex items-center gap-2">
-								<input
-									type="checkbox"
-									checked={isTransactionSelected(transactionOrGroup)}
-									onchange={() =>
-										toggleTransactionSelection(
-											transactionOrGroup.id || transactionOrGroup.groupId || ''
-										)}
-									class="h-4 w-4"
-								/>
-								<div class="flex-1">
-									{#if transactionOrGroup.isGroup}
-										<TransactionItem
-											transaction={transactionOrGroup}
-											onClick={handleTransactionClick}
-											context="transactions"
-											showDate={false}
-											isGroup={true}
-											groupTransactions={transactionOrGroup.transactions}
-											totalAmount={getTransactionAmount(transactionOrGroup)}
-											groupDescription={transactionOrGroup.description || 'Grouped Transaction'}
-											groupCategory={getCategoryName(transactionOrGroup)}
-											groupCurrency={getTransactionCurrency(transactionOrGroup)}
-										/>
-									{:else}
-										<TransactionItem
-											transaction={transactionOrGroup}
-											onClick={() => handleTransactionClick(transactionOrGroup)}
-											context="transactions"
-											showDate={false}
-										/>
-									{/if}
+	<div
+		bind:this={monthSwipeSurfaceEl}
+		class="max-w-full w-full overflow-x-hidden overscroll-x-contain"
+		use:swipe={showDateNavigation ? monthSwipeActionOptions : undefined}
+	>
+		<div class="w-full">
+			<!-- Summary stays outside the transformed slider so swipe translation affects only the list track. -->
+				{#if showSummary}
+					<section class="mb-4">
+							<div class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5">
+								<div
+									class="mb-2 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									{formatMonth(filters.currentMonth)} · {filteredTransactions().length}
+									{filteredTransactions().length === 1 ? 'entry' : 'entries'}
+								</div>
+								<div class="grid grid-cols-3 gap-4 text-center">
+									<div>
+										<div
+											class="text-amount {summaryStats.income === 0
+												? 'text-[var(--color-text-tertiary)]'
+												: 'text-[var(--color-sage-green)]'}"
+										>
+											{formatAmountWithSign(summaryStats.income, true)}
+										</div>
+										<div
+											class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+										>
+											Income
+										</div>
+									</div>
+									<div>
+										<div
+											class="text-amount {summaryStats.expenses === 0
+												? 'text-[var(--color-text-tertiary)]'
+												: 'text-foreground'}"
+										>
+											{formatAmountWithSign(summaryStats.expenses)}
+										</div>
+										<div
+											class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+										>
+											Expenses
+										</div>
+									</div>
+									<div>
+										<div
+											class="text-amount {summaryStats.net === 0
+												? 'text-[var(--color-text-tertiary)]'
+												: summaryStats.net >= 0
+													? 'text-[var(--color-sage-green)]'
+													: 'text-[var(--color-warm-coral)]'}"
+										>
+											{formatAmountWithSign(summaryStats.net, true)}
+										</div>
+										<div
+											class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+										>
+											Net
+										</div>
+									</div>
 								</div>
 							</div>
-						{:else if transactionOrGroup.isGroup}
-							<!-- Grouped Transaction -->
-							<TransactionItem
-								transaction={transactionOrGroup}
-								onClick={handleTransactionClick}
-								context="transactions"
-								showDate={false}
-								isGroup={true}
-								groupTransactions={transactionOrGroup.transactions}
-								totalAmount={getTransactionAmount(transactionOrGroup)}
-								groupDescription={transactionOrGroup.description || 'Grouped Transaction'}
-								groupCategory={getCategoryName(transactionOrGroup)}
-								groupCurrency={getTransactionCurrency(transactionOrGroup)}
-							/>
-						{:else}
-							<!-- Single Transaction -->
-							<TransactionItem
-								transaction={transactionOrGroup}
-								onClick={() => handleTransactionClick(transactionOrGroup)}
-								context="transactions"
-								showDate={false}
-							/>
-						{/if}
-					{/each}
-				</div>
-			</div>
-		{/each}
-
-		{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
-			<div class="flex flex-col items-center justify-center py-16 text-center">
-				<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
-				<p class="text-sm text-[var(--color-text-secondary)]">
-					{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
-						No transactions match your filters.
-					{:else}
-						Nothing yet. Add your first transaction.
-					{/if}
-				</p>
-				{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
-					<Button
-						variant="ghost"
-						size="sm"
-						class="mt-3 text-[var(--color-text-tertiary)]"
-						onclick={() =>
-							updateFilters({
-								searchQuery: '',
-								showPendingOnly: false,
-								dateFilterEnabled: true,
-								groupingMode: 'smart',
-								currentMonth: new Date()
-							})}
-					>
-						Clear filters
-					</Button>
-				{:else if onAddTransaction}
-					<Button
-						variant="ghost"
-						size="sm"
-						class="mt-3 text-[var(--color-amber)]"
-						onclick={onAddTransaction}>Add transaction</Button
-					>
+					</section>
 				{/if}
+
+				<div
+					bind:this={monthSwipeSliderEl}
+					class="month-swipe-slider w-full transition-transform duration-200 ease-out will-change-transform"
+					class:transition-none={isMonthSwipeDragging || monthSwipeInstantReset}
+					style="transform: translate3d({monthSwipeTxPx}px, 0, 0)"
+				>
+					{#key monthNavKey}
+						<!-- Transaction List -->
+						<section class="space-y-6">
+						{#if filters.searchQuery.trim()}
+							<div class="text-muted-foreground text-center text-sm">
+								Search results for "{filters.searchQuery}"
+							</div>
+						{/if}
+
+						{#each filteredTransactions() as dateGroup}
+							{@const totals = dateGroupTotals[dateGroup.group.key] ?? {
+								income: 0,
+								expenses: 0,
+								net: 0
+							}}
+							<!-- Date Group Section -->
+							<div class="space-y-1">
+								<!-- Date Group Header -->
+								<div
+									class="flex items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2"
+								>
+									<h3
+										class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+									>
+										{dateGroup.group.label}
+									</h3>
+									<div class="flex items-center gap-3">
+										{#if totals.income > 0}
+											<span class="text-amount-sm text-[var(--color-sage-green)]"
+												>{formatAmountWithSign(totals.income, true)}</span
+											>
+										{/if}
+										{#if totals.expenses !== 0}
+											<span class="text-amount-sm text-[var(--color-text-secondary)]"
+												>{formatAmountWithSign(totals.expenses)}</span
+											>
+										{/if}
+									</div>
+								</div>
+
+								<!-- Transactions in this date group -->
+								<div class="space-y-1">
+									{#each dateGroup.transactions as transactionOrGroup}
+										{#if selectionMode}
+											<!-- Selection checkbox -->
+											<div class="flex items-center gap-2">
+												<input
+													type="checkbox"
+													checked={isTransactionSelected(transactionOrGroup)}
+													onchange={() =>
+														toggleTransactionSelection(
+															transactionOrGroup.id || transactionOrGroup.groupId || ''
+														)}
+													class="h-4 w-4"
+												/>
+												<div class="flex-1">
+													{#if transactionOrGroup.isGroup}
+														<TransactionItem
+															transaction={transactionOrGroup}
+															onClick={handleTransactionClick}
+															context="transactions"
+															showDate={false}
+															isGroup={true}
+															groupTransactions={transactionOrGroup.transactions}
+															totalAmount={getTransactionAmount(transactionOrGroup)}
+															groupDescription={transactionOrGroup.description ||
+																'Grouped Transaction'}
+															groupCategory={getCategoryName(transactionOrGroup)}
+															groupCurrency={getTransactionCurrency(transactionOrGroup)}
+														/>
+													{:else}
+														<TransactionItem
+															transaction={transactionOrGroup}
+															onClick={() => handleTransactionClick(transactionOrGroup)}
+															context="transactions"
+															showDate={false}
+														/>
+													{/if}
+												</div>
+											</div>
+										{:else if transactionOrGroup.isGroup}
+											<!-- Grouped Transaction -->
+											<TransactionItem
+												transaction={transactionOrGroup}
+												onClick={handleTransactionClick}
+												context="transactions"
+												showDate={false}
+												isGroup={true}
+												groupTransactions={transactionOrGroup.transactions}
+												totalAmount={getTransactionAmount(transactionOrGroup)}
+												groupDescription={transactionOrGroup.description ||
+													'Grouped Transaction'}
+												groupCategory={getCategoryName(transactionOrGroup)}
+												groupCurrency={getTransactionCurrency(transactionOrGroup)}
+											/>
+										{:else}
+											<!-- Single Transaction -->
+											<TransactionItem
+												transaction={transactionOrGroup}
+												onClick={() => handleTransactionClick(transactionOrGroup)}
+												context="transactions"
+												showDate={false}
+											/>
+										{/if}
+									{/each}
+								</div>
+							</div>
+						{/each}
+
+						{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
+							<div class="flex flex-col items-center justify-center py-16 text-center">
+								<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
+								<p class="text-sm text-[var(--color-text-secondary)]">
+									{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
+										No transactions match your filters.
+									{:else}
+										Nothing yet. Add your first transaction.
+									{/if}
+								</p>
+								{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
+									<Button
+										variant="ghost"
+										size="sm"
+										class="mt-3 text-[var(--color-text-tertiary)]"
+										onclick={() =>
+											updateFilters({
+												searchQuery: '',
+												showPendingOnly: false,
+												dateFilterEnabled: true,
+												groupingMode: 'smart',
+												currentMonth: new Date()
+											})}
+									>
+										Clear filters
+									</Button>
+								{:else if onAddTransaction}
+									<Button
+										variant="ghost"
+										size="sm"
+										class="mt-3 text-[var(--color-amber)]"
+										onclick={onAddTransaction}>Add transaction</Button
+									>
+								{/if}
+							</div>
+					{/if}
+				</section>
+				{/key}
 			</div>
-		{/if}
-	</section>
+		</div>
+	</div>
 </div>

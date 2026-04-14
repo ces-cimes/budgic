@@ -14,6 +14,14 @@ export type SwipeOptions = {
 	onSwipeDown?: () => void;
 };
 
+/** `Event.target` can be a `Text` node; `Element.prototype.closest` is not on `Node`. */
+function eventTargetElement(event: Event): Element | null {
+	const t = event.target;
+	if (t instanceof Element) return t;
+	if (t instanceof Text && t.parentElement) return t.parentElement;
+	return null;
+}
+
 export function swipe(
 	node: HTMLElement,
 	options: SwipeOptions | undefined = {}
@@ -104,8 +112,8 @@ export function swipe(
 
 	function documentMouseMove(e: MouseEvent) {
 		if (!mousePointerDown) return;
-		const target = e.target as HTMLElement;
-		if (target?.closest('[draggable="true"]')) {
+		const el = eventTargetElement(e);
+		if (el?.closest('[draggable="true"]')) {
 			handleEnd(e);
 			return;
 		}
@@ -160,8 +168,8 @@ export function swipe(
 	}
 
 	const handleStart = (e: Event) => {
-		const target = e.target as HTMLElement;
-		if (target?.closest('[draggable="true"]') || target?.closest('.drag-handle')) {
+		const el = eventTargetElement(e);
+		if (el?.closest('[draggable="true"]') || el?.closest('.drag-handle')) {
 			return;
 		}
 
@@ -197,8 +205,8 @@ export function swipe(
 			return;
 		}
 
-		const target = e.target as HTMLElement;
-		if (target?.closest('[draggable="true"]')) {
+		const el = eventTargetElement(e);
+		if (el?.closest('[draggable="true"]')) {
 			reset();
 			return;
 		}

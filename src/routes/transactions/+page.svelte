@@ -129,7 +129,7 @@
 		</Header>
 	{/snippet}
 
-	<div class="mx-auto max-w-4xl px-5 py-4 sm:px-6">
+	<div class="mx-auto min-w-0 max-w-4xl overflow-x-hidden px-5 py-4 sm:px-6">
 		{#if isLoading}
 			<!-- Skeleton loading state — no spinners -->
 			<div class="squircle-2xl squircle-border squircle-fill-tertiary mb-4 px-5 py-3.5">
