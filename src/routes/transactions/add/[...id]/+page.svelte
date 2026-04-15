@@ -29,6 +29,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
+	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	import {
 		FormFieldGrid,
 		FormErrorAlert,
@@ -49,11 +50,13 @@
 	} from '$lib/utils/flexibility-tier-utils';
 	import { getCurrencyInfo, formatAmount } from '$lib/utils/currency-utils';
 	import { dateUtils } from '$lib/utils/date-utils';
-	import type { DescriptionSuggestion } from '$lib/core/services/autocomplete-service';
+	import { autocompleteService, type DescriptionSuggestion } from '$lib/core/services/autocomplete-service';
 
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
 	let transaction = $state<Transaction | null>(null);
+	let accountBlendScores = $state<Map<string, number>>(new Map());
+	let categoryBlendScores = $state<Map<string, number>>(new Map());
 
 	// Form state
 	let selectedAccount = $state('');
@@ -262,11 +265,52 @@
 		hasInferredCategoryIndicator = true;
 	}
 
+	let accountOptions = $derived.by(() => {
+		const defaultOrderMap = new Map(accounts.map((account, index) => [account.id, index]));
+
+		return [...accounts]
+			.sort((left, right) => {
+				const leftScore = accountBlendScores.get(left.id.toLowerCase()) ?? 0;
+				const rightScore = accountBlendScores.get(right.id.toLowerCase()) ?? 0;
+				if (leftScore !== rightScore) {
+					return rightScore - leftScore;
+				}
+				return (defaultOrderMap.get(left.id) ?? 0) - (defaultOrderMap.get(right.id) ?? 0);
+			})
+			.map((account) => ({
+				value: account.id,
+				label: account.name,
+				hint: formatAmount(account.currentBalance, account.currency)
+			}));
+	});
+
+	let categoryOptions = $derived.by(() => {
+		const defaultOrderMap = new Map(categories.map((category, index) => [category.id, index]));
+
+		return [...categories]
+			.sort((left, right) => {
+				const leftScore = categoryBlendScores.get(left.id.toLowerCase()) ?? 0;
+				const rightScore = categoryBlendScores.get(right.id.toLowerCase()) ?? 0;
+				if (leftScore !== rightScore) {
+					return rightScore - leftScore;
+				}
+				return (defaultOrderMap.get(left.id) ?? 0) - (defaultOrderMap.get(right.id) ?? 0);
+			})
+			.map((category) => ({
+				value: category.id,
+				label: category.name
+			}));
+	});
+
 	onMount(async () => {
 		try {
 			[accounts, categories] = await Promise.all([
 				accountService.getAccounts(),
 				db.getActiveCategories()
+			]);
+			[accountBlendScores, categoryBlendScores] = await Promise.all([
+				autocompleteService.getBlendedBoundedFieldScores('transaction.account'),
+				autocompleteService.getBlendedBoundedFieldScores('transaction.category')
 			]);
 
 			// Load available currencies
@@ -789,6 +833,11 @@
 					<DescriptionAutocomplete
 						bind:value={description}
 						placeholder="e.g., Grocery shopping, Salary deposit"
+						selectionContext={{
+							accountId: selectedAccount || undefined,
+							categoryId: selectedCategory || undefined,
+							transactionType
+						}}
 						onfocus={handleInputFocus}
 						onSuggestionSelected={handleDescriptionSuggestionSelected}
 					/>
@@ -798,31 +847,19 @@
 					<Label.Root for="account">
 						Account {status === 'planned' && transactionType !== 'transfer' ? '' : '*'}
 					</Label.Root>
-					<Select.Root
-						type="single"
+					<SearchableSelect
 						bind:value={selectedAccount}
-						required={status !== 'planned' || transactionType === 'transfer'}
-					>
-						<Select.Trigger class="w-full">
-							{selectedAccount
-								? accounts.find((a) => a.id === selectedAccount)?.name
-								: status === 'planned' && transactionType !== 'transfer'
-									? 'Select an account (optional)'
-									: 'Select an account'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="">
-								{status === 'planned' && transactionType !== 'transfer'
-									? 'No account (optional)'
-									: 'Select an account'}
-							</Select.Item>
-							{#each accounts as account}
-								<Select.Item value={account.id}>
-									{account.name} ({formatAmount(account.currentBalance, account.currency)})
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
+						options={accountOptions}
+						placeholder={status === 'planned' && transactionType !== 'transfer'
+							? 'Select an account (optional)'
+							: 'Select an account'}
+						allowClear={true}
+						clearLabel={status === 'planned' && transactionType !== 'transfer'
+							? 'No account (optional)'
+							: 'Select an account'}
+						fieldKey="transaction.account"
+						selectionContext={{ transactionType, status }}
+					/>
 				</div>
 
 				<div class="space-y-2">
@@ -893,27 +930,15 @@
 
 				<div class="space-y-2">
 					<Label.Root for="category">Category</Label.Root>
-					<Select.Root
-						type="single"
+					<SearchableSelect
 						bind:value={selectedCategory}
-						onValueChange={(value) => {
-							selectedCategory = value;
-						}}
-					>
-						<Select.Trigger class="w-full">
-							{selectedCategory
-								? categories.find((c) => c.id === selectedCategory)?.name
-								: 'Select a category (optional)'}
-						</Select.Trigger>
-						<Select.Content>
-							<Select.Item value="">Select a category (optional)</Select.Item>
-							{#each categories as category}
-								<Select.Item value={category.id} style="color: {category.color}">
-									{category.name}
-								</Select.Item>
-							{/each}
-						</Select.Content>
-					</Select.Root>
+						options={categoryOptions}
+						placeholder="Select a category (optional)"
+						allowClear={true}
+						clearLabel="Select a category (optional)"
+						fieldKey="transaction.category"
+						selectionContext={{ transactionType, status, accountId: selectedAccount || undefined }}
+					/>
 					{#if hasInferredCategoryIndicator && selectedCategory === inferredCategoryId}
 						<p class="text-xs text-[var(--color-text-tertiary)]">
 							Category inferred from description: {inferredCategoryLabel}
@@ -935,24 +960,11 @@
 				{#if transactionType === 'transfer'}
 					<div class="space-y-2">
 						<Label.Root for="toAccount">Destination account *</Label.Root>
-						<Select.Root type="single" bind:value={toAccountId} required>
-							<Select.Trigger class="w-full">
-								{toAccountId
-									? accounts.find((a) => a.id === toAccountId)?.name
-									: 'Select destination account'}
-							</Select.Trigger>
-							<Select.Content>
-								<Select.Item value="">Select destination account</Select.Item>
-								{#each accounts as account}
-									<Select.Item value={account.id}
-										>{account.name} ({formatAmount(
-											account.currentBalance,
-											account.currency
-										)})</Select.Item
-									>
-								{/each}
-							</Select.Content>
-						</Select.Root>
+						<SearchableSelect
+							bind:value={toAccountId}
+							options={accountOptions}
+							placeholder="Select destination account"
+						/>
 					</div>
 
 					{#if hasTransferFee}

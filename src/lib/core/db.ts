@@ -1118,6 +1118,15 @@ const UserActionSchema = BaseSchema.extend({
 	sessionId: z.string().optional()
 });
 
+// Autocomplete selection tracking schema
+const AutocompleteUsageSchema = BaseSchema.extend({
+	fieldKey: z.string(), // e.g. 'transaction.description'
+	value: z.string(), // Selected value
+	selectedFromSuggestion: z.boolean(), // true if explicitly selected from suggestion list
+	context: z.string().optional(), // JSON payload with optional surrounding context
+	timestamp: z.string().datetime()
+});
+
 // Simplified Budget Category Schema (now integrated into Category)
 // Budget functionality is now handled through the Category schema's budgetAmount field
 
@@ -1418,6 +1427,7 @@ export type Category = z.infer<typeof CategorySchema>;
 export type Transaction = z.infer<typeof TransactionSchema>;
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 export type UserAction = z.infer<typeof UserActionSchema>;
+export type AutocompleteUsage = z.infer<typeof AutocompleteUsageSchema>;
 export type Goal = z.infer<typeof GoalSchema>;
 export type Insight = z.infer<typeof InsightSchema>;
 export type CurrencyConfiguration = z.infer<typeof CurrencyConfigurationSchema>;
@@ -1490,6 +1500,7 @@ export class BudgicDB extends Dexie {
 	goals!: Table<Goal>;
 	userPreferences!: Table<UserPreferences>;
 	userActions!: Table<UserAction>;
+	autocompleteUsage!: Table<AutocompleteUsage>;
 	insights!: Table<Insight>;
 	currencyConfigurations!: Table<CurrencyConfiguration>;
 	exchangeRates!: Table<ExchangeRate>;
@@ -1772,6 +1783,48 @@ export class BudgicDB extends Dexie {
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]'
+		});
+
+		// Version 19: Autocomplete selection tracking
+		this.version(19).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, [fieldKey+value], createdAt, updatedAt, deletedAt',
 			insights:
 				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
@@ -2130,6 +2183,33 @@ export class BudgicDB extends Dexie {
 			}
 		);
 
+		// Autocomplete usage validation
+		this.autocompleteUsage.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = AutocompleteUsageSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Autocomplete usage validation failed:', error);
+				throw error;
+			}
+		});
+
+		this.autocompleteUsage.hook(
+			'updating',
+			(modifications: Partial<AutocompleteUsage>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					AutocompleteUsageSchema.parse(updated);
+				} catch (error) {
+					console.error('Autocomplete usage update validation failed:', error);
+					throw error;
+				}
+			}
+		);
+
 		// Goal validation
 		this.goals.hook('creating', (primKey, obj, trans) => {
 			try {
@@ -2380,6 +2460,14 @@ export class BudgicDB extends Dexie {
 		this.userActions.hook('reading', (obj) => {
 			if (!obj) {
 				console.warn('[DB Hook] userActions: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.autocompleteUsage.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] autocompleteUsage: obj is undefined', new Error().stack);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;

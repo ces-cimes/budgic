@@ -10,6 +10,8 @@
 		placeholder?: string;
 		disabled?: boolean;
 		onfocus?: (event: FocusEvent) => void;
+		fieldKey?: string;
+		selectionContext?: Record<string, unknown>;
 		onSuggestionSelected?: (suggestion: DescriptionSuggestion) => void;
 	}
 
@@ -18,6 +20,8 @@
 		placeholder = '',
 		disabled = false,
 		onfocus,
+		fieldKey = 'transaction.description',
+		selectionContext,
 		onSuggestionSelected
 	}: Props = $props();
 
@@ -28,6 +32,8 @@
 	let isFocused = $state(false);
 	let highlightedIndex = $state(-1);
 	let isDropdownDismissed = $state(false);
+	let committedValuesInFocusSession: string[] = [];
+	let lastSuggestionValue: string | null = null;
 
 	let showDropdown = $derived(isFocused && !isDropdownDismissed && suggestions.length > 0 && !disabled);
 
@@ -70,10 +76,13 @@
 	function handleFocus(event: FocusEvent) {
 		isFocused = true;
 		isDropdownDismissed = false;
+		committedValuesInFocusSession = [];
+		lastSuggestionValue = null;
 		onfocus?.(event);
 	}
 
 	function handleBlur() {
+		commitManualEntry();
 		setTimeout(() => {
 			isFocused = false;
 			isDropdownDismissed = false;
@@ -86,40 +95,81 @@
 		onSuggestionSelected?.(suggestion);
 		isDropdownDismissed = true;
 		highlightedIndex = -1;
+		lastSuggestionValue = normalizeCommittedValue(suggestion.value);
+
+		autocompleteService
+			.recordSelection(fieldKey, suggestion.value, true, selectionContext)
+			.catch((error) => {
+				console.error('Failed to record autocomplete selection', error);
+			});
 	}
 
 	function handleInput() {
 		isDropdownDismissed = false;
+		if (
+			lastSuggestionValue &&
+			normalizeCommittedValue(value) !== null &&
+			normalizeCommittedValue(value) !== lastSuggestionValue
+		) {
+			lastSuggestionValue = null;
+		}
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (!showDropdown) {
-			return;
-		}
-
-		if (event.key === 'ArrowDown') {
+		if (event.key === 'ArrowDown' && showDropdown) {
 			event.preventDefault();
 			highlightedIndex = (highlightedIndex + 1) % suggestions.length;
 			return;
 		}
 
-		if (event.key === 'ArrowUp') {
+		if (event.key === 'ArrowUp' && showDropdown) {
 			event.preventDefault();
 			highlightedIndex = (highlightedIndex - 1 + suggestions.length) % suggestions.length;
 			return;
 		}
 
-		if (event.key === 'Enter' && highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
-			event.preventDefault();
-			selectSuggestion(suggestions[highlightedIndex]);
+		if (event.key === 'Enter') {
+			if (showDropdown && highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+				event.preventDefault();
+				selectSuggestion(suggestions[highlightedIndex]);
+				return;
+			}
+
+			commitManualEntry();
 			return;
 		}
 
-		if (event.key === 'Escape') {
+		if (event.key === 'Escape' && showDropdown) {
 			event.preventDefault();
 			isDropdownDismissed = true;
 			highlightedIndex = -1;
 		}
+	}
+
+	function normalizeCommittedValue(input: string): string | null {
+		const normalized = input.trim().replace(/\s+/g, ' ');
+		return normalized.length > 0 ? normalized : null;
+	}
+
+	function commitManualEntry() {
+		const normalized = normalizeCommittedValue(value);
+		if (!normalized) {
+			return;
+		}
+
+		if (lastSuggestionValue && normalized === lastSuggestionValue) {
+			return;
+		}
+
+		const dedupeKey = normalized.toLowerCase();
+		if (committedValuesInFocusSession.includes(dedupeKey)) {
+			return;
+		}
+		committedValuesInFocusSession = [...committedValuesInFocusSession, dedupeKey];
+
+		autocompleteService.recordSelection(fieldKey, normalized, false, selectionContext).catch((error) => {
+			console.error('Failed to record manual autocomplete entry', error);
+		});
 	}
 
 	function formatLastUsed(value: Date): string {
@@ -148,6 +198,9 @@
 			aria-label="Description suggestions"
 		>
 			<ul class="max-h-64 overflow-y-auto py-1">
+				{#if value.trim().length === 0}
+					<li class="px-3 py-1 text-xs text-[var(--color-text-tertiary)]">Top suggestions</li>
+				{/if}
 				{#each suggestions as suggestion, index (suggestion.value)}
 					<li>
 						<button

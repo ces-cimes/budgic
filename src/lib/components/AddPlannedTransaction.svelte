@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Plus, Calendar, DollarSign } from '@lucide/svelte';
-	import { transactionService, accountService, userService } from '$lib/core/services';
+	import { transactionService, accountService, userService, autocompleteService } from '$lib/core/services';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
+	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	import {
 		Select,
 		SelectContent,
@@ -33,6 +34,7 @@
 	let isOpen = $state(false);
 	let isLoading = $state(false);
 	let accounts = $state<Account[]>([]);
+	let accountBlendScores = $state<Map<string, number>>(new Map());
 	let userCurrency = $state<string>('USD');
 
 	let amount = $state('');
@@ -44,6 +46,24 @@
 	let formError = $state('');
 
 	const destinationAccounts = $derived(accounts.filter((a) => a.id !== accountId));
+	const destinationAccountOptions = $derived.by(() => {
+		const defaultOrderMap = new Map(destinationAccounts.map((account, index) => [account.id, index]));
+
+		return [...destinationAccounts]
+			.sort((left, right) => {
+				const leftScore = accountBlendScores.get(left.id.toLowerCase()) ?? 0;
+				const rightScore = accountBlendScores.get(right.id.toLowerCase()) ?? 0;
+				if (leftScore !== rightScore) {
+					return rightScore - leftScore;
+				}
+				return (defaultOrderMap.get(left.id) ?? 0) - (defaultOrderMap.get(right.id) ?? 0);
+			})
+			.map((account) => ({
+				value: account.id,
+				label: account.name,
+				hint: formatAmount(account.currentBalance, account.currency)
+			}));
+	});
 
 	$effect(() => {
 		if (transactionType !== 'transfer') {
@@ -62,6 +82,7 @@
 		userCurrency = preferences?.currency || 'USD';
 
 		accounts = await accountService.getAccounts();
+		accountBlendScores = await autocompleteService.getBlendedBoundedFieldScores('transaction.account');
 		const tomorrow = new Date();
 		tomorrow.setDate(tomorrow.getDate() + 1);
 		plannedDate = tomorrow.toISOString().split('T')[0];
@@ -221,6 +242,10 @@
 				<DescriptionAutocomplete
 					bind:value={description}
 					placeholder="e.g., Groceries, Salary"
+					selectionContext={{
+						accountId,
+						transactionType
+					}}
 				/>
 			</div>
 
@@ -242,23 +267,11 @@
 			{#if transactionType === 'transfer'}
 				<div class="space-y-2">
 					<Label for="toAccount">Destination account</Label>
-					<Root type="single" bind:value={toAccountId}>
-						<SelectTrigger id="toAccount">
-							<span class="text-muted-foreground">
-								{toAccountId
-									? destinationAccounts.find((a) => a.id === toAccountId)?.name
-									: 'Select destination'}
-							</span>
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="">Select destination</SelectItem>
-							{#each destinationAccounts as account}
-								<SelectItem value={account.id}>
-									{account.name} ({formatAmount(account.currentBalance, account.currency)})
-								</SelectItem>
-							{/each}
-						</SelectContent>
-					</Root>
+					<SearchableSelect
+						bind:value={toAccountId}
+						options={destinationAccountOptions}
+						placeholder="Select destination"
+					/>
 				</div>
 			{/if}
 
