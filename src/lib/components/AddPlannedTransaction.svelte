@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Plus, Calendar, DollarSign, Type } from '@lucide/svelte';
+	import { Plus, Calendar, DollarSign } from '@lucide/svelte';
 	import { transactionService, accountService, userService } from '$lib/core/services';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
+	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
 	import {
 		Select,
 		SelectContent,
@@ -217,15 +218,10 @@
 			<!-- Description -->
 			<div class="space-y-2">
 				<Label for="description">Description</Label>
-				<div class="relative">
-					<Type class="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-					<Input
-						id="description"
-						placeholder="e.g., Groceries, Salary"
-						bind:value={description}
-						class="pl-10"
-					/>
-				</div>
+				<DescriptionAutocomplete
+					bind:value={description}
+					placeholder="e.g., Groceries, Salary"
+				/>
 			</div>
 
 			<!-- Transaction Type -->

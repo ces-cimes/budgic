@@ -28,6 +28,7 @@
 	import { Trash2, HelpCircle, ChevronDown, Tag } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
+	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
 	import {
 		FormFieldGrid,
 		FormErrorAlert,
@@ -48,6 +49,7 @@
 	} from '$lib/utils/flexibility-tier-utils';
 	import { getCurrencyInfo, formatAmount } from '$lib/utils/currency-utils';
 	import { dateUtils } from '$lib/utils/date-utils';
+	import type { DescriptionSuggestion } from '$lib/core/services/autocomplete-service';
 
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
@@ -82,6 +84,9 @@
 		}
 	});
 	let selectedCategory = $state('');
+	let hasInferredCategoryIndicator = $state(false);
+	let inferredCategoryId = $state<string | null>(null);
+	let inferredCategoryLabel = $state('');
 	let notes = $state('');
 	let reference = $state('');
 	let toAccountId = $state('');
@@ -231,6 +236,30 @@
 				});
 			}, 300);
 		}
+	}
+
+	function clearInferredCategoryIndicator() {
+		hasInferredCategoryIndicator = false;
+		inferredCategoryId = null;
+		inferredCategoryLabel = '';
+	}
+
+	function handleDescriptionSuggestionSelected(suggestion: DescriptionSuggestion) {
+		if (!suggestion.inferredCategoryId) {
+			clearInferredCategoryIndicator();
+			return;
+		}
+
+		const inferredCategory = categories.find((category) => category.id === suggestion.inferredCategoryId);
+		if (!inferredCategory) {
+			clearInferredCategoryIndicator();
+			return;
+		}
+
+		selectedCategory = inferredCategory.id;
+		inferredCategoryId = inferredCategory.id;
+		inferredCategoryLabel = inferredCategory.name;
+		hasInferredCategoryIndicator = true;
 	}
 
 	onMount(async () => {
@@ -428,6 +457,16 @@
 				);
 				hasSuggestedFlexibilityTier = true;
 			}
+		}
+	});
+
+	$effect(() => {
+		if (!hasInferredCategoryIndicator || !inferredCategoryId) {
+			return;
+		}
+
+		if (selectedCategory !== inferredCategoryId) {
+			clearInferredCategoryIndicator();
 		}
 	});
 
@@ -747,11 +786,11 @@
 
 				<div class="space-y-2">
 					<Label.Root for="description">Description</Label.Root>
-					<Input.Root
-						id="description"
+					<DescriptionAutocomplete
 						bind:value={description}
 						placeholder="e.g., Grocery shopping, Salary deposit"
 						onfocus={handleInputFocus}
+						onSuggestionSelected={handleDescriptionSuggestionSelected}
 					/>
 				</div>
 
@@ -854,7 +893,13 @@
 
 				<div class="space-y-2">
 					<Label.Root for="category">Category</Label.Root>
-					<Select.Root type="single" bind:value={selectedCategory}>
+					<Select.Root
+						type="single"
+						bind:value={selectedCategory}
+						onValueChange={(value) => {
+							selectedCategory = value;
+						}}
+					>
 						<Select.Trigger class="w-full">
 							{selectedCategory
 								? categories.find((c) => c.id === selectedCategory)?.name
@@ -869,6 +914,11 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
+					{#if hasInferredCategoryIndicator && selectedCategory === inferredCategoryId}
+						<p class="text-xs text-[var(--color-text-tertiary)]">
+							Category inferred from description: {inferredCategoryLabel}
+						</p>
+					{/if}
 				</div>
 
 				{#if transactionType === 'expense' && !selectedCategory}

@@ -16,6 +16,7 @@ export * from './pages';
 
 // Alerts aggregation (Phase 5 — unified alerts: fee + negative allowance → Insight store)
 export { refreshFeeAndNegativeAllowanceInsights } from './alerts-aggregation-service';
+export { autocompleteService } from './autocomplete-service';
 
 // Import/Export services
 export * from './import-export';
