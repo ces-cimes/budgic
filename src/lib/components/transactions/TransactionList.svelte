@@ -27,6 +27,7 @@
 	import FilterSheet from './filters/FilterSheet.svelte';
 	import { getActiveFilterCount } from './filters/filter-utils';
 	import { swipe, type SwipeDirection } from '$lib/actions/swipe';
+	import { createDistanceThresholdGhostSuppression } from '$lib/utils/ghost-click-suppression';
 	import { tick } from 'svelte';
 
 	// Filter state interface
@@ -114,8 +115,11 @@
 		// Callbacks
 		onTransactionClick?: (transaction: Transaction) => void;
 		onFiltersChange?: (filters: FilterState) => void;
+		onVisibleSelectionIdsChange?: (ids: Set<string>) => void;
 		/** When provided, empty state shows an "Add transaction" CTA button */
 		onAddTransaction?: () => void;
+		/** Long-press a row (touch) — parent typically enters selection mode and selects this id */
+		onTransactionLongPress?: (id: string) => void;
 
 		// User currency for formatting
 		userCurrency?: string | null;
@@ -140,7 +144,9 @@
 		onSelectionChange,
 		onTransactionClick,
 		onFiltersChange,
+		onVisibleSelectionIdsChange,
 		onAddTransaction,
+		onTransactionLongPress,
 		userCurrency = null
 	}: TransactionListProps = $props();
 
@@ -161,6 +167,8 @@
 	// Internal selection state
 	let internalSelectedIds = $state<Set<string>>(new Set());
 	let internalSelectionMode = $state(false);
+	let suppressSelectionToggleId = $state<string | null>(null);
+	let suppressSelectionToggleUntilTs = $state(0);
 
 	// Filter sheet state
 	let filterSheetOpen = $state(false);
@@ -188,9 +196,7 @@
 
 	/** If the pointer moved this far horizontally during a month swipe, swallow the following click (ghost click). */
 	const SWIPE_CLICK_SUPPRESS_MIN_PX = 12;
-	let maxAbsMonthSwipeThisGesture = 0;
-	let suppressClickAfterMonthSwipe = false;
-	let suppressMonthSwipeClickTimer: ReturnType<typeof setTimeout> | null = null;
+	const monthSwipeGhostClick = createDistanceThresholdGhostSuppression(SWIPE_CLICK_SUPPRESS_MIN_PX);
 	/** Handoff from onSwipeLeft/Right to onSwipeEnd (same gesture, synchronous). */
 	let monthSwipeCommittedDirection: SwipeDirection | null = null;
 
@@ -699,6 +705,18 @@
 		})();
 	});
 
+	$effect(() => {
+		if (!enableSelection || !onVisibleSelectionIdsChange) return;
+		const ids = new Set<string>();
+		for (const dateGroup of filteredTransactions()) {
+			for (const transactionOrGroup of dateGroup.transactions) {
+				const id = transactionOrGroup.id || transactionOrGroup.groupId;
+				if (id) ids.add(id);
+			}
+		}
+		onVisibleSelectionIdsChange(ids);
+	});
+
 	// Month navigation functions
 	function goToPreviousMonth() {
 		const currentFilters = filters;
@@ -730,23 +748,6 @@
 			!selectionMode &&
 			!filterSheetOpen
 		);
-	}
-
-	function clearSuppressMonthSwipeClickTimer() {
-		if (suppressMonthSwipeClickTimer != null) {
-			clearTimeout(suppressMonthSwipeClickTimer);
-			suppressMonthSwipeClickTimer = null;
-		}
-	}
-
-	function armClickSuppressionAfterMonthSwipe() {
-		if (maxAbsMonthSwipeThisGesture < SWIPE_CLICK_SUPPRESS_MIN_PX) return;
-		suppressClickAfterMonthSwipe = true;
-		clearSuppressMonthSwipeClickTimer();
-		suppressMonthSwipeClickTimer = setTimeout(() => {
-			suppressClickAfterMonthSwipe = false;
-			suppressMonthSwipeClickTimer = null;
-		}, 500);
 	}
 
 	function doubleRaf(): Promise<void> {
@@ -829,19 +830,15 @@
 		const surface = monthSwipeSurfaceEl;
 		if (!surface) return;
 
-		function consumeGhostClick(e: MouseEvent) {
+		function onSurfaceClickCapture(e: Event) {
 			const surf = monthSwipeSurfaceEl;
-			if (!surf || !suppressClickAfterMonthSwipe) return;
-			if (!(e.target instanceof Node) || !surf.contains(e.target)) return;
-			e.preventDefault();
-			e.stopImmediatePropagation();
-			suppressClickAfterMonthSwipe = false;
-			clearSuppressMonthSwipeClickTimer();
+			if (!surf) return;
+			monthSwipeGhostClick.consumeInSubtree(e, surf);
 		}
 
-		surface.addEventListener('click', consumeGhostClick, true);
+		surface.addEventListener('click', onSurfaceClickCapture, true);
 		return () => {
-			surface.removeEventListener('click', consumeGhostClick, true);
+			surface.removeEventListener('click', onSurfaceClickCapture, true);
 		};
 	});
 
@@ -851,13 +848,10 @@
 		canStart: canStartMonthSwipe,
 		onSwipeStart: () => {
 			isMonthSwipeDragging = true;
-			maxAbsMonthSwipeThisGesture = 0;
+			monthSwipeGhostClick.onGestureStart();
 		},
 		onSwipeMove: (distance: number) => {
-			maxAbsMonthSwipeThisGesture = Math.max(
-				maxAbsMonthSwipeThisGesture,
-				Math.abs(distance)
-			);
+			monthSwipeGhostClick.recordMove(distance);
 			monthSwipeTxPx = distance;
 		},
 		onSwipeLeft: () => {
@@ -867,11 +861,10 @@
 			monthSwipeCommittedDirection = 'right';
 		},
 		onSwipeEnd: (_direction: SwipeDirection | null) => {
-			armClickSuppressionAfterMonthSwipe();
+			monthSwipeGhostClick.armIfThresholdMet();
 			const committed = monthSwipeCommittedDirection;
 			monthSwipeCommittedDirection = null;
 			isMonthSwipeDragging = false;
-			maxAbsMonthSwipeThisGesture = 0;
 
 			if (committed === 'left') {
 				void runMonthChangeTransition('forward', () => goToNextMonth());
@@ -923,22 +916,6 @@
 		return transaction?.currency || accounts[transaction?.accountId]?.currency || userCurrency;
 	}
 
-	// Selection mode handlers
-	function toggleSelectionMode() {
-		if (enableSelection) {
-			if (externalSelectionMode !== undefined) {
-				// External control - notify parent
-				// This would need to be handled by parent component
-			} else {
-				internalSelectionMode = !internalSelectionMode;
-				if (!internalSelectionMode) {
-					internalSelectedIds = new Set();
-					onSelectionChange?.(new Set());
-				}
-			}
-		}
-	}
-
 	function toggleTransactionSelection(transactionId: string) {
 		if (!enableSelection || !selectionMode) return;
 
@@ -961,9 +938,93 @@
 		const id = transaction.id || transaction.groupId;
 		return selectedIds.has(id);
 	}
+
+	function rowSelectableId(transactionOrGroup: Transaction | any): string {
+		return transactionOrGroup.id || transactionOrGroup.groupId || '';
+	}
+
+	/** Returns true when every row in the date group has an id in `selectedIds` */
+	function isGroupFullySelected(dateGroup: { transactions: (Transaction | any)[] }): boolean {
+		return (
+			dateGroup.transactions.length > 0 &&
+			dateGroup.transactions.every((t) => {
+				const id = rowSelectableId(t);
+				return id ? selectedIds.has(id) : true;
+			})
+		);
+	}
+
+	/** Returns true when at least one (but not all) rows in the date group is selected */
+	function isGroupPartiallySelected(dateGroup: { transactions: (Transaction | any)[] }): boolean {
+		if (dateGroup.transactions.length === 0) return false;
+		const ids = dateGroup.transactions.map(rowSelectableId).filter(Boolean);
+		const selectedCount = ids.filter((id) => selectedIds.has(id)).length;
+		return selectedCount > 0 && selectedCount < ids.length;
+	}
+
+	/** Batch-toggle all rows in a date group */
+	function toggleGroupSelection(dateGroup: { transactions: (Transaction | any)[] }) {
+		if (!enableSelection || !selectionMode) return;
+
+		const newSelectedIds = new Set<string>(selectedIds);
+		const groupIds = dateGroup.transactions.map(rowSelectableId).filter(Boolean);
+
+		if (isGroupFullySelected(dateGroup)) {
+			// All selected → deselect all in group
+			groupIds.forEach((id) => newSelectedIds.delete(id));
+		} else {
+			// Partial or none → select all in group
+			groupIds.forEach((id) => newSelectedIds.add(id));
+		}
+
+		if (externalSelectedIds !== undefined) {
+			onSelectionChange?.(newSelectedIds);
+		} else {
+			internalSelectedIds = newSelectedIds;
+			onSelectionChange?.(newSelectedIds);
+		}
+	}
+
+	function handleRowPrimaryClick(transactionOrGroup: Transaction | any) {
+		const id = rowSelectableId(transactionOrGroup);
+		if (selectionMode) {
+			if (id && id === suppressSelectionToggleId && Date.now() < suppressSelectionToggleUntilTs) {
+				suppressSelectionToggleId = null;
+				suppressSelectionToggleUntilTs = 0;
+				return;
+			}
+			if (id) toggleTransactionSelection(id);
+			return;
+		}
+		handleTransactionClick(transactionOrGroup);
+	}
+
+	function handleRowRightClick(event: MouseEvent, transactionOrGroup: Transaction | any) {
+		if (!enableSelection) return;
+		event.preventDefault();
+		const id = rowSelectableId(transactionOrGroup);
+		if (!id) return;
+		if (!selectionMode) {
+			onTransactionLongPress?.(id);
+		} else {
+			toggleTransactionSelection(id);
+		}
+	}
+
+	function handleRowLongPress(transactionOrGroup: Transaction | any) {
+		if (!enableSelection || !onTransactionLongPress) return;
+		if (selectionMode) return;
+		const id = rowSelectableId(transactionOrGroup);
+		if (id) {
+			// Guard against a synthetic click immediately after long-press release (devtools touch sim).
+			suppressSelectionToggleId = id;
+			suppressSelectionToggleUntilTs = Date.now() + 1200;
+			onTransactionLongPress(id);
+		}
+	}
 </script>
 
-<div class="transaction-list max-w-full min-w-0 overflow-x-hidden">
+<div class="transaction-list max-w-full min-w-0">
 	{#if enableFilters}
 		<!-- Filter Bar -->
 		<div class="bg-background sticky top-0 z-10 mb-4">
@@ -1159,7 +1220,7 @@
 
 	<div
 		bind:this={monthSwipeSurfaceEl}
-		class="max-w-full w-full overflow-x-hidden overscroll-x-contain"
+		class="max-w-full w-full"
 		use:swipe={showDateNavigation ? monthSwipeActionOptions : undefined}
 	>
 		<div class="w-full">
@@ -1223,12 +1284,14 @@
 					</section>
 				{/if}
 
-				<div
-					bind:this={monthSwipeSliderEl}
-					class="month-swipe-slider w-full transition-transform duration-200 ease-out will-change-transform"
-					class:transition-none={isMonthSwipeDragging || monthSwipeInstantReset}
-					style="transform: translate3d({monthSwipeTxPx}px, 0, 0)"
-				>
+				<!-- Month translate lives here; route/page may apply overflow-x-clip above this list. -->
+				<div class="min-w-0 w-full">
+					<div
+						bind:this={monthSwipeSliderEl}
+						class="month-swipe-slider w-full transition-transform duration-200 ease-out will-change-transform"
+						class:transition-none={isMonthSwipeDragging || monthSwipeInstantReset}
+						style="transform: translate3d({monthSwipeTxPx}px, 0, 0)"
+					>
 					{#key monthNavKey}
 						<!-- Transaction List -->
 						<section class="space-y-6">
@@ -1246,15 +1309,45 @@
 							}}
 							<!-- Date Group Section -->
 							<div class="space-y-1">
-								<!-- Date Group Header -->
-								<div
-									class="flex items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2"
-								>
-									<h3
-										class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-									>
-										{dateGroup.group.label}
-									</h3>
+								<!-- Date Group Header: button in selection mode, plain div otherwise -->
+								{#snippet dateGroupHeaderInner()}
+									<div class="flex min-w-0 items-center gap-2">
+										{#if selectionMode}
+											<div
+												class="border-border flex size-4 shrink-0 items-center justify-center rounded-sm border"
+												class:bg-golden-amber={isGroupFullySelected(dateGroup)}
+												class:border-golden-amber={isGroupFullySelected(dateGroup) ||
+													isGroupPartiallySelected(dateGroup)}
+												aria-hidden="true"
+											>
+												{#if isGroupFullySelected(dateGroup)}
+													<svg
+														width="10"
+														height="10"
+														viewBox="0 0 10 10"
+														fill="none"
+														xmlns="http://www.w3.org/2000/svg"
+														aria-hidden="true"
+													>
+														<path
+															d="M2 5l2.5 2.5L8 3"
+															stroke="white"
+															stroke-width="1.5"
+															stroke-linecap="round"
+															stroke-linejoin="round"
+														/>
+													</svg>
+												{:else if isGroupPartiallySelected(dateGroup)}
+													<div class="bg-golden-amber size-1.5 rounded-sm"></div>
+												{/if}
+											</div>
+										{/if}
+										<h3
+											class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+										>
+											{dateGroup.group.label}
+										</h3>
+									</div>
 									<div class="flex items-center gap-3">
 										{#if totals.income > 0}
 											<span class="text-amount-sm text-[var(--color-sage-green)]"
@@ -1267,72 +1360,68 @@
 											>
 										{/if}
 									</div>
-								</div>
+								{/snippet}
+
+								{#if selectionMode}
+									<button
+										type="button"
+										class="flex w-full cursor-pointer items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2 transition-colors hover:bg-[var(--color-bg-tertiary)]"
+										onclick={() => toggleGroupSelection(dateGroup)}
+										oncontextmenu={(e) => {
+											e.preventDefault();
+											toggleGroupSelection(dateGroup);
+										}}
+										aria-label={isGroupFullySelected(dateGroup)
+											? `Deselect all in ${dateGroup.group.label}`
+											: `Select all in ${dateGroup.group.label}`}
+									>
+										{@render dateGroupHeaderInner()}
+									</button>
+								{:else}
+									<div
+										class="flex items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2"
+									>
+										{@render dateGroupHeaderInner()}
+									</div>
+								{/if}
 
 								<!-- Transactions in this date group -->
 								<div class="space-y-1">
 									{#each dateGroup.transactions as transactionOrGroup}
-										{#if selectionMode}
-											<!-- Selection checkbox -->
-											<div class="flex items-center gap-2">
-												<input
-													type="checkbox"
-													checked={isTransactionSelected(transactionOrGroup)}
-													onchange={() =>
-														toggleTransactionSelection(
-															transactionOrGroup.id || transactionOrGroup.groupId || ''
-														)}
-													class="h-4 w-4"
+										<div
+											class="min-w-0"
+											role="presentation"
+											oncontextmenu={(e) => handleRowRightClick(e, transactionOrGroup)}
+										>
+											{#if transactionOrGroup.isGroup}
+												<TransactionItem
+													transaction={transactionOrGroup}
+													onClick={() => handleRowPrimaryClick(transactionOrGroup)}
+													onLongPress={() => handleRowLongPress(transactionOrGroup)}
+													enableLongPress={!selectionMode}
+													isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
+													context="transactions"
+													showDate={false}
+													isGroup={true}
+													groupTransactions={transactionOrGroup.transactions}
+													totalAmount={getTransactionAmount(transactionOrGroup)}
+													groupDescription={transactionOrGroup.description ||
+														'Grouped Transaction'}
+													groupCategory={getCategoryName(transactionOrGroup)}
+													groupCurrency={getTransactionCurrency(transactionOrGroup)}
 												/>
-												<div class="flex-1">
-													{#if transactionOrGroup.isGroup}
-														<TransactionItem
-															transaction={transactionOrGroup}
-															onClick={handleTransactionClick}
-															context="transactions"
-															showDate={false}
-															isGroup={true}
-															groupTransactions={transactionOrGroup.transactions}
-															totalAmount={getTransactionAmount(transactionOrGroup)}
-															groupDescription={transactionOrGroup.description ||
-																'Grouped Transaction'}
-															groupCategory={getCategoryName(transactionOrGroup)}
-															groupCurrency={getTransactionCurrency(transactionOrGroup)}
-														/>
-													{:else}
-														<TransactionItem
-															transaction={transactionOrGroup}
-															onClick={() => handleTransactionClick(transactionOrGroup)}
-															context="transactions"
-															showDate={false}
-														/>
-													{/if}
-												</div>
-											</div>
-										{:else if transactionOrGroup.isGroup}
-											<!-- Grouped Transaction -->
-											<TransactionItem
-												transaction={transactionOrGroup}
-												onClick={handleTransactionClick}
-												context="transactions"
-												showDate={false}
-												isGroup={true}
-												groupTransactions={transactionOrGroup.transactions}
-												totalAmount={getTransactionAmount(transactionOrGroup)}
-												groupDescription={transactionOrGroup.description ||
-													'Grouped Transaction'}
-												groupCategory={getCategoryName(transactionOrGroup)}
-												groupCurrency={getTransactionCurrency(transactionOrGroup)}
-											/>
-										{:else}
-											<!-- Single Transaction -->
-											<TransactionItem
-												transaction={transactionOrGroup}
-												onClick={() => handleTransactionClick(transactionOrGroup)}
-												context="transactions"
-												showDate={false}
-											/>
-										{/if}
+											{:else}
+												<TransactionItem
+													transaction={transactionOrGroup}
+													onClick={() => handleRowPrimaryClick(transactionOrGroup)}
+													onLongPress={() => handleRowLongPress(transactionOrGroup)}
+													enableLongPress={!selectionMode}
+													isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
+													context="transactions"
+													showDate={false}
+												/>
+											{/if}
+										</div>
 									{/each}
 								</div>
 							</div>
@@ -1376,7 +1465,8 @@
 					{/if}
 				</section>
 				{/key}
-			</div>
+					</div>
+				</div>
 		</div>
 	</div>
 </div>

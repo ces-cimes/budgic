@@ -10,6 +10,13 @@ import { accountService } from './account-service';
 import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 import { balanceProjectionService } from '../analytics/balance-projection-service';
 import { exchangeRateService } from './exchange-rate-service';
+import { addDays } from 'date-fns';
+
+export interface BulkOperationResult {
+	success: number;
+	failed: number;
+	errors: Array<{ id: string; reason: string }>;
+}
 
 class TransactionService {
 	/**
@@ -448,6 +455,844 @@ class TransactionService {
 
 		// Emit sync event for transaction deletion
 		await crossRouteSyncService.onTransactionDeleted(id);
+	}
+
+	/**
+	 * Bulk update transactions (extended MVP supports categoryId, status, and accountId)
+	 */
+	async bulkUpdateTransactions(
+		ids: string[],
+		updates: Partial<Pick<Transaction, 'categoryId' | 'status' | 'accountId'>>
+	): Promise<BulkOperationResult> {
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const allowedUpdates: Partial<Pick<Transaction, 'categoryId' | 'status' | 'accountId'>> = {};
+		if (updates.categoryId !== undefined) {
+			allowedUpdates.categoryId = updates.categoryId;
+		}
+		if (updates.status !== undefined) {
+			allowedUpdates.status = updates.status;
+		}
+		if (updates.accountId !== undefined) {
+			allowedUpdates.accountId = updates.accountId;
+		}
+
+		if (Object.keys(allowedUpdates).length === 0) {
+			throw new Error(
+				'Bulk update requires at least one supported field (categoryId, status, or accountId)'
+			);
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const accountIds = new Set<string>();
+		const updatedTransactions: Transaction[] = [];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		// No Dexie transaction wrapper: conversion reads accounts / exchangeRates / preferences, which must
+		// not run inside an rw scope locked to `transactions` only (IndexedDB NotFoundError).
+		for (const tx of targets) {
+			try {
+				let updatedTransaction: Transaction = {
+					...tx,
+					...allowedUpdates,
+					updatedAt: now
+				};
+
+				if (allowedUpdates.accountId !== undefined && allowedUpdates.accountId) {
+					const conversionUpdates = await this.calculateCurrencyConversions(
+						updatedTransaction,
+						allowedUpdates.accountId
+					);
+					updatedTransaction = { ...updatedTransaction, ...conversionUpdates };
+				}
+
+				await db.transactions.update(tx.id, updatedTransaction);
+				updatedTransactions.push(updatedTransaction);
+				result.success += 1;
+			} catch (error) {
+				result.failed += 1;
+				result.errors.push({
+					id: tx.id,
+					reason: error instanceof Error ? error.message : 'Unknown bulk update error'
+				});
+			}
+		}
+
+		for (const tx of targets) {
+			if (tx.accountId) accountIds.add(tx.accountId);
+			if (allowedUpdates.accountId) accountIds.add(allowedUpdates.accountId);
+			if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+				accountIds.add(tx.transferDetails.toAccountId);
+			}
+		}
+
+		for (const accountId of accountIds) {
+			await accountService.recalculateAccountBalance(accountId);
+		}
+
+		if (accountIds.size > 0) {
+			balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
+		}
+
+		for (const tx of updatedTransactions) {
+			await crossRouteSyncService.onTransactionUpdated(tx, allowedUpdates);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Bulk replace literal text in transaction descriptions (all occurrences per row).
+	 * Does not affect balances; skips DB write when the description is unchanged.
+	 */
+	async bulkReplaceTransactionDescriptions(
+		ids: string[],
+		find: string,
+		replaceWith: string
+	): Promise<BulkOperationResult> {
+		const trimmedFind = find.trim();
+		if (!trimmedFind) {
+			throw new Error('Find text cannot be empty');
+		}
+
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const updatedTransactions: Transaction[] = [];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		await db.transaction('rw', db.transactions, async () => {
+			for (const tx of targets) {
+				try {
+					const current = tx.description ?? '';
+					if (!current.includes(trimmedFind)) {
+						continue;
+					}
+					const nextDescription = current.split(trimmedFind).join(replaceWith);
+					const updatedTransaction: Transaction = {
+						...tx,
+						description: nextDescription,
+						updatedAt: now
+					};
+					await db.transactions.update(tx.id, updatedTransaction);
+					updatedTransactions.push(updatedTransaction);
+					result.success += 1;
+				} catch (error) {
+					result.failed += 1;
+					result.errors.push({
+						id: tx.id,
+						reason: error instanceof Error ? error.message : 'Unknown bulk description error'
+					});
+				}
+			}
+		});
+
+		for (const tx of updatedTransactions) {
+			await crossRouteSyncService.onTransactionUpdated(tx, { description: tx.description });
+		}
+
+		return result;
+	}
+
+	/**
+	 * Set every selected transaction description to the same value (including empty string).
+	 */
+	async bulkSetTransactionDescriptions(ids: string[], description: string): Promise<BulkOperationResult> {
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const updatedTransactions: Transaction[] = [];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		await db.transaction('rw', db.transactions, async () => {
+			for (const tx of targets) {
+				try {
+					const current = tx.description ?? '';
+					if (current === description) {
+						continue;
+					}
+					const updatedTransaction: Transaction = {
+						...tx,
+						description,
+						updatedAt: now
+					};
+					await db.transactions.update(tx.id, updatedTransaction);
+					updatedTransactions.push(updatedTransaction);
+					result.success += 1;
+				} catch (error) {
+					result.failed += 1;
+					result.errors.push({
+						id: tx.id,
+						reason: error instanceof Error ? error.message : 'Unknown bulk description set error'
+					});
+				}
+			}
+		});
+
+		for (const tx of updatedTransactions) {
+			await crossRouteSyncService.onTransactionUpdated(tx, { description: tx.description });
+		}
+
+		return result;
+	}
+
+	/**
+	 * Shift cleared and/or planned dates by a whole number of calendar days.
+	 * Recalculates currency fields when needed (same rules as single update) and recalculates balances once per affected account.
+	 */
+	async bulkShiftTransactionDates(
+		ids: string[],
+		shiftDays: number,
+		applyTo: 'cleared' | 'planned' | 'both'
+	): Promise<BulkOperationResult> {
+		if (!Number.isFinite(shiftDays) || !Number.isInteger(shiftDays)) {
+			throw new Error('Shift days must be a whole number');
+		}
+		if (shiftDays === 0) {
+			throw new Error('Shift days cannot be zero');
+		}
+
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const accountIds = new Set<string>();
+		const updatedRows: Array<{ tx: Transaction; patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>> }> =
+			[];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		function shiftIso(dateStr: string): string {
+			const d = new Date(dateStr);
+			if (Number.isNaN(d.getTime())) {
+				throw new Error('Invalid date');
+			}
+			return addDays(d, shiftDays).toISOString();
+		}
+
+		// No Dexie transaction wrapper: FX helpers read other object stores (see bulkUpdateTransactions).
+		for (const tx of targets) {
+			try {
+				const patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>> = {};
+				if (applyTo === 'cleared' || applyTo === 'both') {
+					if (tx.clearedDate) {
+						patch.clearedDate = shiftIso(tx.clearedDate);
+					}
+				}
+				if (applyTo === 'planned' || applyTo === 'both') {
+					if (tx.plannedDate) {
+						patch.plannedDate = shiftIso(tx.plannedDate);
+					}
+				}
+				if (Object.keys(patch).length === 0) {
+					continue;
+				}
+
+				let updatedData: Transaction = { ...tx, ...patch };
+				const needsRecalculation =
+					(patch.clearedDate !== undefined || patch.plannedDate !== undefined) &&
+					updatedData.accountAmount === undefined;
+
+				if (needsRecalculation) {
+					const accountId = updatedData.accountId || tx.accountId;
+					if (accountId) {
+						const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+						updatedData = { ...updatedData, ...conversions };
+					}
+					if (
+						updatedData.type === 'transfer' &&
+						updatedData.transferDetails &&
+						updatedData.transferDetails.toAccountAmount === undefined
+					) {
+						const transferConversions =
+							await this.calculateTransferDestinationConversion(updatedData);
+						updatedData = { ...updatedData, ...transferConversions };
+					}
+				}
+
+				const updatedTransaction: Transaction = {
+					...updatedData,
+					updatedAt: now
+				};
+
+				await db.transactions.update(tx.id, updatedTransaction);
+				updatedRows.push({ tx: updatedTransaction, patch });
+				result.success += 1;
+			} catch (error) {
+				result.failed += 1;
+				result.errors.push({
+					id: tx.id,
+					reason: error instanceof Error ? error.message : 'Unknown bulk date shift error'
+				});
+			}
+		}
+
+		for (const tx of targets) {
+			if (tx.accountId) accountIds.add(tx.accountId);
+			if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+				accountIds.add(tx.transferDetails.toAccountId);
+			}
+		}
+
+		for (const accountId of accountIds) {
+			await accountService.recalculateAccountBalance(accountId);
+		}
+		if (accountIds.size > 0) {
+			balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
+		}
+
+		for (const { tx, patch } of updatedRows) {
+			await crossRouteSyncService.onTransactionUpdated(tx, patch);
+		}
+
+		return result;
+	}
+
+	/** `YYYY-MM-DD` from a date input → ISO string (local noon). */
+	private calendarDateInputToIso(dateInput: string): string {
+		const trimmed = dateInput.trim();
+		const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+		if (!m) {
+			throw new Error('Invalid date (use YYYY-MM-DD)');
+		}
+		const y = parseInt(m[1], 10);
+		const mo = parseInt(m[2], 10) - 1;
+		const da = parseInt(m[3], 10);
+		const d = new Date(y, mo, da, 12, 0, 0, 0);
+		if (Number.isNaN(d.getTime())) {
+			throw new Error('Invalid calendar date');
+		}
+		return d.toISOString();
+	}
+
+	/**
+	 * Set cleared and/or planned date to the same calendar day for every selected row.
+	 * `calendarDate` must be `YYYY-MM-DD`. Recalculates conversions when dates drive FX.
+	 */
+	async bulkSetTransactionDates(
+		ids: string[],
+		calendarDate: string,
+		applyTo: 'cleared' | 'planned' | 'both'
+	): Promise<BulkOperationResult> {
+		const iso = this.calendarDateInputToIso(calendarDate);
+
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const accountIds = new Set<string>();
+		const updatedRows: Array<{ tx: Transaction; patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>> }> =
+			[];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		for (const tx of targets) {
+			try {
+				const patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>> = {};
+				if (applyTo === 'cleared' || applyTo === 'both') {
+					patch.clearedDate = iso;
+				}
+				if (applyTo === 'planned' || applyTo === 'both') {
+					patch.plannedDate = iso;
+				}
+
+				let updatedData: Transaction = { ...tx, ...patch };
+				const needsRecalculation =
+					(patch.clearedDate !== undefined || patch.plannedDate !== undefined) &&
+					updatedData.accountAmount === undefined;
+
+				if (needsRecalculation) {
+					const accountId = updatedData.accountId || tx.accountId;
+					if (accountId) {
+						const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+						updatedData = { ...updatedData, ...conversions };
+					}
+					if (
+						updatedData.type === 'transfer' &&
+						updatedData.transferDetails &&
+						updatedData.transferDetails.toAccountAmount === undefined
+					) {
+						const transferConversions =
+							await this.calculateTransferDestinationConversion(updatedData);
+						updatedData = { ...updatedData, ...transferConversions };
+					}
+				}
+
+				const updatedTransaction: Transaction = {
+					...updatedData,
+					updatedAt: now
+				};
+
+				await db.transactions.update(tx.id, updatedTransaction);
+				updatedRows.push({ tx: updatedTransaction, patch });
+				result.success += 1;
+			} catch (error) {
+				result.failed += 1;
+				result.errors.push({
+					id: tx.id,
+					reason: error instanceof Error ? error.message : 'Unknown bulk set date error'
+				});
+			}
+		}
+
+		for (const tx of targets) {
+			if (tx.accountId) accountIds.add(tx.accountId);
+			if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+				accountIds.add(tx.transferDetails.toAccountId);
+			}
+		}
+
+		for (const accountId of accountIds) {
+			await accountService.recalculateAccountBalance(accountId);
+		}
+		if (accountIds.size > 0) {
+			balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
+		}
+
+		for (const { tx, patch } of updatedRows) {
+			await crossRouteSyncService.onTransactionUpdated(tx, patch);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Append, prepend, literal find/replace, or set entire notes or reference.
+	 */
+	async bulkMutateNotesOrReference(
+		ids: string[],
+		options: {
+			field: 'notes' | 'reference';
+			mode: 'append' | 'prepend' | 'replace' | 'set';
+			text: string;
+			find?: string;
+		}
+	): Promise<BulkOperationResult> {
+		const { field, mode, text, find } = options;
+		const trimmedFind = find?.trim() ?? '';
+
+		if (mode === 'replace') {
+			if (!trimmedFind) {
+				throw new Error('Find text cannot be empty for replace mode');
+			}
+		} else if (mode === 'set') {
+			// text may be empty (clear field)
+		} else if (!text.trim()) {
+			throw new Error('Enter text to append or prepend');
+		}
+
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const updatedTransactions: Transaction[] = [];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		await db.transaction('rw', db.transactions, async () => {
+			for (const tx of targets) {
+				try {
+					const current = (field === 'notes' ? tx.notes : tx.reference) ?? '';
+					let next = current;
+
+					if (mode === 'set') {
+						next = text;
+					} else if (mode === 'append') {
+						const t = text;
+						if (!t) continue;
+						const sep = field === 'notes' && current ? '\n' : '';
+						next = current + sep + t;
+					} else if (mode === 'prepend') {
+						const t = text;
+						if (!t) continue;
+						const sep = field === 'notes' && current ? '\n' : '';
+						next = t + sep + current;
+					} else {
+						if (!current.includes(trimmedFind)) {
+							continue;
+						}
+						next = current.split(trimmedFind).join(text);
+					}
+
+					if (next === current) {
+						continue;
+					}
+
+					const updatedTransaction: Transaction = {
+						...tx,
+						...(field === 'notes' ? { notes: next } : { reference: next }),
+						updatedAt: now
+					};
+					await db.transactions.update(tx.id, updatedTransaction);
+					updatedTransactions.push(updatedTransaction);
+					result.success += 1;
+				} catch (error) {
+					result.failed += 1;
+					result.errors.push({
+						id: tx.id,
+						reason: error instanceof Error ? error.message : 'Unknown bulk notes/reference error'
+					});
+				}
+			}
+		});
+
+		for (const tx of updatedTransactions) {
+			const syncPatch =
+				field === 'notes' ? { notes: tx.notes } : { reference: tx.reference };
+			await crossRouteSyncService.onTransactionUpdated(tx, syncPatch);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Apply a fixed delta, percent change, or set every row's `amount` to the same value (income / expense / adjustment only).
+	 * Drops cached conversion fields so `accountAmount` is recomputed from exchange rates. Transfers are rejected per row.
+	 */
+	async bulkAdjustTransactionAmounts(
+		ids: string[],
+		options: { mode: 'fixed' | 'percent' | 'absolute'; value: number }
+	): Promise<BulkOperationResult> {
+		const { mode, value } = options;
+		if (!Number.isFinite(value)) {
+			throw new Error('Amount value must be a finite number');
+		}
+		if (mode !== 'absolute' && value === 0) {
+			throw new Error(
+				mode === 'fixed'
+					? 'Fixed adjustment must be a non-zero finite number'
+					: 'Percent adjustment must be a non-zero finite number'
+			);
+		}
+
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const accountIds = new Set<string>();
+		const updatedTransactions: Transaction[] = [];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		// No Dexie transaction wrapper: calculateCurrencyConversions touches other stores.
+		for (const tx of targets) {
+			try {
+				if (tx.type === 'transfer') {
+					result.failed += 1;
+					result.errors.push({
+						id: tx.id,
+						reason: 'Bulk amount change does not apply to transfers'
+					});
+					continue;
+				}
+
+				const baseAmount = tx.amount;
+				if (typeof baseAmount !== 'number' || !Number.isFinite(baseAmount)) {
+					result.failed += 1;
+					result.errors.push({ id: tx.id, reason: 'Transaction has no valid amount' });
+					continue;
+				}
+
+				const newAmount =
+					mode === 'absolute'
+						? value
+						: mode === 'fixed'
+							? baseAmount + value
+							: baseAmount * (1 + value / 100);
+				if (!Number.isFinite(newAmount)) {
+					result.failed += 1;
+					result.errors.push({ id: tx.id, reason: 'Adjusted amount is not a valid number' });
+					continue;
+				}
+				if (newAmount === baseAmount) {
+					continue;
+				}
+
+				const { accountAmount: _acc, currencyConversion: _conv, ...txBase } = tx;
+				let updatedData: Transaction = {
+					...txBase,
+					amount: newAmount,
+					updatedAt: now
+				};
+
+				const accountId = updatedData.accountId;
+				if (accountId) {
+					const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+					updatedData = { ...updatedData, ...conversions };
+				}
+
+				await db.transactions.update(tx.id, updatedData);
+				updatedTransactions.push(updatedData);
+				result.success += 1;
+			} catch (error) {
+				result.failed += 1;
+				result.errors.push({
+					id: tx.id,
+					reason: error instanceof Error ? error.message : 'Unknown bulk amount error'
+				});
+			}
+		}
+
+		for (const tx of updatedTransactions) {
+			if (tx.accountId) accountIds.add(tx.accountId);
+		}
+
+		for (const accountId of accountIds) {
+			await accountService.recalculateAccountBalance(accountId);
+		}
+		if (accountIds.size > 0) {
+			balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
+		}
+
+		for (const tx of updatedTransactions) {
+			await crossRouteSyncService.onTransactionUpdated(tx, {
+				amount: tx.amount,
+				accountAmount: tx.accountAmount,
+				currencyConversion: tx.currencyConversion
+			});
+		}
+
+		return result;
+	}
+
+	/**
+	 * Set transaction currency for non-transfer rows. Clears cached conversion so amounts are recomputed.
+	 */
+	async bulkSetTransactionCurrency(ids: string[], currency: string): Promise<BulkOperationResult> {
+		const trimmed = currency.trim();
+		if (!trimmed) {
+			throw new Error('Currency code cannot be empty');
+		}
+
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const accountIds = new Set<string>();
+		const updatedTransactions: Transaction[] = [];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		// No Dexie transaction wrapper: calculateCurrencyConversions touches other stores.
+		for (const tx of targets) {
+			try {
+				if (tx.type === 'transfer') {
+					result.failed += 1;
+					result.errors.push({
+						id: tx.id,
+						reason: 'Bulk currency change does not apply to transfers'
+					});
+					continue;
+				}
+
+				if (tx.currency === trimmed) {
+					continue;
+				}
+
+				const { accountAmount: _acc, currencyConversion: _conv, ...txBase } = tx;
+				let updatedData: Transaction = {
+					...txBase,
+					currency: trimmed,
+					updatedAt: now
+				};
+
+				const accountId = updatedData.accountId;
+				if (accountId) {
+					const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+					updatedData = { ...updatedData, ...conversions };
+				}
+
+				await db.transactions.update(tx.id, updatedData);
+				updatedTransactions.push(updatedData);
+				result.success += 1;
+			} catch (error) {
+				result.failed += 1;
+				result.errors.push({
+					id: tx.id,
+					reason: error instanceof Error ? error.message : 'Unknown bulk currency error'
+				});
+			}
+		}
+
+		for (const tx of updatedTransactions) {
+			if (tx.accountId) accountIds.add(tx.accountId);
+		}
+
+		for (const accountId of accountIds) {
+			await accountService.recalculateAccountBalance(accountId);
+		}
+		if (accountIds.size > 0) {
+			balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
+		}
+
+		for (const tx of updatedTransactions) {
+			await crossRouteSyncService.onTransactionUpdated(tx, {
+				currency: tx.currency,
+				accountAmount: tx.accountAmount,
+				currencyConversion: tx.currencyConversion
+			});
+		}
+
+		return result;
+	}
+
+	/**
+	 * Bulk delete transactions (soft delete)
+	 */
+	async bulkDeleteTransactions(ids: string[]): Promise<BulkOperationResult> {
+		const uniqueIds = [...new Set(ids)];
+		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
+
+		if (uniqueIds.length === 0) {
+			return result;
+		}
+
+		const now = new Date().toISOString();
+		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
+		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
+		const accountIds = new Set<string>();
+		const deletedIds: string[] = [];
+
+		for (const id of uniqueIds) {
+			if (!targetById.has(id)) {
+				result.failed += 1;
+				result.errors.push({ id, reason: 'Transaction not found' });
+			}
+		}
+
+		for (const tx of targets) {
+			if (tx.accountId) accountIds.add(tx.accountId);
+			if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+				accountIds.add(tx.transferDetails.toAccountId);
+			}
+		}
+
+		await db.transaction('rw', db.transactions, async () => {
+			for (const tx of targets) {
+				try {
+					await db.transactions.update(tx.id, {
+						deletedAt: now,
+						updatedAt: now
+					});
+					deletedIds.push(tx.id);
+					result.success += 1;
+				} catch (error) {
+					result.failed += 1;
+					result.errors.push({
+						id: tx.id,
+						reason: error instanceof Error ? error.message : 'Unknown bulk delete error'
+					});
+				}
+			}
+		});
+
+		for (const accountId of accountIds) {
+			await accountService.recalculateAccountBalance(accountId);
+		}
+
+		if (accountIds.size > 0) {
+			balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
+		}
+
+		for (const id of deletedIds) {
+			await crossRouteSyncService.onTransactionDeleted(id);
+		}
+
+		return result;
 	}
 
 	/**

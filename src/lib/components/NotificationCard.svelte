@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { swipe, type SwipeDirection } from '$lib/actions/swipe';
+	import { createDistanceThresholdGhostSuppression } from '$lib/utils/ghost-click-suppression';
 	import { goto } from '$app/navigation';
 	import { AlertCircle, CheckCircle, ChevronDown, Info, TrendingUp, X } from '@lucide/svelte';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
@@ -118,36 +119,7 @@
 	const SWIPE_CLICK_SUPPRESS_MIN_PX = 12;
 	const isCritical = $derived(insights.some((i) => i.severity === 'alert'));
 
-	let maxAbsSwipeDistanceThisGesture = 0;
-	let suppressClickAfterSwipeGesture = $state(false);
-	let suppressClickFallbackTimer: ReturnType<typeof setTimeout> | null = null;
-
-	function clearSuppressClickFallback() {
-		if (suppressClickFallbackTimer != null) {
-			clearTimeout(suppressClickFallbackTimer);
-			suppressClickFallbackTimer = null;
-		}
-	}
-
-	function armClickSuppressionAfterSwipe() {
-		if (maxAbsSwipeDistanceThisGesture < SWIPE_CLICK_SUPPRESS_MIN_PX) return;
-		suppressClickAfterSwipeGesture = true;
-		clearSuppressClickFallback();
-		suppressClickFallbackTimer = setTimeout(() => {
-			suppressClickAfterSwipeGesture = false;
-			suppressClickFallbackTimer = null;
-		}, 500);
-	}
-
-	/** Block synthetic click after a horizontal drag (desktop); same gesture can otherwise fire primary CTA → mark read. */
-	function consumeSwipeGhostClick(e: MouseEvent): boolean {
-		if (!suppressClickAfterSwipeGesture) return false;
-		e.preventDefault();
-		e.stopPropagation();
-		suppressClickAfterSwipeGesture = false;
-		clearSuppressClickFallback();
-		return true;
-	}
+	const swipeGhostClick = createDistanceThresholdGhostSuppression(SWIPE_CLICK_SUPPRESS_MIN_PX);
 
 	const snoozeHintOpacity = $derived(
 		swipeOffset <= HINT_LABEL_START_PX
@@ -172,18 +144,17 @@
 
 	function handleSwipeStart() {
 		isSwiping = true;
-		maxAbsSwipeDistanceThisGesture = 0;
+		swipeGhostClick.onGestureStart();
 	}
 
 	function handleSwipeMove(distance: number) {
-		maxAbsSwipeDistanceThisGesture = Math.max(maxAbsSwipeDistanceThisGesture, Math.abs(distance));
+		swipeGhostClick.recordMove(distance);
 		const maxTravel = getMaxSwipeTravel();
 		swipeOffset = Math.max(-maxTravel, Math.min(maxTravel, distance));
 	}
 
 	function handleSwipeEnd(direction: SwipeDirection | null) {
-		armClickSuppressionAfterSwipe();
-		maxAbsSwipeDistanceThisGesture = 0;
+		swipeGhostClick.armIfThresholdMet();
 
 		// Left = dismiss; right = snooze (panel). Matches underlay hints.
 		if (direction === 'left') {
@@ -232,7 +203,7 @@
 	}
 
 	function handleDismissClick(e: MouseEvent) {
-		if (consumeSwipeGhostClick(e)) return;
+		if (swipeGhostClick.consume(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		if (isCritical) {
@@ -249,7 +220,7 @@
 	}
 
 	function handleCtaClick(e: MouseEvent) {
-		if (consumeSwipeGhostClick(e)) return;
+		if (swipeGhostClick.consume(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		if (onClick) {
@@ -260,7 +231,7 @@
 	}
 
 	function handleViewSimilarClick(e: MouseEvent) {
-		if (consumeSwipeGhostClick(e)) return;
+		if (swipeGhostClick.consume(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		goto(insightsDeepLinkForType(primary.type));
@@ -324,7 +295,7 @@
 	);
 
 	function handlePrimaryClick(e: MouseEvent) {
-		if (consumeSwipeGhostClick(e)) return;
+		if (swipeGhostClick.consume(e)) return;
 		e.stopPropagation();
 		if (hasPrimaryAction) {
 			handleCtaClick(e);
@@ -335,7 +306,7 @@
 	}
 
 	function handleExpandClick(e: MouseEvent) {
-		if (consumeSwipeGhostClick(e)) return;
+		if (swipeGhostClick.consume(e)) return;
 		e.stopPropagation();
 		e.preventDefault();
 		isExpanded = !isExpanded;

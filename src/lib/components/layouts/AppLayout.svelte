@@ -10,6 +10,7 @@
 	import { TypePicker } from '$lib/components/transactions';
 	import Fab from '$lib/components/Fab.svelte';
 	import { Plus } from '@lucide/svelte';
+	import { bulkSelectionActive } from '$lib/stores/bulk-selection-store';
 	import type { Transaction } from '$lib/core/db';
 
 	interface Props {
@@ -61,38 +62,40 @@
 	</Dialog.Root>
 
 	<!-- Global FAB: mobile = opens Dialog; desktop = Popover anchored to FAB -->
-	{#if isMobile.current}
-		<Fab
-			position="bottom-right"
-			size="md"
-			variant="default"
-			onclick={() => typePickerOpen.set(true)}
-		>
-			{#snippet children()}
-				<Plus />
-			{/snippet}
-		</Fab>
-	{:else}
-		<!-- Desktop: Popover anchored to FAB -->
-		<Popover.Root bind:open={fabPopoverOpen}>
-			<Popover.Trigger
-				class="border-border bg-primary text-primary-foreground fixed right-4 bottom-4 z-50 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border shadow-lg transition-all hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
-				aria-label="Add transaction"
+	{#if !$bulkSelectionActive}
+		{#if isMobile.current}
+			<Fab
+				position="bottom-right"
+				size="md"
+				variant="default"
+				onclick={() => typePickerOpen.set(true)}
 			>
-				<Plus class="h-5 w-5" />
-			</Popover.Trigger>
-			<Popover.Content
-				class="w-[min(calc(100vw-2rem),20rem)] p-0"
-				align="end"
-				side="top"
-				sideOffset={8}
-			>
-				<div class="p-2">
-					<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
-					<TypePicker onSelect={handleTypeSelect} />
-				</div>
-			</Popover.Content>
-		</Popover.Root>
+				{#snippet children()}
+					<Plus />
+				{/snippet}
+			</Fab>
+		{:else}
+			<!-- Desktop: Popover anchored to FAB -->
+			<Popover.Root bind:open={fabPopoverOpen}>
+				<Popover.Trigger
+					class="border-border bg-primary text-primary-foreground fixed right-4 bottom-4 z-50 flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full border shadow-lg transition-all hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
+					aria-label="Add transaction"
+				>
+					<Plus class="h-5 w-5" />
+				</Popover.Trigger>
+				<Popover.Content
+					class="w-[min(calc(100vw-2rem),20rem)] p-0"
+					align="end"
+					side="top"
+					sideOffset={8}
+				>
+					<div class="p-2">
+						<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
+						<TypePicker onSelect={handleTypeSelect} />
+					</div>
+				</Popover.Content>
+			</Popover.Root>
+		{/if}
 	{/if}
 
 	<!-- Mobile Navigation (bottom bar) -->

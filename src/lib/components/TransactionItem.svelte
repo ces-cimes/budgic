@@ -17,6 +17,7 @@
 		transaction: Transaction | any; // Allow grouped transaction objects
 		onClick?: (transaction: Transaction | any) => void;
 		onLongPress?: (transaction: Transaction | any) => void;
+		enableLongPress?: boolean;
 		isSelected?: boolean;
 		context?: 'main' | 'transactions' | 'plan';
 		showDate?: boolean;
@@ -34,6 +35,7 @@
 		transaction,
 		onClick = () => {},
 		onLongPress = () => {},
+		enableLongPress = true,
 		isSelected = false,
 		context = 'main',
 		showDate = true,
@@ -443,12 +445,15 @@
 
 	// Long press visual feedback
 	let isLongPressing = $state(false);
+	let isLongPressReady = $state(false);
+	let ignoreClicksUntilTs = 0;
 	let buttonElement = $state<HTMLButtonElement | undefined>(undefined);
 	let longPressTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Grouped/split transaction collapsible state (already declared above at line 185)
 
 	const handleLongPressStart = () => {
+		isLongPressReady = false;
 		// Add a small delay before showing visual feedback to prevent accidental triggers
 		longPressTimer = setTimeout(() => {
 			isLongPressing = true;
@@ -461,6 +466,7 @@
 			longPressTimer = null;
 		}
 		isLongPressing = false;
+		isLongPressReady = false;
 	};
 
 	const handleLongPress = () => {
@@ -469,7 +475,21 @@
 			longPressTimer = null;
 		}
 		isLongPressing = false;
+		isLongPressReady = false;
+		// Emulated touch can still emit a synthetic click after release.
+		// Ignore a short window so release-select does not immediately toggle off.
+		ignoreClicksUntilTs = Date.now() + 900;
 		onLongPress(transaction);
+	};
+
+	const handleLongPressReady = () => {
+		if (longPressTimer) {
+			clearTimeout(longPressTimer);
+			longPressTimer = null;
+		}
+		// Keep the hold hint visible while waiting for release to confirm selection.
+		isLongPressing = true;
+		isLongPressReady = true;
 	};
 
 	const handleClick = () => {
@@ -479,6 +499,8 @@
 			longPressTimer = null;
 		}
 		isLongPressing = false;
+		isLongPressReady = false;
+		if (Date.now() < ignoreClicksUntilTs) return;
 		onClick(transaction);
 	};
 
@@ -488,11 +510,16 @@
 			const handleLongPressEvent = () => {
 				handleLongPress();
 			};
+			const handleLongPressReadyEvent = () => {
+				handleLongPressReady();
+			};
 
 			buttonElement.addEventListener('longpress', handleLongPressEvent);
+			buttonElement.addEventListener('longpressready', handleLongPressReadyEvent);
 
 			return () => {
 				buttonElement?.removeEventListener('longpress', handleLongPressEvent);
+				buttonElement?.removeEventListener('longpressready', handleLongPressReadyEvent);
 			};
 		}
 	});
@@ -510,9 +537,10 @@
 	// Selection styling with Tailwind colors
 	const selectionClass = $derived(() => {
 		if (isSelected) {
-			return 'ring-2 ring-golden-amber ring-offset-2 ring-offset-bg-primary bg-golden-amber/10';
+			// Inset ring stays inside overflow-hidden cards (outline sits outside and gets clipped).
+			return 'ring-2 ring-inset ring-zinc-900/85 bg-zinc-900/10 transition-all duration-100 dark:ring-white/90 dark:bg-white/10';
 		}
-		return '';
+		return 'transition-all duration-100';
 	});
 
 	// Context-specific layout adjustments
@@ -628,11 +656,13 @@
 					focus:ring-offset-2 focus:outline-none"
 				style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
 				onclick={handleClick}
-				use:longpress={{
-					duration: 500,
-					onStart: handleLongPressStart,
-					onCancel: handleLongPressCancel
-				}}
+				use:longpress={enableLongPress
+					? {
+							duration: 500,
+							onStart: handleLongPressStart,
+							onCancel: handleLongPressCancel
+						}
+					: undefined}
 				bind:this={buttonElement}
 				aria-label={`${ariaLabel()}, click to view details`}
 			>
@@ -711,11 +741,13 @@
 						focus:outline-none"
 					style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
 					onclick={handleClick}
-					use:longpress={{
-						duration: 500,
-						onStart: handleLongPressStart,
-						onCancel: handleLongPressCancel
-					}}
+					use:longpress={enableLongPress
+						? {
+								duration: 500,
+								onStart: handleLongPressStart,
+								onCancel: handleLongPressCancel
+							}
+						: undefined}
 					bind:this={buttonElement}
 					aria-label={`${ariaLabel()}, click to view details`}
 				>
@@ -852,11 +884,13 @@
 					focus:ring-offset-2 focus:outline-none"
 				style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
 				onclick={handleClick}
-				use:longpress={{
-					duration: 500,
-					onStart: handleLongPressStart,
-					onCancel: handleLongPressCancel
-				}}
+				use:longpress={enableLongPress
+					? {
+							duration: 500,
+							onStart: handleLongPressStart,
+							onCancel: handleLongPressCancel
+						}
+					: undefined}
 				bind:this={buttonElement}
 				aria-label={ariaLabel()}
 			>
@@ -962,7 +996,7 @@
 			>
 				<span class="flex items-center space-x-1.5">
 					<div class="bg-golden-amber h-1.5 w-1.5 animate-ping rounded-full"></div>
-					<span>Release for options</span>
+					<span>{isLongPressReady ? 'Release to select' : 'Hold to select'}</span>
 				</span>
 			</div>
 		</div>
