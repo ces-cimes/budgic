@@ -112,32 +112,33 @@
 	const EssentialStatusIcon = $derived(essentialStatus.icon);
 	const DiscretionaryStatusIcon = $derived(discretionaryStatus.icon);
 
-	// Format confidence as percentage
-	const confidencePercent = $derived(Math.round(allowance.total.confidence * 100));
+	// Use new AllowanceConfidence.ratio when available, fall back to old scalar
+	const confidencePercent = $derived(
+		confidence ? Math.round(confidence.ratio * 100) : Math.round(allowance.total.confidence * 100)
+	);
 
 	const showAllowanceRangeBand = $derived(Boolean(confidence) && confidence?.tier !== 'high');
 
 	const allowanceRangeValues = $derived.by(() => {
 		if (!confidence) return null;
 
-		const point = allowance.total.monthly;
-		const optimistic = Math.max(point - confidence.unclassifiedSpend, 0);
-		const conservative = point;
-		const rangeMax = Math.max(point, optimistic, conservative, 1);
-		const rangeMin = Math.min(point, optimistic, conservative);
+		const remaining = allowance.total.remaining;
+		const monthly = allowance.total.monthly;
+		// Current: unclassified excluded from spend (as-is)
+		const current = remaining;
+		// Conservative: if all unclassified spend counted as lifestyle
+		const conservative = Math.max(remaining - confidence.unclassifiedSpend, 0);
 
-		let rangeStartPercent = (rangeMin / rangeMax) * 100;
-		let rangeWidthPercent =
-			((Math.max(point, optimistic, conservative) - rangeMin) / rangeMax) * 100;
-		if (rangeWidthPercent < 4) {
-			rangeStartPercent = Math.max(0, rangeStartPercent - 2);
-			rangeWidthPercent = 4;
-		}
+		// Normalise positions against monthly budget for the bar overlay
+		const barMax = Math.max(monthly, 1);
+		const currentPct = Math.min(Math.max((current / barMax) * 100, 0), 100);
+		const conservativePct = Math.min(Math.max((conservative / barMax) * 100, 0), 100);
+		let rangeStartPercent = conservativePct;
+		let rangeWidthPercent = Math.max(currentPct - conservativePct, 2);
 		rangeWidthPercent = Math.min(rangeWidthPercent, 100 - rangeStartPercent);
 
 		return {
-			optimistic,
-			point,
+			current,
 			conservative,
 			rangeStartPercent,
 			rangeWidthPercent
@@ -197,6 +198,14 @@
 				</div>
 				{#if showAllowanceRangeBand && allowanceRangeValues}
 					<div class="bg-muted/40 mt-2 space-y-2 rounded-md px-3 py-2 text-left">
+						<p class="text-muted-foreground text-xs font-medium">
+							Remaining range
+							<span
+								class={confidence?.tier === 'low'
+									? 'text-destructive'
+									: 'text-warning'}
+							>({confidence?.tier} confidence)</span>
+						</p>
 						<div class="bg-muted/70 relative h-2 overflow-hidden rounded-full">
 							<div
 								class="bg-primary/30 absolute inset-y-0 rounded-full"
@@ -205,22 +214,13 @@
 						</div>
 						<div class="text-muted-foreground grid gap-1 text-xs">
 							<div class="flex items-center justify-between">
-								<span>Optimistic</span>
+								<span>Current (unclassified excluded)</span>
 								<span class="font-medium">
-									{formatTransactionAmount(
-										allowanceRangeValues.optimistic,
-										allowance.total.currency
-									)}
+									{formatTransactionAmount(allowanceRangeValues.current, allowance.total.currency)}
 								</span>
 							</div>
 							<div class="flex items-center justify-between">
-								<span>Point</span>
-								<span class="font-medium">
-									{formatTransactionAmount(allowanceRangeValues.point, allowance.total.currency)}
-								</span>
-							</div>
-							<div class="flex items-center justify-between">
-								<span>Conservative</span>
+								<span>Conservative (if all unclassified counted)</span>
 								<span class="font-medium">
 									{formatTransactionAmount(
 										allowanceRangeValues.conservative,

@@ -20,6 +20,7 @@
 	import FirstRunChecklist from '$lib/components/FirstRunChecklist.svelte';
 	import {
 		planService,
+		budgetService,
 		userService as userServiceImport,
 		negativeAllowanceService
 	} from '$lib/core/services';
@@ -42,6 +43,12 @@
 	let isLoadingAllowance = $state(false);
 	let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
 	let recoverySuggestions = $state<RecoverySuggestion[]>([]);
+	let allowanceConfidence = $state<{
+		ratio: number;
+		tier: 'low' | 'medium' | 'high';
+		unclassifiedSpend: number;
+		totalSpend: number;
+	} | null>(null);
 	/** Critical tier alerts for "Needs attention" (Phase 5: unified alerts, 2–3 max) */
 	let criticalAlerts = $state<Insight[]>([]);
 	let isLoaded = $state(false);
@@ -110,7 +117,12 @@
 	async function loadGlobalAllowance() {
 		isLoadingAllowance = true;
 		try {
-			globalAllowance = await planService.getEnhancedAllowance();
+			const [enhancedAllowance, budgetSummary] = await Promise.all([
+				planService.getEnhancedAllowance(),
+				budgetService.getBudgetSummary()
+			]);
+			globalAllowance = enhancedAllowance;
+			allowanceConfidence = budgetSummary?.confidence ?? null;
 			if (globalAllowance) {
 				const prefs = await userServiceImport.getUserPreferences();
 				const handling =
@@ -306,6 +318,7 @@
 						isLoading={isLoadingAllowance}
 						negativeStatus={negativeAllowanceStatus}
 						{recoverySuggestions}
+						confidence={allowanceConfidence}
 					/>
 				</a>
 			</section>

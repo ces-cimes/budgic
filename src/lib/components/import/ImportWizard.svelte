@@ -3,7 +3,6 @@
 	import EssentialCandidatesScreen from './EssentialCandidatesScreen.svelte';
 	import type { CandidateRow } from './EssentialCandidatesScreen.svelte';
 	import ImportPayoffScreen from './ImportPayoffScreen.svelte';
-	import type { Category } from '$lib/core/db';
 	import type { ImportResult } from '$lib/core/services/import-export';
 
 	type TierChoice = 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified';
@@ -12,7 +11,6 @@
 		open: boolean;
 		importResult: ImportResult;
 		beforeRatio: number;
-		afterRatio: number;
 		categoriesByTransactionId: Record<string, string | undefined>;
 		onApplyTier: (transactionIds: string[], tier: TierChoice) => Promise<void>;
 		personAccountCandidates?: string[];
@@ -25,7 +23,6 @@
 		open,
 		importResult,
 		beforeRatio,
-		afterRatio,
 		categoriesByTransactionId,
 		onApplyTier,
 		personAccountCandidates = [],
@@ -33,6 +30,15 @@
 		onClose,
 		onGoPatterns
 	}: Props = $props();
+
+	// Live after-ratio: recomputes each time a candidate is approved
+	const liveAfterRatio = $derived.by(() => {
+		const entries = Object.values(categoriesByTransactionId);
+		const total = entries.length;
+		if (total === 0) return beforeRatio;
+		const classified = entries.filter((t) => t && t !== 'unclassified').length;
+		return classified / total;
+	});
 
 	let step = $state(1);
 	let dismissedCandidates = $state<Set<string>>(new Set());
@@ -96,13 +102,13 @@
 					onNext={() => (step = 3)}
 				/>
 			{:else}
-				<ImportPayoffScreen
-					{beforeRatio}
-					{afterRatio}
-					{remainingUnclassified}
-					onGoPatterns={onGoPatterns}
-					onDone={onClose}
-				/>
+			<ImportPayoffScreen
+				{beforeRatio}
+				afterRatio={liveAfterRatio}
+				{remainingUnclassified}
+				onGoPatterns={onGoPatterns}
+				onDone={onClose}
+			/>
 			{/if}
 		</div>
 	</div>

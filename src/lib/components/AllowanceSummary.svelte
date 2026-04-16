@@ -4,7 +4,7 @@
 		NegativeAllowanceStatus,
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
-	import { formatAmount } from '$lib/utils/currency-utils';
+	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { TrendingUp, TrendingDown, Lightbulb } from '@lucide/svelte';
 
 	interface Props {
@@ -12,14 +12,29 @@
 		isLoading?: boolean;
 		negativeStatus?: NegativeAllowanceStatus | null;
 		recoverySuggestions?: RecoverySuggestion[];
+		confidence?: {
+			ratio: number;
+			tier: 'low' | 'medium' | 'high';
+			unclassifiedSpend: number;
+			totalSpend: number;
+		} | null;
 	}
 
 	const {
 		allowance,
 		isLoading = false,
 		negativeStatus = null,
-		recoverySuggestions = []
+		recoverySuggestions = [],
+		confidence = null
 	}: Props = $props();
+
+	const showConfidenceBand = $derived(Boolean(confidence) && confidence?.tier !== 'high');
+
+	const conservativeRemaining = $derived(
+		allowance && confidence
+			? Math.max(allowance.total.remaining - confidence.unclassifiedSpend, 0)
+			: null
+	);
 
 	// Raw percentage (can exceed 100 for overspend); display cap at 100 for non-overflow fill
 	const rawPct = $derived(() => {
@@ -138,17 +153,27 @@
 			</div>
 		{/if}
 
-		<!-- Quick breakdown: Essential / Discretionary / Buffer -->
-		<div class="border-border grid grid-cols-3 gap-2 border-t pt-1">
-			{#each [{ label: 'Essential', value: allowance.essential.remaining, currency: allowance.essential.currency }, { label: 'Discretionary', value: allowance.discretionary.remaining, currency: allowance.discretionary.currency }, { label: 'Buffer', value: allowance.buffer.remaining, currency: allowance.buffer.currency }] as col}
-				<div class="text-center">
-					<p class="text-muted-foreground mb-0.5 text-[10px]">{col.label}</p>
-					<p class="text-amount text-xs font-medium">
-						{formatAmount(col.value, col.currency)}
+		<!-- Confidence band (only when tier is low or medium) -->
+		{#if showConfidenceBand && confidence && conservativeRemaining !== null}
+			<div class="border-border border-t pt-3 space-y-1.5">
+				<div class="flex items-center justify-between">
+					<p class="text-[10px] text-[var(--color-text-tertiary)]">
+						Remaining range
+						<span
+							class={confidence.tier === 'low'
+								? 'text-[var(--color-warm-coral)]'
+								: 'text-[var(--color-amber)]'}
+						>· {confidence.tier} confidence</span>
 					</p>
 				</div>
-			{/each}
-		</div>
+				<div class="flex items-center justify-between gap-3 text-[10px]">
+					<span class="text-[var(--color-text-tertiary)]">If all unclassified counted</span>
+					<span class="font-medium {conservativeRemaining < 0 ? 'text-[var(--color-warm-coral)]' : 'text-[var(--color-text-secondary)]'}">
+						{formatTransactionAmount(conservativeRemaining, allowance.total.currency)}
+					</span>
+				</div>
+			</div>
+		{/if}
 	</div>
 {:else}
 	<!-- No allowance state -->

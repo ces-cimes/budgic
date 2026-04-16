@@ -55,7 +55,6 @@ const mmImportOptions = $state({
 	let showMMImport = $state(false);
 let importWizardOpen = $state(false);
 let wizardBeforeRatio = $state(0);
-let wizardAfterRatio = $state(0);
 let wizardCategoryTierByTxId = $state<Record<string, string | undefined>>({});
 let wizardPersonAccountCandidates = $state<string[]>([]);
 
@@ -281,9 +280,6 @@ let wizardPersonAccountCandidates = $state<string[]>([]);
 			importWizardOpen = false;
 			return;
 		}
-
-		const afterSummary = await budgetService.getBudgetSummary();
-		wizardAfterRatio = afterSummary.confidence?.ratio ?? 0;
 
 		const categories = await db.getActiveCategories();
 		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
@@ -746,7 +742,6 @@ let wizardPersonAccountCandidates = $state<string[]>([]);
 		open={importWizardOpen}
 		importResult={mmResult}
 		beforeRatio={wizardBeforeRatio}
-		afterRatio={wizardAfterRatio}
 		categoriesByTransactionId={wizardCategoryTierByTxId}
 		onApplyTier={applyCandidateTier}
 		personAccountCandidates={wizardPersonAccountCandidates}
