@@ -34,7 +34,9 @@
 
 	function formatRow(tx: Transaction): string {
 		const d = tx.clearedDate || tx.plannedDate || tx.createdAt || '';
-		const dateStr = d ? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+		const dateStr = d
+			? new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+			: '';
 		const amt = formatTransactionAmount(tx.amount ?? 0, tx.currency || currency, true);
 		return `${dateStr} · ${tx.description || '—'} · ${amt}`;
 	}
@@ -42,9 +44,7 @@
 
 {#if lines.length > 0}
 	<div class="border-border bg-card/40 rounded-xl border px-4 py-3">
-		<h3
-			class="text-text-tertiary mb-3 text-xs font-semibold tracking-widest uppercase"
-		>
+		<h3 class="text-text-tertiary mb-3 text-xs font-semibold tracking-widest uppercase">
 			Automation this month
 		</h3>
 		<ul class="space-y-2">
@@ -82,7 +82,8 @@
 				{/each}
 			</ul>
 			<Sheet.Footer class="border-t pt-4">
-				<Button variant="secondary" class="w-full" onclick={() => (sheetOpen = false)}>Close</Button>
+				<Button variant="secondary" class="w-full" onclick={() => (sheetOpen = false)}>Close</Button
+				>
 			</Sheet.Footer>
 		</Sheet.Content>
 	</Sheet.Root>

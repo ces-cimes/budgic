@@ -2332,11 +2332,16 @@ class InsightsService {
 		feeDriftLine: string | null;
 	}> {
 		const txs = await db.transactions
-			.filter((t) => Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string')
+			.filter(
+				(t) =>
+					Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string'
+			)
 			.toArray();
 
 		const savingsIds = new Set(
-			(await db.accounts.filter((a) => !a.deletedAt && a.type === 'savings').toArray()).map((a) => a.id)
+			(await db.accounts.filter((a) => !a.deletedAt && a.type === 'savings').toArray()).map(
+				(a) => a.id
+			)
 		);
 
 		const now = new Date();

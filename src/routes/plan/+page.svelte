@@ -461,7 +461,9 @@
 									</div>
 								</details>
 							{/if}
-							<details class="group/reimb border-border squircle-2xl squircle-border bg-card open:bg-card/80">
+							<details
+								class="group/reimb border-border squircle-2xl squircle-border bg-card open:bg-card/80"
+							>
 								<summary
 									class="text-muted-foreground hover:text-foreground cursor-pointer list-none px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden"
 								>

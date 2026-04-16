@@ -26,7 +26,7 @@
 			<span>Upcoming outflows (14 days)</span>
 			<span class="text-text-tertiary text-xs">Top {items.length}</span>
 		</summary>
-		<ul class="mt-3 space-y-2 border-border border-t pt-3" role="list">
+		<ul class="border-border mt-3 space-y-2 border-t pt-3" role="list">
 			{#each items as row (row.id)}
 				<li class="flex items-start justify-between gap-3 text-sm">
 					<div class="min-w-0">

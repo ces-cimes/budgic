@@ -30,10 +30,7 @@
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
 	import type { Insight } from '$lib/core/db';
-	import {
-		tierRowsFromBudgetSummary,
-		type AllowanceTierRow
-	} from '$lib/utils/budget-tier-display';
+	import { tierRowsFromBudgetSummary, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
 
 	const { data } = $props<{ data: any }>();
 

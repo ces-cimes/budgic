@@ -246,11 +246,7 @@
 			const tag = t.automation;
 			const acc = t.accountId;
 			let j = i;
-			while (
-				j < sorted.length &&
-				sorted[j].automation === tag &&
-				sorted[j].accountId === acc
-			) {
+			while (j < sorted.length && sorted[j].automation === tag && sorted[j].accountId === acc) {
 				j++;
 			}
 			const slice = sorted.slice(i, j);
@@ -557,7 +553,7 @@
 
 			<section class="mb-6 space-y-3">
 				<NextOutflowPanel items={nextOutflowRows} />
-				<AutomationAggregationCard currency={currency} lines={automationMonthLines} />
+				<AutomationAggregationCard {currency} lines={automationMonthLines} />
 			</section>
 
 			<!-- Visualizations — each with section label -->

@@ -501,7 +501,9 @@
 				>
 					Spending pulse
 				</h2>
-				<div class="squircle-2xl squircle-border bg-card min-h-[3rem] space-y-1.5 px-4 py-3 text-sm">
+				<div
+					class="squircle-2xl squircle-border bg-card min-h-[3rem] space-y-1.5 px-4 py-3 text-sm"
+				>
 					<p class="relative z-[2] text-[var(--color-text-secondary)]">
 						{spendingPulse ||
 							'Your spending at a glance. Add more transactions to see patterns here.'}
@@ -542,7 +544,9 @@
 						</div>
 						<Progress value={Math.round(dataQualityRatio * 100)} max={100} class="h-1.5" />
 						{#if unclassifiedTxCount > 0}
-							<p class="text-muted-foreground mt-2 text-xs">Tap to review unclassified transactions.</p>
+							<p class="text-muted-foreground mt-2 text-xs">
+								Tap to review unclassified transactions.
+							</p>
 						{/if}
 					</button>
 				</section>
@@ -570,7 +574,9 @@
 									}}
 								>
 									<div class="min-w-0 flex-1">
-										<p class="text-foreground flex flex-wrap items-center gap-2 truncate font-semibold">
+										<p
+											class="text-foreground flex flex-wrap items-center gap-2 truncate font-semibold"
+										>
 											<span class="truncate">{item.inferred ? '~' : ''}{item.description}</span>
 											{#if item.needsReview}
 												<span

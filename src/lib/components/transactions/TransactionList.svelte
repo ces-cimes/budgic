@@ -30,10 +30,7 @@
 	import { createDistanceThresholdGhostSuppression } from '$lib/utils/ghost-click-suppression';
 	import { tick, onMount } from 'svelte';
 	import { recurringTransactionIntelligenceService } from '$lib/core/services';
-	import {
-		resolveSmartLabel,
-		type SmartPatternForLabel
-	} from '$lib/utils/smart-date-labels';
+	import { resolveSmartLabel, type SmartPatternForLabel } from '$lib/utils/smart-date-labels';
 
 	// Filter state interface
 	export interface FilterState {

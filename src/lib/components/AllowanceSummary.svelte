@@ -149,7 +149,9 @@
 
 		{#if tierRows.length > 0 && allowance}
 			<div class="border-border space-y-1.5 border-t pt-3">
-				<p class="text-[10px] font-medium tracking-widest text-[var(--color-text-tertiary)] uppercase">
+				<p
+					class="text-[10px] font-medium tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
 					By tier
 				</p>
 				<ul class="space-y-1">
