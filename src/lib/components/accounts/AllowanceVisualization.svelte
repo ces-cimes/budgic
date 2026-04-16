@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { EnhancedAllowance, AllowanceRecommendation } from '$lib/utils/allowance-utils';
+	import type { AllowanceProjection } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
 		RecoverySuggestion
@@ -42,6 +43,8 @@
 		negativeStatus?: NegativeAllowanceStatus | null;
 		/** Recovery suggestions when allowance is negative */
 		recoverySuggestions?: RecoverySuggestion[];
+		/** Phase 5 — forward projection layers */
+		projection?: AllowanceProjection | null;
 	}
 
 	const {
@@ -50,7 +53,8 @@
 		showRecommendations = true,
 		confidence = null,
 		negativeStatus = null,
-		recoverySuggestions = []
+		recoverySuggestions = [],
+		projection = null
 	}: Props = $props();
 
 	const showNegativeWarning = $derived(
@@ -147,6 +151,31 @@
 </script>
 
 <div class="space-y-4">
+	{#if projection}
+		<Alert class="border-border bg-muted/40">
+			<Info class="size-4" />
+			<AlertTitle>Forward projection (this month)</AlertTitle>
+			<AlertDescription>
+				<p class="text-muted-foreground text-xs">
+					Committed {formatTransactionAmount(projection.committed, projection.currency, false)} · Planned{' '}
+					{formatTransactionAmount(projection.planned, projection.currency, false)} · Uncertainty ±{' '}
+					{formatTransactionAmount(projection.uncertaintyBand, projection.currency, false)}
+				</p>
+				<p class="mt-1 text-xs font-medium">
+					Available (point){' '}
+					{formatTransactionAmount(projection.available, projection.currency)} · Min{' '}
+					{formatTransactionAmount(projection.availableMin, projection.currency)} · Max{' '}
+					{formatTransactionAmount(projection.availableMax, projection.currency)}
+				</p>
+				{#if projection.recoveryDeduction > 0}
+					<p class="text-muted-foreground mt-1 text-xs">
+						Recovery set-aside: −{formatTransactionAmount(projection.recoveryDeduction, projection.currency, false)}
+					</p>
+				{/if}
+			</AlertDescription>
+		</Alert>
+	{/if}
+
 	<!-- Negative Allowance Warning -->
 	{#if showNegativeWarning && negativeStatus?.warningMessage}
 		<Alert variant="destructive" class="border-destructive/50">

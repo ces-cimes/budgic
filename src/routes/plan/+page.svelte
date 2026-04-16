@@ -5,6 +5,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.ts';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import {
 		BarChart3,
@@ -25,6 +26,7 @@
 		type WeeklyProjection
 	} from '$lib/components/budget';
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
+	import DebtAcknowledgmentPrompt from '$lib/components/plan/DebtAcknowledgmentPrompt.svelte';
 	import PlanRulesSummary from '$lib/components/budget/PlanRulesSummary.svelte';
 	import AllowanceWeekView from '$lib/components/plan/AllowanceWeekView.svelte';
 	import OutstandingReimbursementsPanel from '$lib/components/plan/OutstandingReimbursementsPanel.svelte';
@@ -72,6 +74,8 @@
 	});
 	let goalsSubTab = $state('overview');
 	let isLoading = $state(true);
+	/** True while allowance / planning data is being fetched (shows skeleton on Allowance tab) */
+	let isPlanDataLoading = $state(true);
 	let userCurrency = $state<string>('USD');
 	let selectedAccountId = $state<string>('');
 	let dailyAllowance = $state<DailyAllowance | null>(null);
@@ -93,6 +97,8 @@ let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: numbe
 	let unclassifiedTransactionCount = $state(0);
 	let nudgeClassifyDismissed = $state(false);
 	let error = $state<string | null>(null);
+	/** Phase 5.3 — intentional debt prompt (one group per period) */
+	let debtPromptGroupId = $state<string | null>(null);
 
 	const totalPlannedIncome = $derived(planningData?.totalPlannedIncome ?? 0);
 	const totalPlannedExpenses = $derived(planningData?.totalPlannedExpenses ?? 0);
@@ -133,12 +139,28 @@ let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: numbe
 	});
 
 	async function loadPlanData() {
+		isPlanDataLoading = true;
 		try {
 			enhancedAllowance = await planService.getEnhancedAllowance();
 			dailyAllowance = await planService.getDailyAllowance();
 			const budgetSummary = await budgetService.getBudgetSummary();
 			allowanceConfidence = budgetSummary?.confidence ?? null;
 			unclassifiedTransactionCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
+			debtPromptGroupId = null;
+			const proj = enhancedAllowance?.projection;
+			if (proj && proj.debtOverflowShortfall > 0 && proj.activeDebtGroupIds.length > 0) {
+				const prefs = await userService.getUserPreferences();
+				const now = new Date();
+				const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+				for (const gid of proj.activeDebtGroupIds) {
+					const dismissed = prefs?.debtPromptDismissedPeriodByGroup?.[gid] === periodKey;
+					const acked = prefs?.debtAcknowledgedPeriodByGroup?.[gid] === periodKey;
+					if (!dismissed && !acked) {
+						debtPromptGroupId = gid;
+						break;
+					}
+				}
+			}
 			if (enhancedAllowance) {
 				const prefs = await userService.getUserPreferences();
 				nudgeClassifyDismissed = prefs?.nudgeClassifyDismissed ?? false;
@@ -166,6 +188,35 @@ let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: numbe
 			}
 		} catch (err) {
 			console.error('Error loading plan data:', err);
+		} finally {
+			isPlanDataLoading = false;
+		}
+	}
+
+	function currentPeriodKey(): string {
+		const now = new Date();
+		return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+	}
+
+	async function handleDebtAckConfirm() {
+		if (!debtPromptGroupId) return;
+		try {
+			await budgetService.acknowledgeIntentionalDebt(debtPromptGroupId, currentPeriodKey());
+			debtPromptGroupId = null;
+			await loadPlanData();
+		} catch (e) {
+			console.error(e);
+		}
+	}
+
+	async function handleDebtAckDismiss() {
+		if (!debtPromptGroupId) return;
+		try {
+			await budgetService.dismissDebtPromptForPeriod(debtPromptGroupId, currentPeriodKey());
+			debtPromptGroupId = null;
+			await loadPlanData();
+		} catch (e) {
+			console.error(e);
 		}
 	}
 
@@ -249,7 +300,15 @@ let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: numbe
 			{#snippet children()}
 				<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
 					<div class="space-y-5 py-5">
-						{#if enhancedAllowance}
+						{#if isPlanDataLoading}
+							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
+								<Skeleton class="h-6 w-48 rounded" />
+								<Skeleton class="h-4 w-full rounded" />
+								<Skeleton class="h-4 w-3/4 rounded" />
+								<Skeleton class="h-24 w-full rounded-xl" />
+								<Skeleton class="h-16 w-full rounded-xl" />
+							</div>
+						{:else if enhancedAllowance}
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
 								{#if showClassifyNudge}
 									<div
@@ -277,9 +336,27 @@ let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: numbe
 										</div>
 									</div>
 								{/if}
+								{#if debtPromptGroupId && enhancedAllowance?.projection}
+									<DebtAcknowledgmentPrompt
+										groupLabel={debtPromptGroupId.replace(/^debt:/, '').replace(/-/g, ' ')}
+										shortfallDisplay={formatTransactionAmount(
+											enhancedAllowance.projection.debtOverflowShortfall,
+											enhancedAllowance.projection.currency
+										)}
+										onConfirm={handleDebtAckConfirm}
+										onDismiss={handleDebtAckDismiss}
+									/>
+								{/if}
+								{#if enhancedAllowance?.projection?.hasAcknowledgedDebtInPeriod && enhancedAllowance.projection.recoveryWeeksEstimate != null}
+									<p class="text-muted-foreground text-center text-xs">
+										Recovery: about {enhancedAllowance.projection.recoveryWeeksEstimate} week(s) at
+										current pace after this intentional stretch.
+									</p>
+								{/if}
 								<AllowanceVisualization
 									allowance={enhancedAllowance}
 									confidence={allowanceConfidence}
+									projection={enhancedAllowance.projection ?? null}
 									showDetails={true}
 									showRecommendations={true}
 									negativeStatus={negativeAllowanceStatus}

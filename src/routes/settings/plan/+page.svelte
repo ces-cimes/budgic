@@ -41,6 +41,11 @@
 	let budgetAlertWarningAtPercent = $state(80);
 	let budgetAlertCriticalAtPercent = $state(100);
 
+	/** Phase 5.4 — debt tolerance */
+	let maxDebtPeriodDays = $state(90);
+	let recoveryAggressivenessPercent = $state(20);
+	let debtRecoveryActive = $state(false);
+
 	// Occasions (merged from /settings/occasions)
 	let occasions = $state<Occasion[]>([]);
 	let occasionsLoading = $state(false);
@@ -99,6 +104,13 @@
 					typeof p.budgetAlertWarningAtPercent === 'number' ? p.budgetAlertWarningAtPercent : 80;
 				budgetAlertCriticalAtPercent =
 					typeof p.budgetAlertCriticalAtPercent === 'number' ? p.budgetAlertCriticalAtPercent : 100;
+				maxDebtPeriodDays =
+					typeof p.maxDebtPeriodDays === 'number' ? p.maxDebtPeriodDays : 90;
+				recoveryAggressivenessPercent =
+					typeof p.recoveryAggressiveness === 'number'
+						? Math.round(p.recoveryAggressiveness * 100)
+						: 20;
+				debtRecoveryActive = p.debtRecoveryActive === true;
 			}
 		} catch (e) {
 			console.error('Failed to load plan settings', e);
@@ -233,7 +245,10 @@
 						? Number(savingsOpportunityMinSurplus)
 						: undefined,
 				budgetAlertWarningAtPercent: warn,
-				budgetAlertCriticalAtPercent: crit
+				budgetAlertCriticalAtPercent: crit,
+				maxDebtPeriodDays,
+				recoveryAggressiveness: Math.min(0.5, Math.max(0.1, recoveryAggressivenessPercent / 100)),
+				debtRecoveryActive
 			});
 		} catch (e) {
 			console.error('Failed to save plan settings', e);
@@ -308,6 +323,63 @@
 						<p class="text-xs text-[var(--color-text-tertiary)]">
 							"Allow with strong warning" permits spending but surfaces recovery suggestions.
 						</p>
+					</div>
+				</div>
+
+				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+					<div class="border-border border-b px-5 py-3">
+						<h2
+							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Budget — debt tolerance
+						</h2>
+						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+							Controls how aggressively Budgic sets aside allowance after you acknowledge intentional
+							debt (Phase 5).
+						</p>
+					</div>
+					<div class="space-y-4 px-5 py-4">
+						<div class="space-y-1.5">
+							<label
+								for="max-debt-days"
+								class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Max debt period (days)</label
+							>
+							<input
+								id="max-debt-days"
+								type="range"
+								min="7"
+								max="183"
+								bind:value={maxDebtPeriodDays}
+								class="w-full accent-[var(--color-amber)]"
+							/>
+							<p class="text-xs text-[var(--color-text-tertiary)]">{maxDebtPeriodDays} days</p>
+						</div>
+						<div class="space-y-1.5">
+							<label
+								for="recovery-aggr"
+								class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Recovery aggressiveness (% of income)</label
+							>
+							<input
+								id="recovery-aggr"
+								type="range"
+								min="10"
+								max="50"
+								bind:value={recoveryAggressivenessPercent}
+								class="w-full accent-[var(--color-amber)]"
+							/>
+							<p class="text-xs text-[var(--color-text-tertiary)]">{recoveryAggressivenessPercent}%</p>
+						</div>
+						<div class="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-bg-surface)] px-4 py-3">
+							<div>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">Recovery mode active</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									When on, forward allowance deducts the recovery % from available cash flow.
+								</p>
+							</div>
+							<Switch bind:checked={debtRecoveryActive} />
+						</div>
 					</div>
 				</div>
 

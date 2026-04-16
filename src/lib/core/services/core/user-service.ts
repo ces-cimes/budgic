@@ -74,7 +74,14 @@ class UserService {
 					? prefs.budgetAlertCriticalAtPercent
 					: 100,
 			nudgeClassifyDismissed: prefs.nudgeClassifyDismissed ?? false,
-			reimbursementAllowanceMode: prefs.reimbursementAllowanceMode ?? 'conservative'
+			reimbursementAllowanceMode: prefs.reimbursementAllowanceMode ?? 'conservative',
+			maxDebtPeriodDays: (prefs.maxDebtPeriodDays as number) ?? 90,
+			recoveryAggressiveness: (prefs.recoveryAggressiveness as number) ?? 0.2,
+			debtRecoveryActive: prefs.debtRecoveryActive ?? false,
+			debtAcknowledgedPeriodByGroup:
+				(prefs.debtAcknowledgedPeriodByGroup as Record<string, string> | undefined) ?? undefined,
+			debtPromptDismissedPeriodByGroup:
+				(prefs.debtPromptDismissedPeriodByGroup as Record<string, string> | undefined) ?? undefined
 		} as UserPreferences;
 	}
 
@@ -112,6 +119,9 @@ class UserService {
 				budgetAlertCriticalAtPercent: 100,
 				nudgeClassifyDismissed: false,
 				reimbursementAllowanceMode: 'conservative',
+				maxDebtPeriodDays: 90,
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false,
 				enableAdvancedFeatures: false,
 				enablePredictiveAnalytics: true,
 				analyticsEnabled: true,
@@ -466,6 +476,9 @@ class UserService {
 			budgetAlertCriticalAtPercent: 100,
 			nudgeClassifyDismissed: false,
 			reimbursementAllowanceMode: 'conservative',
+			maxDebtPeriodDays: 90,
+			recoveryAggressiveness: 0.2,
+			debtRecoveryActive: false,
 			enableAdvancedFeatures: false,
 			enablePredictiveAnalytics: true,
 			analyticsEnabled: true,

@@ -4,7 +4,8 @@
 		userService,
 		currencyConfigService,
 		exchangeRateService,
-		insightsService
+		insightsService,
+		budgetService
 	} from '$lib/core/services';
 	import { db, generateUUID } from '$lib/core/db';
 	import { PageLayout } from '$lib/components/layouts';
@@ -426,6 +427,7 @@
 		if (mainCurrency === oldMainCurrency) {
 			// No change, just save preference
 			await userService.updateUserPreferences({ currency: mainCurrency });
+			budgetService.invalidateProjectionCache();
 			toast.success('Main currency updated');
 			return;
 		}
@@ -454,6 +456,7 @@
 		try {
 			// Update preference first
 			await userService.updateUserPreferences({ currency: mainCurrency });
+			budgetService.invalidateProjectionCache();
 
 			// Convert exchange rates if requested
 			if (shouldConvert) {

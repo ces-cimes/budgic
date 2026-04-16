@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { budgetService } from './budget-service';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { budgetService, computeDeadlineChunk } from './budget-service';
+
+vi.mock('../analytics/recurring-transaction-intelligence-service', () => ({
+	recurringTransactionIntelligenceService: {
+		detectPatterns: vi.fn().mockResolvedValue([])
+	}
+}));
 
 vi.mock('$lib/core/db', async () => {
 	const actual = await vi.importActual('$lib/core/db');
@@ -9,12 +15,14 @@ vi.mock('$lib/core/db', async () => {
 			getActiveCategories: vi.fn(),
 			getActiveAccounts: vi.fn(),
 			transactions: {
-				toArray: vi.fn()
+				toArray: vi.fn(),
+				update: vi.fn()
 			},
 			userPreferences: {
 				toCollection: vi.fn(() => ({
 					first: vi.fn()
-				}))
+				})),
+				update: vi.fn()
 			}
 		}
 	};
@@ -48,6 +56,7 @@ describe('budgetService reimbursement allowance mode', () => {
 				amount: -100,
 				currency: 'USD',
 				categoryId: 'cat-lifestyle',
+				clearedDate: '2026-04-01T00:00:00.000Z',
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null,
@@ -65,7 +74,12 @@ describe('budgetService reimbursement allowance mode', () => {
 			}
 		] as any);
 		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
-			first: vi.fn().mockResolvedValue({ reimbursementAllowanceMode: 'conservative' })
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'conservative',
+				currency: 'USD',
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false
+			})
 		} as any);
 
 		const summary = await budgetService.getBudgetSummary();
@@ -82,6 +96,7 @@ describe('budgetService reimbursement allowance mode', () => {
 				amount: -100,
 				currency: 'USD',
 				categoryId: 'cat-lifestyle',
+				clearedDate: '2026-04-02T00:00:00.000Z',
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null,
@@ -99,7 +114,12 @@ describe('budgetService reimbursement allowance mode', () => {
 			}
 		] as any);
 		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
-			first: vi.fn().mockResolvedValue({ reimbursementAllowanceMode: 'optimistic' })
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'optimistic',
+				currency: 'USD',
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false
+			})
 		} as any);
 
 		const summary = await budgetService.getBudgetSummary();
@@ -137,10 +157,153 @@ describe('budgetService reimbursement allowance mode', () => {
 			}
 		] as any);
 		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
-			first: vi.fn().mockResolvedValue({ reimbursementAllowanceMode: 'conservative' })
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'conservative',
+				currency: 'USD',
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false
+			})
 		} as any);
 
 		const summary = await budgetService.getBudgetSummary();
 		expect(summary.confidence.exactSpend).toBe(250);
+	});
+});
+
+describe('computeDeadlineChunk', () => {
+	it('splits amount across remaining months until deadline', () => {
+		const periodStart = new Date('2026-04-01T00:00:00.000Z');
+		const periodEnd = new Date('2026-04-30T23:59:59.999Z');
+		const today = new Date('2026-04-10T12:00:00.000Z');
+		const chunk = computeDeadlineChunk(
+			{
+				amount: -300,
+				deadline: '2026-06-15T00:00:00.000Z',
+				spreadingStrategy: 'linear'
+			},
+			periodStart,
+			periodEnd,
+			today
+		);
+		expect(chunk).toBeCloseTo(100, 0);
+	});
+});
+
+describe('budgetService.getAllowanceProjection', () => {
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-04-15T12:00:00.000Z'));
+		vi.clearAllMocks();
+		budgetService.invalidateProjectionCache();
+		vi.mocked(db.getActiveCategories).mockResolvedValue([
+			{
+				id: 'cat-lifestyle',
+				name: 'Lifestyle',
+				waterfallTier: 'lifestyle',
+				priority: 1
+			}
+		] as any);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([
+			{ id: 'checking-1', type: 'checking' },
+			{ id: 'credit-1', type: 'credit' }
+		] as any);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('counts planned expenses in planned layer but not committed', async () => {
+		vi.mocked(db.transactions.toArray).mockResolvedValue([
+			{
+				id: 'inc-1',
+				type: 'income',
+				status: 'cleared',
+				amount: 5000,
+				currency: 'USD',
+				clearedDate: '2026-04-01T00:00:00.000Z',
+				createdAt: '2026-04-01T00:00:00.000Z',
+				updatedAt: '2026-04-01T00:00:00.000Z',
+				deletedAt: null
+			},
+			{
+				id: 'exp-1',
+				type: 'expense',
+				status: 'cleared',
+				amount: -100,
+				currency: 'USD',
+				categoryId: 'cat-lifestyle',
+				clearedDate: '2026-04-05T00:00:00.000Z',
+				createdAt: '2026-04-05T00:00:00.000Z',
+				updatedAt: '2026-04-05T00:00:00.000Z',
+				deletedAt: null
+			},
+			{
+				id: 'plan-1',
+				type: 'expense',
+				status: 'planned',
+				amount: -250,
+				currency: 'USD',
+				categoryId: 'cat-lifestyle',
+				plannedDate: '2026-04-20T00:00:00.000Z',
+				createdAt: '2026-04-10T00:00:00.000Z',
+				updatedAt: '2026-04-10T00:00:00.000Z',
+				deletedAt: null
+			}
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'conservative',
+				currency: 'USD',
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false
+			})
+		} as any);
+
+		const proj = await budgetService.getAllowanceProjection();
+		expect(proj.committed).toBe(100);
+		expect(proj.planned).toBe(250);
+		expect(proj.periodIncome).toBe(5000);
+		expect(proj.available).toBe(5000 - 100 - 250);
+	});
+
+	it('applies recovery deduction when debt recovery is active', async () => {
+		vi.mocked(db.transactions.toArray).mockResolvedValue([
+			{
+				id: 'inc-1',
+				type: 'income',
+				status: 'cleared',
+				amount: 4000,
+				currency: 'USD',
+				clearedDate: '2026-04-01T00:00:00.000Z',
+				createdAt: '2026-04-01T00:00:00.000Z',
+				updatedAt: '2026-04-01T00:00:00.000Z',
+				deletedAt: null
+			},
+			{
+				id: 'exp-1',
+				type: 'expense',
+				status: 'cleared',
+				amount: -200,
+				currency: 'USD',
+				categoryId: 'cat-lifestyle',
+				clearedDate: '2026-04-05T00:00:00.000Z',
+				createdAt: '2026-04-05T00:00:00.000Z',
+				updatedAt: '2026-04-05T00:00:00.000Z',
+				deletedAt: null
+			}
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'conservative',
+				currency: 'USD',
+				recoveryAggressiveness: 0.25,
+				debtRecoveryActive: true
+			})
+		} as any);
+
+		const proj = await budgetService.getAllowanceProjection();
+		expect(proj.recoveryDeduction).toBe(1000);
+		expect(proj.available).toBe(4000 - 200 - 1000);
 	});
 });

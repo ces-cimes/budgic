@@ -8,6 +8,7 @@
 
 import type { Account, Transaction } from '$lib/core/db';
 import { db, expenseCountsTowardAllowanceAnalytics } from '$lib/core/db';
+import type { AllowanceProjection } from '$lib/core/services/core/budget-service';
 import { getBufferAmount, calculateRecommendedBuffer } from './account-metadata-utils';
 import { transactionService } from '$lib/core/services';
 import { accountService } from '$lib/core/services';
@@ -74,6 +75,8 @@ export interface EnhancedAllowance {
 	periodEnd: Date;
 	/** Recommendations for allowance adjustments */
 	recommendations: AllowanceRecommendation[];
+	/** Phase 5 — forward three-layer projection (optional until loaded) */
+	projection?: AllowanceProjection | null;
 }
 
 /**

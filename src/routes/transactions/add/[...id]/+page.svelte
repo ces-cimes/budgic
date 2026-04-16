@@ -52,6 +52,21 @@
 	import { dateUtils } from '$lib/utils/date-utils';
 	import { autocompleteService, type DescriptionSuggestion } from '$lib/core/services/autocomplete-service';
 
+	function debtGroupIdFromLabel(label: string): string | undefined {
+		const t = label
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9\u0400-\u04FF]+/g, '-')
+			.replace(/^-+|-+$/g, '');
+		if (!t) return undefined;
+		return `debt:${t}`;
+	}
+
+	function labelFromDebtGroupId(id: string | undefined): string {
+		if (!id) return '';
+		return id.replace(/^debt:/, '').replace(/-/g, ' ');
+	}
+
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
 	let transaction = $state<Transaction | null>(null);
@@ -107,6 +122,10 @@
 	let reference = $state('');
 	let toAccountId = $state('');
 	let plannedDate = $state('');
+	/** Phase 5.2 — deadline / spreading / debt group (planned expenses) */
+	let deadlineLocal = $state('');
+	let spreadingStrategy = $state<NonNullable<Transaction['spreadingStrategy']>>('linear');
+	let debtGroupLabel = $state('');
 	let clearedDate = $state('');
 	let isRecurring = $state(false);
 	let recurrenceRule = $state('');
@@ -431,6 +450,11 @@
 					priorityString = transaction.priority?.toString() || '';
 					directionalConstraint = transaction.directionalConstraint || undefined;
 					flexibilityTier = transaction.flexibilityTier || undefined;
+					deadlineLocal = transaction.deadline
+						? dateUtils.toLocalDateTimeInput(transaction.deadline)
+						: '';
+					spreadingStrategy = transaction.spreadingStrategy ?? 'linear';
+					debtGroupLabel = labelFromDebtGroupId(transaction.debtGroupId);
 					// Reimbursement section preload
 					const firstReimbursement = transaction.reimbursements?.[0];
 					if (firstReimbursement) {
@@ -471,6 +495,9 @@
 				const now = new Date();
 				clearedDate = dateUtils.toLocalDateTimeInput(now.toISOString());
 				plannedDate = dateUtils.toLocalDateTimeInput(now.toISOString());
+				deadlineLocal = '';
+				spreadingStrategy = 'linear';
+				debtGroupLabel = '';
 			}
 
 			const allTransactions = await transactionService.getAllTransactions();
@@ -740,6 +767,12 @@
 							? dateUtils.fromLocalDateTimeInput(plannedDate)
 							: undefined
 						: undefined,
+				deadline:
+					status === 'planned' && deadlineLocal
+						? dateUtils.fromLocalDateTimeInput(deadlineLocal)
+						: undefined,
+				spreadingStrategy: status === 'planned' ? spreadingStrategy : undefined,
+				debtGroupId: status === 'planned' ? debtGroupIdFromLabel(debtGroupLabel) : undefined,
 				clearedDate:
 					status === 'cleared'
 						? clearedDate
@@ -1043,6 +1076,50 @@
 						/>
 					{/if}
 				</div>
+
+				{#if status === 'planned' && transactionType === 'expense'}
+					<div class="space-y-2">
+						<Label.Root for="deadline">Deadline (optional)</Label.Root>
+						<Input.Root
+							id="deadline"
+							type="datetime-local"
+							bind:value={deadlineLocal}
+							onfocus={handleInputFocus}
+						/>
+						<p class="text-muted-foreground text-xs">
+							When set, allowance spreads this expense until the deadline (linear by default).
+						</p>
+					</div>
+					<div class="space-y-2">
+						<Label.Root for="spreading-strategy">Spreading</Label.Root>
+						<Select.Root type="single" bind:value={spreadingStrategy}>
+							<Select.Trigger id="spreading-strategy" class="w-full">
+								{spreadingStrategy === 'front-loaded'
+									? 'Front-loaded'
+									: spreadingStrategy === 'back-loaded'
+										? 'Back-loaded'
+										: 'Linear'}
+							</Select.Trigger>
+							<Select.Content>
+								<Select.Item value="linear">Linear</Select.Item>
+								<Select.Item value="front-loaded">Front-loaded</Select.Item>
+								<Select.Item value="back-loaded">Back-loaded</Select.Item>
+							</Select.Content>
+						</Select.Root>
+					</div>
+					<div class="space-y-2">
+						<Label.Root for="debt-group">Debt group (optional)</Label.Root>
+						<Input.Root
+							id="debt-group"
+							bind:value={debtGroupLabel}
+							placeholder="e.g. vacation, home repair"
+							onfocus={handleInputFocus}
+						/>
+						<p class="text-muted-foreground text-xs">
+							Groups related planned expenses; used for intentional debt prompts on Plan.
+						</p>
+					</div>
+				{/if}
 
 				{#if status === 'planned' || status === 'cleared'}
 					<div

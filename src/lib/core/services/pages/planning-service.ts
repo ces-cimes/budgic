@@ -194,7 +194,13 @@ class PlanService {
 					}
 				};
 			}
-			return allowance;
+			let projection: import('$lib/core/services/core/budget-service').AllowanceProjection | null = null;
+			try {
+				projection = await budgetService.getAllowanceProjection();
+			} catch (e) {
+				console.warn('getAllowanceProjection failed', e);
+			}
+			return { ...allowance, projection };
 		} catch (error) {
 			console.error('Error getting enhanced allowance:', error);
 			// Return empty allowance structure on error
@@ -221,7 +227,8 @@ class PlanService {
 				total: emptyAllowance,
 				periodStart: new Date(now.getFullYear(), now.getMonth(), 1),
 				periodEnd: endOfMonth,
-				recommendations: []
+				recommendations: [],
+				projection: null
 			};
 		}
 	}

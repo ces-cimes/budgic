@@ -467,7 +467,7 @@ class RecurringTransactionIntelligenceService {
 		if (transactions.length === 0) return [];
 		const config = resolveSimilarityProfile(profileName);
 
-		if (transactions.length <= 2000) {
+		if (transactions.length <= 50) {
 			return this.similarityEngine.cluster(transactions, config, minGroupSize);
 		}
 

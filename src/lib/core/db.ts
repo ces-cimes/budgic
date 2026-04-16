@@ -1219,7 +1219,18 @@ const UserPreferencesSchema = BaseSchema.extend({
 	/** Phase 1.3 confidence nudge dismissal (key: 'nudge_classify_dismissed') */
 	nudgeClassifyDismissed: z.boolean().default(false),
 	/** Phase 3.4 reimbursement handling in allowance calculations */
-	reimbursementAllowanceMode: z.enum(['conservative', 'optimistic']).default('conservative')
+	reimbursementAllowanceMode: z.enum(['conservative', 'optimistic']).default('conservative'),
+
+	/** Phase 5.4 — max intentional debt window (days) for tolerance messaging */
+	maxDebtPeriodDays: z.number().int().min(7).max(183).default(90),
+	/** Phase 5.4 — fraction of income (0.1–0.5) earmarked during recovery */
+	recoveryAggressiveness: z.number().min(0.1).max(0.5).default(0.2),
+	/** Phase 5.3/5.4 — user opted into post-debt recovery tightening */
+	debtRecoveryActive: z.boolean().default(false),
+	/** Phase 5.3 — last period key (YYYY-MM) user acknowledged intentional debt per group id */
+	debtAcknowledgedPeriodByGroup: z.record(z.string(), z.string()).optional(),
+	/** Phase 5.3 — last period key user dismissed the debt prompt per group id */
+	debtPromptDismissedPeriodByGroup: z.record(z.string(), z.string()).optional()
 });
 
 // User Actions Schema
