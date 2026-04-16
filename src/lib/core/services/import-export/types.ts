@@ -85,6 +85,29 @@ export interface ImportResult {
 	duration: number;
 	/** Timestamp when import completed */
 	completedAt: string;
+	/** Optional post-import metadata for guided clean-up UX */
+	importBatch?: {
+		transactionIds: string[];
+		unclassifiedTransactionIds: string[];
+		accountIdsAffected: string[];
+		dateRange?: { start: string; end: string };
+		automationSummary?: {
+			roundUpCount: number;
+			roundUpAmount: number;
+			interestCount: number;
+			interestAmount: number;
+			reconciliationAdjustmentCount: number;
+		};
+		essentialCandidates?: Array<{
+			patternKey: string;
+			suggestedTier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified';
+			matchedTransactionIds: string[];
+			allowanceImpact: number;
+			cadence: 'monthly' | 'weekly' | 'irregular';
+			confidence: number;
+			reason: string;
+		}>;
+	};
 }
 
 /**

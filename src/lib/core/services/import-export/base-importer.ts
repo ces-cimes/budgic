@@ -110,7 +110,7 @@ export abstract class BaseImporter {
 	 * @param success - Whether import was successful
 	 * @returns Import result
 	 */
-	protected createResult(success: boolean): ImportResult {
+	protected createResult(success: boolean, importBatch?: ImportResult['importBatch']): ImportResult {
 		const duration = Date.now() - this.startTime;
 
 		return {
@@ -119,7 +119,8 @@ export abstract class BaseImporter {
 			errors: [...this.errors],
 			warnings: [...this.warnings],
 			duration,
-			completedAt: new Date().toISOString()
+			completedAt: new Date().toISOString(),
+			importBatch
 		};
 	}
 

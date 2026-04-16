@@ -20,6 +20,7 @@ export { autocompleteService } from './autocomplete-service';
 
 // Import/Export services
 export * from './import-export';
+export * from './intelligence';
 
 // Re-export types from db for convenience
 export type {

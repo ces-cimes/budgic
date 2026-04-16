@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { userService } from '$lib/core/services';
+import {
+	userService,
+	budgetService,
+	transactionService,
+	accountService
+} from '$lib/core/services';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import * as Select from '$lib/components/ui/select/index.ts';
@@ -15,8 +20,11 @@
 		type ImportProgress,
 		type DetectedSchema
 	} from '$lib/core/services/import-export';
+import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
 	import { formatPercentage } from '$lib/utils/currency-utils';
+import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
+import type { Transaction, Account } from '$lib/core/db';
 
 	// State
 	let isLoading = $state(true);
@@ -32,7 +40,7 @@
 	// Money Manager import state
 	let mmFiles = $state<File[]>([]);
 	let mmSchema = $state<DetectedSchema | null>(null);
-	let mmImportOptions = $state({
+const mmImportOptions = $state({
 		importAccounts: true,
 		importCategories: true,
 		importTransactions: true,
@@ -45,6 +53,11 @@
 	let mmProgress = $state<ImportProgress | null>(null);
 	let mmResult = $state<ImportResult | null>(null);
 	let showMMImport = $state(false);
+let importWizardOpen = $state(false);
+let wizardBeforeRatio = $state(0);
+let wizardAfterRatio = $state(0);
+let wizardCategoryTierByTxId = $state<Record<string, string | undefined>>({});
+let wizardPersonAccountCandidates = $state<string[]>([]);
 
 	// Export format options
 	const exportFormatOptions = [
@@ -224,6 +237,9 @@
 		mmProgress = null;
 
 		try {
+		const beforeSummary = await budgetService.getBudgetSummary();
+		wizardBeforeRatio = beforeSummary.confidence?.ratio ?? 0;
+
 			// Read CSV files
 			const csvFiles = await readMultipleCSVFiles(mmFiles);
 
@@ -245,6 +261,8 @@
 				// Clear files after successful import
 				mmFiles = [];
 				mmSchema = null;
+
+			await prepareImportWizardState(result);
 			} else {
 				error = `Import completed with ${result.errors.length} error(s). Check details below.`;
 			}
@@ -254,6 +272,107 @@
 		} finally {
 			isImportingMM = false;
 			mmProgress = null;
+		}
+	}
+
+	async function prepareImportWizardState(result: ImportResult): Promise<void> {
+		const batch = result.importBatch;
+		if (!batch || batch.unclassifiedTransactionIds.length < 10) {
+			importWizardOpen = false;
+			return;
+		}
+
+		const afterSummary = await budgetService.getBudgetSummary();
+		wizardAfterRatio = afterSummary.confidence?.ratio ?? 0;
+
+		const categories = await db.getActiveCategories();
+		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
+		const txs = (
+			await Promise.all(batch.transactionIds.map((id) => db.transactions.get(id)))
+		).filter((tx): tx is Transaction => !!tx);
+		wizardCategoryTierByTxId = Object.fromEntries(
+			txs.map((tx) => [tx.id, (tx.categoryId ? categoryTierById[tx.categoryId] : undefined) as string | undefined])
+		);
+
+		wizardPersonAccountCandidates = await detectPersonAccountCandidates(batch.accountIdsAffected);
+		importWizardOpen = true;
+	}
+
+	async function detectPersonAccountCandidates(accountIds: string[]): Promise<string[]> {
+		const accounts = (
+			await Promise.all(accountIds.map((id) => accountService.getAccount(id)))
+		).filter((a): a is Account => !!a);
+		const firstNameLike = /^[A-ZА-Я][a-zа-я]{2,20}$/;
+		const recentCutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+		const candidates: string[] = [];
+
+		for (const account of accounts) {
+			if (!firstNameLike.test(account.name.trim())) continue;
+			const txs = await transactionService.getTransactionsByAccount(account.id);
+			const recent = txs.filter((tx) => {
+				const ts = Date.parse(tx.clearedDate || tx.plannedDate || tx.createdAt);
+				return !Number.isNaN(ts) && ts >= recentCutoff;
+			});
+			const net = recent.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+			if (Math.abs(net) < Math.max(50, Math.abs(account.currentBalance) * 0.5)) {
+				candidates.push(account.name);
+			}
+		}
+		return candidates;
+	}
+
+	async function applyCandidateTier(transactionIds: string[], tier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified'): Promise<void> {
+		const categoryIds = new Set<string>();
+		for (const id of transactionIds) {
+			const tx = await db.transactions.get(id);
+			if (tx?.categoryId) categoryIds.add(tx.categoryId);
+		}
+		for (const categoryId of categoryIds) {
+			await db.categories.update(categoryId, { waterfallTier: tier, updatedAt: new Date().toISOString() });
+		}
+		const categories = await db.getActiveCategories();
+		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
+		for (const id of transactionIds) {
+			const tx = await db.transactions.get(id);
+			wizardCategoryTierByTxId[id] = tx?.categoryId ? (categoryTierById[tx.categoryId] as string | undefined) : undefined;
+		}
+		await userService.trackUserAction({
+			action: 'create_import_classification_rule',
+			details: JSON.stringify({ transactionIds, tier })
+		});
+	}
+
+	async function runPersonAccountMigration() {
+		if (!mmResult?.importBatch) return;
+		const accounts = await accountService.getAccounts();
+		const targets = accounts.filter((a) => wizardPersonAccountCandidates.includes(a.name));
+		const uncategorized = await getOrCreateUncategorizedCategory();
+		for (const account of targets) {
+			if (Math.abs(account.currentBalance) <= 0.01) continue;
+			const direction = account.currentBalance > 0 ? 'lending' : 'borrowing';
+			const amount = Math.abs(account.currentBalance);
+			await transactionService.createTransaction({
+				type: account.currentBalance > 0 ? 'expense' : 'income',
+				status: 'cleared',
+				accountId: account.id,
+				amount: account.currentBalance > 0 ? amount : -amount,
+				currency: account.currency,
+				description: `Person account migration: ${account.name}`,
+				categoryId: uncategorized.id,
+				reimbursements: [
+					{
+						id: crypto.randomUUID(),
+						direction,
+						amount,
+						currency: account.currency,
+						person: account.name,
+						status: direction === 'lending' ? 'expecting' : 'owed',
+						createdAt: new Date().toISOString(),
+						updatedAt: new Date().toISOString()
+					}
+				],
+				clearedDate: new Date().toISOString()
+			});
 		}
 	}
 
@@ -621,3 +740,18 @@
 		{/if}
 	</div>
 </PageLayout>
+
+{#if mmResult?.importBatch}
+	<ImportWizard
+		open={importWizardOpen}
+		importResult={mmResult}
+		beforeRatio={wizardBeforeRatio}
+		afterRatio={wizardAfterRatio}
+		categoriesByTransactionId={wizardCategoryTierByTxId}
+		onApplyTier={applyCandidateTier}
+		personAccountCandidates={wizardPersonAccountCandidates}
+		onMigratePersonAccounts={runPersonAccountMigration}
+		onGoPatterns={() => goto('/insights?tab=patterns')}
+		onClose={() => (importWizardOpen = false)}
+	/>
+{/if}

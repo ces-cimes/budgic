@@ -9,6 +9,8 @@ import { db, generateUUID } from '$lib/core/db';
 import type { Account, Category, Transaction, Currency } from '$lib/core/db';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
+import { automationDetector } from '../intelligence/automation-detector';
+import { detectEssentials, type ClassificationCandidate } from '../intelligence/essential-detector';
 import { BaseImporter } from './base-importer';
 import type { ImportOptions, ImportResult, CSVFile, IdMapping, TransferPair } from './types';
 import {
@@ -50,6 +52,9 @@ export class MoneyManagerImporter extends BaseImporter {
 	private categoryNameMap: Map<string, string> = new Map(); // MM uid -> category name (for hierarchy)
 	private transferPairs: Map<string, TransferPair> = new Map(); // txUidTrans -> TransferPair
 	private existingMMTransactions: Map<string, Transaction> = new Map(); // MM uid -> Transaction (for fast duplicate detection)
+	private importedTransactionIds: string[] = [];
+	private importedAccountIds = new Set<string>();
+	private essentialCandidates: ClassificationCandidate[] = [];
 
 	/**
 	 * Execute the import process
@@ -60,6 +65,9 @@ export class MoneyManagerImporter extends BaseImporter {
 	async import(csvFiles: Map<string, CSVFile>): Promise<ImportResult> {
 		this.csvFiles = csvFiles;
 		this.startTiming();
+		this.importedTransactionIds = [];
+		this.importedAccountIds = new Set<string>();
+		this.essentialCandidates = [];
 
 		// Validate options
 		const validation = this.validateOptions();
@@ -124,14 +132,16 @@ export class MoneyManagerImporter extends BaseImporter {
 				await this.recalculateBalances();
 			}
 
-			return this.createResult(true);
+			const importBatch = await this.buildImportBatchMetadata();
+			return this.createResult(true, importBatch);
 		} catch (error) {
 			this.addError({
 				type: 'unknown',
 				message: `Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
 				stack: error instanceof Error ? error.stack : undefined
 			});
-			return this.createResult(false);
+			const importBatch = await this.buildImportBatchMetadata();
+			return this.createResult(false, importBatch);
 		}
 	}
 
@@ -536,6 +546,16 @@ export class MoneyManagerImporter extends BaseImporter {
 				}
 
 				// Handle regular transactions (income, expense, adjustment)
+				if (doType === 7 || doType === 8) {
+					const imported = await this.importReconciliationAdjustment(row);
+					if (imported) {
+						this.statistics.transactionsImported++;
+					} else {
+						this.statistics.transactionsSkipped++;
+					}
+					continue;
+				}
+
 				const imported = await this.importRegularTransaction(row);
 				if (imported) {
 					this.statistics.transactionsImported++;
@@ -734,6 +754,8 @@ export class MoneyManagerImporter extends BaseImporter {
 		// Skip balance recalculation during import - will be done at the end
 		// accountAmount is already set from MM data, so transaction service will preserve it
 		await transactionService.createTransaction(transaction, true);
+		this.importedTransactionIds.push(transaction.id);
+		if (transaction.accountId) this.importedAccountIds.add(transaction.accountId);
 
 		// Add to existing transactions map to prevent duplicates within the same import run
 		// This prevents issues with out-of-order transactions in the CSV
@@ -742,6 +764,61 @@ export class MoneyManagerImporter extends BaseImporter {
 		}
 
 		return true; // Successfully imported
+	}
+
+	/**
+	 * Import MM reconciliation-like adjustment entries (DO_TYPE 7/8) into reconciliationRecords.
+	 * If an older import already stored this MM UID as a transaction, tag it as reconciliation-adjustment.
+	 */
+	private async importReconciliationAdjustment(row: Record<string, string>): Promise<boolean> {
+		const mmUid = row.uid || row.ID;
+		const assetUid = row.assetUid;
+		const accountId = assetUid ? this.accountMappings.get(assetUid) : undefined;
+		if (!accountId) {
+			this.addWarning(`Reconciliation entry missing account (mmUid: ${mmUid}), skipping`);
+			return false;
+		}
+
+		// If a previous import wrote this as a normal transaction, keep it but tag automation.
+		if (mmUid && mmUid !== 'null' && mmUid !== '') {
+			const existing = this.findTransactionByMMUid(mmUid);
+			if (existing) {
+				await db.transactions.update(existing.id, {
+					automation: 'reconciliation-adjustment',
+					updatedAt: new Date().toISOString()
+				});
+				return true;
+			}
+		}
+
+		const doType = parseInt(row.DO_TYPE || '0', 10);
+		const amount = mapAmount(parseFloat(row.IN_ZMONEY || '0'), doType);
+		const reconciledDate = mapDate(row.ZDATE, row.UTIME, row.WDATE);
+		const account = await db.accounts.get(accountId);
+		const calculatedBalance = account?.currentBalance ?? 0;
+		const statementBalance = calculatedBalance + amount;
+
+		await db.reconciliationRecords.add({
+			id: generateUUID(),
+			accountId,
+			reconciledDate,
+			statementBalance,
+			calculatedBalance,
+			discrepancy: amount,
+			reconciliationType: 'automatic',
+			transactionCount: 0,
+			reconciledTransactionIds: [],
+			unreconciledTransactionIds: [],
+			notes: `Imported reconciliation adjustment (MM DO_TYPE=${doType}${mmUid ? `, mmUid=${mmUid}` : ''})`,
+			balanceAdjustmentApplied: amount,
+			resolvedAt: new Date().toISOString(),
+			createdAt: parseTimestamp(row.UTIME),
+			updatedAt: parseTimestamp(row.UTIME),
+			deletedAt: null
+		});
+
+		this.importedAccountIds.add(accountId);
+		return true;
 	}
 
 	/**
@@ -898,6 +975,8 @@ export class MoneyManagerImporter extends BaseImporter {
 
 		// Skip balance recalculation during import - will be done at the end
 		await transactionService.createTransaction(transaction, true);
+		this.importedTransactionIds.push(transaction.id);
+		if (transaction.accountId) this.importedAccountIds.add(transaction.accountId);
 
 		// Add to existing transactions map to prevent duplicates within the same import run
 		if (mmUid && mmUid !== 'null' && mmUid !== '') {
@@ -920,6 +999,65 @@ export class MoneyManagerImporter extends BaseImporter {
 				this.addWarning(`Failed to recalculate balance for account ${accountId}`);
 			}
 		}
+	}
+
+	private async buildImportBatchMetadata(): Promise<ImportResult['importBatch'] | undefined> {
+		if (!this.importedTransactionIds.length) {
+			return undefined;
+		}
+
+		const importedTransactions = (
+			await Promise.all(this.importedTransactionIds.map((id) => db.transactions.get(id)))
+		).filter((tx): tx is Transaction => !!tx);
+		if (!importedTransactions.length) {
+			return undefined;
+		}
+
+		const detected = await automationDetector.detect(importedTransactions);
+		for (const tx of detected) {
+			const original = importedTransactions.find((t) => t.id === tx.id);
+			if (!original) continue;
+			if (original.automation !== tx.automation) {
+				await db.transactions.update(tx.id, {
+					automation: tx.automation,
+					updatedAt: new Date().toISOString()
+				});
+			}
+		}
+
+		const unclassifiedTransactionIds = detected
+			.filter((tx) => tx.type === 'expense' && !tx.categoryId)
+			.map((tx) => tx.id);
+
+		const dateValues = detected
+			.map((tx) => tx.clearedDate || tx.plannedDate || tx.createdAt)
+			.filter((d): d is string => !!d)
+			.sort();
+
+		const incomeTotal = detected
+			.filter((tx) => tx.type === 'income')
+			.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+		this.essentialCandidates = detectEssentials(detected, incomeTotal || 1);
+
+		return {
+			transactionIds: detected.map((tx) => tx.id),
+			unclassifiedTransactionIds,
+			accountIdsAffected: Array.from(this.importedAccountIds),
+			dateRange:
+				dateValues.length > 0
+					? { start: dateValues[0], end: dateValues[dateValues.length - 1] }
+					: undefined,
+			automationSummary: automationDetector.summarize(detected),
+			essentialCandidates: this.essentialCandidates.map((candidate) => ({
+				patternKey: candidate.patternKey,
+				suggestedTier: candidate.suggestedTier ?? 'unclassified',
+				matchedTransactionIds: candidate.matchedTransactionIds,
+				allowanceImpact: candidate.allowanceImpact,
+				cadence: candidate.cadence,
+				confidence: candidate.confidence,
+				reason: candidate.reason
+			}))
+		};
 	}
 
 	/**

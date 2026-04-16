@@ -2900,23 +2900,8 @@ export class BudgicDB extends Dexie {
 
 	// Account queries
 	async getActiveAccounts(): Promise<Account[]> {
-		console.log('[DB] getActiveAccounts called');
-		try {
-			const accounts = await this.accounts.toArray();
-			console.log('[DB] Raw accounts from DB:', accounts.length);
-			const filtered = accounts.filter((account) => {
-				if (!account) {
-					console.warn('[DB] Found undefined account in getActiveAccounts');
-					return false;
-				}
-				return !account.deletedAt;
-			});
-			console.log('[DB] Filtered active accounts:', filtered.length);
-			return filtered;
-		} catch (error) {
-			console.error('[DB] Error in getActiveAccounts:', error);
-			throw error;
-		}
+		const accounts = await this.accounts.toArray();
+		return accounts.filter((account) => !!account && !account.deletedAt);
 	}
 
 	async getAccountsByType(type: Account['type']): Promise<Account[]> {
