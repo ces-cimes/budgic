@@ -25,6 +25,7 @@
 	let isLoading = $state(true);
 	let isSaving = $state(false);
 	let negativeAllowanceHandling = $state<NegativeAllowanceHandling>('allow_with_strong_warning');
+	let reimbursementAllowanceMode = $state<'conservative' | 'optimistic'>('conservative');
 	let envelopeBorrowMaxPerCategoryPercent = $state(50);
 	let envelopeBorrowRepaymentPeriods = $state(2);
 	let envelopeBorrowTotalLimit = $state<string>('');
@@ -60,6 +61,9 @@
 				negativeAllowanceHandling =
 					(prefs as { negativeAllowanceHandling?: NegativeAllowanceHandling })
 						.negativeAllowanceHandling ?? 'allow_with_strong_warning';
+				reimbursementAllowanceMode =
+					(prefs as { reimbursementAllowanceMode?: 'conservative' | 'optimistic' })
+						.reimbursementAllowanceMode ?? 'conservative';
 				const p = prefs as Record<string, unknown>;
 				envelopeBorrowMaxPerCategoryPercent = Math.round(
 					(typeof p.envelopeBorrowMaxPerCategoryPercent === 'number'
@@ -215,6 +219,7 @@
 			await userService.updateUserPreferences({
 				...prefs,
 				negativeAllowanceHandling,
+				reimbursementAllowanceMode,
 				envelopeBorrowMaxPerCategoryPercent: envelopeBorrowMaxPerCategoryPercent / 100,
 				envelopeBorrowRepaymentPeriods,
 				envelopeBorrowTotalLimit:
@@ -303,6 +308,45 @@
 						<p class="text-xs text-[var(--color-text-tertiary)]">
 							"Allow with strong warning" permits spending but surfaces recovery suggestions.
 						</p>
+					</div>
+				</div>
+
+				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+					<div class="border-border border-b px-5 py-3">
+						<h2
+							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Reimbursement allowance mode
+						</h2>
+						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+							Choose how open reimbursements affect allowance projections.
+						</p>
+					</div>
+					<div class="space-y-2 px-5 py-4">
+						<label
+							for="reimbursement-allowance-mode"
+							class="text-sm font-medium text-[var(--color-text-primary)]">Mode</label
+						>
+						<Select
+							type="single"
+							value={reimbursementAllowanceMode}
+							onValueChange={(v) =>
+								v && (reimbursementAllowanceMode = v as 'conservative' | 'optimistic')}
+						>
+							<SelectTrigger id="reimbursement-allowance-mode" class="max-w-md">
+								{reimbursementAllowanceMode === 'optimistic'
+									? 'Optimistic - net open expected reimbursements'
+									: 'Conservative - count lending as full expense'}
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="conservative"
+									>Conservative - count lending as full expense</SelectItem
+								>
+								<SelectItem value="optimistic"
+									>Optimistic - net open expected reimbursements</SelectItem
+								>
+							</SelectContent>
+						</Select>
 					</div>
 				</div>
 

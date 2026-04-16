@@ -97,6 +97,29 @@ interface HistoricalSpendingData {
 	hasEnoughData: boolean; // 3+ months required
 }
 
+type ReimbursementAllowanceMode = 'conservative' | 'optimistic';
+
+function applyReimbursementAllowanceMode(
+	transactions: Transaction[],
+	mode: ReimbursementAllowanceMode
+): Transaction[] {
+	if (mode !== 'optimistic') return transactions;
+	return transactions.map((tx) => {
+		if (tx.type !== 'expense' || !tx.reimbursements?.length) return tx;
+		const openExpected = tx.reimbursements
+			.filter((entry) => entry.direction === 'lending' && entry.status === 'expecting')
+			.reduce((sum, entry) => sum + entry.amount, 0);
+		if (openExpected <= 0) return tx;
+		const currentAmount = Math.abs(tx.amount || 0);
+		const adjustedAmount = Math.max(0, currentAmount - openExpected);
+		const signedAmount = tx.amount != null && tx.amount < 0 ? -adjustedAmount : adjustedAmount;
+		return {
+			...tx,
+			amount: signedAmount
+		};
+	});
+}
+
 /**
  * Calculate enhanced allowance for an account
  */
@@ -111,7 +134,11 @@ export async function calculateEnhancedAllowance(
 
 	// Get all transactions for historical analysis
 	const allTransactions = await transactionService.getTransactionsByAccount(account.id);
-	const clearedTransactions = allTransactions.filter((t) => t.status === 'cleared');
+	const preferences = await db.userPreferences.toCollection().first();
+	const reimbursementAllowanceMode: ReimbursementAllowanceMode =
+		preferences?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
+	const adjustedTransactions = applyReimbursementAllowanceMode(allTransactions, reimbursementAllowanceMode);
+	const clearedTransactions = adjustedTransactions.filter((t) => t.status === 'cleared');
 
 	// Calculate days elapsed and remaining
 	const daysElapsed = Math.max(
@@ -124,7 +151,7 @@ export async function calculateEnhancedAllowance(
 	);
 
 	// Get planned transactions for buffer calculation
-	const plannedTransactions = allTransactions.filter(
+	const plannedTransactions = adjustedTransactions.filter(
 		(t) => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
 	);
 
@@ -768,10 +795,16 @@ export async function calculateGlobalAllowance(
 	const { userService, exchangeRateService } = await import('$lib/core/services');
 	const preferences = await userService.getUserPreferences();
 	const userCurrency = preferences?.currency || activeAccounts[0]?.currency || 'USD';
+	const reimbursementAllowanceMode: ReimbursementAllowanceMode =
+		preferences?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
 
 	// Get all transactions across all accounts
 	const allTransactions = await transactionService.getAllTransactions();
-	const clearedTransactions = allTransactions.filter((t) => t.status === 'cleared');
+	const adjustedTransactions = applyReimbursementAllowanceMode(
+		allTransactions,
+		reimbursementAllowanceMode
+	);
+	const clearedTransactions = adjustedTransactions.filter((t) => t.status === 'cleared');
 
 	// Calculate days elapsed and remaining
 	const daysElapsed = Math.max(
@@ -784,7 +817,7 @@ export async function calculateGlobalAllowance(
 	);
 
 	// Get planned transactions for buffer calculation
-	const plannedTransactions = allTransactions.filter(
+	const plannedTransactions = adjustedTransactions.filter(
 		(t) => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
 	);
 

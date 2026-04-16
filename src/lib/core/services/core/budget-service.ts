@@ -55,6 +55,9 @@ class BudgetService {
 	async getBudgetSummary(): Promise<BudgetSummary> {
 		const categories = await db.getActiveCategories();
 		const transactions = await db.transactions.toArray();
+		const prefs = await db.userPreferences.toCollection().first();
+		const reimbursementAllowanceMode =
+			prefs?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
 
 		const allocations: BudgetAllocation[] = [];
 		let totalAllocated = 0;
@@ -114,7 +117,13 @@ class BudgetService {
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
 
 			const tier = tx.categoryId ? categoryById.get(tx.categoryId)?.waterfallTier : undefined;
-			const amount = Math.abs(tx.amount || 0);
+			let amount = Math.abs(tx.amount || 0);
+			if (reimbursementAllowanceMode === 'optimistic' && tx.reimbursements?.length) {
+				const openExpected = tx.reimbursements
+					.filter((entry) => entry.direction === 'lending' && entry.status === 'expecting')
+					.reduce((sum, entry) => sum + entry.amount, 0);
+				amount = Math.max(0, amount - openExpected);
+			}
 			if (isAnalyticsTier(tier)) {
 				exactSpend += amount;
 			} else {

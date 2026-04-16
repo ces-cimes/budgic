@@ -1191,7 +1191,9 @@ const UserPreferencesSchema = BaseSchema.extend({
 	/** Budget category spend % at or above which a Critical-tier exceeded insight is created */
 	budgetAlertCriticalAtPercent: z.number().min(1).max(200).default(100),
 	/** Phase 1.3 confidence nudge dismissal (key: 'nudge_classify_dismissed') */
-	nudgeClassifyDismissed: z.boolean().default(false)
+	nudgeClassifyDismissed: z.boolean().default(false),
+	/** Phase 3.4 reimbursement handling in allowance calculations */
+	reimbursementAllowanceMode: z.enum(['conservative', 'optimistic']).default('conservative')
 });
 
 // User Actions Schema

@@ -27,6 +27,7 @@
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import PlanRulesSummary from '$lib/components/budget/PlanRulesSummary.svelte';
 	import AllowanceWeekView from '$lib/components/plan/AllowanceWeekView.svelte';
+	import OutstandingReimbursementsPanel from '$lib/components/plan/OutstandingReimbursementsPanel.svelte';
 	import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 	import {
 		OverviewTab as GoalsOverviewTab,
@@ -270,6 +271,7 @@
 								<AllowanceWeekView allowance={enhancedAllowance} currency={userCurrency} />
 								<PlanRulesSummary />
 							</div>
+							<OutstandingReimbursementsPanel />
 							<!-- 30-day cash flow chart (UX_SPEC §3.2) -->
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
 								<h3

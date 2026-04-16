@@ -12,7 +12,7 @@
 		negativeAllowanceService
 	} from '$lib/core/services';
 	import { db } from '$lib/core/db';
-	import type { Account, Transaction, Category } from '$lib/core/db';
+	import type { Account, Transaction, Category, ReimbursementEntry } from '$lib/core/db';
 	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
@@ -86,6 +86,19 @@
 			status = previousStatus;
 		}
 	});
+	$effect(() => {
+		// Default reimbursement amount when user first opens the section for a new entry
+		if (!showReimbursementSection || reimbursementInitializedFromAmount) return;
+		const existingTracked = transaction?.reimbursements?.[0];
+		if (existingTracked) return;
+		reimbursementAmount = Math.abs(amount || 0);
+		reimbursementInitializedFromAmount = true;
+	});
+
+	$effect(() => {
+		if (reimbursementStatus === 'forgiven' || reimbursementStatus === 'settled') return;
+		reimbursementStatus = reimbursementDirection === 'lending' ? 'expecting' : 'owed';
+	});
 	let selectedCategory = $state('');
 	let hasInferredCategoryIndicator = $state(false);
 	let inferredCategoryId = $state<string | null>(null);
@@ -140,6 +153,27 @@
 	let pendingTransactionData = $state<Record<string, unknown> | null>(null);
 	let pendingIsEdit = $state(false);
 	let pendingTransactionId = $state<string | null>(null);
+	type TransactionDraft = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
+	let pendingSubmitData = $state<TransactionDraft | null>(null);
+
+	// Reimbursement tracking (Phase 3.1)
+	let showReimbursementSection = $state(false);
+	let reimbursementDirection = $state<ReimbursementEntry['direction']>('lending');
+	let reimbursementAmount = $state(0);
+	let reimbursementPerson = $state('');
+	let reimbursementStatus = $state<ReimbursementEntry['status']>('expecting');
+	let reimbursementInitializedFromAmount = $state(false);
+	let reimbursementPersonSuggestions = $state<string[]>([]);
+
+	// Settlement on income (Phase 3.3)
+	type SettlementTarget = {
+		transactionId: string;
+		reimbursementId: string;
+		label: string;
+	};
+	let showSettlementSection = $state(false);
+	let settlementOptions = $state<SettlementTarget[]>([]);
+	let selectedSettlementKey = $state('');
 
 	// Computed date label
 	let dateLabel = $derived(() => {
@@ -397,6 +431,16 @@
 					priorityString = transaction.priority?.toString() || '';
 					directionalConstraint = transaction.directionalConstraint || undefined;
 					flexibilityTier = transaction.flexibilityTier || undefined;
+					// Reimbursement section preload
+					const firstReimbursement = transaction.reimbursements?.[0];
+					if (firstReimbursement) {
+						showReimbursementSection = true;
+						reimbursementDirection = firstReimbursement.direction;
+						reimbursementAmount = firstReimbursement.amount;
+						reimbursementPerson = firstReimbursement.person || '';
+						reimbursementStatus = firstReimbursement.status;
+						reimbursementInitializedFromAmount = true;
+					}
 					// Reset suggestion flags when editing
 					hasSuggestedPriority = true;
 					hasSuggestedConstraint = true;
@@ -427,6 +471,60 @@
 				const now = new Date();
 				clearedDate = dateUtils.toLocalDateTimeInput(now.toISOString());
 				plannedDate = dateUtils.toLocalDateTimeInput(now.toISOString());
+			}
+
+			const allTransactions = await transactionService.getAllTransactions();
+			const personValues = new Set<string>();
+			const settlementCandidates: SettlementTarget[] = [];
+			let settledByThisIncome: SettlementTarget | null = null;
+
+			for (const tx of allTransactions) {
+				for (const reimbursement of tx.reimbursements || []) {
+					const person = reimbursement.person?.trim();
+					if (person) personValues.add(person);
+
+					if (reimbursement.direction === 'lending' && reimbursement.status === 'expecting') {
+						settlementCandidates.push({
+							transactionId: tx.id,
+							reimbursementId: reimbursement.id,
+							label: `${person || 'Unknown person'} - ${formatAmount(
+								reimbursement.amount,
+								reimbursement.currency
+							)} (${tx.description || 'Untitled transaction'})`
+						});
+					}
+
+					if (
+						transaction?.id &&
+						transaction.type === 'income' &&
+						reimbursement.settledTransactionId === transaction.id
+					) {
+						settledByThisIncome = {
+							transactionId: tx.id,
+							reimbursementId: reimbursement.id,
+							label: `${person || 'Unknown person'} - ${formatAmount(
+								reimbursement.amount,
+								reimbursement.currency
+							)} (${tx.description || 'Untitled transaction'})`
+						};
+					}
+				}
+			}
+
+			reimbursementPersonSuggestions = Array.from(personValues).sort((a, b) => a.localeCompare(b));
+			settlementOptions = settlementCandidates;
+
+			if (settledByThisIncome) {
+				showSettlementSection = true;
+				selectedSettlementKey = `${settledByThisIncome.transactionId}::${settledByThisIncome.reimbursementId}`;
+				const alreadyInList = settlementOptions.some(
+					(option) =>
+						option.transactionId === settledByThisIncome.transactionId &&
+						option.reimbursementId === settledByThisIncome.reimbursementId
+				);
+				if (!alreadyInList) {
+					settlementOptions = [settledByThisIncome, ...settlementOptions];
+				}
 			}
 		} catch (err) {
 			error = 'Failed to load data';
@@ -537,16 +635,39 @@
 	});
 
 	async function doActualSubmit(
-		txData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+		txData: TransactionDraft,
 		isEdit: boolean,
-		existingId: string | null
-	) {
+		existingId: string | null,
+		settlementTarget: SettlementTarget | null
+	): Promise<Transaction> {
+		let savedTransaction: Transaction;
 		if (isEdit && existingId) {
-			await transactionService.updateTransaction(existingId, txData);
+			savedTransaction = await transactionService.updateTransaction(existingId, txData);
 		} else {
-			await transactionService.createTransaction(txData);
+			savedTransaction = await transactionService.createTransaction(txData);
+		}
+
+		// Phase 3.3: settle outstanding reimbursement when creating income transaction
+		if (!isEdit && txData.type === 'income' && settlementTarget) {
+			const sourceTransaction = await transactionService.getTransaction(settlementTarget.transactionId);
+			if (sourceTransaction) {
+				const now = new Date().toISOString();
+				const updatedReimbursements = (sourceTransaction.reimbursements || []).map((entry) => {
+					if (entry.id !== settlementTarget.reimbursementId) return entry;
+					return {
+						...entry,
+						status: 'settled' as const,
+						settledTransactionId: savedTransaction.id,
+						updatedAt: now
+					};
+				});
+				await transactionService.updateTransaction(sourceTransaction.id, {
+					reimbursements: updatedReimbursements
+				});
+			}
 		}
 		goto('/transactions');
+		return savedTransaction;
 	}
 
 	async function handleSubmit(event: Event) {
@@ -569,6 +690,9 @@
 			if (transactionType === 'transfer' && !toAccountId) {
 				throw new Error('Please select a destination account for transfers');
 			}
+			if (!currency) {
+				throw new Error('Please select a currency');
+			}
 
 			// Auto-assign "Uncategorized" category for expenses without a category
 			let finalCategoryId = selectedCategory;
@@ -579,13 +703,32 @@
 
 			// Prepare transaction data
 			const transferMagnitude = Math.abs(amount);
-			const transactionData: any = {
+			let reimbursements: ReimbursementEntry[] | undefined;
+			if (showReimbursementSection && reimbursementAmount > 0) {
+				const now = new Date().toISOString();
+				const existingReimbursement = transaction?.reimbursements?.[0];
+				reimbursements = [
+					{
+						id: existingReimbursement?.id || crypto.randomUUID(),
+						direction: reimbursementDirection,
+						amount: Math.abs(reimbursementAmount),
+						currency,
+						person: reimbursementPerson.trim() || undefined,
+						status: reimbursementStatus,
+						settledTransactionId: existingReimbursement?.settledTransactionId,
+						createdAt: existingReimbursement?.createdAt || now,
+						updatedAt: now
+					}
+				];
+			}
+
+			const transactionData: TransactionDraft = {
 				accountId: selectedAccount || undefined, // Optional for planned transactions
 				description: description.trim() || undefined,
 				amount: transactionType === 'transfer' ? -transferMagnitude : amount,
 				type: transactionType,
 				status: status,
-				currency: currency,
+				currency,
 				categoryId: finalCategoryId || undefined,
 				notes: notes || undefined,
 				reference: reference || undefined,
@@ -608,7 +751,8 @@
 				groupId: isGroupTransaction ? crypto.randomUUID() : undefined,
 				priority: priority,
 				directionalConstraint: directionalConstraint === 'none' ? undefined : directionalConstraint,
-				flexibilityTier: flexibilityTier
+				flexibilityTier: flexibilityTier,
+				reimbursements
 			};
 
 			// Handle transfer details if it's a transfer
@@ -648,6 +792,7 @@
 					);
 					if (negStatus.shouldBlock) {
 						pendingTransactionData = transactionData as Record<string, unknown>;
+						pendingSubmitData = transactionData;
 						pendingIsEdit = isEditMode;
 						pendingTransactionId = transaction?.id ?? null;
 						showAllowanceBlockDialog = true;
@@ -659,11 +804,20 @@
 				}
 			}
 
+			const settlementTarget =
+				transactionType === 'income' && selectedSettlementKey
+					? settlementOptions.find(
+							(option) =>
+								`${option.transactionId}::${option.reimbursementId}` === selectedSettlementKey
+						) || null
+					: null;
+
 			// Create or update transaction
 			await doActualSubmit(
-				transactionData as Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>,
+				transactionData,
 				isEditMode,
-				transaction?.id ?? null
+				transaction?.id ?? null,
+				settlementTarget
 			);
 		} catch (err) {
 			error =
@@ -1044,6 +1198,169 @@
 				{/if}
 			</div>
 
+			<!-- ── Reimbursements (Phase 3.1 + 3.3) ── -->
+			<div class="space-y-4">
+				{#if !showReimbursementSection}
+					<button
+						type="button"
+						onclick={() => (showReimbursementSection = true)}
+						class="text-sm text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-amber)]"
+					>
+						Track a reimbursement
+					</button>
+				{/if}
+
+				{#if showReimbursementSection}
+					<div class="space-y-3 rounded-xl border border-[var(--color-border)] px-4 py-4">
+						<div class="flex items-center justify-between">
+							<h3 class="text-sm font-medium">Reimbursement</h3>
+							<button
+								type="button"
+								onclick={() => {
+									showReimbursementSection = false;
+									reimbursementAmount = 0;
+									reimbursementPerson = '';
+								}}
+								class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+							>
+								Remove
+							</button>
+						</div>
+
+						<div class="space-y-2">
+							<Label.Root>Direction</Label.Root>
+							<ToggleGroup.Root
+								type="single"
+								size="sm"
+								variant="outline"
+								bind:value={reimbursementDirection}
+								class="w-full"
+							>
+								<ToggleGroup.Item value="lending" class="flex-1">I'm owed back</ToggleGroup.Item>
+								<ToggleGroup.Item value="borrowing" class="flex-1">I owe someone</ToggleGroup.Item>
+							</ToggleGroup.Root>
+						</div>
+
+						<div class="space-y-2">
+							<Label.Root for="reimbursement-amount">Amount</Label.Root>
+							<Input.Root
+								id="reimbursement-amount"
+								type="number"
+								min="0"
+								step="0.01"
+								bind:value={reimbursementAmount}
+								onfocus={handleInputFocus}
+							/>
+						</div>
+
+						<div class="space-y-2">
+							<Label.Root for="reimbursement-person">Person</Label.Root>
+							<Input.Root
+								id="reimbursement-person"
+								type="text"
+								placeholder="Who is involved?"
+								list="reimbursement-person-options"
+								bind:value={reimbursementPerson}
+								onfocus={handleInputFocus}
+							/>
+							<datalist id="reimbursement-person-options">
+								{#each reimbursementPersonSuggestions as person}
+									<option value={person}></option>
+								{/each}
+							</datalist>
+						</div>
+
+						<div class="space-y-2">
+							<Label.Root>Status</Label.Root>
+							<div class="flex flex-wrap gap-2">
+								<button
+									type="button"
+									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus === 'expecting'
+										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
+										: 'border-[var(--color-border)]'}"
+									onclick={() => (reimbursementStatus = 'expecting')}
+								>
+									Expecting
+								</button>
+								<button
+									type="button"
+									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus === 'owed'
+										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
+										: 'border-[var(--color-border)]'}"
+									onclick={() => (reimbursementStatus = 'owed')}
+								>
+									Owed
+								</button>
+								<button
+									type="button"
+									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus === 'forgiven'
+										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
+										: 'border-[var(--color-border)]'}"
+									onclick={() => (reimbursementStatus = 'forgiven')}
+								>
+									Forgiven
+								</button>
+								{#if reimbursementStatus === 'settled'}
+									<span
+										class="rounded-full border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-3 py-1 text-xs"
+									>
+										Settled
+									</span>
+								{/if}
+							</div>
+						</div>
+					</div>
+				{/if}
+
+				{#if transactionType === 'income'}
+					{#if !showSettlementSection}
+						<button
+							type="button"
+							onclick={() => (showSettlementSection = true)}
+							class="text-sm text-[var(--color-text-tertiary)] transition-colors hover:text-[var(--color-amber)]"
+						>
+							Apply to outstanding reimbursement
+						</button>
+					{:else}
+						<div class="space-y-2 rounded-xl border border-[var(--color-border)] px-4 py-4">
+							<div class="flex items-center justify-between">
+								<h3 class="text-sm font-medium">Settlement target</h3>
+								<button
+									type="button"
+									onclick={() => {
+										showSettlementSection = false;
+										selectedSettlementKey = '';
+									}}
+									class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+								>
+									Clear
+								</button>
+							</div>
+							<Select.Root type="single" bind:value={selectedSettlementKey}>
+								<Select.Trigger class="w-full">
+									{settlementOptions.find(
+										(option) =>
+											`${option.transactionId}::${option.reimbursementId}` === selectedSettlementKey
+									)?.label || 'Select reimbursement to settle'}
+								</Select.Trigger>
+								<Select.Content>
+									{#if settlementOptions.length === 0}
+										<Select.Item value="">No outstanding reimbursements</Select.Item>
+									{:else}
+										<Select.Item value="">None</Select.Item>
+										{#each settlementOptions as option}
+											<Select.Item value={`${option.transactionId}::${option.reimbursementId}`}
+												>{option.label}</Select.Item
+											>
+										{/each}
+									{/if}
+								</Select.Content>
+							</Select.Root>
+						</div>
+					{/if}
+				{/if}
+			</div>
+
 			<!-- ── Advanced ── -->
 			<AdvancedOptionsSection>
 				<Label.Root for="group" class="text-right md:flex-shrink-0">Group</Label.Root>
@@ -1292,6 +1609,7 @@
 					onclick={() => {
 						showAllowanceBlockDialog = false;
 						pendingTransactionData = null;
+						pendingSubmitData = null;
 						pendingTransactionId = null;
 					}}
 					disabled={isLoading}
@@ -1302,20 +1620,27 @@
 					variant="default"
 					disabled={isLoading || !pendingTransactionData}
 					onclick={async () => {
-						if (!pendingTransactionData) return;
+						if (!pendingSubmitData) return;
 						isLoading = true;
 						error = '';
 						try {
+							const settlementTarget =
+								transactionType === 'income' && selectedSettlementKey
+									? settlementOptions.find(
+											(option) =>
+												`${option.transactionId}::${option.reimbursementId}` ===
+												selectedSettlementKey
+										) || null
+									: null;
 							await doActualSubmit(
-								pendingTransactionData as Omit<
-									Transaction,
-									'id' | 'createdAt' | 'updatedAt' | 'deletedAt'
-								>,
+								pendingSubmitData,
 								pendingIsEdit,
-								pendingTransactionId
+								pendingTransactionId,
+								settlementTarget
 							);
 							showAllowanceBlockDialog = false;
 							pendingTransactionData = null;
+							pendingSubmitData = null;
 							pendingTransactionId = null;
 						} catch (err) {
 							error = err instanceof Error ? err.message : 'Failed to save transaction';
