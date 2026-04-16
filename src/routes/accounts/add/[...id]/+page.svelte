@@ -8,8 +8,16 @@
 	import type { Account } from '$lib/core/db';
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
+	import { Button } from '$lib/components/ui/button/index.ts';
+	import { Input } from '$lib/components/ui/input/index.ts';
+	import { Label } from '$lib/components/ui/label/index.ts';
+	import type { AccountCompounding } from '$lib/core/db';
 
 	let account = $state<Account | null>(null);
+	let postCreateAccount = $state<Account | null>(null);
+	let passiveAprPercent = $state('');
+	let passiveCompounding = $state<AccountCompounding>('monthly');
+	let passiveTaxPercent = $state('');
 	let isLoading = $state(true);
 	let isSubmitting = $state(false);
 	let isDeleting = $state(false);
@@ -63,14 +71,19 @@
 				// Redirect to account detail page after successful update
 				goto(`/accounts/${account.id}`);
 			} else {
-				// Create new account
 				const newAccount = await accountService.createAccount({
 					name: accountData.name,
 					type: accountData.type,
 					currency: accountData.currency,
 					initialBalance: accountData.initialBalance
 				});
-				// Redirect to account detail page after successful creation
+				if (
+					(newAccount.type === 'savings' || newAccount.type === 'loan') &&
+					!newAccount.passiveRatePromptDismissed
+				) {
+					postCreateAccount = newAccount;
+					return;
+				}
 				goto(`/accounts/${newAccount.id}`);
 			}
 		} catch (err) {
@@ -95,6 +108,41 @@
 			// Go back to accounts list
 			goto('/accounts');
 		}
+	}
+
+	async function savePassiveRateAndContinue() {
+		if (!postCreateAccount) return;
+		const pct = parseFloat(passiveAprPercent.replace(',', '.'));
+		if (!Number.isFinite(pct)) {
+			error = 'Enter a valid APR percentage';
+			return;
+		}
+		const apr = pct / 100;
+		const taxPct = parseFloat(passiveTaxPercent.replace(',', '.'));
+		const taxRate =
+			Number.isFinite(taxPct) && taxPct > 0 ? Math.min(1, Math.max(0, taxPct / 100)) : undefined;
+		await accountService.updateAccount(postCreateAccount.id, {
+			rateProfile: {
+				apr,
+				compounding: passiveCompounding,
+				rateType: 'fixed',
+				effectiveFrom: new Date().toISOString(),
+				...(taxRate != null ? { taxRate } : {})
+			},
+			lastConfirmedBalance: postCreateAccount.currentBalance,
+			lastConfirmedAt: new Date().toISOString()
+		});
+		const id = postCreateAccount.id;
+		postCreateAccount = null;
+		goto(`/accounts/${id}`);
+	}
+
+	async function skipPassiveRatePrompt() {
+		if (!postCreateAccount) return;
+		const id = postCreateAccount.id;
+		await accountService.updateAccount(id, { passiveRatePromptDismissed: true });
+		postCreateAccount = null;
+		goto(`/accounts/${id}`);
 	}
 
 	async function handleDelete() {
@@ -156,6 +204,45 @@
 				cancelLabel="Cancel"
 				isLoading={isSubmitting}
 			/>
+
+			{#if postCreateAccount}
+				<div
+					class="mt-6 space-y-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] p-5"
+				>
+					<p class="text-sm font-medium text-[var(--color-text-primary)]">
+						Does this account earn or charge interest?
+					</p>
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						Optional: set an APR for balance-based tracking and projections.
+					</p>
+					<div class="grid gap-3 sm:grid-cols-2">
+						<div class="space-y-1">
+							<Label for="apr-pct">APR (%)</Label>
+							<Input id="apr-pct" type="text" inputmode="decimal" bind:value={passiveAprPercent} />
+						</div>
+						<div class="space-y-1">
+							<Label for="cmp">Compounding</Label>
+							<select
+								id="cmp"
+								class="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+								bind:value={passiveCompounding}
+							>
+								<option value="daily">Daily</option>
+								<option value="monthly">Monthly</option>
+								<option value="annual">Annual</option>
+							</select>
+						</div>
+						<div class="space-y-1 sm:col-span-2">
+							<Label for="tax-pct">Withholding tax % (optional)</Label>
+							<Input id="tax-pct" type="text" inputmode="decimal" bind:value={passiveTaxPercent} />
+						</div>
+					</div>
+					<div class="flex flex-wrap gap-2">
+						<Button type="button" onclick={savePassiveRateAndContinue}>Set rate</Button>
+						<Button type="button" variant="ghost" onclick={skipPassiveRatePrompt}>Skip</Button>
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</div>
 

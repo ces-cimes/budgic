@@ -107,6 +107,12 @@ export interface ImportResult {
 			confidence: number;
 			reason: string;
 		}>;
+		/** Phase 10 — accounts that look interest-heavy for balance-first setup */
+		passiveBalanceTrackingHints?: Array<{
+			accountId: string;
+			accountName: string;
+			message: string;
+		}>;
 	};
 }
 

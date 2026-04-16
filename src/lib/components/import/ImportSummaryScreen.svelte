@@ -6,6 +6,7 @@
 		roundUpAmount: number;
 		roundUpCount: number;
 		interestCount: number;
+		passiveBalanceHints?: Array<{ accountId: string; accountName: string; message: string }>;
 		personAccountCandidates?: string[];
 		onMigratePersonAccounts?: () => void;
 		onNext: () => void;
@@ -19,6 +20,7 @@
 		roundUpAmount,
 		roundUpCount,
 		interestCount,
+		passiveBalanceHints = [],
 		personAccountCandidates = [],
 		onMigratePersonAccounts,
 		onNext,
@@ -45,6 +47,19 @@
 			{interestCount} micro-interest entries.
 		</p>
 	</div>
+	{#if passiveBalanceHints.length > 0}
+		<div
+			class="space-y-2 rounded-xl border border-[var(--color-info)]/30 bg-[var(--color-info)]/10 p-4"
+		>
+			<p class="text-sm font-medium text-[var(--color-text-primary)]">Balance-based tracking</p>
+			{#each passiveBalanceHints as h}
+				<p class="text-xs text-[var(--color-text-secondary)]">
+					<span class="font-medium">{h.accountName}:</span>
+					{h.message}
+				</p>
+			{/each}
+		</div>
+	{/if}
 	{#if personAccountCandidates.length > 0}
 		<div class="space-y-2 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] p-4">
 			<p class="text-sm font-medium text-[var(--color-text-primary)]">Possible person accounts</p>

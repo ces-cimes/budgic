@@ -12,6 +12,7 @@
  */
 
 export { accountService } from './account-service';
+export { passiveAccountService } from './passive-account-service';
 export { transactionService } from './transaction-service';
 export { dependencyTrackingService } from './dependency-tracking-service';
 export { reconciliationService } from './reconciliation-service';

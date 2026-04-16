@@ -45,6 +45,13 @@
 			: '--squircle-fill: var(--color-bg-tertiary);'
 	);
 
+	const statementBalanceFromUrl = $derived.by(() => {
+		const raw = $page.url.searchParams.get('statementBalance');
+		if (raw == null || raw === '') return null;
+		const n = Number(raw);
+		return Number.isFinite(n) ? n : null;
+	});
+
 	// Handle URL params
 	onMount(async () => {
 		const urlParams = new URLSearchParams($page.url.search);
@@ -306,6 +313,7 @@
 			{#if activeTab === 'reconcile'}
 				<ReconciliationForm
 					{selectedAccountId}
+					initialStatementBalance={statementBalanceFromUrl}
 					onReconciliationComplete={handleReconciliationComplete}
 				/>
 			{:else}

@@ -32,7 +32,7 @@ export {
 } from './schema-inspector';
 
 // Base importer
-export { BaseImporter } from './base-importer';
+export { BaseImporter, detectPassiveBalanceImportHints } from './base-importer';
 
 // Money Manager importer
 export { MoneyManagerImporter } from './money-manager-importer';

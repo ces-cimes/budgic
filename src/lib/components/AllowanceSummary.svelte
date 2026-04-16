@@ -51,6 +51,13 @@
 
 	const pct = $derived(rawPct());
 
+	const passiveAccrualNote = $derived(
+		allowance?.projection &&
+			allowance.projection.passiveAccrualAdjustment > 0.005
+			? allowance.projection.passiveAccrualAdjustment
+			: null
+	);
+
 	// Progress bar: normal fill capped at 100%; overspent = red overflow beyond 100% (UX_SPEC 3.1.1)
 	const fillWidth = $derived(Math.min(pct, 100));
 	const isOverspent = $derived(pct > 100);
@@ -103,6 +110,14 @@
 				</p>
 			</div>
 		</div>
+
+		{#if passiveAccrualNote != null}
+			<p class="text-muted-foreground text-[10px] leading-snug">
+				Safe to spend includes about
+				{formatAmount(passiveAccrualNote, allowance.total.currency)} estimated savings accrual not yet
+				logged as income.
+			</p>
+		{/if}
 
 		<!-- Progress bar (overspent: red overflow + red stroke per UX_SPEC 3.1.1) -->
 		<div class="space-y-1.5">

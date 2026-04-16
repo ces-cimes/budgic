@@ -12,6 +12,10 @@ import type {
 	ImportStatistics,
 	ImportError
 } from './types';
+import type { Account, Transaction } from '$lib/core/db';
+
+const INTEREST_DESCRIPTION =
+	/interest|процент|finance charge|finance charges|\bint\.|accrual|кредит|к уплате/i;
 
 /**
  * Base importer class with common functionality
@@ -164,4 +168,33 @@ export abstract class BaseImporter {
 			errors
 		};
 	}
+}
+
+/**
+ * Phase 10 — flag accounts where many small transactions look like interest charges.
+ */
+export function detectPassiveBalanceImportHints(
+	accounts: Array<Pick<Account, 'id' | 'name' | 'type'>>,
+	transactions: Array<Pick<Transaction, 'accountId' | 'amount' | 'description'>>
+): NonNullable<ImportResult['importBatch']>['passiveBalanceTrackingHints'] {
+	const hints: NonNullable<ImportResult['importBatch']>['passiveBalanceTrackingHints'] = [];
+
+	for (const acc of accounts) {
+		if (acc.type !== 'savings' && acc.type !== 'credit' && acc.type !== 'loan') continue;
+		const txs = transactions.filter((t) => t.accountId === acc.id);
+		const small = txs.filter((t) => Math.abs(t.amount ?? 0) < 50);
+		const interestLike = small.filter((t) =>
+			INTEREST_DESCRIPTION.test((t.description ?? '').toLowerCase())
+		);
+		if (interestLike.length >= 20) {
+			hints.push({
+				accountId: acc.id,
+				accountName: acc.name,
+				message:
+					'This account looks like it has many small interest-related movements. Set up balance-based tracking in account settings?'
+			});
+		}
+	}
+
+	return hints.length ? hints : undefined;
 }

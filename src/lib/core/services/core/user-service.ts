@@ -81,7 +81,12 @@ class UserService {
 			debtAcknowledgedPeriodByGroup:
 				(prefs.debtAcknowledgedPeriodByGroup as Record<string, string> | undefined) ?? undefined,
 			debtPromptDismissedPeriodByGroup:
-				(prefs.debtPromptDismissedPeriodByGroup as Record<string, string> | undefined) ?? undefined
+				(prefs.debtPromptDismissedPeriodByGroup as Record<string, string> | undefined) ?? undefined,
+			includeAccruedInNetWorth: prefs.includeAccruedInNetWorth ?? false,
+			balanceUpdateAutoResolveThreshold:
+				typeof prefs.balanceUpdateAutoResolveThreshold === 'number'
+					? prefs.balanceUpdateAutoResolveThreshold
+					: 5
 		} as UserPreferences;
 	}
 
@@ -141,6 +146,8 @@ class UserService {
 				rolloverSurplusHybridRatio: 0.5,
 				rolloverDeficitBehavior: 'reduce_next_period',
 				sidebarFooterCards: ['total_balance', 'today_allowance'],
+				includeAccruedInNetWorth: false,
+				balanceUpdateAutoResolveThreshold: 5,
 				...updates,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
@@ -498,6 +505,8 @@ class UserService {
 			rolloverSurplusHybridRatio: 0.5,
 			rolloverDeficitBehavior: 'reduce_next_period',
 			sidebarFooterCards: ['total_balance', 'today_allowance'],
+			includeAccruedInNetWorth: false,
+			balanceUpdateAutoResolveThreshold: 5,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null

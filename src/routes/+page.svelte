@@ -56,6 +56,7 @@
 	let thisWeekSpent = $state<number>(0);
 	let thisWeekPlanned = $state<number | null>(null);
 	let firstRunChecklistComplete = $state(false);
+	let accruedNetWorthDelta = $state(0);
 
 	onMount(async () => {
 		try {
@@ -75,6 +76,12 @@
 
 			accounts = accountsData;
 			totalBalance = balanceData;
+			if (preferences?.includeAccruedInNetWorth) {
+				const nw = await accountService.getNetWorthDisplay();
+				accruedNetWorthDelta = nw.accruedDelta;
+			} else {
+				accruedNetWorthDelta = 0;
+			}
 			recentTransactions = transactionsData.filter((t: any) => t && !t.deletedAt).slice(0, 8);
 			budgetCategories = categoriesData.reduce(
 				(acc: Record<string, any>, category: any) => {
@@ -292,6 +299,11 @@
 					Add your first account
 				{/if}
 			</a>
+			{#if accruedNetWorthDelta !== 0}
+				<p class="text-muted-foreground mt-2 text-center text-xs">
+					Including accrued: {formatBalance(accruedNetWorthDelta)}
+				</p>
+			{/if}
 		</section>
 
 		<!-- ── Divider ── -->

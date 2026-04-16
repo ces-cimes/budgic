@@ -19,6 +19,8 @@
 	// Props interface
 	interface Props {
 		selectedAccountId?: string;
+		/** Phase 10.8 — pre-fill from `/accounts/reconciliation?statementBalance=` (e.g. Update balance deep link) */
+		initialStatementBalance?: number | null;
 		onReconciliationComplete?: (result: ReconciliationRecord) => void;
 		onCancel?: () => void;
 		className?: string;
@@ -26,6 +28,7 @@
 
 	const {
 		selectedAccountId = '',
+		initialStatementBalance = null,
 		onReconciliationComplete = () => {},
 		onCancel = () => {},
 		className = ''
@@ -54,6 +57,8 @@
 	let validationErrors = $state<Record<string, string>>({});
 	let reconciliationResult = $state<ReconciliationRecord | null>(null);
 	let discrepancies = $state<ReconciliationDiscrepancy[]>([]);
+	/** One-shot: URL statement balance applied for the linked account */
+	let appliedStatementFromUrl = $state(false);
 
 	// Form data
 	let formData = $state<ReconciliationFormData>({
@@ -107,11 +112,28 @@
 		}
 	});
 
+	$effect(() => {
+		const id = selectedAccountId;
+		if (!accounts.length || !id) return;
+		if (selectedAccount?.id === id) return;
+		const acc = accounts.find((a) => a.id === id);
+		if (acc) void selectAccount(acc);
+	});
+
 	// Account selection handler
 	async function selectAccount(account: Account) {
 		selectedAccount = account;
 		formData.accountId = account.id;
 		await loadCalculatedBalance(account.id);
+		if (
+			!appliedStatementFromUrl &&
+			initialStatementBalance != null &&
+			Number.isFinite(initialStatementBalance) &&
+			account.id === selectedAccountId
+		) {
+			formData.statementBalance = initialStatementBalance;
+			appliedStatementFromUrl = true;
+		}
 	}
 
 	// Load calculated balance for selected account

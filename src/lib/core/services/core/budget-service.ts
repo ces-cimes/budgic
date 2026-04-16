@@ -9,6 +9,7 @@ import type { AnalyticsTier } from '$lib/core/db';
 import type { AllowanceConfidence } from '$lib/core/db';
 import { differenceInCalendarMonths, startOfMonth } from 'date-fns';
 import { recurringTransactionIntelligenceService } from '../analytics/recurring-transaction-intelligence-service';
+import { passiveAccountService } from './passive-account-service';
 
 interface BudgetAllocation {
 	categoryId: string;
@@ -64,6 +65,8 @@ export interface AllowanceProjection {
 	periodStart: string;
 	periodEnd: string;
 	currency: string;
+	/** Phase 10.8 — unbooked savings interest added to `periodIncome` when `includeAccruedInNetWorth` */
+	passiveAccrualAdjustment: number;
 }
 
 function remainingCalendarMonthsInclusive(today: Date, deadline: Date): number {
@@ -580,6 +583,42 @@ class BudgetService {
 			);
 		}
 
+		let passiveAccrualAdjustment = 0;
+		if (prefs?.includeAccruedInNetWorth) {
+			for (const acct of accounts) {
+				if (acct.type !== 'savings' || !acct.rateProfile) continue;
+				const growthRaw =
+					passiveAccountService.projectBalance(acct, now) -
+					passiveAccountService.projectBalance(acct, periodStart);
+				const growthConverted = await this.convertToMainCurrency(
+					growthRaw,
+					acct.currency ?? userCurrency,
+					userCurrency,
+					now
+				);
+				let bookedInterest = 0;
+				for (const tx of transactions) {
+					if (tx.deletedAt || tx.type !== 'income' || tx.automation !== 'interest-income') continue;
+					if (tx.accountId !== acct.id) continue;
+					const d =
+						tx.status === 'cleared' && tx.clearedDate
+							? new Date(tx.clearedDate)
+							: tx.status === 'planned' && tx.plannedDate
+								? new Date(tx.plannedDate)
+								: null;
+					if (!d || d < periodStart || d > periodEnd) continue;
+					bookedInterest += await this.convertToMainCurrency(
+						tx.amount ?? 0,
+						tx.currency ?? userCurrency,
+						userCurrency,
+						d
+					);
+				}
+				passiveAccrualAdjustment += Math.max(0, growthConverted - bookedInterest);
+			}
+		}
+		periodIncome += passiveAccrualAdjustment;
+
 		// Uncertainty band: use trailing 90-day spend (FX-converted), not all-time totalSpend
 		const ninetyDaysAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
 		let trailing90Spend = 0;
@@ -747,7 +786,8 @@ class BudgetService {
 			recoveryWeeksEstimate,
 			periodStart: periodStart.toISOString(),
 			periodEnd: periodEnd.toISOString(),
-			currency: userCurrency
+			currency: userCurrency,
+			passiveAccrualAdjustment
 		};
 	}
 

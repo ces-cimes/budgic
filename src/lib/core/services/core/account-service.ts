@@ -1,5 +1,10 @@
 import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
-import type { Account, AccountMetadata, Transaction } from '$lib/core/db';
+import type {
+	Account,
+	AccountMetadata,
+	AutomationTag,
+	Transaction
+} from '$lib/core/db';
 import { loanAmortizationService } from './loan-amortization-service';
 
 /**
@@ -158,7 +163,21 @@ class AccountService {
 	async updateAccount(
 		id: string,
 		updates: Partial<
-			Pick<Account, 'name' | 'type' | 'currency' | 'isActive' | 'metadata' | 'currentBalance' | 'initialBalance'>
+			Pick<
+				Account,
+				| 'name'
+				| 'type'
+				| 'currency'
+				| 'isActive'
+				| 'metadata'
+				| 'currentBalance'
+				| 'initialBalance'
+				| 'rateProfile'
+				| 'rateHistory'
+				| 'lastConfirmedBalance'
+				| 'lastConfirmedAt'
+				| 'passiveRatePromptDismissed'
+			>
 		>
 	): Promise<Account> {
 		const account = await db.accounts.get(id);
@@ -296,37 +315,338 @@ class AccountService {
 	 * Get total balance across all accounts (converted to main currency)
 	 */
 	async getTotalBalance(): Promise<number> {
+		const { passiveAccountService } = await import('./passive-account-service');
 		const accounts = await this.getAccounts();
 		const { userService, exchangeRateService } = await import('$lib/core/services');
 
-		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
+		const includeAccrued = preferences?.includeAccruedInNetWorth ?? false;
 
-		// Convert all balances to main currency and sum
 		let total = 0;
 		for (const account of accounts) {
+			const passiveType =
+				account.type === 'savings' || account.type === 'credit' || account.type === 'loan';
+			let balanceForTotal = account.currentBalance;
+			if (passiveType && account.rateProfile) {
+				if (includeAccrued) {
+					balanceForTotal = passiveAccountService.projectBalance(account, new Date());
+				} else {
+					balanceForTotal =
+						account.lastConfirmedBalance !== undefined && account.lastConfirmedBalance !== null
+							? account.lastConfirmedBalance
+							: account.currentBalance;
+				}
+			}
+
 			if (account.currency === mainCurrency) {
-				total += account.currentBalance;
+				total += balanceForTotal;
 			} else {
 				const converted = await exchangeRateService.convertAmount(
-					account.currentBalance,
+					balanceForTotal,
 					account.currency,
 					mainCurrency
 				);
 				if (converted !== null) {
 					total += converted;
 				} else {
-					// If conversion fails, log warning but include original amount
 					console.warn(
 						`Failed to convert ${account.currency} to ${mainCurrency} for account ${account.name}`
 					);
-					total += account.currentBalance;
+					total += balanceForTotal;
 				}
 			}
 		}
 
 		return total;
+	}
+
+	/**
+	 * Phase 10 — total in main currency plus accrued portion when projection is enabled.
+	 */
+	async getNetWorthDisplay(): Promise<{
+		total: number;
+		accruedDelta: number;
+		mainCurrency: string;
+	}> {
+		const { passiveAccountService } = await import('./passive-account-service');
+		const accounts = await this.getAccounts();
+		const { userService, exchangeRateService } = await import('$lib/core/services');
+		const preferences = await userService.getUserPreferences();
+		const mainCurrency = preferences?.currency || 'USD';
+		const includeAccrued = preferences?.includeAccruedInNetWorth ?? false;
+
+		const convert = async (account: Account, amount: number) => {
+			if (account.currency === mainCurrency) return amount;
+			const c = await exchangeRateService.convertAmount(
+				amount,
+				account.currency,
+				mainCurrency
+			);
+			return c ?? amount;
+		};
+
+		let conservative = 0;
+		let total = 0;
+
+		for (const account of accounts) {
+			const passiveType =
+				account.type === 'savings' || account.type === 'credit' || account.type === 'loan';
+			const projected =
+				passiveType && account.rateProfile
+					? passiveAccountService.projectBalance(account, new Date())
+					: account.currentBalance;
+
+			const conservativeAmt =
+				passiveType && account.rateProfile
+					? (account.lastConfirmedBalance ?? account.currentBalance)
+					: account.currentBalance;
+			conservative += await convert(account, conservativeAmt);
+
+			const displayAmt =
+				includeAccrued && passiveType && account.rateProfile
+					? projected
+					: passiveType && account.rateProfile
+						? (account.lastConfirmedBalance ?? account.currentBalance)
+						: account.currentBalance;
+			total += await convert(account, displayAmt);
+		}
+
+		return {
+			total,
+			accruedDelta: includeAccrued ? total - conservative : 0,
+			mainCurrency
+		};
+	}
+
+	private async pickCategoryIdForAutomation(
+		type: 'income' | 'expense',
+		hints: string[]
+	): Promise<string | undefined> {
+		const categories = await db.getActiveCategories();
+		const lower = hints.map((h) => h.toLowerCase());
+		for (const c of categories) {
+			if (c.type !== type) continue;
+			const n = c.name.toLowerCase();
+			if (lower.some((h) => n.includes(h))) return c.id;
+		}
+		return categories.find((c) => c.type === type)?.id;
+	}
+
+	/**
+	 * Phase 10 — cleared tax-withholding automation for this account this calendar year.
+	 */
+	async getTaxWithheldYtdForAccount(accountId: string): Promise<number> {
+		const year = new Date().getFullYear();
+		const start = new Date(year, 0, 1).toISOString();
+		const txs = await db.getTransactionsByAccount(accountId);
+		let sum = 0;
+		for (const tx of txs) {
+			if (tx.deletedAt || tx.status !== 'cleared') continue;
+			if (tx.automation !== 'tax-withholding') continue;
+			const d = tx.clearedDate || tx.createdAt;
+			if (!d || d < start) continue;
+			sum += Math.abs(tx.amount ?? 0);
+		}
+		return sum;
+	}
+
+	/**
+	 * Phase 10 — confirm "Update balance" after ledger drift and optional interest rows.
+	 * @returns `reconciliation_required` when the gap is large and no classification was chosen.
+	 */
+	async confirmUpdateBalance(params: {
+		accountId: string;
+		enteredBalance: number;
+		classification: AutomationTag | 'none' | 'unclassified';
+		applyTaxWithholding: boolean;
+	}): Promise<'ok' | 'reconciliation_required'> {
+		const { reconciliationService } = await import('./reconciliation-service');
+		const { transactionService } = await import('./transaction-service');
+
+		const account = await this.getAccount(params.accountId);
+		if (!account) {
+			throw new Error(`Account ${params.accountId} not found`);
+		}
+
+		const tolerance = 0.01;
+		const prefsRow = await db.userPreferences.toCollection().first();
+		const autoResolveThreshold = prefsRow?.balanceUpdateAutoResolveThreshold ?? 5;
+
+		const ledger = await reconciliationService.getLedgerBalance(params.accountId, {
+			includePendingTransactions: false
+		});
+		const gap = params.enteredBalance - ledger;
+		const netMovement = gap;
+
+		const now = new Date().toISOString();
+
+		if (Math.abs(gap) <= tolerance) {
+			await this.updateAccount(params.accountId, {
+				lastConfirmedBalance: params.enteredBalance,
+				lastConfirmedAt: now
+			});
+			return 'ok';
+		}
+
+		if (Math.abs(gap) <= autoResolveThreshold) {
+			await reconciliationService.performReconciliation(params.accountId, params.enteredBalance, {
+				tolerance,
+				autoResolveSmallDiscrepancies: true,
+				autoResolveThreshold,
+				includePendingTransactions: false
+			});
+			await this.updateAccount(params.accountId, {
+				lastConfirmedBalance: params.enteredBalance,
+				lastConfirmedAt: now
+			});
+			return 'ok';
+		}
+
+		if (params.classification === 'none') {
+			return 'reconciliation_required';
+		}
+
+		if (params.classification === 'unclassified') {
+			const isIncome = netMovement > 0;
+			const cat = await this.pickCategoryIdForAutomation(isIncome ? 'income' : 'expense', []);
+			await transactionService.createTransaction(
+				{
+					type: isIncome ? 'income' : 'expense',
+					status: 'cleared',
+					accountId: params.accountId,
+					currency: account.currency,
+					amount: Math.abs(netMovement),
+					clearedDate: now,
+					description: 'Balance update',
+					categoryId: cat
+				},
+				false
+			);
+			await this.updateAccount(params.accountId, {
+				lastConfirmedBalance: params.enteredBalance,
+				lastConfirmedAt: now
+			});
+			return 'ok';
+		}
+
+		const taxRate = account.rateProfile?.taxRate;
+		const useTax =
+			params.applyTaxWithholding &&
+			taxRate != null &&
+			taxRate > 0 &&
+			params.classification === 'interest-income' &&
+			gap > 0;
+
+		if (useTax) {
+			const gross = netMovement / (1 - taxRate);
+			const tax = gross * taxRate;
+			const incomeCat = await this.pickCategoryIdForAutomation('income', [
+				'interest',
+				'investment',
+				'income'
+			]);
+			const taxCat = await this.pickCategoryIdForAutomation('expense', ['tax', 'withhold']);
+			await transactionService.createTransaction(
+				{
+					type: 'income',
+					status: 'cleared',
+					accountId: params.accountId,
+					currency: account.currency,
+					amount: gross,
+					clearedDate: now,
+					description: 'Interest income',
+					automation: 'interest-income',
+					categoryId: incomeCat
+				},
+				true
+			);
+			await transactionService.createTransaction(
+				{
+					type: 'expense',
+					status: 'cleared',
+					accountId: params.accountId,
+					currency: account.currency,
+					amount: tax,
+					clearedDate: now,
+					description: 'Tax withholding (НДФЛ)',
+					automation: 'tax-withholding',
+					categoryId: taxCat
+				},
+				false
+			);
+		} else if (params.classification === 'interest-income' && netMovement > 0) {
+			const incomeCat = await this.pickCategoryIdForAutomation('income', [
+				'interest',
+				'investment',
+				'income'
+			]);
+			await transactionService.createTransaction(
+				{
+					type: 'income',
+					status: 'cleared',
+					accountId: params.accountId,
+					currency: account.currency,
+					amount: netMovement,
+					clearedDate: now,
+					description: 'Interest income',
+					automation: 'interest-income',
+					categoryId: incomeCat
+				},
+				false
+			);
+		} else if (
+			params.classification === 'interest-charge' ||
+			(params.classification === 'transfer-fee' && netMovement < 0)
+		) {
+			const amt = Math.abs(netMovement);
+			const expenseCat = await this.pickCategoryIdForAutomation('expense', [
+				'bank',
+				'fee',
+				'finance',
+				'interest'
+			]);
+			await transactionService.createTransaction(
+				{
+					type: 'expense',
+					status: 'cleared',
+					accountId: params.accountId,
+					currency: account.currency,
+					amount: amt,
+					clearedDate: now,
+					description:
+						params.classification === 'interest-charge' ? 'Interest charge' : 'Bank fee',
+					automation:
+						params.classification === 'interest-charge' ? 'interest-charge' : 'transfer-fee',
+					categoryId: expenseCat
+				},
+				false
+			);
+		} else {
+			// Unclassified adjustment: no automation tag (per plan)
+			const isIncome = netMovement > 0;
+			const cat = await this.pickCategoryIdForAutomation(isIncome ? 'income' : 'expense', []);
+			await transactionService.createTransaction(
+				{
+					type: isIncome ? 'income' : 'expense',
+					status: 'cleared',
+					accountId: params.accountId,
+					currency: account.currency,
+					amount: Math.abs(netMovement),
+					clearedDate: now,
+					description: 'Balance adjustment',
+					categoryId: cat
+				},
+				false
+			);
+		}
+
+		await this.updateAccount(params.accountId, {
+			lastConfirmedBalance: params.enteredBalance,
+			lastConfirmedAt: now
+		});
+
+		return 'ok';
 	}
 
 	/**

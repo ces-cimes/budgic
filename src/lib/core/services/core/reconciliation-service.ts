@@ -474,6 +474,20 @@ class ReconciliationService {
 	// ============================================================================
 
 	/**
+	 * Cleared-transaction ledger balance (same basis as reconciliation).
+	 */
+	async getLedgerBalance(
+		accountId: string,
+		options: Partial<ReconciliationOptions> = {}
+	): Promise<number> {
+		const validatedOptions = ReconciliationOptionsSchema.parse({
+			includePendingTransactions: false,
+			...options
+		});
+		return await this.calculateReconciliationBalance(accountId, validatedOptions);
+	}
+
+	/**
 	 * Calculate balance for reconciliation purposes
 	 */
 	private async calculateReconciliationBalance(

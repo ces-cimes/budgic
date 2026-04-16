@@ -88,6 +88,7 @@
 					roundUpAmount={batch.automationSummary?.roundUpAmount ?? 0}
 					roundUpCount={batch.automationSummary?.roundUpCount ?? 0}
 					interestCount={batch.automationSummary?.interestCount ?? 0}
+					passiveBalanceHints={batch.passiveBalanceTrackingHints ?? []}
 					{personAccountCandidates}
 					onMigratePersonAccounts={onMigratePersonAccounts}
 					onNext={() => (step = 2)}

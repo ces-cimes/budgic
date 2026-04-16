@@ -11,7 +11,7 @@ import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { automationDetector } from '../intelligence/automation-detector';
 import { detectEssentials, type ClassificationCandidate } from '../intelligence/essential-detector';
-import { BaseImporter } from './base-importer';
+import { BaseImporter, detectPassiveBalanceImportHints } from './base-importer';
 import type { ImportOptions, ImportResult, CSVFile, IdMapping, TransferPair } from './types';
 import {
 	mapAccountType,
@@ -1039,6 +1039,18 @@ export class MoneyManagerImporter extends BaseImporter {
 			.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
 		this.essentialCandidates = detectEssentials(detected, incomeTotal || 1);
 
+		const accountRows = (
+			await Promise.all(Array.from(this.importedAccountIds).map((id) => db.accounts.get(id)))
+		).filter((a): a is Account => !!a);
+		const passiveHints = detectPassiveBalanceImportHints(
+			accountRows.map((a) => ({ id: a.id, name: a.name, type: a.type })),
+			detected.map((t) => ({
+				accountId: t.accountId,
+				amount: t.amount,
+				description: t.description
+			}))
+		);
+
 		return {
 			transactionIds: detected.map((tx) => tx.id),
 			unclassifiedTransactionIds,
@@ -1056,7 +1068,8 @@ export class MoneyManagerImporter extends BaseImporter {
 				cadence: candidate.cadence,
 				confidence: candidate.confidence,
 				reason: candidate.reason
-			}))
+			})),
+			passiveBalanceTrackingHints: passiveHints
 		};
 	}
 

@@ -16,7 +16,8 @@
 		Bell,
 		SlidersHorizontal,
 		Database,
-		ChevronRight
+		ChevronRight,
+		Wallet
 	} from '@lucide/svelte';
 
 	const { data } = $props<{ data: any }>();
@@ -163,6 +164,12 @@
 					description: 'Currencies and exchange rates',
 					Icon: DollarSign,
 					href: '/settings/currency'
+				},
+				{
+					name: 'Accounts',
+					description: 'Passive balances, net worth accrual, batch updates',
+					Icon: Wallet,
+					href: '/settings/accounts'
 				},
 				{
 					name: 'Navigation',

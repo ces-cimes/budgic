@@ -828,6 +828,25 @@ const AccountMetadataSchema = z.object({
 	isEmergencyFund: z.boolean().optional() // Designate this account as part of emergency fund
 });
 
+/** Phase 10 — passive / balance-first tracking (`apr` is annual decimal, e.g. 0.045 for 4.5%) */
+export const AccountCompoundingSchema = z.enum(['daily', 'monthly', 'annual']);
+export type AccountCompounding = z.infer<typeof AccountCompoundingSchema>;
+export const AccountRateProfileSchema = z.object({
+	apr: z.number(),
+	compounding: AccountCompoundingSchema,
+	rateType: z.enum(['fixed', 'variable']),
+	effectiveFrom: z.string().datetime(),
+	taxRate: z.number().min(0).max(1).optional()
+});
+export const AccountRateHistoryEntrySchema = z.object({
+	apr: z.number(),
+	compounding: AccountCompoundingSchema,
+	effectiveFrom: z.string().datetime(),
+	effectiveTo: z.string().datetime()
+});
+export type AccountRateProfile = z.infer<typeof AccountRateProfileSchema>;
+export type AccountRateHistoryEntry = z.infer<typeof AccountRateHistoryEntrySchema>;
+
 // Account Schema
 const AccountSchema = BaseSchema.extend({
 	name: z.string().min(1),
@@ -862,7 +881,14 @@ const AccountSchema = BaseSchema.extend({
 			startDate: z.string().datetime()
 		})
 		.optional(),
-	metadata: AccountMetadataSchema.optional()
+	metadata: AccountMetadataSchema.optional(),
+	/** Phase 10 — optional APR profile for balance-first passive accounts */
+	rateProfile: AccountRateProfileSchema.optional(),
+	rateHistory: z.array(AccountRateHistoryEntrySchema).optional(),
+	lastConfirmedBalance: z.number().optional(),
+	lastConfirmedAt: z.string().datetime().optional(),
+	/** User skipped "set interest rate?" prompt on account creation */
+	passiveRatePromptDismissed: z.boolean().optional()
 });
 
 // Unified Category Schema (replaces what/why tags, payees, and budget categories)
@@ -1230,7 +1256,12 @@ const UserPreferencesSchema = BaseSchema.extend({
 	/** Phase 5.3 — last period key (YYYY-MM) user acknowledged intentional debt per group id */
 	debtAcknowledgedPeriodByGroup: z.record(z.string(), z.string()).optional(),
 	/** Phase 5.3 — last period key user dismissed the debt prompt per group id */
-	debtPromptDismissedPeriodByGroup: z.record(z.string(), z.string()).optional()
+	debtPromptDismissedPeriodByGroup: z.record(z.string(), z.string()).optional(),
+
+	/** Phase 10 — net worth uses projected accrual on passive accounts when true */
+	includeAccruedInNetWorth: z.boolean().default(false),
+	/** Phase 10.8 — max absolute ledger gap (account currency) for silent auto-resolve in Update balance */
+	balanceUpdateAutoResolveThreshold: z.number().min(0).max(500).default(5)
 });
 
 // User Actions Schema
@@ -2141,6 +2172,51 @@ export class BudgicDB extends Dexie {
 
 		// Version 23: Tag catalog for transaction tag autocomplete
 		this.version(23).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+			tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]'
+		});
+
+		// Version 24: Phase 10 passive account rate profile + last confirmed balance
+		this.version(24).stores({
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
 			categories:

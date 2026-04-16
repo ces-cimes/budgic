@@ -26,6 +26,8 @@
 	import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
 	import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
 	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
+	import UpdateBalanceSheet from '$lib/components/accounts/UpdateBalanceSheet.svelte';
+	import { passiveAccountService } from '$lib/core/services';
 	import { planService, negativeAllowanceService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import type {
@@ -52,6 +54,8 @@
 	let accountsLookup = $state<Account[]>([]);
 	let overdraftChip = $state<string | null>(null);
 	let repaymentChip = $state<string | null>(null);
+	let updateBalanceOpen = $state(false);
+	let taxWithheldYtd = $state<number | null>(null);
 
 	const accountId = $derived($page.params.id);
 
@@ -92,6 +96,11 @@
 					// Account not found, redirect to accounts list
 					goto('/accounts');
 					return;
+				}
+				try {
+					taxWithheldYtd = await accountService.getTaxWithheldYtdForAccount(accountId);
+				} catch {
+					taxWithheldYtd = null;
 				}
 			}
 		} catch (error) {
@@ -222,6 +231,18 @@
 		}
 	}
 
+	async function afterBalanceUpdate() {
+		await loadAccount();
+		await loadTransactions();
+		if (accountId) {
+			try {
+				taxWithheldYtd = await accountService.getTaxWithheldYtdForAccount(accountId);
+			} catch {
+				taxWithheldYtd = null;
+			}
+		}
+	}
+
 	function transactionRowLabel(tx: Transaction): string {
 		if (tx.type === 'transfer' && tx.transferDetails) {
 			return formatTransferLabel(tx, accountsLookup);
@@ -258,6 +279,23 @@
 					{account.type} balance
 				</p>
 				<CountUpHero value={account.currentBalance} format={(n) => formatBalance(n, currency)} />
+				{#if account.rateProfile && account.lastConfirmedAt}
+					<p class="text-muted-foreground mt-2 text-xs">
+						Projected: {formatBalance(passiveAccountService.projectBalance(account, new Date()), currency)}
+					</p>
+				{/if}
+				{#if account.type === 'savings' || account.type === 'credit' || account.type === 'loan'}
+					<div class="mt-4 flex flex-wrap items-center justify-center gap-3">
+						<Button.Root variant="outline" size="sm" onclick={() => (updateBalanceOpen = true)}>
+							Update balance
+						</Button.Root>
+					</div>
+				{/if}
+				{#if taxWithheldYtd != null && taxWithheldYtd > 0 && account.rateProfile?.taxRate}
+					<p class="text-muted-foreground mt-2 text-xs">
+						Tax withheld year-to-date: {formatBalance(taxWithheldYtd, currency)}
+					</p>
+				{/if}
 				{#if account.initialBalance !== account.currentBalance}
 					<p class="mt-2 text-xs text-[var(--color-text-tertiary)]">
 						Started at {formatBalance(account.initialBalance, account.currency)}
@@ -527,4 +565,11 @@
 			</section>
 		{/if}
 	</div>
+
+	<UpdateBalanceSheet
+		open={updateBalanceOpen}
+		account={account}
+		onOpenChange={(v) => (updateBalanceOpen = v)}
+		onSuccess={afterBalanceUpdate}
+	/>
 </PageLayout>

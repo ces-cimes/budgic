@@ -265,6 +265,7 @@ describe('budgetService.getAllowanceProjection', () => {
 		expect(proj.planned).toBe(250);
 		expect(proj.periodIncome).toBe(5000);
 		expect(proj.available).toBe(5000 - 100 - 250);
+		expect(proj.passiveAccrualAdjustment).toBe(0);
 	});
 
 	it('applies recovery deduction when debt recovery is active', async () => {
@@ -305,5 +306,125 @@ describe('budgetService.getAllowanceProjection', () => {
 		const proj = await budgetService.getAllowanceProjection();
 		expect(proj.recoveryDeduction).toBe(1000);
 		expect(proj.available).toBe(4000 - 200 - 1000);
+		expect(proj.passiveAccrualAdjustment).toBe(0);
+	});
+
+	it('adds passive savings accrual to periodIncome when includeAccruedInNetWorth is on', async () => {
+		vi.mocked(db.transactions.toArray).mockResolvedValue([] as any);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([
+			{ id: 'checking-1', type: 'checking' },
+			{
+				id: 'sav-1',
+				type: 'savings',
+				currency: 'USD',
+				currentBalance: 10_000,
+				lastConfirmedBalance: 10_000,
+				lastConfirmedAt: '2026-03-01T00:00:00.000Z',
+				rateProfile: {
+					apr: 0.45,
+					compounding: 'daily' as const,
+					rateType: 'fixed' as const,
+					effectiveFrom: '2026-01-01T00:00:00.000Z'
+				},
+				deletedAt: null
+			}
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'conservative',
+				currency: 'USD',
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false,
+				includeAccruedInNetWorth: true
+			})
+		} as any);
+
+		const proj = await budgetService.getAllowanceProjection();
+		expect(proj.passiveAccrualAdjustment).toBeGreaterThan(0);
+		expect(proj.periodIncome).toBe(proj.passiveAccrualAdjustment);
+	});
+
+	it('does not add passive accrual when includeAccruedInNetWorth is off', async () => {
+		vi.mocked(db.transactions.toArray).mockResolvedValue([] as any);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([
+			{ id: 'checking-1', type: 'checking' },
+			{
+				id: 'sav-1',
+				type: 'savings',
+				currency: 'USD',
+				currentBalance: 10_000,
+				lastConfirmedBalance: 10_000,
+				lastConfirmedAt: '2026-03-01T00:00:00.000Z',
+				rateProfile: {
+					apr: 0.45,
+					compounding: 'daily' as const,
+					rateType: 'fixed' as const,
+					effectiveFrom: '2026-01-01T00:00:00.000Z'
+				},
+				deletedAt: null
+			}
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'conservative',
+				currency: 'USD',
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false,
+				includeAccruedInNetWorth: false
+			})
+		} as any);
+
+		const proj = await budgetService.getAllowanceProjection();
+		expect(proj.passiveAccrualAdjustment).toBe(0);
+		expect(proj.periodIncome).toBe(0);
+	});
+
+	it('subtracts booked interest-income from passive accrual for the same savings account', async () => {
+		vi.mocked(db.transactions.toArray).mockResolvedValue([
+			{
+				id: 'int-1',
+				type: 'income',
+				status: 'cleared',
+				amount: 50_000,
+				currency: 'USD',
+				accountId: 'sav-1',
+				automation: 'interest-income',
+				clearedDate: '2026-04-10T00:00:00.000Z',
+				createdAt: '2026-04-10T00:00:00.000Z',
+				updatedAt: '2026-04-10T00:00:00.000Z',
+				deletedAt: null
+			}
+		] as any);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([
+			{ id: 'checking-1', type: 'checking' },
+			{
+				id: 'sav-1',
+				type: 'savings',
+				currency: 'USD',
+				currentBalance: 10_000,
+				lastConfirmedBalance: 10_000,
+				lastConfirmedAt: '2026-03-01T00:00:00.000Z',
+				rateProfile: {
+					apr: 0.45,
+					compounding: 'daily' as const,
+					rateType: 'fixed' as const,
+					effectiveFrom: '2026-01-01T00:00:00.000Z'
+				},
+				deletedAt: null
+			}
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi.fn().mockResolvedValue({
+				reimbursementAllowanceMode: 'conservative',
+				currency: 'USD',
+				recoveryAggressiveness: 0.2,
+				debtRecoveryActive: false,
+				includeAccruedInNetWorth: true
+			})
+		} as any);
+
+		const proj = await budgetService.getAllowanceProjection();
+		expect(proj.passiveAccrualAdjustment).toBe(0);
+		expect(proj.periodIncome).toBe(50_000);
 	});
 });

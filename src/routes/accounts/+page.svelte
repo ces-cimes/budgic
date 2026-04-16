@@ -17,6 +17,8 @@
 	import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
 	import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
 	import EmergencyFundVisualization from '$lib/components/accounts/EmergencyFundVisualization.svelte';
+	import UpdateBalanceSheet from '$lib/components/accounts/UpdateBalanceSheet.svelte';
+	import { passiveAccountService } from '$lib/core/services';
 
 	const { data } = $props<{ data: any }>();
 
@@ -27,6 +29,8 @@
 	let totalBalance = $state(0);
 	let userCurrency = $state<string | null>(null);
 	let needsReconciliationCount = $state(0);
+	let updateBalanceOpen = $state(false);
+	let updateBalanceAccount = $state<Account | null>(null);
 
 	const accountIcons = {
 		checking: Wallet,
@@ -45,7 +49,6 @@
 			// Load user currency preference first
 			const preferences = await userService.getUserPreferences();
 			userCurrency = preferences?.currency || null;
-
 			const accountsData = await accountService.getAccounts();
 			const totalBalanceValue = await accountService.getTotalBalance();
 
@@ -73,6 +76,23 @@
 			console.error('Error loading accounts:', error);
 		}
 	});
+
+	async function refreshAccountsList() {
+		const accountsData = await accountService.getAccounts();
+		const totalBalanceValue = await accountService.getTotalBalance();
+		accounts = accountsData.map((a: Account) => ({
+			...a,
+			balance: a.currentBalance
+		}));
+		totalBalance = totalBalanceValue;
+	}
+
+	function openUpdateBalance(acc: Account, e: MouseEvent) {
+		e.stopPropagation();
+		e.preventDefault();
+		updateBalanceAccount = acc;
+		updateBalanceOpen = true;
+	}
 
 	function formatBalance(balance: number, currency: string | null) {
 		// Show minus sign for negative balances, but no plus sign for positive balances
@@ -185,10 +205,17 @@
 								? 'border-l-[var(--color-info)]'
 								: 'border-l-border'}
 				{@const AccountIcon = accountIcons[account.type as keyof typeof accountIcons] || Wallet}
-				<button
-					type="button"
-					class="group w-full border-l-4 {typeColor} border-tertiary animate-card-enter rounded-2xl border p-6 text-left shadow-sm transition-all hover:shadow-md"
+				<div
+					role="button"
+					tabindex="0"
+					class="group w-full cursor-pointer border-l-4 {typeColor} border-tertiary animate-card-enter rounded-2xl border p-6 text-left shadow-sm transition-all hover:shadow-md"
 					onclick={() => goto(`/accounts/${account.id}`)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							goto(`/accounts/${account.id}`);
+						}
+					}}
 				>
 					<div class="flex items-start justify-between gap-4">
 						<div class="min-w-0 flex-1">
@@ -206,7 +233,26 @@
 							>
 								{account.type}
 							</p>
-							<div class="text-hero-sm">{formatBalance(account.balance, account.currency)}</div>
+							<div class="flex flex-wrap items-end justify-between gap-2">
+								<div class="text-hero-sm">{formatBalance(account.balance, account.currency)}</div>
+								{#if account.type === 'savings' || account.type === 'credit' || account.type === 'loan'}
+									<button
+										type="button"
+										class="relative z-10 text-xs font-medium text-[var(--color-amber)] hover:underline"
+										onclick={(e) => openUpdateBalance(account, e)}
+									>
+										Update balance
+									</button>
+								{/if}
+							</div>
+							{#if account.rateProfile && account.lastConfirmedAt}
+								<p class="text-muted-foreground mt-1 text-xs">
+									Projected: {formatBalance(
+										passiveAccountService.projectBalance(account, new Date()),
+										account.currency
+									)}
+								</p>
+							{/if}
 							{#if bufferAmount > 0 && bufferStatus && (bufferStatus === 'warning' || bufferStatus === 'critical')}
 								<p
 									class="mt-1.5 text-xs {bufferStatus === 'critical'
@@ -218,7 +264,7 @@
 							{/if}
 						</div>
 					</div>
-				</button>
+				</div>
 			{/each}
 
 			{#if accounts.length === 0}
@@ -285,4 +331,11 @@
 			</section>
 		{/if}
 	</div>
+
+	<UpdateBalanceSheet
+		open={updateBalanceOpen}
+		account={updateBalanceAccount}
+		onOpenChange={(v) => (updateBalanceOpen = v)}
+		onSuccess={refreshAccountsList}
+	/>
 </PageLayout>
