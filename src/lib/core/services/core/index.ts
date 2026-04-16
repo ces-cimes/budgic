@@ -17,6 +17,8 @@ export { dependencyTrackingService } from './dependency-tracking-service';
 export { reconciliationService } from './reconciliation-service';
 export { budgetService } from './budget-service';
 export { goalService } from './goal-service';
+export { loanAmortizationService } from './loan-amortization-service';
+export { roundUpService } from './round-up-service';
 export { goalOpportunityService } from './goal-opportunity-service';
 export { goalTradeoffService } from './goal-tradeoff-service';
 export { userService } from './user-service';

@@ -831,11 +831,37 @@ const AccountMetadataSchema = z.object({
 // Account Schema
 const AccountSchema = BaseSchema.extend({
 	name: z.string().min(1),
-	type: z.enum(['checking', 'savings', 'credit', 'cash', 'investment', 'crypto']),
+	type: z.enum(['checking', 'savings', 'credit', 'loan', 'cash', 'investment', 'crypto']),
 	currency: z.string().min(3).max(3), // No default - must be explicitly provided
 	initialBalance: z.number().default(0),
 	currentBalance: z.number().default(0),
 	isActive: z.boolean().default(true),
+	creditLimit: z.number().positive().optional(),
+	overdraftStartedAt: z.string().datetime().optional(), // set when balance first goes negative, cleared when positive again
+	linkedAccountId: z.string().optional(), // for credit accounts: the checking account used as repayment source
+	overdraftFacility: z
+		.object({
+			limit: z.number().positive(),
+			gracePeriodDays: z.number().int().positive(),
+			penaltyPerDay: z.number().nonnegative(),
+			penaltyThreshold: z.number().nonnegative().optional()
+		})
+		.optional(),
+	repaymentConfig: z
+		.object({
+			gracePeriodDays: z.number().int().positive(),
+			installmentCount: z.number().int().min(1).max(36).default(1),
+			installmentFrequency: z.enum(['weekly', 'biweekly', 'monthly']).default('monthly')
+		})
+		.optional(),
+	loanDetails: z
+		.object({
+			principal: z.number().positive(),
+			annualRate: z.number().min(0),
+			termMonths: z.number().int().positive(),
+			startDate: z.string().datetime()
+		})
+		.optional(),
 	metadata: AccountMetadataSchema.optional()
 });
 
@@ -1251,8 +1277,19 @@ const GoalSchema = BaseSchema.extend({
 		.pipe(z.string().datetime().optional()),
 	completedAt: z.string().datetime().optional(),
 	monthlyContribution: z.number().min(0).optional(),
+	linkedAccountId: z.string().optional(),
 	isRecurring: z.boolean().default(false),
 	tags: z.array(z.string()).default([])
+});
+
+const RoundUpRuleSchema = BaseSchema.extend({
+	sourceAccountId: z.string(),
+	targetAccountId: z.string(),
+	method: z.enum(['nearest-1', 'nearest-10', 'nearest-100', 'fixed', 'percentage', 'multiplier']),
+	methodParam: z.number().optional(),
+	minimumTransferAmount: z.number().default(0.01),
+	batchMode: z.enum(['per-transaction', 'daily', 'weekly']).default('daily'),
+	isActive: z.boolean().default(true)
 });
 
 // Simplified Insights Schema (consolidated analytics)
@@ -1270,7 +1307,9 @@ const InsightSchema = BaseSchema.extend({
 		'behavioral',
 		'prediction',
 		'credit_utilization',
-		'emergency_fund'
+		'emergency_fund',
+		'overdraft_overdue',
+		'repayment_overdue'
 	]),
 	severity: z.enum(['info', 'warning', 'alert', 'success']),
 	title: z.string().min(1),
@@ -1537,6 +1576,7 @@ export type NegativeAllowanceEvent = z.infer<typeof NegativeAllowanceEventSchema
 export type EnvelopeBorrowing = z.infer<typeof EnvelopeBorrowingSchema>;
 export type RolloverAdjustment = z.infer<typeof RolloverAdjustmentSchema>;
 export type Occasion = z.infer<typeof OccasionSchema>;
+export type RoundUpRule = z.infer<typeof RoundUpRuleSchema>;
 
 // Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
@@ -1608,6 +1648,7 @@ export class BudgicDB extends Dexie {
 	envelopeBorrowings!: Table<EnvelopeBorrowing>;
 	rolloverAdjustments!: Table<RolloverAdjustment>;
 	occasions!: Table<Occasion>;
+	roundUpRules!: Table<RoundUpRule>;
 
 	constructor() {
 		super('BudgicDB');
@@ -1987,6 +2028,50 @@ export class BudgicDB extends Dexie {
 				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
 			occasions:
 				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]'
+		});
+
+		// Version 21: Round-up savings rules
+		this.version(21).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, [fieldKey+value], createdAt, updatedAt, deletedAt',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]'
 		});
 
 		// Add validation hooks
@@ -2549,6 +2634,29 @@ export class BudgicDB extends Dexie {
 				throw error;
 			}
 		});
+
+		// Round-up rule validation
+		this.roundUpRules.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = RoundUpRuleSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Round-up rule validation failed:', error);
+				throw error;
+			}
+		});
+		this.roundUpRules.hook('updating', (modifications: Partial<RoundUpRule>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				RoundUpRuleSchema.parse(updated);
+			} catch (error) {
+				console.error('Round-up rule update validation failed:', error);
+				throw error;
+			}
+		});
 	}
 
 	private setupSoftDeleteHooks() {
@@ -2637,6 +2745,14 @@ export class BudgicDB extends Dexie {
 		this.occasions.hook('reading', (obj) => {
 			if (!obj) {
 				console.warn('[DB Hook] occasions: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.roundUpRules.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] roundUpRules: obj is undefined', new Error().stack);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;
@@ -3592,7 +3708,21 @@ export class BudgicDB extends Dexie {
 			);
 		}
 
-		await this.updateAccountBalance(accountId, balance);
+		const now = new Date().toISOString();
+		const wasNegative = (account.currentBalance ?? 0) < 0;
+		const isNegative = balance < 0;
+		const overdraftPatch: Partial<Account> = {};
+		if (!wasNegative && isNegative) {
+			overdraftPatch.overdraftStartedAt = now;
+		} else if (wasNegative && !isNegative) {
+			overdraftPatch.overdraftStartedAt = undefined;
+		}
+
+		await this.accounts.update(accountId, {
+			currentBalance: balance,
+			updatedAt: now,
+			...overdraftPatch
+		});
 		return balance;
 	}
 }

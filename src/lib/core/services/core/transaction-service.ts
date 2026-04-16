@@ -7,10 +7,11 @@ import {
 } from '$lib/core/db';
 import type { Transaction } from '$lib/core/db';
 import { accountService } from './account-service';
+import { roundUpService } from './round-up-service';
 import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 import { balanceProjectionService } from '../analytics/balance-projection-service';
 import { exchangeRateService } from './exchange-rate-service';
-import { addDays } from 'date-fns';
+import { addDays, addWeeks, addMonths } from 'date-fns';
 
 type TransferDetails = NonNullable<Transaction['transferDetails']>;
 
@@ -30,6 +31,139 @@ export interface BulkOperationResult {
 }
 
 class TransactionService {
+	private async upsertInsight(payload: {
+		type: 'overdraft_overdue' | 'repayment_overdue';
+		title: string;
+		message: string;
+		severity?: 'info' | 'warning' | 'alert' | 'success';
+		amount?: number;
+	}): Promise<void> {
+		const existing = await db.insights
+			.where('type')
+			.equals(payload.type)
+			.filter((insight) => insight.isActive && !insight.deletedAt)
+			.first();
+		const now = new Date().toISOString();
+		if (existing) {
+			await db.insights.update(existing.id, {
+				title: payload.title,
+				message: payload.message,
+				severity: payload.severity ?? 'warning',
+				amount: payload.amount,
+				updatedAt: now
+			});
+			return;
+		}
+		await db.insights.add({
+			id: generateUUID(),
+			type: payload.type,
+			severity: payload.severity ?? 'warning',
+			title: payload.title,
+			message: payload.message,
+			amount: payload.amount,
+			actionable: true,
+			isActive: true,
+			createdAt: now,
+			updatedAt: now,
+			deletedAt: null
+		});
+	}
+
+	private async handleOverdraftLifecycle(accountId: string): Promise<void> {
+		const account = await accountService.getAccount(accountId);
+		if (!account || account.type !== 'checking' || !account.overdraftFacility) return;
+		if (account.currentBalance >= 0) return;
+		if (!account.overdraftStartedAt) return;
+		const graceDays = account.overdraftFacility.gracePeriodDays;
+		const deadline = addDays(new Date(account.overdraftStartedAt), graceDays);
+		if (deadline.getTime() <= Date.now()) {
+			await this.upsertInsight({
+				type: 'overdraft_overdue',
+				title: 'Overdraft grace period expired',
+				message: `${account.name} remains below zero past the overdraft grace period.`,
+				severity: 'alert',
+				amount: Math.abs(account.currentBalance)
+			});
+		}
+	}
+
+	private getInstallmentDate(
+		startDate: Date,
+		index: number,
+		frequency: 'weekly' | 'biweekly' | 'monthly'
+	): Date {
+		if (frequency === 'weekly') return addWeeks(startDate, index);
+		if (frequency === 'biweekly') return addWeeks(startDate, index * 2);
+		return addMonths(startDate, index);
+	}
+
+	private async createRepaymentScheduleForCreditSpend(tx: Transaction): Promise<void> {
+		if (tx.type !== 'expense' || tx.status !== 'cleared' || !tx.accountId) return;
+		const creditAccount = await accountService.getAccount(tx.accountId);
+		if (!creditAccount || creditAccount.type !== 'credit' || !creditAccount.repaymentConfig) return;
+		let sourceChecking = creditAccount.linkedAccountId
+			? ((await accountService.getAccount(creditAccount.linkedAccountId)) ?? undefined)
+			: undefined;
+		if (!sourceChecking) {
+			const checkingAccounts = (await accountService.getAccounts()).filter(
+				(a) => a.type === 'checking'
+			);
+			sourceChecking = checkingAccounts[0];
+		}
+		if (!sourceChecking) return;
+		const cfg = creditAccount.repaymentConfig;
+		const start = addDays(new Date(tx.clearedDate ?? tx.createdAt), cfg.gracePeriodDays);
+		const installments = cfg.installmentCount;
+		const perInstallment = Math.abs(tx.amount ?? 0) / installments;
+		for (let i = 0; i < installments; i++) {
+			const due = this.getInstallmentDate(start, i, cfg.installmentFrequency);
+			await this.createTransaction(
+				{
+					type: 'transfer',
+					status: 'planned',
+					accountId: sourceChecking.id,
+					currency: tx.currency,
+					amount: -perInstallment,
+					plannedDate: due.toISOString(),
+					description: `Repayment for ${tx.description || 'credit purchase'}`,
+					toAccountId: creditAccount.id,
+					transferDetails: {
+						toAccountId: creditAccount.id,
+						transferAmount: perInstallment,
+						feeAmount: 0
+					},
+					reference: `repayment:${tx.id}:${i + 1}/${installments}`
+				},
+				true
+			);
+		}
+	}
+
+	private async checkRepaymentOverdueInsights(): Promise<void> {
+		const overdue = await db.transactions
+			.where('status')
+			.equals('planned')
+			.filter(
+				(tx) =>
+					tx.type === 'transfer' &&
+					(tx.reference?.startsWith('repayment:') ?? false) &&
+					!!tx.plannedDate &&
+					new Date(tx.plannedDate).getTime() < Date.now()
+			)
+			.toArray();
+		if (overdue.length === 0) return;
+		const amount = overdue.reduce(
+			(sum, tx) => sum + Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0),
+			0
+		);
+		await this.upsertInsight({
+			type: 'repayment_overdue',
+			title: 'Repayment overdue',
+			message: `You have ${overdue.length} overdue repayment(s).`,
+			severity: 'alert',
+			amount
+		});
+	}
 	/**
 	 * Calculate and cache currency conversions for a transaction
 	 * This ensures balance calculations use the correct amounts in account currencies
@@ -343,6 +477,12 @@ class TransactionService {
 
 		// Emit sync event for transaction creation
 		await crossRouteSyncService.onTransactionCreated(transaction);
+		if (transaction.accountId) {
+			await this.handleOverdraftLifecycle(transaction.accountId);
+		}
+		await this.createRepaymentScheduleForCreditSpend(transaction);
+		await roundUpService.applyRulesForExpense(transaction);
+		await this.checkRepaymentOverdueInsights();
 
 		return transaction;
 	}
@@ -438,6 +578,21 @@ class TransactionService {
 
 		// Emit sync event for transaction update
 		await crossRouteSyncService.onTransactionUpdated(updatedTransaction, updates);
+		if (updatedTransaction.accountId) {
+			await this.handleOverdraftLifecycle(updatedTransaction.accountId);
+		}
+		if (transaction.status !== 'cleared' && updatedTransaction.status === 'cleared') {
+			const existingRepayments = await db.transactions
+				.where('reference')
+				.startsWith(`repayment:${id}:`)
+				.filter((t) => !t.deletedAt)
+				.count();
+			if (existingRepayments === 0) {
+				await this.createRepaymentScheduleForCreditSpend(updatedTransaction);
+			}
+			await roundUpService.applyRulesForExpense(updatedTransaction);
+		}
+		await this.checkRepaymentOverdueInsights();
 
 		return updatedTransaction;
 	}

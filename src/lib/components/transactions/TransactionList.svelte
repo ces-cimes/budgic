@@ -51,7 +51,7 @@
 
 		// Account filter
 		accountIds?: string[];
-		accountTypes?: ('checking' | 'savings' | 'credit' | 'cash' | 'investment' | 'crypto')[];
+		accountTypes?: ('checking' | 'savings' | 'credit' | 'loan' | 'cash' | 'investment' | 'crypto')[];
 
 		// Amount filter
 		minAmount?: number;

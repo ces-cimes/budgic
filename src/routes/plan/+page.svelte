@@ -42,7 +42,8 @@
 		budgetService,
 		userService,
 		negativeAllowanceService,
-		goalsService
+		goalsService,
+		goalService
 	} from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import type {
@@ -82,6 +83,7 @@
 	let goalsData = $state<GoalsData | null>(null);
 	let activeGoals = $state<Goal[]>([]);
 	let completedGoals = $state<Goal[]>([]);
+let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: number; targetAmount: number; currency: string; targetDate?: string }>>([]);
 	let allowanceConfidence = $state<{
 		ratio: number;
 		tier: 'low' | 'medium' | 'high';
@@ -173,6 +175,22 @@
 			goalsData = result;
 			activeGoals = result.activeGoals;
 			completedGoals = result.completedGoals;
+			const allGoals = await goalService.getGoals();
+			const progress = await goalService.getGoalsProgress();
+			const progressByGoal = new Map(progress.map((p) => [p.goalId, p]));
+			sinkingFunds = allGoals
+				.filter((goal) => !!goal.linkedAccountId && goal.status === 'active')
+				.map((goal) => {
+					const p = progressByGoal.get(goal.id);
+					return {
+						id: goal.id,
+						name: goal.name,
+						currentAmount: p?.currentAmount ?? goal.currentAmount,
+						targetAmount: goal.targetAmount,
+						currency: goal.currency,
+						targetDate: goal.targetDate
+					};
+				});
 		} catch (err) {
 			console.error('Error loading goals:', err);
 		}
@@ -281,6 +299,39 @@
 								</h3>
 								<BalanceProjectionChart daysAhead={30} showDetails={false} />
 							</div>
+							{#if sinkingFunds.length > 0}
+								<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-3 p-5">
+									<h3
+										class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+									>
+										Sinking funds
+									</h3>
+									{#each sinkingFunds as fund (fund.id)}
+										{@const progress =
+											fund.targetAmount > 0
+												? Math.min(100, (fund.currentAmount / fund.targetAmount) * 100)
+												: 0}
+										<div class="space-y-1.5">
+											<div class="flex items-center justify-between text-sm">
+												<span>{fund.name}</span>
+												<span class="text-[var(--color-text-tertiary)]">
+													{formatTransactionAmount(fund.currentAmount, fund.currency)} /
+													{formatTransactionAmount(fund.targetAmount, fund.currency)}
+													{#if fund.targetDate}
+														· {new Date(fund.targetDate).toLocaleDateString()}
+													{/if}
+												</span>
+											</div>
+											<div class="h-2 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+												<div
+													class="h-full bg-[var(--color-amber)] transition-all"
+													style={`width: ${progress}%`}
+												></div>
+											</div>
+										</div>
+									{/each}
+								</div>
+							{/if}
 						{:else if dailyAllowance}
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
 								<p

@@ -55,9 +55,11 @@ class BudgetService {
 	async getBudgetSummary(): Promise<BudgetSummary> {
 		const categories = await db.getActiveCategories();
 		const transactions = await db.transactions.toArray();
+		const accounts = await db.getActiveAccounts();
 		const prefs = await db.userPreferences.toCollection().first();
 		const reimbursementAllowanceMode =
 			prefs?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
+		const creditPaymentTransferIds = this.detectCreditPaymentTransfers(transactions, accounts);
 
 		const allocations: BudgetAllocation[] = [];
 		let totalAllocated = 0;
@@ -70,7 +72,11 @@ class BudgetService {
 		// Calculate budget allocations for each category
 		for (const category of categories) {
 			if (category.budgetAmount && category.budgetAmount > 0) {
-				const spentAmount = await this.calculateCategorySpending(category.id, transactions);
+				const spentAmount = await this.calculateCategorySpending(
+					category.id,
+					transactions,
+					creditPaymentTransferIds
+				);
 				const remainingAmount = category.budgetAmount - spentAmount;
 				const percentageUsed =
 					category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
@@ -115,6 +121,7 @@ class BudgetService {
 		for (const tx of transactions) {
 			if (tx.type !== 'expense' || tx.status !== 'cleared') continue;
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
+			if (creditPaymentTransferIds.has(tx.id)) continue;
 
 			const tier = tx.categoryId ? categoryById.get(tx.categoryId)?.waterfallTier : undefined;
 			let amount = Math.abs(tx.amount || 0);
@@ -180,7 +187,7 @@ class BudgetService {
 		}
 
 		const transactions = await db.transactions.toArray();
-		const spentAmount = await this.calculateCategorySpending(categoryId, transactions);
+		const spentAmount = await this.calculateCategorySpending(categoryId, transactions, new Set());
 		const remainingAmount = category.budgetAmount - spentAmount;
 		const percentageUsed =
 			category.budgetAmount > 0 ? (spentAmount / category.budgetAmount) * 100 : 0;
@@ -425,16 +432,66 @@ class BudgetService {
 	/**
 	 * Calculate spending for a category
 	 */
-	private calculateCategorySpending(categoryId: string, transactions: Transaction[]): number {
+	private calculateCategorySpending(
+		categoryId: string,
+		transactions: Transaction[],
+		excludedIds: Set<string>
+	): number {
 		return transactions
 			.filter(
 				(tx) =>
+					!excludedIds.has(tx.id) &&
 					tx.categoryId === categoryId &&
 					tx.type === 'expense' &&
 					tx.status === 'cleared' &&
 					transactionAutomationCountsInAnalytics(tx)
 			)
 			.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+	}
+
+	private detectCreditPaymentTransfers(
+		transactions: Transaction[],
+		accounts: Array<{ id: string; type: string }>
+	): Set<string> {
+		const creditIds = new Set(accounts.filter((a) => a.type === 'credit').map((a) => a.id));
+		const result = new Set<string>();
+		if (creditIds.size === 0) return result;
+
+		const expensesByCredit = new Map<string, Transaction[]>();
+		for (const tx of transactions) {
+			if (
+				tx.type === 'expense' &&
+				tx.status === 'cleared' &&
+				tx.accountId &&
+				creditIds.has(tx.accountId)
+			) {
+				const list = expensesByCredit.get(tx.accountId) ?? [];
+				list.push(tx);
+				expensesByCredit.set(tx.accountId, list);
+			}
+		}
+
+		for (const tx of transactions) {
+			if (tx.type !== 'transfer' || tx.status !== 'cleared') continue;
+			const targetId = tx.transferDetails?.toAccountId ?? tx.toAccountId;
+			if (!targetId || !creditIds.has(targetId)) continue;
+			const transferAmount = Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0);
+			if (transferAmount <= 0) continue;
+			const candidateExpenses = expensesByCredit.get(targetId) ?? [];
+			const hasMatch = candidateExpenses.some((expenseTx) => {
+				const expenseAmount = Math.abs(expenseTx.amount ?? 0);
+				if (Math.abs(expenseAmount - transferAmount) > 0.01) return false;
+				const expenseDate = new Date(expenseTx.clearedDate ?? expenseTx.createdAt).getTime();
+				const transferDate = new Date(tx.clearedDate ?? tx.createdAt).getTime();
+				const sameMonth =
+					new Date(expenseDate).getUTCFullYear() === new Date(transferDate).getUTCFullYear() &&
+					new Date(expenseDate).getUTCMonth() === new Date(transferDate).getUTCMonth();
+				return sameMonth;
+			});
+			if (hasMatch) result.add(tx.id);
+		}
+
+		return result;
 	}
 }
 

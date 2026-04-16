@@ -421,11 +421,23 @@ class GoalService {
 		transactions: Transaction[]
 	): Promise<GoalProgress> {
 		// Filter transactions that contribute to this goal
-		const contributingTransactions = transactions.filter(
-			(tx) => tx.categoryId === goal.category && tx.type === 'income' && tx.status === 'cleared'
-		);
+		const contributingTransactions = goal.linkedAccountId
+			? transactions.filter(
+					(tx) =>
+						tx.type === 'transfer' &&
+						tx.status === 'cleared' &&
+						(tx.transferDetails?.toAccountId ?? tx.toAccountId) === goal.linkedAccountId
+				)
+			: transactions.filter(
+					(tx) => tx.categoryId === goal.category && tx.type === 'income' && tx.status === 'cleared'
+				);
 
-		const currentAmount = contributingTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+		const currentAmount = contributingTransactions.reduce((sum, tx) => {
+			if (tx.type === 'transfer') {
+				return sum + Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0);
+			}
+			return sum + (tx.amount || 0);
+		}, 0);
 		const percentageComplete =
 			goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
 		const remainingAmount = Math.max(0, goal.targetAmount - currentAmount);

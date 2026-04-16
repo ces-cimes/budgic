@@ -7,6 +7,7 @@ vi.mock('$lib/core/db', async () => {
 		...actual,
 		db: {
 			getActiveCategories: vi.fn(),
+			getActiveAccounts: vi.fn(),
 			transactions: {
 				toArray: vi.fn()
 			},
@@ -31,6 +32,10 @@ describe('budgetService reimbursement allowance mode', () => {
 				waterfallTier: 'lifestyle',
 				priority: 1
 			}
+		] as any);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([
+			{ id: 'checking-1', type: 'checking' },
+			{ id: 'credit-1', type: 'credit' }
 		] as any);
 	});
 
@@ -100,5 +105,42 @@ describe('budgetService reimbursement allowance mode', () => {
 		const summary = await budgetService.getBudgetSummary();
 		expect(summary.confidence.exactSpend).toBe(60);
 		expect(summary.confidence.ratio).toBe(1);
+	});
+
+	it('does not double count matched transfer to credit account', async () => {
+		vi.mocked(db.transactions.toArray).mockResolvedValue([
+			{
+				id: 'exp-1',
+				type: 'expense',
+				status: 'cleared',
+				accountId: 'credit-1',
+				amount: -250,
+				currency: 'USD',
+				categoryId: 'cat-lifestyle',
+				clearedDate: '2026-04-08T00:00:00.000Z',
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
+			},
+			{
+				id: 'xfer-1',
+				type: 'transfer',
+				status: 'cleared',
+				accountId: 'checking-1',
+				amount: -250,
+				currency: 'USD',
+				clearedDate: '2026-04-09T00:00:00.000Z',
+				transferDetails: { toAccountId: 'credit-1', transferAmount: 250, feeAmount: 0 },
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
+			}
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi.fn().mockResolvedValue({ reimbursementAllowanceMode: 'conservative' })
+		} as any);
+
+		const summary = await budgetService.getBudgetSummary();
+		expect(summary.confidence.exactSpend).toBe(250);
 	});
 });

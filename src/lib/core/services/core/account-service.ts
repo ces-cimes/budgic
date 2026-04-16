@@ -1,5 +1,6 @@
 import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
 import type { Account, AccountMetadata, Transaction } from '$lib/core/db';
+import { loanAmortizationService } from './loan-amortization-service';
 
 /**
  * Account Service
@@ -24,6 +25,14 @@ import type { Account, AccountMetadata, Transaction } from '$lib/core/db';
  * ```
  */
 class AccountService {
+	private validateAccountTypeConfig(account: Pick<Account, 'type' | 'overdraftFacility' | 'repaymentConfig'>) {
+		if (account.overdraftFacility && account.type !== 'checking') {
+			throw new Error('overdraftFacility is only supported for checking accounts');
+		}
+		if (account.repaymentConfig && account.type !== 'credit') {
+			throw new Error('repaymentConfig is only supported for credit accounts');
+		}
+	}
 	// Public interface
 	public get ready() {
 		return Promise.resolve();
@@ -82,8 +91,12 @@ class AccountService {
 			updatedAt: new Date().toISOString(),
 			deletedAt: null
 		};
+		this.validateAccountTypeConfig(account);
 
 		await db.accounts.add(account);
+		if (account.type === 'loan' && account.loanDetails) {
+			await loanAmortizationService.generateSchedule(account);
+		}
 		return account;
 	}
 
@@ -158,8 +171,12 @@ class AccountService {
 			...updates,
 			updatedAt: new Date().toISOString()
 		};
+		this.validateAccountTypeConfig(updatedAccount);
 
 		await db.accounts.update(id, updatedAccount);
+		if (updatedAccount.type === 'loan' && updatedAccount.loanDetails) {
+			await loanAmortizationService.recalculateSchedule(updatedAccount);
+		}
 		return updatedAccount;
 	}
 
@@ -327,6 +344,7 @@ class AccountService {
 			checking: 0,
 			savings: 0,
 			credit: 0,
+			loan: 0,
 			cash: 0,
 			investment: 0,
 			crypto: 0

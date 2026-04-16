@@ -186,6 +186,12 @@
 					description: 'Overspending, envelope borrowing, rollover',
 					Icon: SlidersHorizontal,
 					href: '/settings/plan'
+				},
+				{
+					name: 'Round-up rules',
+					description: 'Automatic spare-change transfers',
+					Icon: SlidersHorizontal,
+					href: '/settings/roundup'
 				}
 			]
 		},

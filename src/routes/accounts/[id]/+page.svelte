@@ -50,6 +50,8 @@
 	} | null>(null);
 	let accountInlineInsights = $state<Insight[]>([]);
 	let accountsLookup = $state<Account[]>([]);
+	let overdraftChip = $state<string | null>(null);
+	let repaymentChip = $state<string | null>(null);
 
 	const accountId = $derived($page.params.id);
 
@@ -106,6 +108,46 @@
 				const transactionsData = await transactionService.getTransactionsByAccount(accountId);
 				// Filter out any null/undefined or deleted transactions as a safety measure
 				transactions = transactionsData.filter((t) => t && !t.deletedAt);
+			if (
+				account?.type === 'checking' &&
+				account.overdraftFacility &&
+				account.currentBalance < 0
+			) {
+				if (account.overdraftStartedAt) {
+					const deadline = new Date(
+						new Date(account.overdraftStartedAt).getTime() +
+							account.overdraftFacility.gracePeriodDays * 86400000
+					);
+					const days = Math.max(
+						0,
+						Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+					);
+					overdraftChip =
+						days === 0
+							? `Overdraft overdue: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`
+							: `Overdraft - due in ${days} day${days === 1 ? '' : 's'}: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`;
+				} else {
+					overdraftChip = `Overdraft: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`;
+				}
+			} else {
+				overdraftChip = null;
+			}
+				if (account?.type === 'credit') {
+					const repayments = transactions.filter(
+						(tx) => tx.status === 'planned' && (tx.reference?.startsWith('repayment:') ?? false)
+					);
+					if (repayments.length > 0) {
+						const total = repayments.reduce(
+							(sum, tx) => sum + Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0),
+							0
+						);
+						repaymentChip = `${repayments.length} repayment${repayments.length === 1 ? '' : 's'} remaining: ${formatTransactionAmount(total, account.currency)}`;
+					} else {
+						repaymentChip = null;
+					}
+				} else {
+					repaymentChip = null;
+				}
 			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
@@ -220,6 +262,12 @@
 					<p class="mt-2 text-xs text-[var(--color-text-tertiary)]">
 						Started at {formatBalance(account.initialBalance, account.currency)}
 					</p>
+				{/if}
+				{#if overdraftChip}
+					<p class="mt-2 text-xs text-[var(--color-amber)]">{overdraftChip}</p>
+				{/if}
+				{#if repaymentChip}
+					<p class="mt-1 text-xs text-[var(--color-amber)]">{repaymentChip}</p>
 				{/if}
 				{#if accountInlineInsights.length > 0}
 					<div class="mt-4 flex justify-center">
