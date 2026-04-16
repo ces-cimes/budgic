@@ -52,8 +52,7 @@
 	const pct = $derived(rawPct());
 
 	const passiveAccrualNote = $derived(
-		allowance?.projection &&
-			allowance.projection.passiveAccrualAdjustment > 0.005
+		allowance?.projection && allowance.projection.passiveAccrualAdjustment > 0.005
 			? allowance.projection.passiveAccrualAdjustment
 			: null
 	);
@@ -170,20 +169,24 @@
 
 		<!-- Confidence band (only when tier is low or medium) -->
 		{#if showConfidenceBand && confidence && conservativeRemaining !== null}
-			<div class="border-border border-t pt-3 space-y-1.5">
+			<div class="border-border space-y-1.5 border-t pt-3">
 				<div class="flex items-center justify-between">
 					<p class="text-[10px] text-[var(--color-text-tertiary)]">
 						Remaining range
 						<span
 							class={confidence.tier === 'low'
 								? 'text-[var(--color-warm-coral)]'
-								: 'text-[var(--color-amber)]'}
-						>· {confidence.tier} confidence</span>
+								: 'text-[var(--color-amber)]'}>· {confidence.tier} confidence</span
+						>
 					</p>
 				</div>
 				<div class="flex items-center justify-between gap-3 text-[10px]">
 					<span class="text-[var(--color-text-tertiary)]">If all unclassified counted</span>
-					<span class="font-medium {conservativeRemaining < 0 ? 'text-[var(--color-warm-coral)]' : 'text-[var(--color-text-secondary)]'}">
+					<span
+						class="font-medium {conservativeRemaining < 0
+							? 'text-[var(--color-warm-coral)]'
+							: 'text-[var(--color-text-secondary)]'}"
+					>
 						{formatTransactionAmount(conservativeRemaining, allowance.total.currency)}
 					</span>
 				</div>

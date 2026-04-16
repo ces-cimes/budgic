@@ -896,9 +896,7 @@ const CategorySchema = BaseSchema.extend({
 	name: z.string().min(1), // "groceries", "rent", "Netflix"
 	type: z.enum(['expense', 'income']),
 	// optional: organisational category nodes may omit tier (not selectable in transaction form)
-	waterfallTier: z
-		.enum(['survival', 'security', 'growth', 'lifestyle', 'unclassified'])
-		.optional(),
+	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle', 'unclassified']).optional(),
 	priority: z.number().min(1), // Within tier
 	budgetAmount: z.number().min(0).optional(), // Optional budget allocation
 	color: z.string().optional(),
@@ -2854,18 +2852,21 @@ export class BudgicDB extends Dexie {
 				throw error;
 			}
 		});
-		this.roundUpRules.hook('updating', (modifications: Partial<RoundUpRule>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.roundUpRules.hook(
+			'updating',
+			(modifications: Partial<RoundUpRule>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					RoundUpRuleSchema.parse(updated);
+				} catch (error) {
+					console.error('Round-up rule update validation failed:', error);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				RoundUpRuleSchema.parse(updated);
-			} catch (error) {
-				console.error('Round-up rule update validation failed:', error);
-				throw error;
 			}
-		});
+		);
 	}
 
 	private setupSoftDeleteHooks() {

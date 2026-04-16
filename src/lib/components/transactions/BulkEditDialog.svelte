@@ -49,7 +49,10 @@
 			text: string;
 			find?: string;
 		}) => Promise<void> | void;
-		onApplyAmountAdjust: (mode: 'fixed' | 'percent' | 'absolute', value: number) => Promise<void> | void;
+		onApplyAmountAdjust: (
+			mode: 'fixed' | 'percent' | 'absolute',
+			value: number
+		) => Promise<void> | void;
 		onApplyCurrency: (currency: string) => Promise<void> | void;
 		onApplyStatus: (status: BulkStatus) => Promise<void> | void;
 		onConfirmDelete: () => Promise<void> | void;
@@ -99,18 +102,14 @@
 	let amountAdjustInput = $state('');
 	let selectedBulkCurrency = $state('');
 
-	const dateShiftParsed = $derived(
-		Number.parseInt(String(dateShiftInput ?? '').trim(), 10)
-	);
+	const dateShiftParsed = $derived(Number.parseInt(String(dateShiftInput ?? '').trim(), 10));
 	const dateShiftFormValid = $derived(
-		Number.isFinite(dateShiftParsed) &&
-			Number.isInteger(dateShiftParsed) &&
-			dateShiftParsed !== 0
+		Number.isFinite(dateShiftParsed) && Number.isInteger(dateShiftParsed) && dateShiftParsed !== 0
 	);
-	const dateSetFormValid = $derived(/^\d{4}-\d{2}-\d{2}$/.test(String(fixedDateInput ?? '').trim()));
-	const dateFormValid = $derived(
-		dateBulkKind === 'shift' ? dateShiftFormValid : dateSetFormValid
+	const dateSetFormValid = $derived(
+		/^\d{4}-\d{2}-\d{2}$/.test(String(fixedDateInput ?? '').trim())
 	);
+	const dateFormValid = $derived(dateBulkKind === 'shift' ? dateShiftFormValid : dateSetFormValid);
 
 	const descriptionFormValid = $derived(
 		descriptionBulkKind === 'findReplace' ? descriptionFind.trim().length > 0 : true
@@ -124,9 +123,7 @@
 				: notesText.trim().length > 0
 	);
 
-	const amountAdjustParsed = $derived(
-		Number.parseFloat(String(amountAdjustInput ?? '').trim())
-	);
+	const amountAdjustParsed = $derived(Number.parseFloat(String(amountAdjustInput ?? '').trim()));
 	const amountFormValid = $derived(
 		amountAdjustMode === 'absolute'
 			? Number.isFinite(amountAdjustParsed)
@@ -162,12 +159,13 @@
 </script>
 
 {#if action === 'delete'}
-	<AlertDialog.Root open={open} onOpenChange={handleOpenChange}>
+	<AlertDialog.Root {open} onOpenChange={handleOpenChange}>
 		<AlertDialog.Content>
 			<AlertDialog.Header>
 				<AlertDialog.Title>Delete {selectedCount} transactions?</AlertDialog.Title>
 				<AlertDialog.Description>
-					This will soft-delete all selected transactions. Group selections include each group member.
+					This will soft-delete all selected transactions. Group selections include each group
+					member.
 				</AlertDialog.Description>
 			</AlertDialog.Header>
 			<AlertDialog.Footer>
@@ -183,7 +181,7 @@
 		</AlertDialog.Content>
 	</AlertDialog.Root>
 {:else}
-	<Dialog.Root open={open} onOpenChange={handleOpenChange}>
+	<Dialog.Root {open} onOpenChange={handleOpenChange}>
 		<Dialog.Content class="sm:max-w-md">
 			<Dialog.Header>
 				<Dialog.Title>
@@ -209,19 +207,20 @@
 				</Dialog.Title>
 				<Dialog.Description>
 					{#if action === 'description'}
-						Find-and-replace uses literal text (not regex). “Replace entire” overwrites every selected
-						description with the same text (empty clears the field).
+						Find-and-replace uses literal text (not regex). “Replace entire” overwrites every
+						selected description with the same text (empty clears the field).
 					{:else if action === 'dates'}
-						Shift moves existing dates by whole days (skips rows with no date in that field). Set fixed
-						assigns the same calendar day to cleared and/or planned on every row. FX may recalc.
+						Shift moves existing dates by whole days (skips rows with no date in that field). Set
+						fixed assigns the same calendar day to cleared and/or planned on every row. FX may
+						recalc.
 					{:else if action === 'notes'}
-						Append, prepend, find-and-replace, or replace the whole notes or reference field (empty clears
-						when using “Set entire”). Notes use a newline when appending or prepending.
+						Append, prepend, find-and-replace, or replace the whole notes or reference field (empty
+						clears when using “Set entire”). Notes use a newline when appending or prepending.
 					{:else if action === 'amount'}
 						Fixed delta, percent change, or set every row to the same amount. Transfers are skipped.
 					{:else if action === 'currency'}
-						Sets the transaction currency and recomputes account amounts from stored rates. Transfers
-						are skipped.
+						Sets the transaction currency and recomputes account amounts from stored rates.
+						Transfers are skipped.
 					{:else}
 						Apply changes to {selectedCount} selected transactions.
 					{/if}
@@ -408,7 +407,8 @@
 						<ToggleGroup.Root
 							type="single"
 							value={amountAdjustMode}
-							onValueChange={(value) => value && (amountAdjustMode = value as typeof amountAdjustMode)}
+							onValueChange={(value) =>
+								value && (amountAdjustMode = value as typeof amountAdjustMode)}
 							class="flex flex-wrap gap-1"
 						>
 							<ToggleGroup.Item value="fixed">Fixed delta</ToggleGroup.Item>
@@ -443,7 +443,9 @@
 			{:else if action === 'currency'}
 				<div class="space-y-3">
 					{#if currencyCodes.length === 0}
-						<p class="text-muted-foreground text-sm">No currencies available. Add an account first.</p>
+						<p class="text-muted-foreground text-sm">
+							No currencies available. Add an account first.
+						</p>
 					{:else}
 						<div class="space-y-1.5">
 							<Label.Root>Currency</Label.Root>
@@ -490,7 +492,9 @@
 			{/if}
 
 			<Dialog.Footer>
-				<Button.Root variant="outline" onclick={onCancel} disabled={isProcessing}>Cancel</Button.Root>
+				<Button.Root variant="outline" onclick={onCancel} disabled={isProcessing}
+					>Cancel</Button.Root
+				>
 				{#if action === 'account'}
 					<Button.Root
 						onclick={() => onApplyAccount(selectedAccountId)}

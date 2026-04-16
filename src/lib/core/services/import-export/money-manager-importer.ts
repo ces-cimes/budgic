@@ -889,7 +889,9 @@ export class MoneyManagerImporter extends BaseImporter {
 		const clearedDate = mapDate(transferZdate, transferUtime, transferWdate);
 		const rawDescription = (outRow.ZCONTENT || inRow.ZCONTENT || '').trim();
 		const description =
-			rawDescription === '' || rawDescription.toLowerCase() === 'transfer' ? undefined : rawDescription;
+			rawDescription === '' || rawDescription.toLowerCase() === 'transfer'
+				? undefined
+				: rawDescription;
 
 		// Get account currencies for conversion metadata
 		const fromAccount = fromAccountId ? await db.accounts.get(fromAccountId) : null;

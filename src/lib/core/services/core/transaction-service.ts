@@ -539,9 +539,7 @@ class TransactionService {
 			}
 		}
 
-		const automationFromFee = automationFromTransferFeeType(
-			updatedData.transferDetails?.feeType
-		);
+		const automationFromFee = automationFromTransferFeeType(updatedData.transferDetails?.feeType);
 
 		const updatedTransaction: Transaction = {
 			...updatedData,
@@ -799,7 +797,10 @@ class TransactionService {
 	/**
 	 * Set every selected transaction description to the same value (including empty string).
 	 */
-	async bulkSetTransactionDescriptions(ids: string[], description: string): Promise<BulkOperationResult> {
+	async bulkSetTransactionDescriptions(
+		ids: string[],
+		description: string
+	): Promise<BulkOperationResult> {
 		const uniqueIds = [...new Set(ids)];
 		const result: BulkOperationResult = { success: 0, failed: 0, errors: [] };
 
@@ -878,8 +879,10 @@ class TransactionService {
 		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
 		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
 		const accountIds = new Set<string>();
-		const updatedRows: Array<{ tx: Transaction; patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>> }> =
-			[];
+		const updatedRows: Array<{
+			tx: Transaction;
+			patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>>;
+		}> = [];
 
 		for (const id of uniqueIds) {
 			if (!targetById.has(id)) {
@@ -1013,8 +1016,10 @@ class TransactionService {
 		const targets = await db.transactions.where('id').anyOf(uniqueIds).toArray();
 		const targetById = new Map(targets.map((tx) => [tx.id, tx]));
 		const accountIds = new Set<string>();
-		const updatedRows: Array<{ tx: Transaction; patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>> }> =
-			[];
+		const updatedRows: Array<{
+			tx: Transaction;
+			patch: Partial<Pick<Transaction, 'clearedDate' | 'plannedDate'>>;
+		}> = [];
 
 		for (const id of uniqueIds) {
 			if (!targetById.has(id)) {
@@ -1185,8 +1190,7 @@ class TransactionService {
 		});
 
 		for (const tx of updatedTransactions) {
-			const syncPatch =
-				field === 'notes' ? { notes: tx.notes } : { reference: tx.reference };
+			const syncPatch = field === 'notes' ? { notes: tx.notes } : { reference: tx.reference };
 			await crossRouteSyncService.onTransactionUpdated(tx, syncPatch);
 		}
 

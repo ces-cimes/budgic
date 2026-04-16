@@ -13,7 +13,7 @@
 		fieldKey?: string;
 		selectionContext?: Record<string, unknown>;
 		onSuggestionSelected?: (suggestion: DescriptionSuggestion) => void;
-	suggestionFetcher?: (partial: string, limit: number) => Promise<DescriptionSuggestion[]>;
+		suggestionFetcher?: (partial: string, limit: number) => Promise<DescriptionSuggestion[]>;
 	}
 
 	let {
@@ -23,8 +23,8 @@
 		onfocus,
 		fieldKey = 'transaction.description',
 		selectionContext,
-	onSuggestionSelected,
-	suggestionFetcher
+		onSuggestionSelected,
+		suggestionFetcher
 	}: Props = $props();
 
 	const DEBOUNCE_MS = 180;
@@ -37,7 +37,9 @@
 	let committedValuesInFocusSession: string[] = [];
 	let lastSuggestionValue: string | null = null;
 
-	let showDropdown = $derived(isFocused && !isDropdownDismissed && suggestions.length > 0 && !disabled);
+	let showDropdown = $derived(
+		isFocused && !isDropdownDismissed && suggestions.length > 0 && !disabled
+	);
 
 	$effect(() => {
 		const query = value.trim();
@@ -168,9 +170,11 @@
 		}
 		committedValuesInFocusSession = [...committedValuesInFocusSession, dedupeKey];
 
-		autocompleteService.recordSelection(fieldKey, normalized, false, selectionContext).catch((error) => {
-			console.error('Failed to record manual autocomplete entry', error);
-		});
+		autocompleteService
+			.recordSelection(fieldKey, normalized, false, selectionContext)
+			.catch((error) => {
+				console.error('Failed to record manual autocomplete entry', error);
+			});
 	}
 
 	function formatLastUsed(value: Date): string {
@@ -217,8 +221,9 @@
 						>
 							<p class="text-sm text-[var(--color-text-primary)]">{suggestion.value}</p>
 							<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-								Used {suggestion.frequency} time{suggestion.frequency === 1 ? '' : 's'} in 90 days
-								- {formatLastUsed(suggestion.lastUsed)}
+								Used {suggestion.frequency} time{suggestion.frequency === 1 ? '' : 's'} in 90 days - {formatLastUsed(
+									suggestion.lastUsed
+								)}
 								{#if (suggestion.variationCount ?? 0) > 1}
 									- inc. {suggestion.variationCount} variations
 								{/if}

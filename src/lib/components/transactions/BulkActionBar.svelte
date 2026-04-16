@@ -40,16 +40,18 @@
 		onDelete,
 		onClear
 	}: Props = $props();
-
 </script>
 
 <div class="w-full">
 	<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 		<div class="min-w-0 shrink-0">
 			<p class="text-sm font-medium">
-				{selectedCount}{#if selectableCount > 0} / {selectableCount}{/if} selected
+				{selectedCount}{#if selectableCount > 0}
+					/ {selectableCount}{/if} selected
 				{#if isProcessing}
-					<span class="text-muted-foreground ml-2 inline-flex items-center gap-1.5 text-xs font-normal">
+					<span
+						class="text-muted-foreground ml-2 inline-flex items-center gap-1.5 text-xs font-normal"
+					>
 						<span
 							class="border-muted-foreground/50 border-t-muted-foreground inline-block size-3 animate-spin rounded-full border"
 							aria-hidden="true"

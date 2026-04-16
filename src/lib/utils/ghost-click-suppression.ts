@@ -127,6 +127,6 @@ export function createDistanceThresholdGhostSuppression(
 		armIfThresholdMet,
 		consume,
 		consumeInSubtree,
-		disarm,
+		disarm
 	};
 }

@@ -488,7 +488,9 @@ class RecurringTransactionIntelligenceService {
 				});
 			});
 
-			return clusteredIndices.map((group) => group.map((index) => transactions[index]).filter(Boolean));
+			return clusteredIndices.map((group) =>
+				group.map((index) => transactions[index]).filter(Boolean)
+			);
 		} catch {
 			return this.similarityEngine.cluster(transactions, config, minGroupSize);
 		} finally {

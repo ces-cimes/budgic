@@ -87,7 +87,16 @@
 	let goalsData = $state<GoalsData | null>(null);
 	let activeGoals = $state<Goal[]>([]);
 	let completedGoals = $state<Goal[]>([]);
-let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: number; targetAmount: number; currency: string; targetDate?: string }>>([]);
+	let sinkingFunds = $state<
+		Array<{
+			id: string;
+			name: string;
+			currentAmount: number;
+			targetAmount: number;
+			currency: string;
+			targetDate?: string;
+		}>
+	>([]);
 	let allowanceConfidence = $state<{
 		ratio: number;
 		tier: 'low' | 'medium' | 'high';
@@ -349,8 +358,8 @@ let sinkingFunds = $state<Array<{ id: string; name: string; currentAmount: numbe
 								{/if}
 								{#if enhancedAllowance?.projection?.hasAcknowledgedDebtInPeriod && enhancedAllowance.projection.recoveryWeeksEstimate != null}
 									<p class="text-muted-foreground text-center text-xs">
-										Recovery: about {enhancedAllowance.projection.recoveryWeeksEstimate} week(s) at
-										current pace after this intentional stretch.
+										Recovery: about {enhancedAllowance.projection.recoveryWeeksEstimate} week(s) at current
+										pace after this intentional stretch.
 									</p>
 								{/if}
 								<AllowanceVisualization

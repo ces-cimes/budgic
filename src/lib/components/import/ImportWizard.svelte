@@ -62,7 +62,8 @@
 	}
 
 	const remainingUnclassified = $derived(
-		Object.entries(categoriesByTransactionId).filter(([, tier]) => !tier || tier === 'unclassified').length
+		Object.entries(categoriesByTransactionId).filter(([, tier]) => !tier || tier === 'unclassified')
+			.length
 	);
 </script>
 
@@ -72,7 +73,9 @@
 			class="mx-auto mt-12 w-full max-w-2xl space-y-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] p-5 shadow-2xl"
 		>
 			<div class="flex items-center justify-between">
-				<p class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase">
+				<p
+					class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
 					Import wizard · Step {step}/3
 				</p>
 				<button class="text-sm text-[var(--color-text-tertiary)] hover:underline" onclick={onClose}>
@@ -90,26 +93,26 @@
 					interestCount={batch.automationSummary?.interestCount ?? 0}
 					passiveBalanceHints={batch.passiveBalanceTrackingHints ?? []}
 					{personAccountCandidates}
-					onMigratePersonAccounts={onMigratePersonAccounts}
+					{onMigratePersonAccounts}
 					onNext={() => (step = 2)}
 					onSkip={onClose}
 				/>
 			{:else if step === 2}
 				<EssentialCandidatesScreen
-					candidates={candidates}
+					{candidates}
 					onApproveAll={approveAllEssentials}
 					onApproveRow={approveCandidate}
 					onSkipRow={(c) => dismissedCandidates.add(c.patternKey)}
 					onNext={() => (step = 3)}
 				/>
 			{:else}
-			<ImportPayoffScreen
-				{beforeRatio}
-				afterRatio={liveAfterRatio}
-				{remainingUnclassified}
-				onGoPatterns={onGoPatterns}
-				onDone={onClose}
-			/>
+				<ImportPayoffScreen
+					{beforeRatio}
+					afterRatio={liveAfterRatio}
+					{remainingUnclassified}
+					{onGoPatterns}
+					onDone={onClose}
+				/>
 			{/if}
 		</div>
 	</div>

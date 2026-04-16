@@ -1,10 +1,5 @@
 import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
-import type {
-	Account,
-	AccountMetadata,
-	AutomationTag,
-	Transaction
-} from '$lib/core/db';
+import type { Account, AccountMetadata, AutomationTag, Transaction } from '$lib/core/db';
 import { loanAmortizationService } from './loan-amortization-service';
 
 /**
@@ -30,7 +25,9 @@ import { loanAmortizationService } from './loan-amortization-service';
  * ```
  */
 class AccountService {
-	private validateAccountTypeConfig(account: Pick<Account, 'type' | 'overdraftFacility' | 'repaymentConfig'>) {
+	private validateAccountTypeConfig(
+		account: Pick<Account, 'type' | 'overdraftFacility' | 'repaymentConfig'>
+	) {
 		if (account.overdraftFacility && account.type !== 'checking') {
 			throw new Error('overdraftFacility is only supported for checking accounts');
 		}
@@ -378,11 +375,7 @@ class AccountService {
 
 		const convert = async (account: Account, amount: number) => {
 			if (account.currency === mainCurrency) return amount;
-			const c = await exchangeRateService.convertAmount(
-				amount,
-				account.currency,
-				mainCurrency
-			);
+			const c = await exchangeRateService.convertAmount(amount, account.currency, mainCurrency);
 			return c ?? amount;
 		};
 
@@ -614,8 +607,7 @@ class AccountService {
 					currency: account.currency,
 					amount: amt,
 					clearedDate: now,
-					description:
-						params.classification === 'interest-charge' ? 'Interest charge' : 'Bank fee',
+					description: params.classification === 'interest-charge' ? 'Interest charge' : 'Bank fee',
 					automation:
 						params.classification === 'interest-charge' ? 'interest-charge' : 'transfer-fee',
 					categoryId: expenseCat

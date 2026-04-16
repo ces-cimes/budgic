@@ -61,7 +61,9 @@
 		</div>
 	{/if}
 	{#if personAccountCandidates.length > 0}
-		<div class="space-y-2 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] p-4">
+		<div
+			class="space-y-2 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] p-4"
+		>
 			<p class="text-sm font-medium text-[var(--color-text-primary)]">Possible person accounts</p>
 			<p class="text-xs text-[var(--color-text-secondary)]">
 				Detected: {personAccountCandidates.join(', ')}.

@@ -31,7 +31,8 @@ class RoundUpService {
 	}
 
 	async applyRulesForExpense(expenseTx: Transaction): Promise<void> {
-		if (expenseTx.type !== 'expense' || expenseTx.status !== 'cleared' || !expenseTx.accountId) return;
+		if (expenseTx.type !== 'expense' || expenseTx.status !== 'cleared' || !expenseTx.accountId)
+			return;
 		const rules = await db.roundUpRules
 			.where('sourceAccountId')
 			.equals(expenseTx.accountId)
@@ -47,7 +48,10 @@ class RoundUpService {
 				await this.createRoundUpTransfer(expenseTx, rule, computed, undefined);
 				continue;
 			}
-			const key = this.periodKey(rule.batchMode, new Date(expenseTx.clearedDate ?? expenseTx.createdAt));
+			const key = this.periodKey(
+				rule.batchMode,
+				new Date(expenseTx.clearedDate ?? expenseTx.createdAt)
+			);
 			await this.upsertBatchTransfer(expenseTx, rule, computed, key);
 		}
 	}
@@ -68,7 +72,8 @@ class RoundUpService {
 			await this.createRoundUpTransfer(expenseTx, rule, amount, periodKey);
 			return;
 		}
-		const nextAmount = Math.abs(existing.transferDetails?.transferAmount ?? existing.amount ?? 0) + amount;
+		const nextAmount =
+			Math.abs(existing.transferDetails?.transferAmount ?? existing.amount ?? 0) + amount;
 		await db.transactions.update(existing.id, {
 			amount: -nextAmount,
 			transferDetails: {
@@ -97,7 +102,9 @@ class RoundUpService {
 			description: 'Round-up savings',
 			automation: 'round-up',
 			clearedDate: now,
-			reference: periodKey ? `roundup:${rule.id}:${periodKey}` : `roundup:${rule.id}:${expenseTx.id}`,
+			reference: periodKey
+				? `roundup:${rule.id}:${periodKey}`
+				: `roundup:${rule.id}:${expenseTx.id}`,
 			transferDetails: {
 				toAccountId: rule.targetAccountId,
 				transferAmount: amount,

@@ -51,7 +51,15 @@
 
 		// Account filter
 		accountIds?: string[];
-		accountTypes?: ('checking' | 'savings' | 'credit' | 'loan' | 'cash' | 'investment' | 'crypto')[];
+		accountTypes?: (
+			| 'checking'
+			| 'savings'
+			| 'credit'
+			| 'loan'
+			| 'cash'
+			| 'investment'
+			| 'crypto'
+		)[];
 
 		// Amount filter
 		minAmount?: number;
@@ -746,12 +754,7 @@
 	}
 
 	function canStartMonthSwipe() {
-		return (
-			showDateNavigation &&
-			filters.dateFilterEnabled &&
-			!selectionMode &&
-			!filterSheetOpen
-		);
+		return showDateNavigation && filters.dateFilterEnabled && !selectionMode && !filterSheetOpen;
 	}
 
 	function doubleRaf(): Promise<void> {
@@ -766,10 +769,7 @@
 	 * List: full-width exit → navigate → enter from opposite edge (rAF so the enter frame paints).
 	 * Pill: short nudge + fade out, then after navigate enter from opposite + fade in (decoupled from list drag).
 	 */
-	async function runMonthChangeTransition(
-		direction: 'forward' | 'back',
-		navigate: () => void
-	) {
+	async function runMonthChangeTransition(direction: 'forward' | 'back', navigate: () => void) {
 		await tick();
 		const w = monthSwipeTravelPx();
 		const listExitTo = direction === 'forward' ? -w : w;
@@ -823,8 +823,7 @@
 		if (!filters.dateFilterEnabled) return;
 		const cur = filters.currentMonth;
 		const now = new Date();
-		const diff =
-			(now.getFullYear() - cur.getFullYear()) * 12 + (now.getMonth() - cur.getMonth());
+		const diff = (now.getFullYear() - cur.getFullYear()) * 12 + (now.getMonth() - cur.getMonth());
 		if (diff === 0) return;
 		const dir = diff > 0 ? 'forward' : 'back';
 		void runMonthChangeTransition(dir, () => goToCurrentMonth());
@@ -1184,7 +1183,7 @@
 									<Button
 										variant="ghost"
 										size="sm"
-										class="max-w-full whitespace-nowrap px-2"
+										class="max-w-full px-2 whitespace-nowrap"
 										onclick={navigateToCurrentMonthWithExitAnimation}
 										disabled={!filters.dateFilterEnabled}
 									>
@@ -1224,253 +1223,253 @@
 
 	<div
 		bind:this={monthSwipeSurfaceEl}
-		class="max-w-full w-full"
+		class="w-full max-w-full"
 		use:swipe={showDateNavigation ? monthSwipeActionOptions : undefined}
 	>
 		<div class="w-full">
 			<!-- Summary stays outside the transformed slider so swipe translation affects only the list track. -->
-				{#if showSummary}
-					<section class="mb-4">
-							<div class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5">
+			{#if showSummary}
+				<section class="mb-4">
+					<div class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5">
+						<div
+							class="mb-2 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							{formatMonth(filters.currentMonth)} · {filteredTransactions().length}
+							{filteredTransactions().length === 1 ? 'entry' : 'entries'}
+						</div>
+						<div class="grid grid-cols-3 gap-4 text-center">
+							<div>
 								<div
-									class="mb-2 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+									class="text-amount {summaryStats.income === 0
+										? 'text-[var(--color-text-tertiary)]'
+										: 'text-[var(--color-sage-green)]'}"
 								>
-									{formatMonth(filters.currentMonth)} · {filteredTransactions().length}
-									{filteredTransactions().length === 1 ? 'entry' : 'entries'}
+									{formatAmountWithSign(summaryStats.income, true)}
 								</div>
-								<div class="grid grid-cols-3 gap-4 text-center">
-									<div>
-										<div
-											class="text-amount {summaryStats.income === 0
-												? 'text-[var(--color-text-tertiary)]'
-												: 'text-[var(--color-sage-green)]'}"
-										>
-											{formatAmountWithSign(summaryStats.income, true)}
-										</div>
-										<div
-											class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-										>
-											Income
-										</div>
-									</div>
-									<div>
-										<div
-											class="text-amount {summaryStats.expenses === 0
-												? 'text-[var(--color-text-tertiary)]'
-												: 'text-foreground'}"
-										>
-											{formatAmountWithSign(summaryStats.expenses)}
-										</div>
-										<div
-											class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-										>
-											Expenses
-										</div>
-									</div>
-									<div>
-										<div
-											class="text-amount {summaryStats.net === 0
-												? 'text-[var(--color-text-tertiary)]'
-												: summaryStats.net >= 0
-													? 'text-[var(--color-sage-green)]'
-													: 'text-[var(--color-warm-coral)]'}"
-										>
-											{formatAmountWithSign(summaryStats.net, true)}
-										</div>
-										<div
-											class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-										>
-											Net
-										</div>
-									</div>
+								<div
+									class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Income
 								</div>
 							</div>
-					</section>
-				{/if}
+							<div>
+								<div
+									class="text-amount {summaryStats.expenses === 0
+										? 'text-[var(--color-text-tertiary)]'
+										: 'text-foreground'}"
+								>
+									{formatAmountWithSign(summaryStats.expenses)}
+								</div>
+								<div
+									class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Expenses
+								</div>
+							</div>
+							<div>
+								<div
+									class="text-amount {summaryStats.net === 0
+										? 'text-[var(--color-text-tertiary)]'
+										: summaryStats.net >= 0
+											? 'text-[var(--color-sage-green)]'
+											: 'text-[var(--color-warm-coral)]'}"
+								>
+									{formatAmountWithSign(summaryStats.net, true)}
+								</div>
+								<div
+									class="mt-0.5 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Net
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
+			{/if}
 
-				<!-- Month translate lives here; route/page may apply overflow-x-clip above this list. -->
-				<div class="min-w-0 w-full">
-					<div
-						bind:this={monthSwipeSliderEl}
-						class="month-swipe-slider w-full transition-transform duration-200 ease-out will-change-transform"
-						class:transition-none={isMonthSwipeDragging || monthSwipeInstantReset}
-						style="transform: translate3d({monthSwipeTxPx}px, 0, 0)"
-					>
+			<!-- Month translate lives here; route/page may apply overflow-x-clip above this list. -->
+			<div class="w-full min-w-0">
+				<div
+					bind:this={monthSwipeSliderEl}
+					class="month-swipe-slider w-full transition-transform duration-200 ease-out will-change-transform"
+					class:transition-none={isMonthSwipeDragging || monthSwipeInstantReset}
+					style="transform: translate3d({monthSwipeTxPx}px, 0, 0)"
+				>
 					{#key monthNavKey}
 						<!-- Transaction List -->
 						<section class="space-y-6">
-						{#if filters.searchQuery.trim()}
-							<div class="text-muted-foreground text-center text-sm">
-								Search results for "{filters.searchQuery}"
-							</div>
-						{/if}
+							{#if filters.searchQuery.trim()}
+								<div class="text-muted-foreground text-center text-sm">
+									Search results for "{filters.searchQuery}"
+								</div>
+							{/if}
 
-						{#each filteredTransactions() as dateGroup}
-							{@const totals = dateGroupTotals[dateGroup.group.key] ?? {
-								income: 0,
-								expenses: 0,
-								net: 0
-							}}
-							<!-- Date Group Section -->
-							<div class="space-y-1">
-								<!-- Date Group Header: button in selection mode, plain div otherwise -->
-								{#snippet dateGroupHeaderInner()}
-									<div class="flex min-w-0 items-center gap-2">
-										{#if selectionMode}
-											<div
-												class="border-border flex size-4 shrink-0 items-center justify-center rounded-sm border"
-												class:bg-golden-amber={isGroupFullySelected(dateGroup)}
-												class:border-golden-amber={isGroupFullySelected(dateGroup) ||
-													isGroupPartiallySelected(dateGroup)}
-												aria-hidden="true"
-											>
-												{#if isGroupFullySelected(dateGroup)}
-													<svg
-														width="10"
-														height="10"
-														viewBox="0 0 10 10"
-														fill="none"
-														xmlns="http://www.w3.org/2000/svg"
-														aria-hidden="true"
-													>
-														<path
-															d="M2 5l2.5 2.5L8 3"
-															stroke="white"
-															stroke-width="1.5"
-															stroke-linecap="round"
-															stroke-linejoin="round"
-														/>
-													</svg>
-												{:else if isGroupPartiallySelected(dateGroup)}
-													<div class="bg-golden-amber size-1.5 rounded-sm"></div>
-												{/if}
-											</div>
-										{/if}
-										<h3
-											class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-										>
-											{dateGroup.group.label}
-										</h3>
-									</div>
-									<div class="flex items-center gap-3">
-										{#if totals.income > 0}
-											<span class="text-amount-sm text-[var(--color-sage-green)]"
-												>{formatAmountWithSign(totals.income, true)}</span
-											>
-										{/if}
-										{#if totals.expenses !== 0}
-											<span class="text-amount-sm text-[var(--color-text-secondary)]"
-												>{formatAmountWithSign(totals.expenses)}</span
-											>
-										{/if}
-									</div>
-								{/snippet}
-
-								{#if selectionMode}
-									<button
-										type="button"
-										class="flex w-full cursor-pointer items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2 transition-colors hover:bg-[var(--color-bg-tertiary)]"
-										onclick={() => toggleGroupSelection(dateGroup)}
-										oncontextmenu={(e) => {
-											e.preventDefault();
-											toggleGroupSelection(dateGroup);
-										}}
-										aria-label={isGroupFullySelected(dateGroup)
-											? `Deselect all in ${dateGroup.group.label}`
-											: `Select all in ${dateGroup.group.label}`}
-									>
-										{@render dateGroupHeaderInner()}
-									</button>
-								{:else}
-									<div
-										class="flex items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2"
-									>
-										{@render dateGroupHeaderInner()}
-									</div>
-								{/if}
-
-								<!-- Transactions in this date group -->
+							{#each filteredTransactions() as dateGroup}
+								{@const totals = dateGroupTotals[dateGroup.group.key] ?? {
+									income: 0,
+									expenses: 0,
+									net: 0
+								}}
+								<!-- Date Group Section -->
 								<div class="space-y-1">
-									{#each dateGroup.transactions as transactionOrGroup}
-										<div
-											class="min-w-0"
-											role="presentation"
-											oncontextmenu={(e) => handleRowRightClick(e, transactionOrGroup)}
-										>
-											{#if transactionOrGroup.isGroup}
-												<TransactionItem
-													transaction={transactionOrGroup}
-													onClick={() => handleRowPrimaryClick(transactionOrGroup)}
-													onLongPress={() => handleRowLongPress(transactionOrGroup)}
-													enableLongPress={!selectionMode}
-													isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
-													context="transactions"
-													showDate={false}
-													isGroup={true}
-													groupTransactions={transactionOrGroup.transactions}
-													totalAmount={getTransactionAmount(transactionOrGroup)}
-													groupDescription={transactionOrGroup.description ||
-														'Grouped Transaction'}
-													groupCategory={getCategoryName(transactionOrGroup)}
-													groupCurrency={getTransactionCurrency(transactionOrGroup)}
-												/>
-											{:else}
-												<TransactionItem
-													transaction={transactionOrGroup}
-													onClick={() => handleRowPrimaryClick(transactionOrGroup)}
-													onLongPress={() => handleRowLongPress(transactionOrGroup)}
-													enableLongPress={!selectionMode}
-													isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
-													context="transactions"
-													showDate={false}
-												/>
+									<!-- Date Group Header: button in selection mode, plain div otherwise -->
+									{#snippet dateGroupHeaderInner()}
+										<div class="flex min-w-0 items-center gap-2">
+											{#if selectionMode}
+												<div
+													class="border-border flex size-4 shrink-0 items-center justify-center rounded-sm border"
+													class:bg-golden-amber={isGroupFullySelected(dateGroup)}
+													class:border-golden-amber={isGroupFullySelected(dateGroup) ||
+														isGroupPartiallySelected(dateGroup)}
+													aria-hidden="true"
+												>
+													{#if isGroupFullySelected(dateGroup)}
+														<svg
+															width="10"
+															height="10"
+															viewBox="0 0 10 10"
+															fill="none"
+															xmlns="http://www.w3.org/2000/svg"
+															aria-hidden="true"
+														>
+															<path
+																d="M2 5l2.5 2.5L8 3"
+																stroke="white"
+																stroke-width="1.5"
+																stroke-linecap="round"
+																stroke-linejoin="round"
+															/>
+														</svg>
+													{:else if isGroupPartiallySelected(dateGroup)}
+														<div class="bg-golden-amber size-1.5 rounded-sm"></div>
+													{/if}
+												</div>
+											{/if}
+											<h3
+												class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+											>
+												{dateGroup.group.label}
+											</h3>
+										</div>
+										<div class="flex items-center gap-3">
+											{#if totals.income > 0}
+												<span class="text-amount-sm text-[var(--color-sage-green)]"
+													>{formatAmountWithSign(totals.income, true)}</span
+												>
+											{/if}
+											{#if totals.expenses !== 0}
+												<span class="text-amount-sm text-[var(--color-text-secondary)]"
+													>{formatAmountWithSign(totals.expenses)}</span
+												>
 											{/if}
 										</div>
-									{/each}
-								</div>
-							</div>
-						{/each}
+									{/snippet}
 
-						{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
-							<div class="flex flex-col items-center justify-center py-16 text-center">
-								<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
-								<p class="select-none text-sm text-[var(--color-text-secondary)]">
-									{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
-										No transactions match your filters.
+									{#if selectionMode}
+										<button
+											type="button"
+											class="flex w-full cursor-pointer items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2 transition-colors hover:bg-[var(--color-bg-tertiary)]"
+											onclick={() => toggleGroupSelection(dateGroup)}
+											oncontextmenu={(e) => {
+												e.preventDefault();
+												toggleGroupSelection(dateGroup);
+											}}
+											aria-label={isGroupFullySelected(dateGroup)
+												? `Deselect all in ${dateGroup.group.label}`
+												: `Select all in ${dateGroup.group.label}`}
+										>
+											{@render dateGroupHeaderInner()}
+										</button>
 									{:else}
-										Nothing yet. Add your first transaction.
+										<div
+											class="flex items-center justify-between rounded-lg bg-[var(--color-bg-secondary)] px-4 py-2"
+										>
+											{@render dateGroupHeaderInner()}
+										</div>
 									{/if}
-								</p>
-								{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
-									<Button
-										variant="ghost"
-										size="sm"
-										class="mt-3 text-[var(--color-text-tertiary)]"
-										onclick={() =>
-											updateFilters({
-												searchQuery: '',
-												showPendingOnly: false,
-												dateFilterEnabled: true,
-												groupingMode: 'smart',
-												currentMonth: new Date()
-											})}
-									>
-										Clear filters
-									</Button>
-								{:else if onAddTransaction}
-									<Button
-										variant="ghost"
-										size="sm"
-										class="mt-3 text-[var(--color-amber)]"
-										onclick={onAddTransaction}>Add transaction</Button
-									>
-								{/if}
-							</div>
-					{/if}
-				</section>
-				{/key}
-					</div>
+
+									<!-- Transactions in this date group -->
+									<div class="space-y-1">
+										{#each dateGroup.transactions as transactionOrGroup}
+											<div
+												class="min-w-0"
+												role="presentation"
+												oncontextmenu={(e) => handleRowRightClick(e, transactionOrGroup)}
+											>
+												{#if transactionOrGroup.isGroup}
+													<TransactionItem
+														transaction={transactionOrGroup}
+														onClick={() => handleRowPrimaryClick(transactionOrGroup)}
+														onLongPress={() => handleRowLongPress(transactionOrGroup)}
+														enableLongPress={!selectionMode}
+														isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
+														context="transactions"
+														showDate={false}
+														isGroup={true}
+														groupTransactions={transactionOrGroup.transactions}
+														totalAmount={getTransactionAmount(transactionOrGroup)}
+														groupDescription={transactionOrGroup.description ||
+															'Grouped Transaction'}
+														groupCategory={getCategoryName(transactionOrGroup)}
+														groupCurrency={getTransactionCurrency(transactionOrGroup)}
+													/>
+												{:else}
+													<TransactionItem
+														transaction={transactionOrGroup}
+														onClick={() => handleRowPrimaryClick(transactionOrGroup)}
+														onLongPress={() => handleRowLongPress(transactionOrGroup)}
+														enableLongPress={!selectionMode}
+														isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
+														context="transactions"
+														showDate={false}
+													/>
+												{/if}
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/each}
+
+							{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
+								<div class="flex flex-col items-center justify-center py-16 text-center">
+									<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
+									<p class="text-sm text-[var(--color-text-secondary)] select-none">
+										{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
+											No transactions match your filters.
+										{:else}
+											Nothing yet. Add your first transaction.
+										{/if}
+									</p>
+									{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
+										<Button
+											variant="ghost"
+											size="sm"
+											class="mt-3 text-[var(--color-text-tertiary)]"
+											onclick={() =>
+												updateFilters({
+													searchQuery: '',
+													showPendingOnly: false,
+													dateFilterEnabled: true,
+													groupingMode: 'smart',
+													currentMonth: new Date()
+												})}
+										>
+											Clear filters
+										</Button>
+									{:else if onAddTransaction}
+										<Button
+											variant="ghost"
+											size="sm"
+											class="mt-3 text-[var(--color-amber)]"
+											onclick={onAddTransaction}>Add transaction</Button
+										>
+									{/if}
+								</div>
+							{/if}
+						</section>
+					{/key}
 				</div>
+			</div>
 		</div>
 	</div>
 </div>

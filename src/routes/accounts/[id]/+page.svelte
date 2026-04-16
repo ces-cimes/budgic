@@ -117,30 +117,30 @@
 				const transactionsData = await transactionService.getTransactionsByAccount(accountId);
 				// Filter out any null/undefined or deleted transactions as a safety measure
 				transactions = transactionsData.filter((t) => t && !t.deletedAt);
-			if (
-				account?.type === 'checking' &&
-				account.overdraftFacility &&
-				account.currentBalance < 0
-			) {
-				if (account.overdraftStartedAt) {
-					const deadline = new Date(
-						new Date(account.overdraftStartedAt).getTime() +
-							account.overdraftFacility.gracePeriodDays * 86400000
-					);
-					const days = Math.max(
-						0,
-						Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-					);
-					overdraftChip =
-						days === 0
-							? `Overdraft overdue: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`
-							: `Overdraft - due in ${days} day${days === 1 ? '' : 's'}: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`;
+				if (
+					account?.type === 'checking' &&
+					account.overdraftFacility &&
+					account.currentBalance < 0
+				) {
+					if (account.overdraftStartedAt) {
+						const deadline = new Date(
+							new Date(account.overdraftStartedAt).getTime() +
+								account.overdraftFacility.gracePeriodDays * 86400000
+						);
+						const days = Math.max(
+							0,
+							Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+						);
+						overdraftChip =
+							days === 0
+								? `Overdraft overdue: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`
+								: `Overdraft - due in ${days} day${days === 1 ? '' : 's'}: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`;
+					} else {
+						overdraftChip = `Overdraft: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`;
+					}
 				} else {
-					overdraftChip = `Overdraft: ${formatTransactionAmount(Math.abs(account.currentBalance), account.currency)}`;
+					overdraftChip = null;
 				}
-			} else {
-				overdraftChip = null;
-			}
 				if (account?.type === 'credit') {
 					const repayments = transactions.filter(
 						(tx) => tx.status === 'planned' && (tx.reference?.startsWith('repayment:') ?? false)
@@ -281,7 +281,10 @@
 				<CountUpHero value={account.currentBalance} format={(n) => formatBalance(n, currency)} />
 				{#if account.rateProfile && account.lastConfirmedAt}
 					<p class="text-muted-foreground mt-2 text-xs">
-						Projected: {formatBalance(passiveAccountService.projectBalance(account, new Date()), currency)}
+						Projected: {formatBalance(
+							passiveAccountService.projectBalance(account, new Date()),
+							currency
+						)}
 					</p>
 				{/if}
 				{#if account.type === 'savings' || account.type === 'credit' || account.type === 'loan'}
@@ -568,7 +571,7 @@
 
 	<UpdateBalanceSheet
 		open={updateBalanceOpen}
-		account={account}
+		{account}
 		onOpenChange={(v) => (updateBalanceOpen = v)}
 		onSuccess={afterBalanceUpdate}
 	/>

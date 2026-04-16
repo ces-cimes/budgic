@@ -169,7 +169,11 @@
 				</p>
 				{#if projection.recoveryDeduction > 0}
 					<p class="text-muted-foreground mt-1 text-xs">
-						Recovery set-aside: −{formatTransactionAmount(projection.recoveryDeduction, projection.currency, false)}
+						Recovery set-aside: −{formatTransactionAmount(
+							projection.recoveryDeduction,
+							projection.currency,
+							false
+						)}
 					</p>
 				{/if}
 			</AlertDescription>
@@ -229,11 +233,9 @@
 					<div class="bg-muted/40 mt-2 space-y-2 rounded-md px-3 py-2 text-left">
 						<p class="text-muted-foreground text-xs font-medium">
 							Remaining range
-							<span
-								class={confidence?.tier === 'low'
-									? 'text-destructive'
-									: 'text-warning'}
-							>({confidence?.tier} confidence)</span>
+							<span class={confidence?.tier === 'low' ? 'text-destructive' : 'text-warning'}
+								>({confidence?.tier} confidence)</span
+							>
 						</p>
 						<div class="bg-muted/70 relative h-2 overflow-hidden rounded-full">
 							<div

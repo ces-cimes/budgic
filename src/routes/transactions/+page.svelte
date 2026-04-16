@@ -10,7 +10,9 @@
 	import type { BulkOperationResult } from '$lib/core/services/core/transaction-service';
 	import { db } from '$lib/core/db';
 	import { getAllSystemCurrencyDefaults } from '$lib/core/currency-defaults';
-	import TransactionList, { type FilterState } from '$lib/components/transactions/TransactionList.svelte';
+	import TransactionList, {
+		type FilterState
+	} from '$lib/components/transactions/TransactionList.svelte';
 	import { bulkSelectionActive } from '$lib/stores/bulk-selection-store';
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
@@ -110,16 +112,14 @@
 
 	const bulkCurrencyCodes = $derived(
 		[
-			...new Set(
-				[
-					...BULK_CURRENCY_PICKER_BASE,
-					...(userCurrency && userCurrency.trim() ? [userCurrency.trim().toUpperCase()] : []),
-					...Object.values(accounts)
-						.map((a) => a.currency)
-						.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
-						.map((c) => c.toUpperCase())
-				]
-			)
+			...new Set([
+				...BULK_CURRENCY_PICKER_BASE,
+				...(userCurrency && userCurrency.trim() ? [userCurrency.trim().toUpperCase()] : []),
+				...Object.values(accounts)
+					.map((a) => a.currency)
+					.filter((c): c is string => typeof c === 'string' && c.trim().length > 0)
+					.map((c) => c.toUpperCase())
+			])
 		].sort()
 	);
 
@@ -437,9 +437,7 @@
 		}
 	}
 
-	async function handleBulkStatus(
-		status: 'cleared' | 'pending' | 'planned' | 'cancelled'
-	) {
+	async function handleBulkStatus(status: 'cleared' | 'pending' | 'planned' | 'cancelled') {
 		isBulkProcessing = true;
 		try {
 			const ids = await resolveSelectedTransactionIds();
@@ -569,7 +567,7 @@
 		</Header>
 	{/snippet}
 
-	<div class="mx-auto min-w-0 max-w-4xl px-5 py-4 sm:px-6 overflow-x-clip overscroll-x-contain">
+	<div class="mx-auto max-w-4xl min-w-0 overflow-x-clip overscroll-x-contain px-5 py-4 sm:px-6">
 		{#if isLoading}
 			<!-- Skeleton loading state — no spinners -->
 			<div class="squircle-2xl squircle-border squircle-fill-tertiary mb-4 px-5 py-3.5">
@@ -625,15 +623,14 @@
 				showDateNavigation={true}
 			/>
 		{/if}
-
 	</div>
 
 	{#snippet bottomBar()}
 		{#if selectionMode && selectedIds.size > 0}
 			<div
 				transition:fly={{ y: 80, duration: 180 }}
-				class="border-border bg-background/95 supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]
-					border-t px-4 pt-2 pb-3 backdrop-blur-md"
+				class="border-border bg-background/95 border-t
+					px-4 pt-2 pb-3 backdrop-blur-md supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
 				role="region"
 				aria-label="Bulk actions"
 			>

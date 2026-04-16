@@ -23,7 +23,9 @@
 	let settlementCandidates = $state<Transaction[]>([]);
 	let error = $state<string | null>(null);
 
-	const expectingItems = $derived(items.filter((item) => item.reimbursement.status === 'expecting'));
+	const expectingItems = $derived(
+		items.filter((item) => item.reimbursement.status === 'expecting')
+	);
 	const owedItems = $derived(items.filter((item) => item.reimbursement.status === 'owed'));
 	const expectingTotal = $derived(
 		expectingItems.reduce((sum, item) => sum + item.reimbursement.amount, 0)
@@ -82,7 +84,10 @@
 		}
 	}
 
-	async function updateEntry(item: OutstandingItem, status: ReimbursementEntry['status']): Promise<void> {
+	async function updateEntry(
+		item: OutstandingItem,
+		status: ReimbursementEntry['status']
+	): Promise<void> {
 		const sourceTx = await transactionService.getTransaction(item.transactionId);
 		if (!sourceTx) return;
 		const now = new Date().toISOString();
@@ -130,7 +135,9 @@
 		<h3 class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase">
 			Outstanding reimbursements
 		</h3>
-		<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">Track unsettled amounts by direction.</p>
+		<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+			Track unsettled amounts by direction.
+		</p>
 	</div>
 
 	{#if isLoading}
@@ -145,24 +152,33 @@
 				<div class="flex items-center justify-between">
 					<p class="text-sm font-medium">Expecting back</p>
 					<p class="text-sm font-semibold">
-						{formatTransactionAmount(expectingTotal, expectingItems[0]?.reimbursement.currency || 'USD')}
+						{formatTransactionAmount(
+							expectingTotal,
+							expectingItems[0]?.reimbursement.currency || 'USD'
+						)}
 					</p>
 				</div>
 				{#each expectingItems as item (itemKey(item))}
-					<div class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(item.ageDays)}">
+					<div
+						class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(item.ageDays)}"
+					>
 						<div class="flex items-start justify-between gap-2">
 							<div>
 								<p class="text-sm font-medium">{item.reimbursement.person || 'Unknown person'}</p>
-								<p class="text-xs text-[var(--color-text-tertiary)]">{item.transactionDescription}</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									{item.transactionDescription}
+								</p>
 							</div>
 							<p class="text-sm font-semibold">
 								{formatTransactionAmount(item.reimbursement.amount, item.reimbursement.currency)}
 							</p>
 						</div>
 						<div class="mt-2 flex items-center justify-between gap-2">
-							<span class="text-xs text-[var(--color-text-tertiary)]">{ageLabel(item.ageDays)}</span>
+							<span class="text-xs text-[var(--color-text-tertiary)]">{ageLabel(item.ageDays)}</span
+							>
 							<div class="flex items-center gap-2">
-								<Button variant="ghost" size="sm" onclick={() => markForgiven(item)}>Forgive</Button>
+								<Button variant="ghost" size="sm" onclick={() => markForgiven(item)}>Forgive</Button
+								>
 								{#if settlingKey === itemKey(item)}
 									<div class="flex items-center gap-2">
 										<Select.Root type="single" bind:value={selectedSettlementTx}>
@@ -204,11 +220,15 @@
 					</p>
 				</div>
 				{#each owedItems as item (itemKey(item))}
-					<div class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(item.ageDays)}">
+					<div
+						class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(item.ageDays)}"
+					>
 						<div class="flex items-start justify-between gap-2">
 							<div>
 								<p class="text-sm font-medium">{item.reimbursement.person || 'Unknown person'}</p>
-								<p class="text-xs text-[var(--color-text-tertiary)]">{item.transactionDescription}</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									{item.transactionDescription}
+								</p>
 							</div>
 							<p class="text-sm font-semibold">
 								{formatTransactionAmount(item.reimbursement.amount, item.reimbursement.currency)}

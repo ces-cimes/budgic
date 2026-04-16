@@ -104,8 +104,7 @@
 					typeof p.budgetAlertWarningAtPercent === 'number' ? p.budgetAlertWarningAtPercent : 80;
 				budgetAlertCriticalAtPercent =
 					typeof p.budgetAlertCriticalAtPercent === 'number' ? p.budgetAlertCriticalAtPercent : 100;
-				maxDebtPeriodDays =
-					typeof p.maxDebtPeriodDays === 'number' ? p.maxDebtPeriodDays : 90;
+				maxDebtPeriodDays = typeof p.maxDebtPeriodDays === 'number' ? p.maxDebtPeriodDays : 90;
 				recoveryAggressivenessPercent =
 					typeof p.recoveryAggressiveness === 'number'
 						? Math.round(p.recoveryAggressiveness * 100)
@@ -334,8 +333,8 @@
 							Budget — debt tolerance
 						</h2>
 						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-							Controls how aggressively Budgic sets aside allowance after you acknowledge intentional
-							debt (Phase 5).
+							Controls how aggressively Budgic sets aside allowance after you acknowledge
+							intentional debt (Phase 5).
 						</p>
 					</div>
 					<div class="space-y-4 px-5 py-4">
@@ -369,11 +368,17 @@
 								bind:value={recoveryAggressivenessPercent}
 								class="w-full accent-[var(--color-amber)]"
 							/>
-							<p class="text-xs text-[var(--color-text-tertiary)]">{recoveryAggressivenessPercent}%</p>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								{recoveryAggressivenessPercent}%
+							</p>
 						</div>
-						<div class="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-bg-surface)] px-4 py-3">
+						<div
+							class="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-bg-surface)] px-4 py-3"
+						>
 							<div>
-								<p class="text-sm font-medium text-[var(--color-text-primary)]">Recovery mode active</p>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									Recovery mode active
+								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									When on, forward allowance deducts the recovery % from available cash flow.
 								</p>
@@ -669,30 +674,32 @@
 					</div>
 				</div>
 
-			<!-- Occasions (merged from /settings/occasions) -->
-			<div
-				id="occasions"
-				class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)] opacity-75"
-			>
-				<div class="border-border border-b px-5 py-3">
-					<div class="flex items-center gap-2">
-						<h2
-							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-						>
-							Occasions
-						</h2>
-						<span
-							class="rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide uppercase"
-							style="background: color-mix(in oklch, var(--color-amber) 15%, transparent); color: var(--color-amber);"
-						>Legacy</span>
+				<!-- Occasions (merged from /settings/occasions) -->
+				<div
+					id="occasions"
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)] opacity-75"
+				>
+					<div class="border-border border-b px-5 py-3">
+						<div class="flex items-center gap-2">
+							<h2
+								class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+							>
+								Occasions
+							</h2>
+							<span
+								class="rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide uppercase"
+								style="background: color-mix(in oklch, var(--color-amber) 15%, transparent); color: var(--color-amber);"
+								>Legacy</span
+							>
+						</div>
+						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+							Recurring spending events adjust your allowance so you can plan ahead.
+						</p>
+						<p class="mt-1 text-[10px] text-[var(--color-amber)]">
+							Planned for replacement by recurring patterns &amp; deadline-based planned
+							transactions (Phase 5). Existing occasions continue to work.
+						</p>
 					</div>
-					<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-						Recurring spending events adjust your allowance so you can plan ahead.
-					</p>
-					<p class="mt-1 text-[10px] text-[var(--color-amber)]">
-						Planned for replacement by recurring patterns &amp; deadline-based planned transactions (Phase 5). Existing occasions continue to work.
-					</p>
-				</div>
 					<div class="space-y-4 px-5 py-4">
 						{#if occasionsError}
 							<div

@@ -50,7 +50,9 @@ class LoanAmortizationService {
 		const oldFuture = await db.transactions
 			.where('reference')
 			.startsWith(`loan_schedule:${account.id}:`)
-			.filter((tx) => tx.status === 'planned' && !!tx.plannedDate && new Date(tx.plannedDate) >= now)
+			.filter(
+				(tx) => tx.status === 'planned' && !!tx.plannedDate && new Date(tx.plannedDate) >= now
+			)
 			.toArray();
 		for (const tx of oldFuture) {
 			await db.transactions.update(tx.id, {

@@ -140,7 +140,10 @@ export async function calculateEnhancedAllowance(
 	const preferences = await db.userPreferences.toCollection().first();
 	const reimbursementAllowanceMode: ReimbursementAllowanceMode =
 		preferences?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
-	const adjustedTransactions = applyReimbursementAllowanceMode(allTransactions, reimbursementAllowanceMode);
+	const adjustedTransactions = applyReimbursementAllowanceMode(
+		allTransactions,
+		reimbursementAllowanceMode
+	);
 	const clearedTransactions = adjustedTransactions.filter((t) => t.status === 'cleared');
 
 	// Calculate days elapsed and remaining
@@ -352,9 +355,7 @@ function calculateHistoricalSpending(
 	historicalExpenses.forEach((amount, index) => {
 		const transaction = transactions.find((t) => {
 			const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
-			return (
-				expenseCountsTowardAllowanceAnalytics(t, tier) && Math.abs(t.amount || 0) === amount
-			);
+			return expenseCountsTowardAllowanceAnalytics(t, tier) && Math.abs(t.amount || 0) === amount;
 		});
 		if (transaction?.clearedDate) {
 			const date = new Date(transaction.clearedDate);

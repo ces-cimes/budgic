@@ -70,7 +70,10 @@ const DB_FREQUENCY_WEIGHT = 0.6;
 const SELECTION_FREQUENCY_WEIGHT = 0.4;
 
 class AutocompleteService {
-	private suggestionCache = new Map<string, { expiresAt: number; value: DescriptionSuggestion[] }>();
+	private suggestionCache = new Map<
+		string,
+		{ expiresAt: number; value: DescriptionSuggestion[] }
+	>();
 	private transactionsSnapshotCache: { expiresAt: number; value: Transaction[] } | null = null;
 	private cleanupPromise: Promise<void> | null = null;
 	private cleanupDone = false;
@@ -121,7 +124,10 @@ class AutocompleteService {
 				aggregate.lastUsedMs = usedAtMs;
 			}
 			aggregate.variations.add(description);
-			aggregate.variationCounts.set(description, (aggregate.variationCounts.get(description) ?? 0) + 1);
+			aggregate.variationCounts.set(
+				description,
+				(aggregate.variationCounts.get(description) ?? 0) + 1
+			);
 
 			if (usedAtMs >= ninetyDaysAgoMs) {
 				aggregate.frequencyLast90Days += 1;
@@ -147,7 +153,9 @@ class AutocompleteService {
 				const selection = selectionAggregates.get(item.merchantKey);
 				const recencyScore = this.computeRecencyScore(selection?.lastSelectedMs, now);
 				const normalisedDbFrequency = this.normalizeFrequency(item.frequencyLast90Days);
-				const normalisedSelectionFrequency = this.normalizeFrequency(selection?.selectionFrequency ?? 0);
+				const normalisedSelectionFrequency = this.normalizeFrequency(
+					selection?.selectionFrequency ?? 0
+				);
 				const score =
 					DB_FREQUENCY_WEIGHT * normalisedDbFrequency +
 					SELECTION_FREQUENCY_WEIGHT * normalisedSelectionFrequency * recencyScore;
@@ -228,7 +236,10 @@ class AutocompleteService {
 
 		const merchantKey = normaliseMerchantKey(normalizedDescription);
 		const stats = await this.getAmountStatsForMerchant(merchantKey, normalizedDescription);
-		const dateInference = await this.getDateInferenceForMerchant(merchantKey, normalizedDescription);
+		const dateInference = await this.getDateInferenceForMerchant(
+			merchantKey,
+			normalizedDescription
+		);
 
 		return {
 			merchantKey,
@@ -244,13 +255,17 @@ class AutocompleteService {
 		partial: string,
 		limit = 8
 	): Promise<RankedValue[]> {
-		const usageRows = await db.autocompleteUsage.where('fieldKey').equals('transaction.transfer.memo').toArray();
+		const usageRows = await db.autocompleteUsage
+			.where('fieldKey')
+			.equals('transaction.transfer.memo')
+			.toArray();
 		const query = partial.trim().toLowerCase();
 		const filtered = usageRows.filter((row) => {
 			if (!row.context) return false;
 			try {
 				const parsed = JSON.parse(row.context) as { fromAccountId?: string; toAccountId?: string };
-				if (parsed.fromAccountId !== fromAccountId || parsed.toAccountId !== toAccountId) return false;
+				if (parsed.fromAccountId !== fromAccountId || parsed.toAccountId !== toAccountId)
+					return false;
 			} catch {
 				return false;
 			}
@@ -267,7 +282,10 @@ class AutocompleteService {
 		const merchantKey = normaliseMerchantKey(description);
 		if (!merchantKey) return [];
 
-		const usageRows = await db.autocompleteUsage.where('fieldKey').equals('transaction.notes').toArray();
+		const usageRows = await db.autocompleteUsage
+			.where('fieldKey')
+			.equals('transaction.notes')
+			.toArray();
 		const query = partial.trim().toLowerCase();
 		const filtered = usageRows.filter((row) => {
 			if (!row.context) return false;
@@ -285,12 +303,11 @@ class AutocompleteService {
 	async getTagSuggestions(partial: string, limit = 8): Promise<string[]> {
 		const query = partial.trim().toLowerCase();
 		if (!query) return [];
-		const tags = await db.tags
-			.where('normalizedName')
-			.startsWith(query)
-			.toArray();
+		const tags = await db.tags.where('normalizedName').startsWith(query).toArray();
 		return tags
-			.sort((a, b) => b.usageCount - a.usageCount || a.normalizedName.localeCompare(b.normalizedName))
+			.sort(
+				(a, b) => b.usageCount - a.usageCount || a.normalizedName.localeCompare(b.normalizedName)
+			)
 			.slice(0, limit)
 			.map((tag) => tag.name);
 	}
@@ -347,7 +364,9 @@ class AutocompleteService {
 			existing.selectionFrequency += 1;
 			if (!Number.isNaN(selectedAtMs)) {
 				existing.lastSelectedMs =
-					existing.lastSelectedMs === null ? selectedAtMs : Math.max(existing.lastSelectedMs, selectedAtMs);
+					existing.lastSelectedMs === null
+						? selectedAtMs
+						: Math.max(existing.lastSelectedMs, selectedAtMs);
 			}
 		}
 
@@ -373,7 +392,9 @@ class AutocompleteService {
 	 * autocompleteUsage selections for bounded fields (account / category).
 	 * Uses the same weighting as description suggestions: 0.6 DB + 0.4 selection×recency.
 	 */
-	async getBlendedBoundedFieldScores(fieldKey: BoundedAutocompleteFieldKey): Promise<Map<string, number>> {
+	async getBlendedBoundedFieldScores(
+		fieldKey: BoundedAutocompleteFieldKey
+	): Promise<Map<string, number>> {
 		await this.ensureSelectionDataPruned();
 
 		const nowMs = Date.now();
@@ -388,7 +409,11 @@ class AutocompleteService {
 
 		for (const tx of transactions) {
 			const rawId =
-				fieldKey === 'transaction.account' ? tx.accountId : fieldKey === 'transaction.category' ? tx.categoryId : undefined;
+				fieldKey === 'transaction.account'
+					? tx.accountId
+					: fieldKey === 'transaction.category'
+						? tx.categoryId
+						: undefined;
 			if (!rawId) continue;
 
 			const idKey = rawId.toLowerCase();
@@ -427,7 +452,9 @@ class AutocompleteService {
 			existing.selectionFrequency += 1;
 			if (!Number.isNaN(selectedAtMs)) {
 				existing.lastSelectedMs =
-					existing.lastSelectedMs === null ? selectedAtMs : Math.max(existing.lastSelectedMs, selectedAtMs);
+					existing.lastSelectedMs === null
+						? selectedAtMs
+						: Math.max(existing.lastSelectedMs, selectedAtMs);
 			}
 		}
 
@@ -442,8 +469,13 @@ class AutocompleteService {
 			const dbRecencyScore = this.computeRecencyScore(db?.lastUsedMs ?? null, nowMs);
 			const dbTerm = normalisedDbFrequency * dbRecencyScore;
 
-			const selectionRecencyScore = this.computeRecencyScore(selection?.lastSelectedMs ?? null, nowMs);
-			const normalisedSelectionFrequency = this.normalizeFrequency(selection?.selectionFrequency ?? 0);
+			const selectionRecencyScore = this.computeRecencyScore(
+				selection?.lastSelectedMs ?? null,
+				nowMs
+			);
+			const normalisedSelectionFrequency = this.normalizeFrequency(
+				selection?.selectionFrequency ?? 0
+			);
 			const selectionTerm = normalisedSelectionFrequency * selectionRecencyScore;
 
 			const score = DB_FREQUENCY_WEIGHT * dbTerm + SELECTION_FREQUENCY_WEIGHT * selectionTerm;
@@ -510,7 +542,9 @@ class AutocompleteService {
 			existing.selectionFrequency += 1;
 			if (!Number.isNaN(selectedAtMs)) {
 				existing.lastSelectedMs =
-					existing.lastSelectedMs === null ? selectedAtMs : Math.max(existing.lastSelectedMs, selectedAtMs);
+					existing.lastSelectedMs === null
+						? selectedAtMs
+						: Math.max(existing.lastSelectedMs, selectedAtMs);
 			}
 		}
 
@@ -604,7 +638,9 @@ class AutocompleteService {
 			existing.selectionFrequency += 1;
 			if (!Number.isNaN(selectedAtMs)) {
 				existing.lastSelectedMs =
-					existing.lastSelectedMs === null ? selectedAtMs : Math.max(existing.lastSelectedMs, selectedAtMs);
+					existing.lastSelectedMs === null
+						? selectedAtMs
+						: Math.max(existing.lastSelectedMs, selectedAtMs);
 			}
 		}
 
@@ -632,7 +668,8 @@ class AutocompleteService {
 			const normalized = this.normalizeDescription(tx.description);
 			if (!normalized) continue;
 			const key = normaliseMerchantKey(normalized) || normalized.toLowerCase();
-			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase()) continue;
+			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase())
+				continue;
 			amounts.push(Math.abs(tx.amount ?? 0));
 		}
 		if (amounts.length < 3) return null;
@@ -658,8 +695,9 @@ class AutocompleteService {
 					return patternKey.length > 0 && patternKey === merchantKey;
 				});
 			if (merchantPattern && merchantPattern.confidence > 75) {
-				const prediction =
-					await recurringTransactionIntelligenceService.predictNextOccurrence(merchantPattern.id);
+				const prediction = await recurringTransactionIntelligenceService.predictNextOccurrence(
+					merchantPattern.id
+				);
 				if (prediction) {
 					return {
 						nextDate: prediction.nextOccurrenceDate,
@@ -678,7 +716,8 @@ class AutocompleteService {
 			const normalized = this.normalizeDescription(tx.description);
 			if (!normalized) continue;
 			const key = normaliseMerchantKey(normalized) || normalized.toLowerCase();
-			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase()) continue;
+			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase())
+				continue;
 			const timestamp = tx.clearedDate ?? tx.plannedDate ?? tx.createdAt;
 			const parsed = new Date(timestamp);
 			if (!Number.isNaN(parsed.getTime())) {

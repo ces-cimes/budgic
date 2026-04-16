@@ -59,7 +59,8 @@
 			<h2 class="text-sm font-medium">Add rule</h2>
 			<Select.Root type="single" bind:value={sourceAccountId}>
 				<Select.Trigger class="w-full"
-					>{accounts.find((a) => a.id === sourceAccountId)?.name || 'Source account'}</Select.Trigger
+					>{accounts.find((a) => a.id === sourceAccountId)?.name ||
+						'Source account'}</Select.Trigger
 				>
 				<Select.Content>
 					{#each accounts as account (account.id)}
@@ -69,7 +70,8 @@
 			</Select.Root>
 			<Select.Root type="single" bind:value={targetAccountId}>
 				<Select.Trigger class="w-full"
-					>{accounts.find((a) => a.id === targetAccountId)?.name || 'Target account'}</Select.Trigger
+					>{accounts.find((a) => a.id === targetAccountId)?.name ||
+						'Target account'}</Select.Trigger
 				>
 				<Select.Content>
 					{#each accounts as account (account.id)}
@@ -106,7 +108,9 @@
 
 		<div class="space-y-2">
 			{#each rules as rule (rule.id)}
-				<div class="flex items-center justify-between rounded-xl border border-[var(--color-border)] p-3">
+				<div
+					class="flex items-center justify-between rounded-xl border border-[var(--color-border)] p-3"
+				>
 					<div>
 						<p class="text-sm">{rule.method} · {rule.batchMode}</p>
 						<p class="text-xs text-[var(--color-text-tertiary)]">

@@ -31,7 +31,10 @@ function getCadence(dates: Date[]): 'monthly' | 'weekly' | 'irregular' {
 	return 'irregular';
 }
 
-function confidenceForCadence(cadence: 'monthly' | 'weekly' | 'irregular', occurrences: number): number {
+function confidenceForCadence(
+	cadence: 'monthly' | 'weekly' | 'irregular',
+	occurrences: number
+): number {
 	const base = cadence === 'monthly' ? 0.75 : cadence === 'weekly' ? 0.65 : 0.45;
 	return Math.min(0.95, base + Math.min(0.2, occurrences * 0.03));
 }
@@ -61,7 +64,9 @@ export function detectEssentials(
 		const dates = group.map((tx) => new Date(tx.clearedDate!));
 		const cadence = getCadence(dates);
 		const ids = group.map((tx) => tx.id);
-		const expenseAmounts = group.filter((tx) => tx.type === 'expense').map((tx) => Math.abs(tx.amount || 0));
+		const expenseAmounts = group
+			.filter((tx) => tx.type === 'expense')
+			.map((tx) => Math.abs(tx.amount || 0));
 		const avgExpense = expenseAmounts.length
 			? expenseAmounts.reduce((a, b) => a + b, 0) / expenseAmounts.length
 			: 0;
@@ -91,7 +96,9 @@ export function detectEssentials(
 			continue;
 		}
 
-		const incomeAmounts = group.filter((tx) => tx.type === 'income').map((tx) => Math.abs(tx.amount || 0));
+		const incomeAmounts = group
+			.filter((tx) => tx.type === 'income')
+			.map((tx) => Math.abs(tx.amount || 0));
 		const avgIncome = incomeAmounts.length
 			? incomeAmounts.reduce((a, b) => a + b, 0) / incomeAmounts.length
 			: 0;
@@ -108,7 +115,12 @@ export function detectEssentials(
 			continue;
 		}
 
-		if (avgExpense >= 2 && avgExpense <= 3000 && cadence === 'monthly' && SUBSCRIPTION_REGEX.test(patternKey)) {
+		if (
+			avgExpense >= 2 &&
+			avgExpense <= 3000 &&
+			cadence === 'monthly' &&
+			SUBSCRIPTION_REGEX.test(patternKey)
+		) {
 			out.push({
 				patternKey,
 				suggestedTier: 'lifestyle',
@@ -135,7 +147,8 @@ export function detectEssentials(
 		}
 
 		const isSavingsTransfer = group.every(
-			(tx) => tx.type === 'transfer' && Math.abs((tx.transferDetails?.transferAmount ?? tx.amount ?? 0)) > 0
+			(tx) =>
+				tx.type === 'transfer' && Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0) > 0
 		);
 		if (isSavingsTransfer && cadence === 'monthly') {
 			out.push({

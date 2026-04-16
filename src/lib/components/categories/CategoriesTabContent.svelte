@@ -70,7 +70,10 @@
 	});
 
 	let groupedCategories = $derived.by(() => {
-		const groups: Map<NonNullable<Category['waterfallTier']>, typeof filteredCategories> = new Map();
+		const groups: Map<
+			NonNullable<Category['waterfallTier']>,
+			typeof filteredCategories
+		> = new Map();
 		filteredCategories.forEach((category) => {
 			const tier = category.waterfallTier ?? 'unclassified';
 			if (!groups.has(tier)) groups.set(tier, []);

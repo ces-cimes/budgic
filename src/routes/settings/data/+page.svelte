@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-import {
-	userService,
-	budgetService,
-	transactionService,
-	accountService
-} from '$lib/core/services';
+	import {
+		userService,
+		budgetService,
+		transactionService,
+		accountService
+	} from '$lib/core/services';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import * as Select from '$lib/components/ui/select/index.ts';
@@ -20,11 +20,11 @@ import {
 		type ImportProgress,
 		type DetectedSchema
 	} from '$lib/core/services/import-export';
-import ImportWizard from '$lib/components/import/ImportWizard.svelte';
+	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
 	import { formatPercentage } from '$lib/utils/currency-utils';
-import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
-import type { Transaction, Account } from '$lib/core/db';
+	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
+	import type { Transaction, Account } from '$lib/core/db';
 
 	// State
 	let isLoading = $state(true);
@@ -40,7 +40,7 @@ import type { Transaction, Account } from '$lib/core/db';
 	// Money Manager import state
 	let mmFiles = $state<File[]>([]);
 	let mmSchema = $state<DetectedSchema | null>(null);
-const mmImportOptions = $state({
+	const mmImportOptions = $state({
 		importAccounts: true,
 		importCategories: true,
 		importTransactions: true,
@@ -53,10 +53,10 @@ const mmImportOptions = $state({
 	let mmProgress = $state<ImportProgress | null>(null);
 	let mmResult = $state<ImportResult | null>(null);
 	let showMMImport = $state(false);
-let importWizardOpen = $state(false);
-let wizardBeforeRatio = $state(0);
-let wizardCategoryTierByTxId = $state<Record<string, string | undefined>>({});
-let wizardPersonAccountCandidates = $state<string[]>([]);
+	let importWizardOpen = $state(false);
+	let wizardBeforeRatio = $state(0);
+	let wizardCategoryTierByTxId = $state<Record<string, string | undefined>>({});
+	let wizardPersonAccountCandidates = $state<string[]>([]);
 
 	// Export format options
 	const exportFormatOptions = [
@@ -236,8 +236,8 @@ let wizardPersonAccountCandidates = $state<string[]>([]);
 		mmProgress = null;
 
 		try {
-		const beforeSummary = await budgetService.getBudgetSummary();
-		wizardBeforeRatio = beforeSummary.confidence?.ratio ?? 0;
+			const beforeSummary = await budgetService.getBudgetSummary();
+			wizardBeforeRatio = beforeSummary.confidence?.ratio ?? 0;
 
 			// Read CSV files
 			const csvFiles = await readMultipleCSVFiles(mmFiles);
@@ -261,7 +261,7 @@ let wizardPersonAccountCandidates = $state<string[]>([]);
 				mmFiles = [];
 				mmSchema = null;
 
-			await prepareImportWizardState(result);
+				await prepareImportWizardState(result);
 			} else {
 				error = `Import completed with ${result.errors.length} error(s). Check details below.`;
 			}
@@ -287,7 +287,10 @@ let wizardPersonAccountCandidates = $state<string[]>([]);
 			await Promise.all(batch.transactionIds.map((id) => db.transactions.get(id)))
 		).filter((tx): tx is Transaction => !!tx);
 		wizardCategoryTierByTxId = Object.fromEntries(
-			txs.map((tx) => [tx.id, (tx.categoryId ? categoryTierById[tx.categoryId] : undefined) as string | undefined])
+			txs.map((tx) => [
+				tx.id,
+				(tx.categoryId ? categoryTierById[tx.categoryId] : undefined) as string | undefined
+			])
 		);
 
 		wizardPersonAccountCandidates = await detectPersonAccountCandidates(batch.accountIdsAffected);
@@ -317,20 +320,28 @@ let wizardPersonAccountCandidates = $state<string[]>([]);
 		return candidates;
 	}
 
-	async function applyCandidateTier(transactionIds: string[], tier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified'): Promise<void> {
+	async function applyCandidateTier(
+		transactionIds: string[],
+		tier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified'
+	): Promise<void> {
 		const categoryIds = new Set<string>();
 		for (const id of transactionIds) {
 			const tx = await db.transactions.get(id);
 			if (tx?.categoryId) categoryIds.add(tx.categoryId);
 		}
 		for (const categoryId of categoryIds) {
-			await db.categories.update(categoryId, { waterfallTier: tier, updatedAt: new Date().toISOString() });
+			await db.categories.update(categoryId, {
+				waterfallTier: tier,
+				updatedAt: new Date().toISOString()
+			});
 		}
 		const categories = await db.getActiveCategories();
 		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
 		for (const id of transactionIds) {
 			const tx = await db.transactions.get(id);
-			wizardCategoryTierByTxId[id] = tx?.categoryId ? (categoryTierById[tx.categoryId] as string | undefined) : undefined;
+			wizardCategoryTierByTxId[id] = tx?.categoryId
+				? (categoryTierById[tx.categoryId] as string | undefined)
+				: undefined;
 		}
 		await userService.trackUserAction({
 			action: 'create_import_classification_rule',

@@ -8,10 +8,10 @@
 		value: string;
 		label: string;
 		hint?: string;
-	chip?: {
-		label: string;
-		color?: string;
-	};
+		chip?: {
+			label: string;
+			color?: string;
+		};
 	}
 
 	interface Props {
@@ -193,7 +193,9 @@
 	</button>
 
 	{#if isOpen}
-		<div class="bg-popover text-popover-foreground absolute z-50 mt-1 w-full rounded-md border p-2 shadow-md">
+		<div
+			class="bg-popover text-popover-foreground absolute z-50 mt-1 w-full rounded-md border p-2 shadow-md"
+		>
 			<div class="mb-2">
 				<Input.Root
 					bind:ref={filterInputRef}

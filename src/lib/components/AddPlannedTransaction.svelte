@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Plus, Calendar, DollarSign } from '@lucide/svelte';
-	import { transactionService, accountService, userService, autocompleteService } from '$lib/core/services';
+	import {
+		transactionService,
+		accountService,
+		userService,
+		autocompleteService
+	} from '$lib/core/services';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
@@ -47,7 +52,9 @@
 
 	const destinationAccounts = $derived(accounts.filter((a) => a.id !== accountId));
 	const destinationAccountOptions = $derived.by(() => {
-		const defaultOrderMap = new Map(destinationAccounts.map((account, index) => [account.id, index]));
+		const defaultOrderMap = new Map(
+			destinationAccounts.map((account, index) => [account.id, index])
+		);
 
 		return [...destinationAccounts]
 			.sort((left, right) => {
@@ -82,7 +89,8 @@
 		userCurrency = preferences?.currency || 'USD';
 
 		accounts = await accountService.getAccounts();
-		accountBlendScores = await autocompleteService.getBlendedBoundedFieldScores('transaction.account');
+		accountBlendScores =
+			await autocompleteService.getBlendedBoundedFieldScores('transaction.account');
 		const tomorrow = new Date();
 		tomorrow.setDate(tomorrow.getDate() + 1);
 		plannedDate = tomorrow.toISOString().split('T')[0];

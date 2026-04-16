@@ -194,7 +194,8 @@ class PlanService {
 					}
 				};
 			}
-			let projection: import('$lib/core/services/core/budget-service').AllowanceProjection | null = null;
+			let projection: import('$lib/core/services/core/budget-service').AllowanceProjection | null =
+				null;
 			try {
 				projection = await budgetService.getAllowanceProjection();
 			} catch (e) {

@@ -115,9 +115,9 @@
 	});
 </script>
 
-<Sheet.Root {open} onOpenChange={onOpenChange}>
+<Sheet.Root {open} {onOpenChange}>
 	{#if account}
-		<Sheet.Content side="bottom" class="rounded-t-2xl px-5 pb-8 pt-4 sm:max-w-lg">
+		<Sheet.Content side="bottom" class="rounded-t-2xl px-5 pt-4 pb-8 sm:max-w-lg">
 			<Sheet.Header>
 				<Sheet.Title>Update balance</Sheet.Title>
 				<Sheet.Description>

@@ -585,7 +585,8 @@
 
 	// Get waterfall tier text color for category display (using CSS variables like amount colors)
 	const categoryTextColor = $derived(() => {
-		let tier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified' | null | undefined = null;
+		let tier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified' | null | undefined =
+			null;
 
 		if (isGroup && groupCategoryObj) {
 			tier = groupCategoryObj.waterfallTier;

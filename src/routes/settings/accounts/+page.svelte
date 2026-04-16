@@ -61,9 +61,7 @@
 	async function startUpdateAllBalances() {
 		const all = await accountService.getAccounts();
 		const passive = all.filter(
-			(a) =>
-				(a.type === 'savings' || a.type === 'credit' || a.type === 'loan') &&
-				!a.deletedAt
+			(a) => (a.type === 'savings' || a.type === 'credit' || a.type === 'loan') && !a.deletedAt
 		);
 		if (passive.length === 0) return;
 		passiveQueue = passive;
@@ -87,7 +85,6 @@
 			activeUpdateAccount = null;
 		}
 	}
-
 </script>
 
 <svelte:head>
@@ -108,8 +105,9 @@
 			>
 				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Net worth</h2>
 				<p class="text-xs text-[var(--color-text-secondary)]">
-					When enabled, savings, credit, and loan accounts with a rate profile use projected balances
-					in home and list totals. Otherwise totals use last confirmed or current ledger balances.
+					When enabled, savings, credit, and loan accounts with a rate profile use projected
+					balances in home and list totals. Otherwise totals use last confirmed or current ledger
+					balances.
 				</p>
 				<div class="flex items-center justify-between gap-3">
 					<span class="text-sm text-[var(--color-text-primary)]"
@@ -145,8 +143,7 @@
 						class="max-w-[12rem]"
 						value={balanceUpdateAutoResolveThreshold}
 						disabled={isSavingThreshold}
-						onblur={(e) =>
-							persistAutoResolveThreshold((e.currentTarget as HTMLInputElement).value)}
+						onblur={(e) => persistAutoResolveThreshold((e.currentTarget as HTMLInputElement).value)}
 					/>
 				</div>
 			</section>

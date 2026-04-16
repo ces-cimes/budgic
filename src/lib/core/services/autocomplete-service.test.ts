@@ -14,10 +14,7 @@ vi.mock('$lib/core/db', () => ({
 		autocompleteUsage: {
 			where: vi.fn((fieldKey: string) => ({
 				equals: vi.fn(() => ({
-					toArray:
-						fieldKey === 'fieldKey'
-							? mocks.autocompleteUsageToArray
-							: vi.fn(async () => [])
+					toArray: fieldKey === 'fieldKey' ? mocks.autocompleteUsageToArray : vi.fn(async () => [])
 				}))
 			}))
 		},

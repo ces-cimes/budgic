@@ -6,8 +6,7 @@ import type { Account, Transaction } from '$lib/core/db';
  */
 export function formatTransferLabel(tx: Transaction, accounts: Account[]): string {
 	const src = accounts.find((a) => a.id === tx.accountId)?.name ?? 'Unknown';
-	const dst =
-		accounts.find((a) => a.id === tx.transferDetails?.toAccountId)?.name ?? 'Unknown';
+	const dst = accounts.find((a) => a.id === tx.transferDetails?.toAccountId)?.name ?? 'Unknown';
 	return `${src} → ${dst}`;
 }
 

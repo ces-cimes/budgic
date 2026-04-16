@@ -186,10 +186,7 @@ class BudgetService {
 		}
 
 		// Calculate by tier
-		const byTier: Record<
-			AnalyticsTier,
-			{ allocated: number; spent: number; remaining: number }
-		> = {
+		const byTier: Record<AnalyticsTier, { allocated: number; spent: number; remaining: number }> = {
 			survival: { allocated: 0, spent: 0, remaining: 0 },
 			security: { allocated: 0, spent: 0, remaining: 0 },
 			growth: { allocated: 0, spent: 0, remaining: 0 },
@@ -320,7 +317,8 @@ class BudgetService {
 
 		const usage = new Map<string, CategoryUsage>();
 		for (const category of categories) {
-			const budget = category.budgetAmount && category.budgetAmount > 0 ? category.budgetAmount : null;
+			const budget =
+				category.budgetAmount && category.budgetAmount > 0 ? category.budgetAmount : null;
 			let spent = 0;
 			if (budget !== null) {
 				spent = await this.calculateCategorySpending(
@@ -623,7 +621,8 @@ class BudgetService {
 		const ninetyDaysAgo = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
 		let trailing90Spend = 0;
 		for (const tx of transactions) {
-			if (tx.type !== 'expense' || tx.status !== 'cleared' || !tx.clearedDate || tx.deletedAt) continue;
+			if (tx.type !== 'expense' || tx.status !== 'cleared' || !tx.clearedDate || tx.deletedAt)
+				continue;
 			const cd = new Date(tx.clearedDate);
 			if (cd < ninetyDaysAgo || cd > now) continue;
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
@@ -635,8 +634,7 @@ class BudgetService {
 				cd
 			);
 		}
-		const trailingMonthlyAvg =
-			trailing90Spend > 0 ? (trailing90Spend / 90) * 30.44 : 0;
+		const trailingMonthlyAvg = trailing90Spend > 0 ? (trailing90Spend / 90) * 30.44 : 0;
 		const uncertaintyBand = Math.min(
 			(1 - confidence.ratio) * trailingMonthlyAvg * 0.2 * (daysRemaining / daysInPeriod),
 			periodIncome * 0.5
@@ -645,7 +643,8 @@ class BudgetService {
 		let committed = 0;
 		const clearedIdsThisMonth = new Set<string>();
 		for (const tx of transactions) {
-			if (tx.type !== 'expense' || tx.status !== 'cleared' || !tx.clearedDate || tx.deletedAt) continue;
+			if (tx.type !== 'expense' || tx.status !== 'cleared' || !tx.clearedDate || tx.deletedAt)
+				continue;
 			const cd = new Date(tx.clearedDate);
 			if (cd < periodStart || cd > now) continue;
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
@@ -659,7 +658,12 @@ class BudgetService {
 					.reduce((s, e) => s + e.amount, 0);
 				amount = Math.max(0, amount - openExpected);
 			}
-			committed += await this.convertToMainCurrency(amount, tx.currency ?? userCurrency, userCurrency, cd);
+			committed += await this.convertToMainCurrency(
+				amount,
+				tx.currency ?? userCurrency,
+				userCurrency,
+				cd
+			);
 			clearedIdsThisMonth.add(tx.id);
 		}
 
@@ -679,8 +683,9 @@ class BudgetService {
 			}
 		}
 
-		let patterns: Awaited<ReturnType<typeof recurringTransactionIntelligenceService.detectPatterns>> =
-			[];
+		let patterns: Awaited<
+			ReturnType<typeof recurringTransactionIntelligenceService.detectPatterns>
+		> = [];
 		try {
 			patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
 		} catch {
@@ -714,7 +719,12 @@ class BudgetService {
 			const rawChunk = tx.deadline
 				? computeDeadlineChunk(tx, periodStart, periodEnd, now)
 				: Math.abs(tx.plannedAmount ?? tx.amount ?? 0);
-			planned += await this.convertToMainCurrency(rawChunk, tx.currency ?? userCurrency, userCurrency, pd);
+			planned += await this.convertToMainCurrency(
+				rawChunk,
+				tx.currency ?? userCurrency,
+				userCurrency,
+				pd
+			);
 		}
 
 		for (const p of patterns) {
@@ -763,10 +773,7 @@ class BudgetService {
 
 		let recoveryWeeksEstimate: number | null = null;
 		if (hasAcknowledgedDebtInPeriod && debtOverflowShortfall > 0) {
-			const weeklyRoom = Math.max(
-				0.01,
-				(periodIncome * (1 - recoveryAgg) - committed) / 4.33
-			);
+			const weeklyRoom = Math.max(0.01, (periodIncome * (1 - recoveryAgg) - committed) / 4.33);
 			recoveryWeeksEstimate = Math.ceil(debtOverflowShortfall / weeklyRoom);
 		}
 
@@ -794,10 +801,7 @@ class BudgetService {
 	/**
 	 * Phase 5.3 — mark all planned transactions in a debt group as acknowledged for this period.
 	 */
-	async acknowledgeIntentionalDebt(
-		debtGroupId: string,
-		periodKey: string
-	): Promise<void> {
+	async acknowledgeIntentionalDebt(debtGroupId: string, periodKey: string): Promise<void> {
 		const prefsRow = await db.userPreferences.toCollection().first();
 		if (!prefsRow) return;
 		const mergedAck = {
@@ -910,7 +914,12 @@ class BudgetService {
 	): Promise<number> {
 		if (!txCurrency || txCurrency === mainCurrency) return amount;
 		const { exchangeRateService } = await import('$lib/core/services');
-		const converted = await exchangeRateService.convertAmount(amount, txCurrency, mainCurrency, date);
+		const converted = await exchangeRateService.convertAmount(
+			amount,
+			txCurrency,
+			mainCurrency,
+			date
+		);
 		return converted ?? amount;
 	}
 

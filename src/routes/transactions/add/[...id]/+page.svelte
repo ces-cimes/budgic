@@ -50,7 +50,10 @@
 	} from '$lib/utils/flexibility-tier-utils';
 	import { getCurrencyInfo, formatAmount } from '$lib/utils/currency-utils';
 	import { dateUtils } from '$lib/utils/date-utils';
-	import { autocompleteService, type DescriptionSuggestion } from '$lib/core/services/autocomplete-service';
+	import {
+		autocompleteService,
+		type DescriptionSuggestion
+	} from '$lib/core/services/autocomplete-service';
 	import type { CategoryUsage } from '$lib/core/services/core/budget-service';
 
 	function debtGroupIdFromLabel(label: string): string | undefined {
@@ -201,7 +204,9 @@
 	let amountManuallyTouched = $state(false);
 	let suggestedAmount = $state<number | null>(null);
 	let amountHint = $derived(
-		suggestedAmount !== null && !amountManuallyTouched ? formatAmount(suggestedAmount, currency || 'USD') : null
+		suggestedAmount !== null && !amountManuallyTouched
+			? formatAmount(suggestedAmount, currency || 'USD')
+			: null
 	);
 	let descriptionIntelligence = $state<Awaited<
 		ReturnType<typeof autocompleteService.getDescriptionIntelligence>
@@ -222,9 +227,9 @@
 	let noteSuggestions = $state<string[]>([]);
 	let tagSuggestions = $state<string[]>([]);
 	let categoryUsageById = $state<Map<string, CategoryUsage>>(new Map());
-	let transferDestinationScores = $state<Map<string, { frequency: number; typicalAmount: number | null }>>(
-		new Map()
-	);
+	let transferDestinationScores = $state<
+		Map<string, { frequency: number; typicalAmount: number | null }>
+	>(new Map());
 	const DEFAULT_TAX_RATE = 0.13;
 	let toAccount = $derived(accounts.find((account) => account.id === toAccountId));
 	let canEstimateTransferTax = $derived(
@@ -349,7 +354,11 @@
 	}
 
 	function handleDescriptionSuggestionSelected(suggestion: DescriptionSuggestion) {
-		if (!amountManuallyTouched && typeof suggestion.typicalAmount === 'number' && suggestion.typicalAmount > 0) {
+		if (
+			!amountManuallyTouched &&
+			typeof suggestion.typicalAmount === 'number' &&
+			suggestion.typicalAmount > 0
+		) {
 			suggestedAmount = suggestion.typicalAmount;
 		}
 		if (!suggestion.inferredCategoryId) {
@@ -357,7 +366,9 @@
 			return;
 		}
 
-		const inferredCategory = categories.find((category) => category.id === suggestion.inferredCategoryId);
+		const inferredCategory = categories.find(
+			(category) => category.id === suggestion.inferredCategoryId
+		);
 		if (!inferredCategory) {
 			clearInferredCategoryIndicator();
 			return;
@@ -657,7 +668,10 @@
 		autocompleteService.getTransferDestinationSuggestions(sourceAccount, 10).then((rows) => {
 			if (cancelled) return;
 			transferDestinationScores = new Map(
-				rows.map((row) => [row.accountId, { frequency: row.frequency, typicalAmount: row.typicalAmount }])
+				rows.map((row) => [
+					row.accountId,
+					{ frequency: row.frequency, typicalAmount: row.typicalAmount }
+				])
 			);
 		});
 		return () => {
@@ -728,7 +742,8 @@
 	});
 
 	$effect(() => {
-		if (transactionType !== 'transfer' || !selectedAccount || !toAccountId || amountManuallyTouched) return;
+		if (transactionType !== 'transfer' || !selectedAccount || !toAccountId || amountManuallyTouched)
+			return;
 		const pair = transferDestinationScores.get(toAccountId);
 		if (pair?.typicalAmount && pair.typicalAmount > 0) {
 			suggestedAmount = pair.typicalAmount;
@@ -894,7 +909,9 @@
 
 		// Phase 3.3: settle outstanding reimbursement when creating income transaction
 		if (!isEdit && txData.type === 'income' && settlementTarget) {
-			const sourceTransaction = await transactionService.getTransaction(settlementTarget.transactionId);
+			const sourceTransaction = await transactionService.getTransaction(
+				settlementTarget.transactionId
+			);
 			if (sourceTransaction) {
 				const now = new Date().toISOString();
 				const updatedReimbursements = (sourceTransaction.reimbursements || []).map((entry) => {
@@ -1086,12 +1103,7 @@
 					: null;
 
 			// Create or update transaction
-			await doActualSubmit(
-				transactionData,
-				isEditMode,
-				transaction?.id ?? null,
-				settlementTarget
-			);
+			await doActualSubmit(transactionData, isEditMode, transaction?.id ?? null, settlementTarget);
 		} catch (err) {
 			error =
 				err instanceof Error
@@ -1355,7 +1367,11 @@
 							bind:value={plannedDate}
 							required
 							onkeydown={(event) => {
-								if ((event.key === 'Tab' || event.key === 'Enter') && suggestedPlannedDate && !plannedDate) {
+								if (
+									(event.key === 'Tab' || event.key === 'Enter') &&
+									suggestedPlannedDate &&
+									!plannedDate
+								) {
 									acceptSuggestedPlannedDate();
 								}
 							}}
@@ -1365,7 +1381,9 @@
 						{#if suggestedPlannedDate && !plannedDate}
 							<div class="mt-1 flex items-center justify-between gap-2">
 								<p class="text-xs text-[var(--color-text-tertiary)]">
-									Suggested date: {new Date(dateUtils.fromLocalDateTimeInput(suggestedPlannedDate)).toLocaleString()}
+									Suggested date: {new Date(
+										dateUtils.fromLocalDateTimeInput(suggestedPlannedDate)
+									).toLocaleString()}
 								</p>
 								<button
 									type="button"
@@ -1613,9 +1631,14 @@
 								</Select.Root>
 							</div>
 							{#if canEstimateTransferTax}
-								<div class="flex items-center justify-between rounded-md border border-[var(--color-border)] px-3 py-2">
+								<div
+									class="flex items-center justify-between rounded-md border border-[var(--color-border)] px-3 py-2"
+								>
 									<p class="text-xs text-[var(--color-text-tertiary)]">
-										Estimate tax ({Math.round(DEFAULT_TAX_RATE * 100)}%): {formatAmount(estimatedTaxFeeAmount, currency || 'USD')}
+										Estimate tax ({Math.round(DEFAULT_TAX_RATE * 100)}%): {formatAmount(
+											estimatedTaxFeeAmount,
+											currency || 'USD'
+										)}
 									</p>
 									<button
 										type="button"
@@ -1627,9 +1650,7 @@
 								</div>
 							{/if}
 							{#if transferFeeType === 'penalty' || transferFeeType === 'early-withdrawal'}
-								<p class="text-xs text-[var(--color-amber)]">
-									This reduces your allowance.
-								</p>
+								<p class="text-xs text-[var(--color-amber)]">This reduces your allowance.</p>
 							{/if}
 						</div>
 					{:else}
@@ -1721,7 +1742,8 @@
 							<div class="flex flex-wrap gap-2">
 								<button
 									type="button"
-									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus === 'expecting'
+									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus ===
+									'expecting'
 										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
 										: 'border-[var(--color-border)]'}"
 									onclick={() => (reimbursementStatus = 'expecting')}
@@ -1730,7 +1752,8 @@
 								</button>
 								<button
 									type="button"
-									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus === 'owed'
+									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus ===
+									'owed'
 										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
 										: 'border-[var(--color-border)]'}"
 									onclick={() => (reimbursementStatus = 'owed')}
@@ -1739,7 +1762,8 @@
 								</button>
 								<button
 									type="button"
-									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus === 'forgiven'
+									class="rounded-full border px-3 py-1 text-xs transition-colors {reimbursementStatus ===
+									'forgiven'
 										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
 										: 'border-[var(--color-border)]'}"
 									onclick={() => (reimbursementStatus = 'forgiven')}

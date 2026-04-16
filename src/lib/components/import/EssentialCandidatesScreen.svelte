@@ -33,7 +33,9 @@
 	</div>
 	<div class="max-h-80 space-y-2 overflow-y-auto">
 		{#each candidates as c (c.patternKey)}
-			<div class="space-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-3">
+			<div
+				class="space-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-3"
+			>
 				<p class="text-sm font-medium text-[var(--color-text-primary)]">{c.reason}</p>
 				<p class="text-xs text-[var(--color-text-tertiary)]">
 					{c.patternKey} · {(c.allowanceImpact * 100).toFixed(1)}% impact · {c.cadence}
