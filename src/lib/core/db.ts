@@ -825,7 +825,10 @@ const AccountMetadataSchema = z.object({
 	bufferAmount: z.number().min(0).optional(), // User-defined buffer amount
 
 	// Emergency fund designation
-	isEmergencyFund: z.boolean().optional() // Designate this account as part of emergency fund
+	isEmergencyFund: z.boolean().optional(), // Designate this account as part of emergency fund
+
+	/** Phase 8 — alert when (currentBalance − sum(14d projected outflows)) falls below this (default 0) */
+	projectedLowBalanceAlertThreshold: z.number().optional()
 });
 
 /** Phase 10 — passive / balance-first tracking (`apr` is annual decimal, e.g. 0.045 for 4.5%) */

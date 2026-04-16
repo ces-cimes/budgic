@@ -158,6 +158,7 @@
 						{isLoading}
 						{userCurrency}
 						insightTypeFilter={insightTypeFilter ?? undefined}
+						patternsTabActive={activeTab === 'patterns'}
 					/>
 				</TabContent>
 

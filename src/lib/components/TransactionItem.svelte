@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RefreshCcw, Split, ChevronDown, Tag } from '@lucide/svelte';
+	import { RefreshCcw, Split, ChevronDown, Tag, Check } from '@lucide/svelte';
 	import type { Transaction, Category } from '$lib/core/db';
 	import { longpress } from '$lib/actions/longpress';
 	import { formatTransactionAmount, formatTransferAmount } from '$lib/utils/currency-utils';
@@ -386,6 +386,20 @@
 
 	// Format amount with proper styling — design system rules:
 	// Income = sage green, Expense = foreground (NOT coral), Transfer = info
+	/** Phase 8 — planned vs actual variance chip (>15% of |planned|). */
+	const planVarianceChip = $derived(() => {
+		if (isGroup) return null;
+		const pa = transaction.plannedAmount;
+		if (pa === undefined || pa === null) return null;
+		const absPlanned = Math.abs(pa);
+		if (absPlanned < 1e-9) return null;
+		const amt = transaction.amount ?? 0;
+		if (Math.abs(amt - pa) / absPlanned <= 0.15) return null;
+		const diff = amt - pa;
+		const formatted = formatTransactionAmount(diff, displayCurrency(), true);
+		return formatted;
+	});
+
 	const amountInfo = $derived(() => {
 		let textClass = '';
 
@@ -696,22 +710,34 @@
 					</div>
 
 					<!-- Right Column: Amount + Fee (Flexible) -->
-					<div class="flex flex-shrink-0 flex-col items-end text-right">
-						<!-- Transfer amount -->
-						<div class="text-amount text-[var(--color-info)]">
-							{formatTransferAmount(displayAmount(), displayCurrency())}
-						</div>
-
-						<!-- Fee badge -->
-						{#if transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
-							<div class="text-text-tertiary mt-0.5 text-xs font-medium">
-								Fee: {formatTransactionAmount(
-									transferDetails()!.feeAmount,
-									displayCurrency(),
-									true
-								)}
-							</div>
+					<div class="flex flex-shrink-0 items-end gap-1.5 text-right">
+						{#if transaction.reconciledAt}
+							<Check
+								class="text-muted-foreground mb-1 h-3.5 w-3.5 shrink-0 opacity-80"
+								strokeWidth={2.5}
+								aria-label="Reconciled"
+							/>
 						{/if}
+						<div class="flex flex-col items-end">
+							<!-- Transfer amount -->
+							<div class="text-amount text-[var(--color-info)]">
+								{formatTransferAmount(displayAmount(), displayCurrency())}
+							</div>
+							{#if planVarianceChip()}
+								<span class="text-muted-foreground mt-0.5 text-xs">{planVarianceChip()}</span>
+							{/if}
+
+							<!-- Fee badge -->
+							{#if transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
+								<div class="text-text-tertiary mt-0.5 text-xs font-medium">
+									Fee: {formatTransactionAmount(
+										transferDetails()!.feeAmount,
+										displayCurrency(),
+										true
+									)}
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</button>
@@ -973,22 +999,34 @@
 					</div>
 
 					<!-- Right Column: Amount + Fee (Flexible) -->
-					<div class="flex flex-shrink-0 flex-col items-end text-right">
-						<!-- Amount -->
-						<div class="text-amount {amountInfo().class}">
-							{amountInfo().text}
-						</div>
-
-						<!-- Fee badge (if applicable) -->
-						{#if isTransfer() && transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
-							<div class="text-text-tertiary mt-0.5 text-xs font-medium">
-								Fee: {formatTransactionAmount(
-									transferDetails()!.feeAmount,
-									displayCurrency(),
-									true
-								)}
-							</div>
+					<div class="flex flex-shrink-0 items-end gap-1.5 text-right">
+						{#if transaction.reconciledAt}
+							<Check
+								class="text-muted-foreground mb-1 h-3.5 w-3.5 shrink-0 opacity-80"
+								strokeWidth={2.5}
+								aria-label="Reconciled"
+							/>
 						{/if}
+						<div class="flex flex-col items-end">
+							<!-- Amount -->
+							<div class="text-amount {amountInfo().class}">
+								{amountInfo().text}
+							</div>
+							{#if planVarianceChip()}
+								<span class="text-muted-foreground mt-0.5 text-xs">{planVarianceChip()}</span>
+							{/if}
+
+							<!-- Fee badge (if applicable) -->
+							{#if isTransfer() && transferDetails()?.feeAmount && transferDetails()!.feeAmount > 0}
+								<div class="text-text-tertiary mt-0.5 text-xs font-medium">
+									Fee: {formatTransactionAmount(
+										transferDetails()!.feeAmount,
+										displayCurrency(),
+										true
+									)}
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			</button>

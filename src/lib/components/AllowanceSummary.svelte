@@ -4,6 +4,8 @@
 		NegativeAllowanceStatus,
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
+	import type { AllowanceTierRow } from '$lib/utils/budget-tier-display';
+	import { getWaterfallTierLabel } from '$lib/utils/waterfall-tier-utils';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { TrendingUp, TrendingDown, Lightbulb } from '@lucide/svelte';
 
@@ -18,6 +20,8 @@
 			unclassifiedSpend: number;
 			totalSpend: number;
 		} | null;
+		/** From same `getBudgetSummary()` snapshot as home `confidence` (Phase 8 follow-up). */
+		tierRows?: AllowanceTierRow[];
 	}
 
 	const {
@@ -25,7 +29,8 @@
 		isLoading = false,
 		negativeStatus = null,
 		recoverySuggestions = [],
-		confidence = null
+		confidence = null,
+		tierRows = []
 	}: Props = $props();
 
 	const showConfidenceBand = $derived(Boolean(confidence) && confidence?.tier !== 'high');
@@ -141,6 +146,27 @@
 				</span>
 			</div>
 		</div>
+
+		{#if tierRows.length > 0 && allowance}
+			<div class="border-border space-y-1.5 border-t pt-3">
+				<p class="text-[10px] font-medium tracking-widest text-[var(--color-text-tertiary)] uppercase">
+					By tier
+				</p>
+				<ul class="space-y-1">
+					{#each tierRows as row (row.tier)}
+						<li class="text-muted-foreground flex justify-between text-[10px]">
+							<span>{getWaterfallTierLabel(row.tier)}</span>
+							<span>
+								{formatAmount(row.spent, allowance.total.currency)} / {formatAmount(
+									row.allocated,
+									allowance.total.currency
+								)}
+							</span>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 
 		<!-- Over-budget warning -->
 		{#if isOverBudget && negativeStatus?.warningMessage}

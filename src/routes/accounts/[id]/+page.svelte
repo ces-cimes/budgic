@@ -7,7 +7,8 @@
 		transactionService,
 		userService,
 		reconciliationService,
-		insightsService
+		insightsService,
+		balanceProjectionService
 	} from '$lib/core/services';
 	import type { Account, Insight, Transaction } from '$lib/core/db';
 	import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
@@ -16,7 +17,7 @@
 	import { formatTransferLabel } from '$lib/utils/transfer-utils';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import { Pencil, Scale } from '@lucide/svelte';
+	import { Pencil, Scale, ChevronDown } from '@lucide/svelte';
 	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
@@ -29,6 +30,11 @@
 	import UpdateBalanceSheet from '$lib/components/accounts/UpdateBalanceSheet.svelte';
 	import { passiveAccountService } from '$lib/core/services';
 	import { planService, negativeAllowanceService } from '$lib/core/services';
+	import { startOfDay } from 'date-fns';
+	import { format } from 'date-fns';
+	import NextOutflowPanel from '$lib/components/accounts/NextOutflowPanel.svelte';
+	import AutomationAggregationCard from '$lib/components/accounts/AutomationAggregationCard.svelte';
+	import type { AutomationTag } from '$lib/core/db';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import type {
 		NegativeAllowanceStatus,
@@ -56,6 +62,32 @@
 	let repaymentChip = $state<string | null>(null);
 	let updateBalanceOpen = $state(false);
 	let taxWithheldYtd = $state<number | null>(null);
+
+	/** Phase 8 — cached surface intelligence (no per-render DB reads in template). */
+	type AccountTxDisplayRow =
+		| { kind: 'single'; tx: Transaction }
+		| { kind: 'automation'; tag: AutomationTag; txs: Transaction[] };
+
+	type NextOutflowRowLocal = {
+		id: string;
+		dateLabel: string;
+		description: string;
+		amountDisplay: string;
+	};
+
+	type AutomationMonthLineLocal = {
+		tag: AutomationTag;
+		label: string;
+		total: number;
+		count: number;
+		entries: Transaction[];
+	};
+
+	let nextOutflowRows = $state<NextOutflowRowLocal[]>([]);
+	let automationMonthLines = $state<AutomationMonthLineLocal[]>([]);
+	let projectedLowBalanceWarn = $state(false);
+	let accountTxDisplayRows = $state<AccountTxDisplayRow[]>([]);
+	let automationRowExpanded = $state<Record<string, boolean>>({});
 
 	const accountId = $derived($page.params.id);
 
@@ -116,7 +148,8 @@
 			if (accountId) {
 				const transactionsData = await transactionService.getTransactionsByAccount(accountId);
 				// Filter out any null/undefined or deleted transactions as a safety measure
-				transactions = transactionsData.filter((t) => t && !t.deletedAt);
+				const list = transactionsData.filter((t) => t && !t.deletedAt);
+				transactions = list;
 				if (
 					account?.type === 'checking' &&
 					account.overdraftFacility &&
@@ -142,7 +175,7 @@
 					overdraftChip = null;
 				}
 				if (account?.type === 'credit') {
-					const repayments = transactions.filter(
+					const repayments = list.filter(
 						(tx) => tx.status === 'planned' && (tx.reference?.startsWith('repayment:') ?? false)
 					);
 					if (repayments.length > 0) {
@@ -157,6 +190,7 @@
 				} else {
 					repaymentChip = null;
 				}
+				await loadPhase8AccountInsights(list, account);
 			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
@@ -176,6 +210,152 @@
 		await insightsService.dismissInsight(insightId);
 		await loadAccountInlineInsights();
 		window.dispatchEvent(new CustomEvent('alerts-updated'));
+	}
+
+	function automationHumanLabel(tag: AutomationTag): string {
+		switch (tag) {
+			case 'interest-income':
+				return 'Interest earned';
+			case 'interest-charge':
+				return 'Interest charges';
+			case 'tax-withholding':
+				return 'Tax withheld';
+			case 'transfer-fee':
+				return 'Account costs / fees';
+			case 'round-up':
+				return 'Round-up savings';
+			case 'reconciliation-adjustment':
+				return 'Reconciliation';
+			case 'scheduled-savings':
+				return 'Scheduled savings';
+			default:
+				return tag;
+		}
+	}
+
+	function buildAccountTxDisplayRows(sorted: Transaction[]): AccountTxDisplayRow[] {
+		const rows: AccountTxDisplayRow[] = [];
+		let i = 0;
+		while (i < sorted.length) {
+			const t = sorted[i];
+			if (!t.automation) {
+				rows.push({ kind: 'single', tx: t });
+				i++;
+				continue;
+			}
+			const tag = t.automation;
+			const acc = t.accountId;
+			let j = i;
+			while (
+				j < sorted.length &&
+				sorted[j].automation === tag &&
+				sorted[j].accountId === acc
+			) {
+				j++;
+			}
+			const slice = sorted.slice(i, j);
+			if (slice.length > 1) {
+				rows.push({ kind: 'automation', tag, txs: slice });
+			} else {
+				rows.push({ kind: 'single', tx: t });
+			}
+			i = j;
+		}
+		return rows;
+	}
+
+	async function loadPhase8AccountInsights(list: Transaction[], acct: Account | null) {
+		nextOutflowRows = [];
+		automationMonthLines = [];
+		projectedLowBalanceWarn = false;
+		accountTxDisplayRows = [];
+		if (!accountId || !acct) return;
+
+		const sortedForDisplay = [...list].sort((a, b) => {
+			const da = new Date(a.clearedDate || a.plannedDate || a.createdAt || 0).getTime();
+			const db = new Date(b.clearedDate || b.plannedDate || b.createdAt || 0).getTime();
+			return db - da;
+		});
+		accountTxDisplayRows = buildAccountTxDisplayRows(sortedForDisplay.slice(0, 60));
+
+		try {
+			const projections = await balanceProjectionService.generateProjections({
+				accountIds: [accountId],
+				daysAhead: 14,
+				includePlanned: true,
+				includeRecurring: true
+			});
+			const ap = projections.find((p) => p.accountId === accountId);
+			if (ap) {
+				const horizon = Math.min(14, ap.projections.length);
+				let outflowTotal = 0;
+				const candidates: Array<{
+					date: Date;
+					id: string;
+					description: string;
+					impact: number;
+				}> = [];
+				const dayStart = startOfDay(new Date());
+				for (let i = 0; i < horizon; i++) {
+					const day = ap.projections[i];
+					if (day.date.getTime() < dayStart.getTime()) continue;
+					for (const tx of day.transactions) {
+						const imp = balanceProjectionService.getProjectedTransactionImpactForAccount(
+							tx,
+							accountId
+						);
+						if (imp < 0) {
+							outflowTotal -= imp;
+							candidates.push({
+								date: day.date,
+								id: tx.id,
+								description: tx.description || 'Scheduled',
+								impact: imp
+							});
+						}
+					}
+				}
+				candidates.sort((a, b) => a.date.getTime() - b.date.getTime());
+				nextOutflowRows = candidates.slice(0, 3).map((c) => ({
+					id: c.id,
+					dateLabel: format(c.date, 'MMM d'),
+					description: c.description,
+					amountDisplay: formatTransactionAmount(c.impact, acct.currency, true)
+				}));
+				const threshold = acct.metadata?.projectedLowBalanceAlertThreshold ?? 0;
+				projectedLowBalanceWarn = acct.currentBalance - outflowTotal < threshold;
+			}
+
+			const now = new Date();
+			const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+			const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+			const byTag = new Map<AutomationTag, Transaction[]>();
+			for (const t of list) {
+				if (t.status !== 'cleared' || !t.clearedDate || !t.automation) continue;
+				const cd = new Date(t.clearedDate);
+				if (cd < monthStart || cd > monthEnd) continue;
+				const arr = byTag.get(t.automation) ?? [];
+				arr.push(t);
+				byTag.set(t.automation, arr);
+			}
+			const lines: AutomationMonthLineLocal[] = [];
+			for (const [tag, entries] of byTag) {
+				const total = entries.reduce((s, tx) => s + (tx.amount ?? 0), 0);
+				lines.push({
+					tag,
+					label: automationHumanLabel(tag),
+					total,
+					count: entries.length,
+					entries: [...entries].sort((a, b) =>
+						(b.clearedDate || '').localeCompare(a.clearedDate || '')
+					)
+				});
+			}
+			lines.sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+			automationMonthLines = lines;
+		} catch (e) {
+			console.error('Phase 8 account surface insights', e);
+		}
 	}
 
 	async function loadEnhancedAllowance() {
@@ -318,6 +498,15 @@
 						/>
 					</div>
 				{/if}
+				{#if projectedLowBalanceWarn}
+					<p
+						class="mx-auto mt-3 max-w-md text-xs text-amber-700 dark:text-amber-400/90"
+						role="status"
+					>
+						Projected outflows in the next 14 days may bring this balance below your alert
+						threshold. Review upcoming items below.
+					</p>
+				{/if}
 			</section>
 
 			<!-- Reconciliation status row -->
@@ -365,6 +554,11 @@
 					</button>
 				</section>
 			{/if}
+
+			<section class="mb-6 space-y-3">
+				<NextOutflowPanel items={nextOutflowRows} />
+				<AutomationAggregationCard currency={currency} lines={automationMonthLines} />
+			</section>
 
 			<!-- Visualizations — each with section label -->
 			{#if account.type === 'checking' || account.type === 'savings'}
@@ -519,40 +713,114 @@
 					</div>
 				{:else}
 					<div class="border-border overflow-hidden rounded-2xl border">
-						{#each transactions.slice(0, 10).filter((t) => t) as transaction (transaction.id)}
-							<button
-								type="button"
-								class="border-border flex w-full items-center justify-between gap-4 border-b px-5 py-3.5 text-left transition-colors last:border-b-0 hover:bg-[var(--color-bg-surface)]"
-								onclick={() => goto(`/transactions/add/${transaction.id}`)}
-							>
-								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium text-[var(--color-text-primary)]">
-										{transactionRowLabel(transaction)}
-									</p>
-									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-										{formatDate(
-											transaction?.clearedDate ||
-												transaction?.plannedDate ||
-												transaction?.createdAt ||
-												''
-										)}
-									</p>
-								</div>
-								<span
-									class="text-amount shrink-0 {transaction?.type === 'income'
-										? 'text-[var(--color-sage-green)]'
-										: 'text-foreground'}"
+						{#each accountTxDisplayRows.slice(0, 14) as row (row.kind === 'single' ? row.tx.id : `grp-${row.tag}-${row.txs[0].id}`)}
+							{#if row.kind === 'single'}
+								{@const transaction = row.tx}
+								<button
+									type="button"
+									class="border-border flex w-full items-center justify-between gap-4 border-b px-5 py-3.5 text-left transition-colors last:border-b-0 hover:bg-[var(--color-bg-surface)]"
+									onclick={() => goto(`/transactions/add/${transaction.id}`)}
 								>
-									{formatBalance(
-										transaction?.amount ?? 0,
-										transaction?.currency || account?.currency || userCurrency || 'USD'
-									)}
-								</span>
-							</button>
+									<div class="min-w-0 flex-1">
+										<p class="truncate text-sm font-medium text-[var(--color-text-primary)]">
+											{transactionRowLabel(transaction)}
+										</p>
+										<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+											{formatDate(
+												transaction?.clearedDate ||
+													transaction?.plannedDate ||
+													transaction?.createdAt ||
+													''
+											)}
+										</p>
+									</div>
+									<span
+										class="text-amount shrink-0 {transaction?.type === 'income'
+											? 'text-[var(--color-sage-green)]'
+											: 'text-foreground'}"
+									>
+										{formatBalance(
+											transaction?.amount ?? 0,
+											transaction?.currency || account?.currency || userCurrency || 'USD'
+										)}
+									</span>
+								</button>
+							{:else}
+								{@const ckey = `grp-${row.tag}-${row.txs[0].id}`}
+								{@const sumAmt = row.txs.reduce((s, t) => s + (t.amount ?? 0), 0)}
+								<div class="border-border border-b last:border-b-0">
+									<button
+										type="button"
+										class="hover:bg-muted/30 flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition-colors"
+										onclick={() =>
+											(automationRowExpanded = {
+												...automationRowExpanded,
+												[ckey]: !automationRowExpanded[ckey]
+											})}
+										aria-expanded={Boolean(automationRowExpanded[ckey])}
+									>
+										<div class="min-w-0 flex-1">
+											<p class="text-muted-foreground truncate text-sm font-medium">
+												{automationHumanLabel(row.tag)} · ×{row.txs.length}
+											</p>
+											<p class="text-muted-foreground mt-0.5 text-xs">Automation entries</p>
+										</div>
+										<div class="flex shrink-0 items-center gap-2">
+											<span class="text-amount text-foreground">
+												{formatBalance(sumAmt, currency)}
+											</span>
+											<ChevronDown
+												class="text-muted-foreground h-4 w-4 transition-transform {automationRowExpanded[
+													ckey
+												]
+													? 'rotate-180'
+													: ''}"
+											/>
+										</div>
+									</button>
+									{#if automationRowExpanded[ckey]}
+										<div class="bg-muted/20 border-border border-t">
+											{#each row.txs as transaction (transaction.id)}
+												<button
+													type="button"
+													class="border-border flex w-full items-center justify-between gap-4 border-b px-5 py-2.5 pl-8 text-left transition-colors last:border-b-0 hover:bg-[var(--color-bg-surface)]"
+													onclick={() => goto(`/transactions/add/${transaction.id}`)}
+												>
+													<div class="min-w-0 flex-1">
+														<p
+															class="truncate text-xs font-medium text-[var(--color-text-primary)]"
+														>
+															{transactionRowLabel(transaction)}
+														</p>
+														<p class="text-muted-foreground mt-0.5 text-[10px]">
+															{formatDate(
+																transaction?.clearedDate ||
+																	transaction?.plannedDate ||
+																	transaction?.createdAt ||
+																	''
+															)}
+														</p>
+													</div>
+													<span
+														class="text-amount shrink-0 text-xs {transaction?.type === 'income'
+															? 'text-[var(--color-sage-green)]'
+															: 'text-foreground'}"
+													>
+														{formatBalance(
+															transaction?.amount ?? 0,
+															transaction?.currency || account?.currency || userCurrency || 'USD'
+														)}
+													</span>
+												</button>
+											{/each}
+										</div>
+									{/if}
+								</div>
+							{/if}
 						{/each}
 					</div>
 
-					{#if transactions.length > 10}
+					{#if transactions.length > 14}
 						<div class="mt-4 text-center">
 							<Button.Root
 								variant="ghost"

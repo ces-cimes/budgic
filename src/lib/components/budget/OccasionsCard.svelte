@@ -59,8 +59,8 @@
 		load();
 	});
 
-	function openManage() {
-		goto('/settings/plan#occasions');
+	function openPlanSettings() {
+		goto('/settings/plan');
 	}
 </script>
 
@@ -78,8 +78,8 @@
 				<p class="text-muted-foreground text-sm">Loading…</p>
 			{:else if occasionsInPeriod.length === 0}
 				<p class="text-muted-foreground text-sm">
-					No occasions this period. Add or detect occasions to adjust your allowance for recurring
-					spending (e.g. Friday nights, first weekend).
+					No occasion adjustments apply this period. Stored occasions still affect totals when they
+					match the current window.
 				</p>
 			{:else}
 				<ul class="space-y-2">
@@ -108,7 +108,7 @@
 				{/if}
 			{/if}
 			<div class="flex gap-2">
-				<Button variant="outline" size="sm" onclick={openManage}>Manage occasions</Button>
+				<Button variant="outline" size="sm" onclick={openPlanSettings}>Plan settings</Button>
 			</div>
 		</CardContent>
 	</Card>

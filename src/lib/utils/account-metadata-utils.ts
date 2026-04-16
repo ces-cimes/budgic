@@ -471,7 +471,8 @@ export function formatMetadataFieldLabel(field: keyof AccountMetadata): string {
 		linkedAccounts: 'Linked Accounts',
 		lastReconciledDate: 'Last Reconciled Date',
 		bufferAmount: 'Buffer Amount',
-		isEmergencyFund: 'Emergency Fund Account'
+		isEmergencyFund: 'Emergency Fund Account',
+		projectedLowBalanceAlertThreshold: 'Low balance alert (projected)'
 	};
 
 	return labels[field] || field;
@@ -498,7 +499,8 @@ export function formatMetadataFieldValue(
 		field === 'minimumPayment' ||
 		field === 'loanBalance' ||
 		field === 'transferLimit' ||
-		field === 'bufferAmount'
+		field === 'bufferAmount' ||
+		field === 'projectedLowBalanceAlertThreshold'
 	) {
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',

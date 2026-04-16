@@ -5,6 +5,7 @@ import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
+import { recurringTransactionIntelligenceService } from './recurring-transaction-intelligence-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { creditUtilizationService } from './credit-utilization-service';
 import { emergencyFundService } from './emergency-fund-service';
@@ -2319,6 +2320,93 @@ class InsightsService {
 		}
 
 		return insights;
+	}
+
+	/**
+	 * Phase 8 — Patterns / Insights surface: rolling comparison and fee drift hint.
+	 */
+	async getPhase8PatternsSurfaceMetrics(mainCurrency: string): Promise<{
+		spendComparativeLine: string | null;
+		incomeComparativeLine: string | null;
+		savingsTrendSymbol: string | null;
+		feeDriftLine: string | null;
+	}> {
+		const txs = await db.transactions
+			.filter((t) => Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string')
+			.toArray();
+
+		const savingsIds = new Set(
+			(await db.accounts.filter((a) => !a.deletedAt && a.type === 'savings').toArray()).map((a) => a.id)
+		);
+
+		const now = new Date();
+		const buckets = [0, 1, 2, 3].map((i) => {
+			const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+			return { y: d.getFullYear(), m: d.getMonth(), expense: 0, income: 0, savingsTransfer: 0 };
+		});
+
+		for (const t of txs) {
+			const cd = new Date(t.clearedDate!);
+			const b = buckets.find((x) => x.y === cd.getFullYear() && x.m === cd.getMonth());
+			if (!b) continue;
+			if (t.type === 'expense') b.expense += Math.abs(t.amount || 0);
+			if (t.type === 'income') b.income += Math.abs(t.amount || 0);
+			if (t.type === 'transfer' && t.transferDetails?.toAccountId && t.accountId) {
+				const toId = t.transferDetails.toAccountId;
+				if (savingsIds.has(toId) && !savingsIds.has(t.accountId)) {
+					b.savingsTransfer += Math.abs(
+						t.transferDetails.transferAmount ?? t.accountAmount ?? t.amount ?? 0
+					);
+				}
+			}
+		}
+
+		const prev = buckets.slice(1, 4);
+		const cur = buckets[0];
+		const avgExp = prev.reduce((s, x) => s + x.expense, 0) / Math.max(prev.length, 1);
+		const avgInc = prev.reduce((s, x) => s + x.income, 0) / Math.max(prev.length, 1);
+		const spendPct = avgExp > 0 ? (cur.expense / avgExp - 1) * 100 : null;
+		const incPct = avgInc > 0 ? (cur.income / avgInc - 1) * 100 : null;
+		const spendComparativeLine =
+			spendPct == null || !Number.isFinite(spendPct)
+				? null
+				: `vs 3-month average spend: ${spendPct >= 0 ? '+' : ''}${spendPct.toFixed(0)}%`;
+		const incomeComparativeLine =
+			incPct == null || !Number.isFinite(incPct)
+				? null
+				: `vs 3-month average income: ${incPct >= 0 ? '+' : ''}${incPct.toFixed(0)}%`;
+
+		const sv = buckets.slice(0, 3).map((x) => x.savingsTransfer);
+		let savingsTrendSymbol: string | null = null;
+		if (sv[0] + sv[1] + sv[2] > 0) {
+			if (sv[0] > sv[1] * 1.05 && sv[1] >= sv[2]) savingsTrendSymbol = '↑';
+			else if (sv[0] < sv[1] * 0.95 && sv[1] <= sv[2]) savingsTrendSymbol = '↓';
+			else savingsTrendSymbol = '→';
+		}
+
+		let feeDriftLine: string | null = null;
+		try {
+			const patterns = await recurringTransactionIntelligenceService.detectPatterns(120, 3);
+			for (const p of patterns) {
+				if (p.metadata?.type !== 'expense') continue;
+				const amts = [...p.historicalAmounts].slice(-3).map((x) => Math.abs(x));
+				if (amts.length >= 3 && amts[1] >= amts[0] && amts[2] >= amts[1] && amts[2] > amts[0]) {
+					const label = p.metadata?.notes || p.descriptionPattern || 'Bill';
+					const delta = amts[2] - amts[0];
+					feeDriftLine = `Your ${label} has increased ${formatTransactionAmount(delta, mainCurrency, true)} over recent charges`;
+					break;
+				}
+			}
+		} catch {
+			// ignore
+		}
+
+		return {
+			spendComparativeLine,
+			incomeComparativeLine,
+			savingsTrendSymbol,
+			feeDriftLine
+		};
 	}
 }
 

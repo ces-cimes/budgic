@@ -28,7 +28,12 @@
 	import { getActiveFilterCount } from './filters/filter-utils';
 	import { swipe, type SwipeDirection } from '$lib/actions/swipe';
 	import { createDistanceThresholdGhostSuppression } from '$lib/utils/ghost-click-suppression';
-	import { tick } from 'svelte';
+	import { tick, onMount } from 'svelte';
+	import { recurringTransactionIntelligenceService } from '$lib/core/services';
+	import {
+		resolveSmartLabel,
+		type SmartPatternForLabel
+	} from '$lib/utils/smart-date-labels';
 
 	// Filter state interface
 	export interface FilterState {
@@ -210,6 +215,22 @@
 
 	let monthSwipeSurfaceEl = $state<HTMLDivElement | undefined>(undefined);
 	let monthSwipeSliderEl = $state<HTMLDivElement | undefined>(undefined);
+
+	/** Phase 8 — recurring slices for smart date group headers (loaded once). */
+	let smartLabelPatterns = $state<SmartPatternForLabel[]>([]);
+
+	onMount(() => {
+		void recurringTransactionIntelligenceService.detectPatterns(365, 3).then((patterns) => {
+			smartLabelPatterns = patterns.map((p) => ({
+				frequency: p.frequency,
+				confidence: p.confidence,
+				typicalDayOfMonth: p.typicalDayOfMonth,
+				typicalDayOfWeek: p.typicalDayOfWeek,
+				averageAmount: p.averageAmount,
+				txType: p.metadata?.type
+			}));
+		});
+	});
 
 	/** Slide distance for px phases: prefer slider box, then surface, then viewport. */
 	function monthSwipeTravelPx(): number {
@@ -678,9 +699,23 @@
 		});
 
 		// Convert to array and sort groups by date (most recent first)
-		return Array.from(grouped.values()).sort((a, b) => {
+		const sortedGroups = Array.from(grouped.values()).sort((a, b) => {
 			return b.group.date.getTime() - a.group.date.getTime();
 		});
+
+		// Phase 8: contextual headers (most recent transaction date in the group)
+		const pat = smartLabelPatterns;
+		for (const row of sortedGroups) {
+			let repMs = row.group.date.getTime();
+			for (const t of row.transactions) {
+				const dt = new Date(getTransactionDate(t)).getTime();
+				if (!Number.isNaN(dt) && dt > repMs) repMs = dt;
+			}
+			const rep = new Date(repMs);
+			row.group.label = resolveSmartLabel(rep, pat);
+		}
+
+		return sortedGroups;
 	});
 
 	// Summary stats and per-date-group totals, converted to main currency (async)

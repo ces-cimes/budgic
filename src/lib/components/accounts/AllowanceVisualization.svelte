@@ -176,6 +176,17 @@
 						)}
 					</p>
 				{/if}
+				{#if projection.hasAcknowledgedDebtInPeriod && projection.recoveryWeeksEstimate != null}
+					<div class="relative mt-4 h-7 w-full" role="img" aria-label="Recovery projection">
+						<div
+							class="border-amber-600/60 pointer-events-none absolute right-0 left-8 top-3 border-t border-dashed"
+							style="transform: rotate(-6deg); transform-origin: left center;"
+						></div>
+						<p class="text-muted-foreground absolute bottom-0 left-0 text-[10px]">
+							Recovery trajectory · ~{projection.recoveryWeeksEstimate} wk
+						</p>
+					</div>
+				{/if}
 			</AlertDescription>
 		</Alert>
 	{/if}

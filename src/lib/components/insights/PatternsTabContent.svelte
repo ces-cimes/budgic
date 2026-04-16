@@ -4,10 +4,15 @@
 	 * Spending pulse, Recurring, Anomalies, Your patterns, Upcoming.
 	 * Spending primary; app usage secondary and de-emphasized.
 	 */
-	import { onMount } from 'svelte';
-	import { insightsService } from '$lib/core/services';
-	import { recurringTransactionIntelligenceService } from '$lib/core/services';
-	import { transactionService } from '$lib/core/services';
+	import { onMount, tick } from 'svelte';
+	import {
+		insightsService,
+		recurringTransactionIntelligenceService,
+		transactionService,
+		budgetService
+	} from '$lib/core/services';
+	import type { RecurringPattern } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
+	import type { Category } from '$lib/core/db';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { dismissedAnomalies, dismissAnomaly } from '$lib/stores/dismissed-anomalies';
 	import { db } from '$lib/core/db';
@@ -15,9 +20,11 @@
 	import AppUsageAnalytics from './AppUsageAnalytics.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { toast } from 'svelte-sonner';
 	import RecurringPatternSheet from './RecurringPatternSheet.svelte';
 	import { ChevronRight } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Progress } from '$lib/components/ui/progress';
 	import type { Insight } from '$lib/core/db';
 
 	interface Props {
@@ -26,26 +33,38 @@
 		className?: string;
 		/** When set (e.g. from /insights?insightType=…), show matching stored insights at top. */
 		insightTypeFilter?: string;
+		/** False when Insights tab is not Patterns (inactive panels stay mounted). */
+		patternsTabActive?: boolean;
 	}
 
 	const {
 		isLoading: parentLoading = false,
 		userCurrency = 'USD',
 		className = '',
-		insightTypeFilter
+		insightTypeFilter,
+		patternsTabActive = true
 	}: Props = $props();
 
 	let spendingPulse = $state<string>('Loading your spending pulse…');
 	let isNewUser = $state(false);
-	let recurringList = $state<
-		Array<{
-			patternId: string;
-			description: string;
-			amount: string;
-			nextDate: string;
-			inferred: boolean;
-		}>
-	>([]);
+	type RecurringRow = {
+		patternId: string;
+		description: string;
+		amount: string;
+		nextDate: string;
+		inferred: boolean;
+		allowanceImpact: number;
+		needsReview: boolean;
+	};
+	let recurringList = $state<RecurringRow[]>([]);
+	let dataQualityRatio = $state<number | null>(null);
+	let unclassifiedTxCount = $state(0);
+	let phase8Surface = $state<{
+		spendComparativeLine: string | null;
+		incomeComparativeLine: string | null;
+		savingsTrendSymbol: string | null;
+		feeDriftLine: string | null;
+	} | null>(null);
 	let anomalies = $state<
 		Array<{
 			type: 'unusual_amount' | 'unusual_timing' | 'unusual_category';
@@ -67,6 +86,8 @@
 	let upcomingSummary = $state<string>('');
 	let upcomingWeekAmount = $state<number | null>(null);
 	let loading = $state(true);
+	/** Prevents duplicate scroll/toast when `review=1` effect re-runs. */
+	let reviewStubLock = $state(false);
 	let recurringSheetOpen = $state(false);
 	let selectedPatternId = $state<string | null>(null);
 	let alertTypeInsights = $state<Insight[]>([]);
@@ -76,6 +97,38 @@
 		url.searchParams.delete('insightType');
 		goto(url.pathname + url.search, { replaceState: true, noScroll: true });
 	}
+
+	/** Phase 8 follow-up: `review=1` deep link until Phase 9.7 review session exists. */
+	$effect(() => {
+		if (!patternsTabActive) return;
+		const url = $page.url;
+		if (url.searchParams.get('review') !== '1' || reviewStubLock) return;
+		reviewStubLock = true;
+		void (async () => {
+			try {
+				await tick();
+				document.getElementById('insights-data-quality')?.scrollIntoView({
+					behavior: 'smooth',
+					block: 'start'
+				});
+				toast.message("Bulk review isn't available yet", {
+					description:
+						'Use the Transactions list to classify items. A guided review session is planned (Phase 9.7).',
+					action: {
+						label: 'Transactions',
+						onClick: () => {
+							void goto('/transactions');
+						}
+					}
+				});
+				const next = new URL(url);
+				next.searchParams.delete('review');
+				await goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
+			} finally {
+				reviewStubLock = false;
+			}
+		})();
+	});
 
 	$effect(() => {
 		const t = insightTypeFilter;
@@ -134,15 +187,137 @@
 		}
 	}
 
+	function patternMonthlyEstimate(p: RecurringPattern): number {
+		const a = Math.abs(p.averageAmount);
+		switch (p.frequency) {
+			case 'daily':
+				return a * 30;
+			case 'weekly':
+				return a * (365 / 7 / 12);
+			case 'biweekly':
+				return a * (365 / 14 / 12);
+			case 'monthly':
+				return a;
+			case 'quarterly':
+				return a / 3;
+			case 'yearly':
+				return a / 12;
+			default:
+				return a;
+		}
+	}
+
+	function patternNeedsReviewHeuristic(p: RecurringPattern): boolean {
+		const relVar =
+			Math.abs(p.averageAmount) > 0.01
+				? (p.amountVariability / Math.abs(p.averageAmount)) * 100
+				: 0;
+		return relVar > 40 || p.categoryConfidence < 45 || !p.learnedCategoryId;
+	}
+
+	async function buildRecurringRows(
+		patterns: RecurringPattern[],
+		currency: string,
+		totalMonthlySpend: number
+	): Promise<RecurringRow[]> {
+		const rows: RecurringRow[] = [];
+		for (const p of patterns) {
+			const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(p.id);
+			const pm = patternMonthlyEstimate(p);
+			const allowanceImpact = totalMonthlySpend > 0 ? pm / totalMonthlySpend : 0;
+			rows.push({
+				patternId: p.id,
+				description: p.metadata?.notes || p.descriptionPattern || 'Recurring',
+				amount: pred
+					? `~${formatAmount(pred.predictedAmount, p.metadata?.currency || currency)}`
+					: '—',
+				nextDate: pred?.nextOccurrenceDate
+					? new Date(pred.nextOccurrenceDate).toLocaleDateString('en-US', {
+							month: 'short',
+							day: 'numeric'
+						})
+					: '—',
+				inferred: p.patternType === 'approximate' || p.patternType === 'seasonal',
+				allowanceImpact,
+				needsReview: patternNeedsReviewHeuristic(p)
+			});
+		}
+		rows.sort((a, b) => b.allowanceImpact - a.allowanceImpact);
+		return rows;
+	}
+
+	async function applyPatternTier(patternId: string, tier: NonNullable<Category['waterfallTier']>) {
+		const p = await recurringTransactionIntelligenceService.getPattern(patternId);
+		if (!p?.matchingTransactionIds?.length) return;
+		const txs = (await db.transactions.bulkGet(p.matchingTransactionIds)).filter(
+			(t): t is import('$lib/core/db').Transaction => t != null && !t.deletedAt
+		);
+		const counts = new Map<string, number>();
+		for (const t of txs) {
+			if (!t.categoryId) continue;
+			counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1);
+		}
+		if (counts.size === 0) return;
+		let bestId: string | null = null;
+		let bestN = 0;
+		for (const [id, n] of counts) {
+			if (n > bestN) {
+				bestId = id;
+				bestN = n;
+			}
+		}
+		if (!bestId) return;
+		const tied = [...counts.values()].filter((n) => n === bestN).length;
+		if (tied > 1) return;
+		await budgetService.updateBudgetCategory(bestId, { waterfallTier: tier });
+		await refreshRecurringFromServices(userCurrency);
+	}
+
+	function handleDataQualityBarClick() {
+		if (unclassifiedTxCount > 0) {
+			goto('/insights?tab=patterns&review=1', { replaceState: true, noScroll: true });
+		}
+	}
+
+	const tierChipDefs: { tier: NonNullable<Category['waterfallTier']>; label: string }[] = [
+		{ tier: 'unclassified', label: 'U' },
+		{ tier: 'survival', label: 'S' },
+		{ tier: 'security', label: 'Se' },
+		{ tier: 'growth', label: 'G' },
+		{ tier: 'lifestyle', label: 'L' }
+	];
+
+	async function refreshRecurringFromServices(currency: string) {
+		const [summary, recurringPatterns, allTx] = await Promise.all([
+			budgetService.getBudgetSummary(),
+			recurringTransactionIntelligenceService.detectPatterns(90, 2),
+			transactionService.getAllTransactions()
+		]);
+		dataQualityRatio = summary?.confidence?.ratio ?? null;
+		unclassifiedTxCount = summary?.unclassifiedTransactionCount ?? 0;
+		const cleared = (allTx || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
+		const expenseSum = cleared
+			.filter((t) => t.type === 'expense')
+			.reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+		const months = 90 / 30;
+		const totalMonthlySpend = months > 0 ? expenseSum / months : 0;
+		recurringList = await buildRecurringRows(recurringPatterns, currency, totalMonthlySpend);
+	}
+
 	onMount(async () => {
 		loading = true;
 		try {
 			const days = 90;
-			const [behavioral, patternsResult, allTx] = await Promise.all([
+			const [behavioral, patternsResult, allTx, budgetSummary, surface] = await Promise.all([
 				insightsService.getBehavioralPatternInsights(),
 				insightsService.analyzeSpendingPatternsAsync(days),
-				transactionService.getAllTransactions()
+				transactionService.getAllTransactions(),
+				budgetService.getBudgetSummary(),
+				insightsService.getPhase8PatternsSurfaceMetrics(userCurrency)
 			]);
+			phase8Surface = surface;
+			dataQualityRatio = budgetSummary?.confidence?.ratio ?? null;
+			unclassifiedTxCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
 
 			const cleared = (allTx || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
 			const firstTx = cleared.length
@@ -187,26 +362,14 @@
 					'Your spending looks consistent. No notable patterns to highlight this week.';
 			}
 
-			// Recurring (include patternId for drill-in sheet)
+			// Recurring — allowance-impact sort (Phase 8)
+			const expenseSum = cleared
+				.filter((t) => t.type === 'expense')
+				.reduce((s, t) => s + Math.abs(t.amount || 0), 0);
+			const months = days / 30;
+			const totalMonthlySpend = months > 0 ? expenseSum / months : 0;
 			const recurringPatterns = await recurringTransactionIntelligenceService.detectPatterns(90, 2);
-			recurringList = [];
-			for (const p of recurringPatterns.slice(0, 5)) {
-				const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(p.id);
-				recurringList.push({
-					patternId: p.id,
-					description: p.metadata?.notes || p.descriptionPattern || 'Recurring',
-					amount: pred
-						? `~${formatAmount(pred.predictedAmount, p.metadata?.currency || userCurrency)}`
-						: '—',
-					nextDate: pred?.nextOccurrenceDate
-						? new Date(pred.nextOccurrenceDate).toLocaleDateString('en-US', {
-								month: 'short',
-								day: 'numeric'
-							})
-						: '—',
-					inferred: p.patternType === 'approximate' || p.patternType === 'seasonal'
-				});
-			}
+			recurringList = await buildRecurringRows(recurringPatterns, userCurrency, totalMonthlySpend);
 
 			// Anomalies: enrich with transaction + category for transaction-like display (no "Unusually large..." text)
 			const rawAnomalies = (patternsResult.anomalyPatterns || []).slice(0, 10);
@@ -338,13 +501,52 @@
 				>
 					Spending pulse
 				</h2>
-				<div class="squircle-2xl squircle-border bg-card min-h-[3rem] px-4 py-3 text-sm">
+				<div class="squircle-2xl squircle-border bg-card min-h-[3rem] space-y-1.5 px-4 py-3 text-sm">
 					<p class="relative z-[2] text-[var(--color-text-secondary)]">
 						{spendingPulse ||
 							'Your spending at a glance. Add more transactions to see patterns here.'}
 					</p>
+					{#if phase8Surface}
+						{#if phase8Surface.spendComparativeLine}
+							<p class="text-muted-foreground text-xs">{phase8Surface.spendComparativeLine}</p>
+						{/if}
+						{#if phase8Surface.incomeComparativeLine}
+							<p class="text-muted-foreground text-xs">{phase8Surface.incomeComparativeLine}</p>
+						{/if}
+						{#if phase8Surface.savingsTrendSymbol}
+							<p class="text-muted-foreground text-xs">
+								Savings contributions trend: {phase8Surface.savingsTrendSymbol}
+							</p>
+						{/if}
+						{#if phase8Surface.feeDriftLine}
+							<p class="text-muted-foreground text-xs">{phase8Surface.feeDriftLine}</p>
+						{/if}
+					{/if}
 				</div>
 			</section>
+
+			{#if dataQualityRatio != null}
+				<section id="insights-data-quality">
+					<button
+						type="button"
+						class="border-border bg-card hover:bg-muted/40 squircle-2xl squircle-border w-full px-4 py-3 text-left transition-colors"
+						onclick={handleDataQualityBarClick}
+					>
+						<div class="mb-2 flex items-center justify-between gap-2">
+							<span class="text-muted-foreground text-xs font-semibold tracking-widest uppercase"
+								>Data quality</span
+							>
+							<span class="text-foreground text-sm font-medium"
+								>{Math.round(dataQualityRatio * 100)}% classified</span
+							>
+						</div>
+						<Progress value={Math.round(dataQualityRatio * 100)} max={100} class="h-1.5" />
+						{#if unclassifiedTxCount > 0}
+							<p class="text-muted-foreground mt-2 text-xs">Tap to review unclassified transactions.</p>
+						{/if}
+					</button>
+				</section>
+			{/if}
 
 			<!-- 2. Recurring (transaction-like cards) -->
 			<section>
@@ -358,18 +560,24 @@
 				{:else}
 					<ul class="space-y-2">
 						{#each recurringList as item}
-							<li>
+							<li class="border-border bg-card rounded-xl border-2">
 								<button
 									type="button"
-									class="border-border bg-card hover:bg-muted/30 focus-visible:ring-ring flex w-full items-center gap-2 rounded-xl border-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
+									class="hover:bg-muted/30 focus-visible:ring-ring flex w-full items-center gap-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
 									onclick={() => {
 										selectedPatternId = item.patternId;
 										recurringSheetOpen = true;
 									}}
 								>
 									<div class="min-w-0 flex-1">
-										<p class="text-foreground truncate text-base font-semibold">
-											{item.inferred ? '~' : ''}{item.description}
+										<p class="text-foreground flex flex-wrap items-center gap-2 truncate font-semibold">
+											<span class="truncate">{item.inferred ? '~' : ''}{item.description}</span>
+											{#if item.needsReview}
+												<span
+													class="border-border text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
+													>Needs review</span
+												>
+											{/if}
 										</p>
 										<p class="text-muted-foreground mt-0.5 truncate text-sm">
 											Next: {item.nextDate}
@@ -380,6 +588,17 @@
 										<ChevronRight class="text-muted-foreground h-4 w-4" />
 									</div>
 								</button>
+								<div class="border-border flex flex-wrap gap-1 border-t px-3 py-2">
+									{#each tierChipDefs as chip (chip.tier)}
+										<button
+											type="button"
+											class="border-border text-muted-foreground hover:bg-muted/60 rounded border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase"
+											onclick={() => applyPatternTier(item.patternId, chip.tier)}
+										>
+											{chip.label}
+										</button>
+									{/each}
+								</div>
 							</li>
 						{/each}
 					</ul>

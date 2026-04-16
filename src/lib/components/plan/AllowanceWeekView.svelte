@@ -12,15 +12,18 @@
 	interface Props {
 		allowance: EnhancedAllowance | null;
 		currency: string;
+		/** Phase 8 — ISO date key (yyyy-MM-dd) → short label (e.g. Payday) */
+		dayAnnotations?: Record<string, string>;
 	}
 
-	const { allowance, currency }: Props = $props();
+	const { allowance, currency, dayAnnotations = {} }: Props = $props();
 
 	const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 	type DayRow = {
 		label: string;
 		date: Date;
+		dateKey: string;
 		isToday: boolean;
 		spentActual: number;
 		spentProjected: number;
@@ -102,6 +105,7 @@
 				days.push({
 					label: DAY_LABELS[i],
 					date,
+					dateKey: key,
 					isToday,
 					spentActual,
 					spentProjected,
@@ -139,6 +143,16 @@
 						? '-m-0.5 rounded-lg p-1 ring-2 ring-[var(--color-amber)]'
 						: ''}"
 				>
+					{#if dayAnnotations[day.dateKey]}
+						<span
+							class="text-[9px] font-medium tracking-tight text-[var(--color-text-tertiary)]"
+							title={dayAnnotations[day.dateKey]}
+						>
+							{dayAnnotations[day.dateKey]}
+						</span>
+					{:else}
+						<span class="h-[11px]"></span>
+					{/if}
 					<div
 						class="flex min-h-[4px] w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--color-bg-surface)]"
 						style="height: 40px;"

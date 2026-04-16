@@ -45,7 +45,8 @@
 		userService,
 		negativeAllowanceService,
 		goalsService,
-		goalService
+		goalService,
+		recurringTransactionIntelligenceService
 	} from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
 	import type {
@@ -53,6 +54,8 @@
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { addDays, startOfWeek } from 'date-fns';
+	import { resolveSmartLabel, type SmartPatternForLabel } from '$lib/utils/smart-date-labels';
 
 	const planTabs: TabConfig[] = [
 		{ id: 'allowance', label: 'Allowance', icon: DollarSign },
@@ -108,6 +111,7 @@
 	let error = $state<string | null>(null);
 	/** Phase 5.3 — intentional debt prompt (one group per period) */
 	let debtPromptGroupId = $state<string | null>(null);
+	let weekDayAnnotations = $state<Record<string, string>>({});
 
 	const totalPlannedIncome = $derived(planningData?.totalPlannedIncome ?? 0);
 	const totalPlannedExpenses = $derived(planningData?.totalPlannedExpenses ?? 0);
@@ -194,6 +198,30 @@
 			if (selectedAccountId) {
 				planningData = await planService.getPlanningData(selectedAccountId);
 				weeklyProjections = await planService.getWeeklyProjections(selectedAccountId);
+			}
+
+			try {
+				const patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
+				const slices: SmartPatternForLabel[] = patterns.map((p) => ({
+					frequency: p.frequency,
+					confidence: p.confidence,
+					typicalDayOfMonth: p.typicalDayOfMonth,
+					typicalDayOfWeek: p.typicalDayOfWeek,
+					averageAmount: p.averageAmount,
+					txType: p.metadata?.type
+				}));
+				const now = new Date();
+				const ws = startOfWeek(now, { weekStartsOn: 1 });
+				const ann: Record<string, string> = {};
+				for (let i = 0; i < 7; i++) {
+					const d = addDays(ws, i);
+					const key = d.toISOString().slice(0, 10);
+					const lab = resolveSmartLabel(d, slices);
+					if (lab === 'Payday' || lab === 'Rent day') ann[key] = lab;
+				}
+				weekDayAnnotations = ann;
+			} catch {
+				weekDayAnnotations = {};
 			}
 		} catch (err) {
 			console.error('Error loading plan data:', err);
@@ -372,10 +400,13 @@
 									{recoverySuggestions}
 								/>
 								<!-- Week view: 7 mini bars Mon–Sun (UX_SPEC §3.2) -->
-								<AllowanceWeekView allowance={enhancedAllowance} currency={userCurrency} />
+								<AllowanceWeekView
+									allowance={enhancedAllowance}
+									currency={userCurrency}
+									dayAnnotations={weekDayAnnotations}
+								/>
 								<PlanRulesSummary />
 							</div>
-							<OutstandingReimbursementsPanel />
 							<!-- 30-day cash flow chart (UX_SPEC §3.2) -->
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
 								<h3
@@ -386,38 +417,65 @@
 								<BalanceProjectionChart daysAhead={30} showDetails={false} />
 							</div>
 							{#if sinkingFunds.length > 0}
-								<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-3 p-5">
-									<h3
-										class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								<details
+									class="squircle-4xl squircle-border squircle-fill-tertiary group/sink open:bg-opacity-95"
+									open
+								>
+									<summary
+										class="text-muted-foreground hover:text-foreground cursor-pointer list-none px-5 py-3 text-xs font-semibold tracking-widest uppercase [&::-webkit-details-marker]:hidden"
 									>
 										Sinking funds
-									</h3>
-									{#each sinkingFunds as fund (fund.id)}
-										{@const progress =
-											fund.targetAmount > 0
-												? Math.min(100, (fund.currentAmount / fund.targetAmount) * 100)
-												: 0}
-										<div class="space-y-1.5">
-											<div class="flex items-center justify-between text-sm">
-												<span>{fund.name}</span>
-												<span class="text-[var(--color-text-tertiary)]">
-													{formatTransactionAmount(fund.currentAmount, fund.currency)} /
-													{formatTransactionAmount(fund.targetAmount, fund.currency)}
-													{#if fund.targetDate}
-														· {new Date(fund.targetDate).toLocaleDateString()}
-													{/if}
-												</span>
+									</summary>
+									<div class="space-y-3 px-5 pb-5">
+										{#each sinkingFunds as fund (fund.id)}
+											{@const progress =
+												fund.targetAmount > 0
+													? Math.min(100, (fund.currentAmount / fund.targetAmount) * 100)
+													: 0}
+											<div class="space-y-1.5">
+												<div class="flex items-center justify-between text-sm">
+													<span>{fund.name}</span>
+													<span class="text-[var(--color-text-tertiary)]">
+														{formatTransactionAmount(fund.currentAmount, fund.currency)} /
+														{formatTransactionAmount(fund.targetAmount, fund.currency)}
+														{#if fund.targetDate}
+															<span
+																class="border-border ml-1 rounded border px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]"
+															>
+																{new Date(fund.targetDate).toLocaleDateString(undefined, {
+																	month: 'short',
+																	day: 'numeric'
+																})}
+															</span>
+														{/if}
+													</span>
+												</div>
+												<div class="h-2 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+													<div
+														class="h-full bg-[var(--color-amber)] transition-all"
+														style={`width: ${progress}%`}
+													></div>
+												</div>
 											</div>
-											<div class="h-2 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
-												<div
-													class="h-full bg-[var(--color-amber)] transition-all"
-													style={`width: ${progress}%`}
-												></div>
-											</div>
-										</div>
-									{/each}
-								</div>
+										{/each}
+									</div>
+								</details>
 							{/if}
+							<details class="group/reimb border-border squircle-2xl squircle-border bg-card open:bg-card/80">
+								<summary
+									class="text-muted-foreground hover:text-foreground cursor-pointer list-none px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden"
+								>
+									<span class="inline-flex items-center gap-2">
+										Outstanding reimbursements
+										<span class="text-[10px] tracking-wide opacity-60 group-open/reimb:hidden"
+											>(expand)</span
+										>
+									</span>
+								</summary>
+								<div class="border-border border-t px-2 pb-4">
+									<OutstandingReimbursementsPanel />
+								</div>
+							</details>
 						{:else if dailyAllowance}
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary p-5">
 								<p

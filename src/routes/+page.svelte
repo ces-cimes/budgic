@@ -30,6 +30,10 @@
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
 	import type { Insight } from '$lib/core/db';
+	import {
+		tierRowsFromBudgetSummary,
+		type AllowanceTierRow
+	} from '$lib/utils/budget-tier-display';
 
 	const { data } = $props<{ data: any }>();
 
@@ -49,6 +53,7 @@
 		unclassifiedSpend: number;
 		totalSpend: number;
 	} | null>(null);
+	let allowanceTierRows = $state<AllowanceTierRow[]>([]);
 	/** Critical tier alerts for "Needs attention" (Phase 5: unified alerts, 2–3 max) */
 	let criticalAlerts = $state<Insight[]>([]);
 	let isLoaded = $state(false);
@@ -130,6 +135,7 @@
 			]);
 			globalAllowance = enhancedAllowance;
 			allowanceConfidence = budgetSummary?.confidence ?? null;
+			allowanceTierRows = tierRowsFromBudgetSummary(budgetSummary);
 			if (globalAllowance) {
 				const prefs = await userServiceImport.getUserPreferences();
 				const handling =
@@ -162,6 +168,7 @@
 			}
 		} catch (error) {
 			console.error('Error loading global allowance:', error);
+			allowanceTierRows = [];
 		} finally {
 			isLoadingAllowance = false;
 		}
@@ -331,6 +338,7 @@
 						negativeStatus={negativeAllowanceStatus}
 						{recoverySuggestions}
 						confidence={allowanceConfidence}
+						tierRows={allowanceTierRows}
 					/>
 				</a>
 			</section>

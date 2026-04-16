@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 
-/** Occasions settings merged into Settings > Plan. Redirect old links. */
+/** Occasions removed (Phase 8). Redirect old links to Plan settings. */
 export function load() {
-	redirect(302, '/settings/plan#occasions');
+	redirect(302, '/settings/plan');
 }

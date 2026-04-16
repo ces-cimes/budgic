@@ -416,9 +416,9 @@ class BalanceProjectionService {
 	}
 
 	/**
-	 * Get projected transaction impact
+	 * Balance delta from a projected row (Phase 8 / UI). Simplified transfer model when `transferDetails` is absent.
 	 */
-	private getProjectedTransactionImpact(tx: ProjectedTransaction, accountId: string): number {
+	getProjectedTransactionImpactForAccount(tx: ProjectedTransaction, accountId: string): number {
 		if (tx.accountId !== accountId) return 0;
 
 		switch (tx.type) {
@@ -427,14 +427,19 @@ class BalanceProjectionService {
 			case 'expense':
 				return -tx.amount;
 			case 'transfer':
-				// For transfers, we need to check if this is the source or destination
-				// For now, assume negative for source account (simplified)
 				return -tx.amount;
 			case 'adjustment':
 				return tx.amount;
 			default:
 				return 0;
 		}
+	}
+
+	/**
+	 * Get projected transaction impact
+	 */
+	private getProjectedTransactionImpact(tx: ProjectedTransaction, accountId: string): number {
+		return this.getProjectedTransactionImpactForAccount(tx, accountId);
 	}
 
 	/**
