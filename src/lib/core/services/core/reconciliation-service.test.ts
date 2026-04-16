@@ -23,6 +23,7 @@ vi.mock('$lib/core/db', async () => {
 				update: vi.fn()
 			},
 			transactions: {
+				update: vi.fn(() => Promise.resolve(1)),
 				where: vi.fn(() => ({
 					equals: vi.fn(() => ({
 						and: vi.fn(() => ({
@@ -71,6 +72,7 @@ vi.mock('./account-service', () => ({
 		getAccount: vi.fn(),
 		recalculateAccountBalance: vi.fn(),
 		getTransactionImpact: vi.fn(),
+		updateAccount: vi.fn(() => Promise.resolve()),
 		updateAccountMetadata: vi.fn()
 	}
 }));
@@ -177,6 +179,9 @@ describe('ReconciliationService', () => {
 			vi.mocked(db.getTransactionsByAccount).mockResolvedValue(mockTransactions);
 			vi.mocked(accountService.recalculateAccountBalance).mockResolvedValue(1250);
 			vi.mocked(db.reconciliationRecords.add).mockResolvedValue('record-1');
+			vi.mocked(accountService.getTransactionImpact).mockImplementation(
+				(tx: Transaction) => tx.amount ?? 0
+			);
 		});
 
 		it('should perform successful reconciliation with no discrepancy', async () => {
@@ -243,7 +248,6 @@ describe('ReconciliationService', () => {
 
 		it('should auto-resolve small discrepancies', async () => {
 			const statementBalance = 1250.01; // 1 cent discrepancy
-			vi.mocked(transactionService.createTransaction).mockResolvedValue({} as any);
 			vi.mocked(db.reconciliationRecords.update).mockResolvedValue(1);
 
 			const result = await reconciliationService.performReconciliation(
@@ -255,13 +259,15 @@ describe('ReconciliationService', () => {
 				}
 			);
 
-			expect(result.discrepancy).toBe(0.01);
-			expect(transactionService.createTransaction).toHaveBeenCalledWith(
-				expect.objectContaining({
-					type: 'adjustment',
-					amount: 0.01,
-					description: 'Automatic reconciliation adjustment'
-				})
+			// Phase 0.3: auto-resolve patches balance directly; no adjustment transaction is created
+			expect(result.discrepancy).toBeCloseTo(0.01, 5);
+			expect(accountService.updateAccount).toHaveBeenCalledWith(
+				'account-1',
+				expect.objectContaining({ currentBalance: expect.any(Number) })
+			);
+			expect(db.reconciliationRecords.update).toHaveBeenCalledWith(
+				result.id,
+				expect.objectContaining({ balanceAdjustmentApplied: expect.any(Number) })
 			);
 		});
 

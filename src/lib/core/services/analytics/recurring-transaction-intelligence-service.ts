@@ -14,6 +14,13 @@ import { db, generateUUID } from '$lib/core/db';
 import type { Transaction, Category } from '$lib/core/db';
 import { transactionService } from '../core/transaction-service';
 import {
+	RECURRING_DETECTION_CONFIG,
+	TransactionSimilarityEngine,
+	resolveSimilarityProfile,
+	type SimilarityProfileName
+} from '../intelligence/transaction-similarity-engine';
+import TransactionSimilarityWorker from '../intelligence/transaction-similarity.worker?worker';
+import {
 	format,
 	parseISO,
 	addDays,
@@ -127,6 +134,7 @@ class RecurringTransactionIntelligenceService {
 	private patternCache: Map<string, RecurringPattern> = new Map();
 	private cacheExpiry: Map<string, number> = new Map();
 	private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+	private readonly similarityEngine = new TransactionSimilarityEngine();
 
 	/**
 	 * Detect recurring patterns from transaction history
@@ -148,8 +156,12 @@ class RecurringTransactionIntelligenceService {
 
 		const patterns: RecurringPattern[] = [];
 
-		// Group transactions by similarity (description, amount, category, type)
-		const transactionGroups = this.groupSimilarTransactions(transactions);
+		// Group transactions by similarity (description, amount, account, temporal cadence)
+		const transactionGroups = await this.clusterTransactions(
+			transactions,
+			'RECURRING_DETECTION_CONFIG',
+			2
+		);
 
 		for (const group of transactionGroups) {
 			if (group.length < minOccurrences) continue;
@@ -447,80 +459,41 @@ class RecurringTransactionIntelligenceService {
 	// PRIVATE HELPER METHODS
 	// ============================================================================
 
-	private groupSimilarTransactions(transactions: Transaction[]): Transaction[][] {
-		const groups: Map<string, Transaction[]> = new Map();
+	private async clusterTransactions(
+		transactions: Transaction[],
+		profileName: SimilarityProfileName,
+		minGroupSize: number
+	): Promise<Transaction[][]> {
+		if (transactions.length === 0) return [];
+		const config = resolveSimilarityProfile(profileName);
 
-		for (const tx of transactions) {
-			// Create a key based on description, type, and account
-			// Don't include amount in initial grouping - we'll merge similar amounts later
-			const key = this.createTransactionKey(tx);
-
-			if (!groups.has(key)) {
-				groups.set(key, []);
-			}
-			groups.get(key)!.push(tx);
+		if (transactions.length <= 2000) {
+			return this.similarityEngine.cluster(transactions, config, minGroupSize);
 		}
 
-		// Merge groups that are similar (same description, same type, different amounts)
-		const mergedGroups: Transaction[][] = [];
-		const processed = new Set<string>();
+		const worker = new TransactionSimilarityWorker();
 
-		for (const [key, group] of groups.entries()) {
-			if (processed.has(key)) continue;
+		try {
+			const clusteredIndices = await new Promise<number[][]>((resolve, reject) => {
+				worker.onmessage = (event: MessageEvent<{ clusters: number[][] }>) => {
+					resolve(event.data.clusters);
+				};
+				worker.onerror = (error) => {
+					reject(error);
+				};
+				worker.postMessage({
+					transactions,
+					profileName,
+					minGroupSize
+				});
+			});
 
-			const merged = [group];
-			processed.add(key);
-
-			// Find similar groups (same description pattern, same type)
-			for (const [otherKey, otherGroup] of groups.entries()) {
-				if (processed.has(otherKey)) continue;
-				if (this.areGroupsSimilar(group, otherGroup)) {
-					merged.push(otherGroup);
-					processed.add(otherKey);
-				}
-			}
-
-			mergedGroups.push(merged.flat());
+			return clusteredIndices.map((group) => group.map((index) => transactions[index]).filter(Boolean));
+		} catch {
+			return this.similarityEngine.cluster(transactions, config, minGroupSize);
+		} finally {
+			worker.terminate();
 		}
-
-		return mergedGroups.filter((g) => g.length >= 2);
-	}
-
-	private createTransactionKey(tx: Transaction): string {
-		// Normalize description for matching - focus on merchant/payee name
-		const normalizedDesc = (tx.description || '')
-			.toLowerCase()
-			.replace(/[^\w\s]/g, '')
-			.replace(/\s+/g, ' ')
-			.trim();
-
-		// Key includes: description, type, account (but NOT amount)
-		// This allows grouping transactions from same merchant regardless of amount
-		return `${normalizedDesc}_${tx.type}_${tx.accountId || 'none'}`;
-	}
-
-	private areGroupsSimilar(group1: Transaction[], group2: Transaction[]): boolean {
-		// Must have same transaction type
-		if (group1[0].type !== group2[0].type) return false;
-
-		// Check if groups have similar descriptions
-		const desc1 = (group1[0].description || '').toLowerCase();
-		const desc2 = (group2[0].description || '').toLowerCase();
-
-		// Simple similarity check - check if descriptions share significant words
-		const words1 = desc1.split(/\s+/).filter((w) => w.length > 2); // Ignore short words
-		const words2 = desc2.split(/\s+/).filter((w) => w.length > 2);
-
-		if (words1.length === 0 || words2.length === 0) {
-			// If no meaningful words, check exact match
-			return desc1 === desc2;
-		}
-
-		const commonWords = words1.filter((w) => words2.includes(w));
-		const similarity = commonWords.length / Math.max(words1.length, words2.length);
-
-		// Require at least 60% word overlap for similarity
-		return similarity >= 0.6;
 	}
 
 	private async analyzeGroupForPattern(group: Transaction[]): Promise<RecurringPattern | null> {

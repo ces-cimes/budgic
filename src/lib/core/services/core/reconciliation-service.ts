@@ -359,7 +359,7 @@ class ReconciliationService {
 		const absAmount = Math.abs(amount);
 		const percentage = totalDiscrepancy > 0 ? absAmount / totalDiscrepancy : 0;
 
-		if (absAmount <= 0.01 || percentage < 0.1) {
+		if (absAmount <= 0.01 && percentage < 0.1) {
 			return 'low';
 		} else if (absAmount <= 10 || percentage < 0.5) {
 			return 'medium';
