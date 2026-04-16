@@ -1,6 +1,7 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { AutocompleteUsage, Transaction } from '$lib/core/db';
 import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
+import { recurringTransactionIntelligenceService } from './analytics/recurring-transaction-intelligence-service';
 
 export interface DescriptionSuggestion {
 	value: string;
@@ -70,6 +71,7 @@ const SELECTION_FREQUENCY_WEIGHT = 0.4;
 
 class AutocompleteService {
 	private suggestionCache = new Map<string, { expiresAt: number; value: DescriptionSuggestion[] }>();
+	private transactionsSnapshotCache: { expiresAt: number; value: Transaction[] } | null = null;
 	private cleanupPromise: Promise<void> | null = null;
 	private cleanupDone = false;
 
@@ -83,7 +85,7 @@ class AutocompleteService {
 			return cached.value;
 		}
 
-		const transactions = await db.transactions.toArray();
+		const transactions = await this.getTransactionsSnapshot();
 		if (transactions.length < 3) {
 			return [];
 		}
@@ -142,7 +144,7 @@ class AutocompleteService {
 			)
 			.filter((item) => item.frequencyLast90Days > 0)
 			.map((item) => {
-				const selection = selectionAggregates.get(item.value.toLowerCase());
+				const selection = selectionAggregates.get(item.merchantKey);
 				const recencyScore = this.computeRecencyScore(selection?.lastSelectedMs, now);
 				const normalisedDbFrequency = this.normalizeFrequency(item.frequencyLast90Days);
 				const normalisedSelectionFrequency = this.normalizeFrequency(selection?.selectionFrequency ?? 0);
@@ -283,26 +285,21 @@ class AutocompleteService {
 	async getTagSuggestions(partial: string, limit = 8): Promise<string[]> {
 		const query = partial.trim().toLowerCase();
 		if (!query) return [];
-
-		const usageRows = await db.autocompleteUsage.where('fieldKey').equals('transaction.tags').toArray();
-		const frequencyMap = new Map<string, number>();
-		for (const row of usageRows) {
-			const normalized = row.value.trim().toLowerCase();
-			if (!normalized.startsWith(query)) continue;
-			frequencyMap.set(normalized, (frequencyMap.get(normalized) ?? 0) + 1);
-		}
-
-		return Array.from(frequencyMap.entries())
-			.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+		const tags = await db.tags
+			.where('normalizedName')
+			.startsWith(query)
+			.toArray();
+		return tags
+			.sort((a, b) => b.usageCount - a.usageCount || a.normalizedName.localeCompare(b.normalizedName))
 			.slice(0, limit)
-			.map(([tag]) => tag);
+			.map((tag) => tag.name);
 	}
 
 	async getTransferDestinationSuggestions(
 		fromAccountId: string,
 		limit = 5
 	): Promise<TransferDestinationSuggestion[]> {
-		const transactions = await db.transactions.toArray();
+		const transactions = await this.getTransactionsSnapshot();
 		const frequencies = new Map<string, number>();
 		const amountsByDestination = new Map<string, number[]>();
 
@@ -381,7 +378,7 @@ class AutocompleteService {
 
 		const nowMs = Date.now();
 		const ninetyDaysAgoMs = nowMs - NINETY_DAYS_MS;
-		const transactions = await db.transactions.toArray();
+		const transactions = await this.getTransactionsSnapshot();
 
 		interface DbAggregate {
 			frequencyLast90Days: number;
@@ -458,6 +455,7 @@ class AutocompleteService {
 
 	clearCache() {
 		this.suggestionCache.clear();
+		this.transactionsSnapshotCache = null;
 	}
 
 	private async ensureSelectionDataPruned(): Promise<void> {
@@ -498,7 +496,7 @@ class AutocompleteService {
 			const normalizedValue = this.normalizeDescription(row.value);
 			if (!normalizedValue) continue;
 
-			const key = normalizedValue.toLowerCase();
+			const key = normaliseMerchantKey(normalizedValue) || normalizedValue.toLowerCase();
 			const selectedAtMs = Date.parse(row.timestamp);
 			const existing = aggregates.get(key);
 			if (!existing) {
@@ -517,6 +515,19 @@ class AutocompleteService {
 		}
 
 		return aggregates;
+	}
+
+	private async getTransactionsSnapshot(): Promise<Transaction[]> {
+		const now = Date.now();
+		if (this.transactionsSnapshotCache && this.transactionsSnapshotCache.expiresAt > now) {
+			return this.transactionsSnapshotCache.value;
+		}
+		const transactions = await db.transactions.toArray();
+		this.transactionsSnapshotCache = {
+			expiresAt: now + CACHE_TTL_MS,
+			value: transactions
+		};
+		return transactions;
 	}
 
 	private normalizeFrequency(value: number): number {
@@ -613,7 +624,7 @@ class AutocompleteService {
 		merchantKey: string,
 		fallbackDescription: string
 	): Promise<AmountStats | null> {
-		const transactions = await db.transactions.toArray();
+		const transactions = await this.getTransactionsSnapshot();
 		const amounts: number[] = [];
 		for (const tx of transactions) {
 			if (tx.type === 'transfer') continue;
@@ -638,7 +649,29 @@ class AutocompleteService {
 		merchantKey: string,
 		fallbackDescription: string
 	): Promise<DateInference | null> {
-		const transactions = await db.transactions.toArray();
+		try {
+			const patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
+			const merchantPattern = patterns
+				.filter((pattern) => pattern.frequency !== 'irregular')
+				.find((pattern) => {
+					const patternKey = normaliseMerchantKey(pattern.descriptionPattern ?? '');
+					return patternKey.length > 0 && patternKey === merchantKey;
+				});
+			if (merchantPattern && merchantPattern.confidence > 75) {
+				const prediction =
+					await recurringTransactionIntelligenceService.predictNextOccurrence(merchantPattern.id);
+				if (prediction) {
+					return {
+						nextDate: prediction.nextOccurrenceDate,
+						confidence: prediction.confidence / 100
+					};
+				}
+			}
+		} catch (error) {
+			console.warn('Recurring intelligence date inference failed, using local fallback', error);
+		}
+
+		const transactions = await this.getTransactionsSnapshot();
 		const dates: Date[] = [];
 		for (const tx of transactions) {
 			if (tx.type === 'transfer') continue;

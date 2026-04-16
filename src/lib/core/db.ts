@@ -1252,6 +1252,13 @@ const AutocompleteUsageSchema = BaseSchema.extend({
 	timestamp: z.string().datetime()
 });
 
+const TagSchema = BaseSchema.extend({
+	name: z.string().min(1),
+	normalizedName: z.string().min(1),
+	usageCount: z.number().int().min(0).default(0),
+	lastUsedAt: z.string().datetime().optional()
+});
+
 // Simplified Budget Category Schema (now integrated into Category)
 // Budget functionality is now handled through the Category schema's budgetAmount field
 
@@ -1573,6 +1580,7 @@ export type Transaction = z.infer<typeof TransactionSchema>;
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 export type UserAction = z.infer<typeof UserActionSchema>;
 export type AutocompleteUsage = z.infer<typeof AutocompleteUsageSchema>;
+export type Tag = z.infer<typeof TagSchema>;
 export type Goal = z.infer<typeof GoalSchema>;
 export type Insight = z.infer<typeof InsightSchema>;
 export type CurrencyConfiguration = z.infer<typeof CurrencyConfigurationSchema>;
@@ -1647,6 +1655,7 @@ export class BudgicDB extends Dexie {
 	userPreferences!: Table<UserPreferences>;
 	userActions!: Table<UserAction>;
 	autocompleteUsage!: Table<AutocompleteUsage>;
+	tags!: Table<Tag>;
 	insights!: Table<Insight>;
 	currencyConfigurations!: Table<CurrencyConfiguration>;
 	exchangeRates!: Table<ExchangeRate>;
@@ -2130,6 +2139,51 @@ export class BudgicDB extends Dexie {
 				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]'
 		});
 
+		// Version 23: Tag catalog for transaction tag autocomplete
+		this.version(23).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+			tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]'
+		});
+
 		// Add validation hooks
 		this.setupValidationHooks();
 
@@ -2488,6 +2542,29 @@ export class BudgicDB extends Dexie {
 			}
 		);
 
+		this.tags.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = TagSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Tag validation failed:', error);
+				throw error;
+			}
+		});
+
+		this.tags.hook('updating', (modifications: Partial<Tag>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				TagSchema.parse(updated);
+			} catch (error) {
+				console.error('Tag update validation failed:', error);
+				throw error;
+			}
+		});
+
 		// Goal validation
 		this.goals.hook('creating', (primKey, obj, trans) => {
 			try {
@@ -2769,6 +2846,14 @@ export class BudgicDB extends Dexie {
 		this.autocompleteUsage.hook('reading', (obj) => {
 			if (!obj) {
 				console.warn('[DB Hook] autocompleteUsage: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.tags.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] tags: obj is undefined', new Error().stack);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
 	transactionsToArray: vi.fn(),
-	autocompleteUsageToArray: vi.fn()
+	autocompleteUsageToArray: vi.fn(),
+	tagsToArray: vi.fn()
 }));
 
 vi.mock('$lib/core/db', () => ({
@@ -19,6 +20,13 @@ vi.mock('$lib/core/db', () => ({
 							: vi.fn(async () => [])
 				}))
 			}))
+		},
+		tags: {
+			where: vi.fn(() => ({
+				startsWith: vi.fn(() => ({
+					toArray: mocks.tagsToArray
+				}))
+			}))
 		}
 	},
 	generateUUID: vi.fn(() => 'test-id')
@@ -32,11 +40,10 @@ describe('autocompleteService intelligence helpers', () => {
 	});
 
 	it('ranks tag suggestions by frequency for prefix', async () => {
-		mocks.autocompleteUsageToArray.mockResolvedValue([
-			{ value: 'groceries' },
-			{ value: 'groceries' },
-			{ value: 'gym' },
-			{ value: 'gift' }
+		mocks.tagsToArray.mockResolvedValue([
+			{ name: 'groceries', usageCount: 6, normalizedName: 'groceries' },
+			{ name: 'gift', usageCount: 3, normalizedName: 'gift' },
+			{ name: 'gym', usageCount: 2, normalizedName: 'gym' }
 		]);
 
 		const results = await autocompleteService.getTagSuggestions('g', 3);

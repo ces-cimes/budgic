@@ -156,6 +156,19 @@
 	let transferFeeAmount = $state(0);
 	let transferFeeAccountId = $state('');
 	let transferFeeCategoryId = $state('');
+	let transferFeeType = $state<
+		| 'banking-transfer'
+		| 'tax-withholding'
+		| 'broker-commission'
+		| 'early-withdrawal'
+		| 'penalty'
+		| 'currency-conversion'
+		| 'other'
+		| ''
+	>('');
+	let transferFeeDeductionMethod = $state<'from-transfer-amount' | 'added-to-source'>(
+		'from-transfer-amount'
+	);
 	let hasTransferFee = $state(false);
 
 	// Optimization fields
@@ -193,11 +206,12 @@
 	let descriptionIntelligence = $state<Awaited<
 		ReturnType<typeof autocompleteService.getDescriptionIntelligence>
 	> | null>(null);
+	let anomalyDismissed = $state(false);
 	let anomalyHint = $derived.by(() => {
 		if (!descriptionIntelligence?.amountStats || !description.trim()) return null;
 		const threshold =
 			descriptionIntelligence.amountStats.median + descriptionIntelligence.amountStats.stddev * 2;
-		if (!amountManuallyTouched || Math.abs(amount) <= threshold) return null;
+		if (!amountManuallyTouched || anomalyDismissed || Math.abs(amount) <= threshold) return null;
 		return `Amount is above your usual range for this description (${formatAmount(
 			threshold,
 			currency || 'USD'
@@ -211,6 +225,12 @@
 	let transferDestinationScores = $state<Map<string, { frequency: number; typicalAmount: number | null }>>(
 		new Map()
 	);
+	const DEFAULT_TAX_RATE = 0.13;
+	let toAccount = $derived(accounts.find((account) => account.id === toAccountId));
+	let canEstimateTransferTax = $derived(
+		transactionType === 'transfer' && toAccount?.type === 'savings' && Math.abs(amount) > 0
+	);
+	let estimatedTaxFeeAmount = $derived(Math.abs(amount) * DEFAULT_TAX_RATE);
 
 	// Settlement on income (Phase 3.3)
 	type SettlementTarget = {
@@ -385,7 +405,10 @@
 				label: category.name,
 				chip: categoryUsageById.get(category.id)?.budget
 					? {
-							label: `${Math.round((categoryUsageById.get(category.id)?.usageRatio ?? 0) * 100)}%`,
+							label: `${formatAmount(
+								categoryUsageById.get(category.id)?.spent ?? 0,
+								currency || 'USD'
+							)} / ${formatAmount(categoryUsageById.get(category.id)?.budget ?? 0, currency || 'USD')}`,
 							color:
 								categoryUsageById.get(category.id)?.color === 'red'
 									? '#ef4444'
@@ -486,6 +509,8 @@
 							transferFeeAmount = td.feeAmount;
 							transferFeeAccountId = td.feeAccountId || transaction.accountId || '';
 							transferFeeCategoryId = td.feeCategoryId || '';
+							transferFeeType = td.feeType || '';
+							transferFeeDeductionMethod = td.feeDeductionMethod || 'from-transfer-amount';
 						}
 					} else {
 						amount = transaction.amount ?? 0;
@@ -717,6 +742,41 @@
 		suggestedPlannedDate = '';
 	}
 
+	function applyEstimatedTransferTax() {
+		if (!canEstimateTransferTax) return;
+		hasTransferFee = true;
+		transferFeeType = 'tax-withholding';
+		transferFeeDeductionMethod = 'from-transfer-amount';
+		transferFeeAmount = Number(estimatedTaxFeeAmount.toFixed(2));
+	}
+
+	async function persistTagCatalog(tags: string[]): Promise<void> {
+		const nowIso = new Date().toISOString();
+		for (const tagName of tags) {
+			const normalizedName = tagName.toLowerCase();
+			const existing = await db.tags.where('normalizedName').equals(normalizedName).first();
+			if (existing) {
+				await db.tags.update(existing.id, {
+					name: tagName,
+					usageCount: (existing.usageCount ?? 0) + 1,
+					lastUsedAt: nowIso,
+					updatedAt: nowIso
+				});
+				continue;
+			}
+			await db.tags.add({
+				id: crypto.randomUUID(),
+				name: tagName,
+				normalizedName,
+				usageCount: 1,
+				lastUsedAt: nowIso,
+				createdAt: nowIso,
+				updatedAt: nowIso,
+				deletedAt: null
+			});
+		}
+	}
+
 	// Computed properties
 	let isEditMode = $derived(!!transaction);
 	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
@@ -907,6 +967,7 @@
 						console.warn('Failed to record tag autocomplete usage', selectionError)
 					);
 			}
+			await persistTagCatalog(parsedTags);
 			let reimbursements: ReimbursementEntry[] | undefined;
 			if (showReimbursementSection && reimbursementAmount > 0) {
 				const now = new Date().toISOString();
@@ -973,7 +1034,9 @@
 					transferAmount: transferMagnitude,
 					feeAmount: hasTransferFee ? transferFeeAmount : 0,
 					feeAccountId: hasTransferFee ? transferFeeAccountId || selectedAccount : undefined,
-					feeCategoryId: hasTransferFee ? transferFeeCategoryId : undefined
+					feeCategoryId: hasTransferFee ? transferFeeCategoryId : undefined,
+					feeType: hasTransferFee && transferFeeType ? transferFeeType : undefined,
+					feeDeductionMethod: hasTransferFee ? transferFeeDeductionMethod : undefined
 				};
 			}
 
@@ -1135,10 +1198,20 @@
 						onfocusin={() => {
 							amountManuallyTouched = true;
 							suggestedAmount = null;
+							anomalyDismissed = false;
 						}}
 						oninput={() => {
 							amountManuallyTouched = true;
 							suggestedAmount = null;
+							anomalyDismissed = false;
+						}}
+						onkeydown={(event) => {
+							if (event.key === 'Tab' || event.key === 'Enter') {
+								anomalyDismissed = true;
+							}
+						}}
+						onblur={() => {
+							anomalyDismissed = true;
 						}}
 						class="font-display w-48 border-0 border-b-2 border-[var(--color-amber)] bg-transparent text-center text-4xl text-[var(--color-hero-number)] outline-none placeholder:text-[var(--color-text-disabled)] focus:border-[var(--color-amber)]"
 					/>
@@ -1498,6 +1571,66 @@
 									</Select.Content>
 								</Select.Root>
 							</div>
+							<div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+								<Select.Root type="single" bind:value={transferFeeType}>
+									<Select.Trigger class="text-sm"
+										>{transferFeeType === 'banking-transfer'
+											? 'Banking fee'
+											: transferFeeType === 'tax-withholding'
+												? 'Tax withholding'
+												: transferFeeType === 'broker-commission'
+													? 'Broker commission'
+													: transferFeeType === 'early-withdrawal'
+														? 'Early withdrawal'
+														: transferFeeType === 'penalty'
+															? 'Penalty'
+															: transferFeeType === 'currency-conversion'
+																? 'FX conversion'
+																: transferFeeType === 'other'
+																	? 'Other'
+																	: 'Fee type'}</Select.Trigger
+									>
+									<Select.Content>
+										<Select.Item value="banking-transfer">Banking fee</Select.Item>
+										<Select.Item value="tax-withholding">Tax withholding</Select.Item>
+										<Select.Item value="broker-commission">Broker commission</Select.Item>
+										<Select.Item value="early-withdrawal">Early withdrawal</Select.Item>
+										<Select.Item value="penalty">Penalty</Select.Item>
+										<Select.Item value="currency-conversion">FX conversion</Select.Item>
+										<Select.Item value="other">Other</Select.Item>
+									</Select.Content>
+								</Select.Root>
+								<Select.Root type="single" bind:value={transferFeeDeductionMethod}>
+									<Select.Trigger class="text-sm"
+										>{transferFeeDeductionMethod === 'added-to-source'
+											? 'Added on top'
+											: 'From arrival amount'}</Select.Trigger
+									>
+									<Select.Content>
+										<Select.Item value="from-transfer-amount">From arrival amount</Select.Item>
+										<Select.Item value="added-to-source">Added on top</Select.Item>
+									</Select.Content>
+								</Select.Root>
+							</div>
+							{#if canEstimateTransferTax}
+								<div class="flex items-center justify-between rounded-md border border-[var(--color-border)] px-3 py-2">
+									<p class="text-xs text-[var(--color-text-tertiary)]">
+										Estimate tax ({Math.round(DEFAULT_TAX_RATE * 100)}%): {formatAmount(estimatedTaxFeeAmount, currency || 'USD')}
+									</p>
+									<button
+										type="button"
+										class="text-xs text-[var(--color-amber)] hover:underline"
+										onclick={applyEstimatedTransferTax}
+									>
+										Estimate tax
+									</button>
+								</div>
+							{/if}
+							{#if transferFeeType === 'penalty' || transferFeeType === 'early-withdrawal'}
+								<p class="text-xs text-[var(--color-amber)]">
+									This reduces your allowance.
+								</p>
+							{/if}
 						</div>
 					{:else}
 						<button
