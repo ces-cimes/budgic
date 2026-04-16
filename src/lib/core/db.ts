@@ -986,6 +986,15 @@ const ReimbursementEntrySchema = z.object({
 });
 export type ReimbursementEntry = z.infer<typeof ReimbursementEntrySchema>;
 
+export interface AllowanceConfidence {
+	exactSpend: number;
+	inferredSpend: number;
+	unclassifiedSpend: number;
+	totalSpend: number;
+	ratio: number;
+	tier: 'low' | 'medium' | 'high';
+}
+
 /** Tiers included in allowance and tier-level expense analytics (excludes unclassified) */
 export const ANALYTICS_TIERS = ['survival', 'security', 'growth', 'lifestyle'] as const;
 export type AnalyticsTier = (typeof ANALYTICS_TIERS)[number];
@@ -1180,7 +1189,9 @@ const UserPreferencesSchema = BaseSchema.extend({
 	/** Budget category spend % at or above which a High-tier approaching insight is created */
 	budgetAlertWarningAtPercent: z.number().min(1).max(200).default(80),
 	/** Budget category spend % at or above which a Critical-tier exceeded insight is created */
-	budgetAlertCriticalAtPercent: z.number().min(1).max(200).default(100)
+	budgetAlertCriticalAtPercent: z.number().min(1).max(200).default(100),
+	/** Phase 1.3 confidence nudge dismissal (key: 'nudge_classify_dismissed') */
+	nudgeClassifyDismissed: z.boolean().default(false)
 });
 
 // User Actions Schema

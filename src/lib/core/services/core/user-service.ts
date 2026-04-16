@@ -72,7 +72,8 @@ class UserService {
 			budgetAlertCriticalAtPercent:
 				typeof prefs.budgetAlertCriticalAtPercent === 'number'
 					? prefs.budgetAlertCriticalAtPercent
-					: 100
+					: 100,
+			nudgeClassifyDismissed: prefs.nudgeClassifyDismissed ?? false
 		} as UserPreferences;
 	}
 
@@ -108,6 +109,7 @@ class UserService {
 				alertsCriticalCoachmarkSeen: false,
 				budgetAlertWarningAtPercent: 80,
 				budgetAlertCriticalAtPercent: 100,
+				nudgeClassifyDismissed: false,
 				enableAdvancedFeatures: false,
 				enablePredictiveAnalytics: true,
 				analyticsEnabled: true,
@@ -460,6 +462,7 @@ class UserService {
 			alertsCriticalCoachmarkSeen: false,
 			budgetAlertWarningAtPercent: 80,
 			budgetAlertCriticalAtPercent: 100,
+			nudgeClassifyDismissed: false,
 			enableAdvancedFeatures: false,
 			enablePredictiveAnalytics: true,
 			analyticsEnabled: true,

@@ -32,6 +32,12 @@
 		allowance: EnhancedAllowance;
 		showDetails?: boolean;
 		showRecommendations?: boolean;
+		confidence?: {
+			ratio: number;
+			tier: 'low' | 'medium' | 'high';
+			unclassifiedSpend: number;
+			totalSpend: number;
+		} | null;
 		/** When spending exceeds allowance (for strong-warning / block UX) */
 		negativeStatus?: NegativeAllowanceStatus | null;
 		/** Recovery suggestions when allowance is negative */
@@ -42,6 +48,7 @@
 		allowance,
 		showDetails = true,
 		showRecommendations = true,
+		confidence = null,
 		negativeStatus = null,
 		recoverySuggestions = []
 	}: Props = $props();
@@ -107,6 +114,35 @@
 
 	// Format confidence as percentage
 	const confidencePercent = $derived(Math.round(allowance.total.confidence * 100));
+
+	const showAllowanceRangeBand = $derived(Boolean(confidence) && confidence?.tier !== 'high');
+
+	const allowanceRangeValues = $derived.by(() => {
+		if (!confidence) return null;
+
+		const point = allowance.total.monthly;
+		const optimistic = Math.max(point - confidence.unclassifiedSpend, 0);
+		const conservative = point;
+		const rangeMax = Math.max(point, optimistic, conservative, 1);
+		const rangeMin = Math.min(point, optimistic, conservative);
+
+		let rangeStartPercent = (rangeMin / rangeMax) * 100;
+		let rangeWidthPercent =
+			((Math.max(point, optimistic, conservative) - rangeMin) / rangeMax) * 100;
+		if (rangeWidthPercent < 4) {
+			rangeStartPercent = Math.max(0, rangeStartPercent - 2);
+			rangeWidthPercent = 4;
+		}
+		rangeWidthPercent = Math.min(rangeWidthPercent, 100 - rangeStartPercent);
+
+		return {
+			optimistic,
+			point,
+			conservative,
+			rangeStartPercent,
+			rangeWidthPercent
+		};
+	});
 </script>
 
 <div class="space-y-4">
@@ -159,6 +195,42 @@
 				<div class="text-muted-foreground text-sm">
 					{formatTransactionAmount(allowance.total.dailySafe, allowance.total.currency)} per day
 				</div>
+				{#if showAllowanceRangeBand && allowanceRangeValues}
+					<div class="bg-muted/40 mt-2 space-y-2 rounded-md px-3 py-2 text-left">
+						<div class="bg-muted/70 relative h-2 overflow-hidden rounded-full">
+							<div
+								class="bg-primary/30 absolute inset-y-0 rounded-full"
+								style="left: {allowanceRangeValues.rangeStartPercent}%; width: {allowanceRangeValues.rangeWidthPercent}%;"
+							></div>
+						</div>
+						<div class="text-muted-foreground grid gap-1 text-xs">
+							<div class="flex items-center justify-between">
+								<span>Optimistic</span>
+								<span class="font-medium">
+									{formatTransactionAmount(
+										allowanceRangeValues.optimistic,
+										allowance.total.currency
+									)}
+								</span>
+							</div>
+							<div class="flex items-center justify-between">
+								<span>Point</span>
+								<span class="font-medium">
+									{formatTransactionAmount(allowanceRangeValues.point, allowance.total.currency)}
+								</span>
+							</div>
+							<div class="flex items-center justify-between">
+								<span>Conservative</span>
+								<span class="font-medium">
+									{formatTransactionAmount(
+										allowanceRangeValues.conservative,
+										allowance.total.currency
+									)}
+								</span>
+							</div>
+						</div>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Usage Progress -->

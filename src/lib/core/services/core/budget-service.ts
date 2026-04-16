@@ -6,6 +6,7 @@ import {
 } from '$lib/core/db';
 import type { Category, Transaction } from '$lib/core/db';
 import type { AnalyticsTier } from '$lib/core/db';
+import type { AllowanceConfidence } from '$lib/core/db';
 
 interface BudgetAllocation {
 	categoryId: string;
@@ -18,7 +19,7 @@ interface BudgetAllocation {
 	priority: number;
 }
 
-interface BudgetSummary {
+export interface BudgetSummary {
 	totalAllocated: number;
 	totalSpent: number;
 	totalRemaining: number;
@@ -31,6 +32,8 @@ interface BudgetSummary {
 			remaining: number;
 		}
 	>;
+	confidence: AllowanceConfidence;
+	unclassifiedTransactionCount: number;
 }
 
 class BudgetService {
@@ -56,6 +59,10 @@ class BudgetService {
 		const allocations: BudgetAllocation[] = [];
 		let totalAllocated = 0;
 		let totalSpent = 0;
+		let exactSpend = 0;
+		let unclassifiedSpend = 0;
+		let unclassifiedTransactionCount = 0;
+		const categoryById = new Map(categories.map((category) => [category.id, category]));
 
 		// Calculate budget allocations for each category
 		for (const category of categories) {
@@ -102,12 +109,40 @@ class BudgetService {
 			byTier[tier].remaining += allocation.remainingAmount;
 		});
 
+		for (const tx of transactions) {
+			if (tx.type !== 'expense' || tx.status !== 'cleared') continue;
+			if (!transactionAutomationCountsInAnalytics(tx)) continue;
+
+			const tier = tx.categoryId ? categoryById.get(tx.categoryId)?.waterfallTier : undefined;
+			const amount = Math.abs(tx.amount || 0);
+			if (isAnalyticsTier(tier)) {
+				exactSpend += amount;
+			} else {
+				unclassifiedSpend += amount;
+				unclassifiedTransactionCount += 1;
+			}
+		}
+
+		const inferredSpend = 0;
+		const totalSpend = exactSpend + inferredSpend + unclassifiedSpend;
+		const ratio = totalSpend > 0 ? exactSpend / totalSpend : 0;
+		const confidence: AllowanceConfidence = {
+			exactSpend,
+			inferredSpend,
+			unclassifiedSpend,
+			totalSpend,
+			ratio,
+			tier: ratio < 0.5 ? 'low' : ratio <= 0.85 ? 'medium' : 'high'
+		};
+
 		return {
 			totalAllocated,
 			totalSpent,
 			totalRemaining: totalAllocated - totalSpent,
 			allocations,
-			byTier
+			byTier,
+			confidence,
+			unclassifiedTransactionCount
 		};
 	}
 

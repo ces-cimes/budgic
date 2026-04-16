@@ -38,6 +38,7 @@
 
 	import {
 		planService,
+		budgetService,
 		userService,
 		negativeAllowanceService,
 		goalsService
@@ -80,16 +81,31 @@
 	let goalsData = $state<GoalsData | null>(null);
 	let activeGoals = $state<Goal[]>([]);
 	let completedGoals = $state<Goal[]>([]);
+	let allowanceConfidence = $state<{
+		ratio: number;
+		tier: 'low' | 'medium' | 'high';
+		unclassifiedSpend: number;
+		totalSpend: number;
+	} | null>(null);
+	let unclassifiedTransactionCount = $state(0);
+	let nudgeClassifyDismissed = $state(false);
 	let error = $state<string | null>(null);
 
 	const totalPlannedIncome = $derived(planningData?.totalPlannedIncome ?? 0);
 	const totalPlannedExpenses = $derived(planningData?.totalPlannedExpenses ?? 0);
 	const netProjectedChange = $derived(planningData?.netProjectedChange ?? 0);
+	const showClassifyNudge = $derived(
+		Boolean(allowanceConfidence) &&
+			allowanceConfidence!.ratio < 0.5 &&
+			unclassifiedTransactionCount > 5 &&
+			!nudgeClassifyDismissed
+	);
 
 	onMount(async () => {
 		try {
 			const preferences = await userService.getUserPreferences();
 			userCurrency = preferences?.currency || 'USD';
+			nudgeClassifyDismissed = preferences?.nudgeClassifyDismissed ?? false;
 			const accounts = await planService.getAccounts();
 			const activeAccount = accounts.find((a) => a.isActive);
 			if (activeAccount) selectedAccountId = activeAccount.id;
@@ -117,8 +133,12 @@
 		try {
 			enhancedAllowance = await planService.getEnhancedAllowance();
 			dailyAllowance = await planService.getDailyAllowance();
+			const budgetSummary = await budgetService.getBudgetSummary();
+			allowanceConfidence = budgetSummary?.confidence ?? null;
+			unclassifiedTransactionCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
 			if (enhancedAllowance) {
 				const prefs = await userService.getUserPreferences();
+				nudgeClassifyDismissed = prefs?.nudgeClassifyDismissed ?? false;
 				const handling =
 					(prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ??
 					'allow_with_strong_warning';
@@ -175,6 +195,15 @@
 	async function handleGoalAction(_action: string, _goalId: string) {
 		await loadGoalsData();
 	}
+
+	async function handleDismissClassifyNudge() {
+		nudgeClassifyDismissed = true;
+		try {
+			await userService.updateUserPreferences({ nudgeClassifyDismissed: true });
+		} catch (err) {
+			console.error('Error dismissing classify nudge:', err);
+		}
+	}
 </script>
 
 <svelte:head>
@@ -203,8 +232,35 @@
 					<div class="space-y-5 py-5">
 						{#if enhancedAllowance}
 							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
+								{#if showClassifyNudge}
+									<div
+										class="bg-muted/50 border-border flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+									>
+										<div>
+											<p class="text-sm font-medium">Improve allowance confidence</p>
+											<p class="text-muted-foreground text-xs">
+												You have several unclassified transactions. Classify them to improve your
+												allowance accuracy.
+											</p>
+										</div>
+										<div class="flex items-center gap-2">
+											<Button
+												variant="ghost"
+												size="sm"
+												onclick={() => goto('/insights?tab=patterns')}
+												class="text-[var(--color-amber)]"
+											>
+												Go to Insights/Patterns
+											</Button>
+											<Button variant="ghost" size="sm" onclick={handleDismissClassifyNudge}>
+												Dismiss
+											</Button>
+										</div>
+									</div>
+								{/if}
 								<AllowanceVisualization
 									allowance={enhancedAllowance}
+									confidence={allowanceConfidence}
 									showDetails={true}
 									showRecommendations={true}
 									negativeStatus={negativeAllowanceStatus}
