@@ -13,6 +13,7 @@
 	import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
 	import { page } from '$app/stores';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { formatTransferLabel } from '$lib/utils/transfer-utils';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { Pencil, Scale } from '@lucide/svelte';
@@ -48,6 +49,7 @@
 		unresolvedDiscrepancies: number;
 	} | null>(null);
 	let accountInlineInsights = $state<Insight[]>([]);
+	let accountsLookup = $state<Account[]>([]);
 
 	const accountId = $derived($page.params.id);
 
@@ -57,6 +59,11 @@
 		userCurrency = preferences?.currency || null;
 
 		await loadAccount();
+		try {
+			accountsLookup = await accountService.getAccounts();
+		} catch {
+			accountsLookup = [];
+		}
 		await loadTransactions();
 		await loadAccountInlineInsights();
 		await loadEnhancedAllowance();
@@ -171,6 +178,13 @@
 		} catch {
 			return 'Invalid date';
 		}
+	}
+
+	function transactionRowLabel(tx: Transaction): string {
+		if (tx.type === 'transfer' && tx.transferDetails) {
+			return formatTransferLabel(tx, accountsLookup);
+		}
+		return tx?.description || 'No description';
 	}
 </script>
 
@@ -424,7 +438,7 @@
 							>
 								<div class="min-w-0 flex-1">
 									<p class="truncate text-sm font-medium text-[var(--color-text-primary)]">
-										{transaction?.description || 'No description'}
+										{transactionRowLabel(transaction)}
 									</p>
 									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
 										{formatDate(

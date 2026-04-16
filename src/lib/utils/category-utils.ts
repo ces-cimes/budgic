@@ -26,12 +26,12 @@ export async function getOrCreateUncategorizedCategory(): Promise<Category> {
 	}
 
 	// Create the uncategorized category if it doesn't exist
-	// Use 'lifestyle' tier with lowest priority since it's a catch-all
+	// Catch-all until the user assigns a real tier
 	const uncategorizedCategory: Category = {
 		id: generateUUID(),
 		name: UNCATEGORIZED_NAME,
 		type: 'expense',
-		waterfallTier: 'lifestyle',
+		waterfallTier: 'unclassified',
 		priority: 999, // Lowest priority
 		budgetAmount: undefined, // No budget allocation by default
 		color: '#8A8F98', // Muted gray color

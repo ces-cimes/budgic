@@ -7,6 +7,7 @@
  */
 
 import type { Account, Transaction } from '$lib/core/db';
+import { db, expenseCountsTowardAllowanceAnalytics } from '$lib/core/db';
 import { getBufferAmount, calculateRecommendedBuffer } from './account-metadata-utils';
 import { transactionService } from '$lib/core/services';
 import { accountService } from '$lib/core/services';
@@ -127,8 +128,11 @@ export async function calculateEnhancedAllowance(
 		(t) => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
 	);
 
+	const categories = await db.getActiveCategories();
+	const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+
 	// Calculate historical spending data
-	const historicalData = calculateHistoricalSpending(clearedTransactions, start);
+	const historicalData = calculateHistoricalSpending(clearedTransactions, start, tierByCategoryId);
 
 	// Calculate method weights based on data availability
 	const methodWeights = calculateMethodWeights(
@@ -138,7 +142,7 @@ export async function calculateEnhancedAllowance(
 	);
 
 	// Calculate spent so far in current period
-	const spentSoFar = calculateSpentSoFar(clearedTransactions, start, now);
+	const spentSoFar = calculateSpentSoFar(clearedTransactions, start, now, tierByCategoryId);
 
 	// Calculate buffer amount
 	const bufferTransactions = clearedTransactions
@@ -287,7 +291,8 @@ async function calculateTotalAllowance(
  */
 function calculateHistoricalSpending(
 	transactions: Transaction[],
-	periodStart: Date
+	periodStart: Date,
+	tierByCategoryId: Map<string, string | undefined>
 ): HistoricalSpendingData {
 	const sixMonthsAgo = new Date(periodStart);
 	sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -295,8 +300,9 @@ function calculateHistoricalSpending(
 	// Filter expenses from last 6 months
 	const historicalExpenses = transactions
 		.filter((t) => {
-			if (t.type !== 'expense') return false;
 			if (!t.clearedDate) return false;
+			const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
+			if (!expenseCountsTowardAllowanceAnalytics(t, tier)) return false;
 			const date = new Date(t.clearedDate);
 			return date >= sixMonthsAgo && date < periodStart;
 		})
@@ -314,9 +320,12 @@ function calculateHistoricalSpending(
 	// Group by month to calculate monthly averages
 	const monthlyTotals = new Map<string, number>();
 	historicalExpenses.forEach((amount, index) => {
-		const transaction = transactions.find(
-			(t) => t.type === 'expense' && Math.abs(t.amount || 0) === amount
-		);
+		const transaction = transactions.find((t) => {
+			const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
+			return (
+				expenseCountsTowardAllowanceAnalytics(t, tier) && Math.abs(t.amount || 0) === amount
+			);
+		});
 		if (transaction?.clearedDate) {
 			const date = new Date(transaction.clearedDate);
 			const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
@@ -467,11 +476,17 @@ function calculateMethodWeights(
 /**
  * Calculate spent so far in current period
  */
-function calculateSpentSoFar(transactions: Transaction[], periodStart: Date, now: Date): number {
+function calculateSpentSoFar(
+	transactions: Transaction[],
+	periodStart: Date,
+	now: Date,
+	tierByCategoryId: Map<string, string | undefined>
+): number {
 	return transactions
 		.filter((t) => {
-			if (t.type !== 'expense') return false;
 			if (!t.clearedDate) return false;
+			const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
+			if (!expenseCountsTowardAllowanceAnalytics(t, tier)) return false;
 			const date = new Date(t.clearedDate);
 			return date >= periodStart && date <= now;
 		})
@@ -484,7 +499,8 @@ function calculateSpentSoFar(transactions: Transaction[], periodStart: Date, now
 async function calculateHistoricalSpendingWithConversion(
 	transactions: Transaction[],
 	periodStart: Date,
-	mainCurrency: string
+	mainCurrency: string,
+	tierByCategoryId: Map<string, string | undefined>
 ): Promise<HistoricalSpendingData> {
 	const { exchangeRateService } = await import('$lib/core/services');
 	const sixMonthsAgo = new Date(periodStart);
@@ -493,8 +509,9 @@ async function calculateHistoricalSpendingWithConversion(
 	// Filter expenses from last 6 months and convert to main currency
 	const historicalExpenses: number[] = [];
 	for (const t of transactions) {
-		if (t.type !== 'expense') continue;
 		if (!t.clearedDate) continue;
+		const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
+		if (!expenseCountsTowardAllowanceAnalytics(t, tier)) continue;
 		const date = new Date(t.clearedDate);
 		if (date < sixMonthsAgo || date >= periodStart) continue;
 
@@ -534,7 +551,9 @@ async function calculateHistoricalSpendingWithConversion(
 	// Group by month to calculate monthly averages
 	const monthlyTotals = new Map<string, number>();
 	for (const t of transactions) {
-		if (t.type !== 'expense' || !t.clearedDate) continue;
+		if (!t.clearedDate) continue;
+		const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
+		if (!expenseCountsTowardAllowanceAnalytics(t, tier)) continue;
 		const date = new Date(t.clearedDate);
 		if (date < sixMonthsAgo || date >= periodStart) continue;
 
@@ -594,14 +613,16 @@ async function calculateSpentSoFarWithConversion(
 	transactions: Transaction[],
 	periodStart: Date,
 	now: Date,
-	mainCurrency: string
+	mainCurrency: string,
+	tierByCategoryId: Map<string, string | undefined>
 ): Promise<number> {
 	const { exchangeRateService } = await import('$lib/core/services');
 	let total = 0;
 
 	for (const t of transactions) {
-		if (t.type !== 'expense') continue;
 		if (!t.clearedDate) continue;
+		const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
+		if (!expenseCountsTowardAllowanceAnalytics(t, tier)) continue;
 		const date = new Date(t.clearedDate);
 		if (date < periodStart || date > now) continue;
 
@@ -767,11 +788,15 @@ export async function calculateGlobalAllowance(
 		(t) => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
 	);
 
+	const categories = await db.getActiveCategories();
+	const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+
 	// Calculate historical spending data across all accounts (converted to main currency)
 	const historicalData = await calculateHistoricalSpendingWithConversion(
 		clearedTransactions,
 		start,
-		userCurrency
+		userCurrency,
+		tierByCategoryId
 	);
 
 	// Calculate method weights based on data availability
@@ -786,7 +811,8 @@ export async function calculateGlobalAllowance(
 		clearedTransactions,
 		start,
 		now,
-		userCurrency
+		userCurrency,
+		tierByCategoryId
 	);
 
 	// Calculate total balance and total buffer across all accounts (converted to main currency)

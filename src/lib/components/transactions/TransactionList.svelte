@@ -47,7 +47,7 @@
 		// Category filter
 		categoryIds?: string[];
 		categoryType?: 'expense' | 'income';
-		waterfallTier?: ('survival' | 'security' | 'growth' | 'lifestyle')[];
+		waterfallTier?: ('survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified')[];
 
 		// Account filter
 		accountIds?: string[];
@@ -166,7 +166,7 @@
 
 	// Internal selection state
 	let internalSelectedIds = $state<Set<string>>(new Set());
-	let internalSelectionMode = $state(false);
+	const internalSelectionMode = $state(false);
 	let suppressSelectionToggleId = $state<string | null>(null);
 	let suppressSelectionToggleUntilTs = $state(0);
 
@@ -408,7 +408,11 @@
 			filtered = filtered.filter((t) => {
 				if (!t.categoryId) return false;
 				const category = categories[t.categoryId];
-				return category && currentFilters.waterfallTier!.includes(category.waterfallTier);
+				return (
+					!!category &&
+					!!category.waterfallTier &&
+					currentFilters.waterfallTier!.includes(category.waterfallTier)
+				);
 			});
 		}
 
@@ -1430,7 +1434,7 @@
 						{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
 							<div class="flex flex-col items-center justify-center py-16 text-center">
 								<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
-								<p class="text-sm text-[var(--color-text-secondary)]">
+								<p class="select-none text-sm text-[var(--color-text-secondary)]">
 									{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
 										No transactions match your filters.
 									{:else}

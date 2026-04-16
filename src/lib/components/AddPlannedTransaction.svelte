@@ -150,7 +150,8 @@
 					transferDetails: {
 						toAccountId,
 						transferAmount: transferMagnitude,
-						feeAmount: 0
+						feeAmount: 0,
+						feeDeductionMethod: 'from-transfer-amount'
 					}
 				});
 			} else {

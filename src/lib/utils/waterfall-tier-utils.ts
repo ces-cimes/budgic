@@ -1,6 +1,6 @@
 /**
  * Waterfall tier utilities for styling and display
- * Waterfall tiers: survival, security, growth, lifestyle
+ * Waterfall tiers: survival, security, growth, lifestyle, unclassified
  */
 
 import type { Category } from '$lib/core/db';
@@ -51,6 +51,14 @@ export function getWaterfallTierStyle(tier: WaterfallTier | null | undefined): W
 				bgColor: 'bg-golden-amber/5',
 				textColor: 'text-golden-amber',
 				label: 'Lifestyle'
+			};
+		case 'unclassified':
+			return {
+				borderColor: 'border-text-tertiary',
+				borderStyle: 'dotted',
+				bgColor: 'bg-bg-tertiary',
+				textColor: 'text-text-tertiary',
+				label: 'Unclassified'
 			};
 		default:
 			return {

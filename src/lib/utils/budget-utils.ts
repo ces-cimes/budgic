@@ -1,4 +1,5 @@
 import type { Transaction, Category } from '$lib/core/db';
+import { isAnalyticsTier } from '$lib/core/db';
 
 export interface WaterfallBudget {
 	survival: number;
@@ -72,6 +73,7 @@ export function allocateBudgetToCategories(
 		const totalPriority = tierCategories.reduce((sum, cat) => sum + cat.priority, 0);
 
 		tierCategories.forEach((category) => {
+			if (!isAnalyticsTier(category.waterfallTier)) return;
 			const priorityWeight = category.priority / totalPriority;
 			const allocatedAmount = tierBudget * priorityWeight;
 			const spentAmount = spentByCategory.get(category.id) || 0;

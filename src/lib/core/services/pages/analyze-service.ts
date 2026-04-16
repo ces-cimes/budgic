@@ -1,4 +1,5 @@
 import { analyticsService, transactionService, insightsService } from '$lib/core/services';
+import { transactionAutomationCountsInAnalytics } from '$lib/core/db';
 import { formatAmount, formatPercentage, getUserMainCurrency } from '$lib/utils/currency-utils';
 import type {
 	AnalyticsData,
@@ -114,11 +115,11 @@ export class AnalyzeService {
 
 		// Calculate spending using our simplified schema (type field)
 		const totalSpending = filteredTransactions
-			.filter((t) => t.type === 'expense')
+			.filter((t) => t.type === 'expense' && transactionAutomationCountsInAnalytics(t))
 			.reduce((sum, t) => sum + Math.abs(t.amount || 0), 0);
 
 		const income = filteredTransactions
-			.filter((t) => t.type === 'income')
+			.filter((t) => t.type === 'income' && transactionAutomationCountsInAnalytics(t))
 			.reduce((sum, t) => sum + (t.amount || 0), 0);
 
 		const savingsRate = income > 0 ? ((income - totalSpending) / income) * 100 : 0;

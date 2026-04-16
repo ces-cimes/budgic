@@ -1,5 +1,10 @@
 import { db, generateUUID } from '$lib/core/db';
-import type { Account, Transaction } from '$lib/core/db';
+import type {
+	Account,
+	Transaction,
+	ReconciliationRecord,
+	ReconciliationDiscrepancy
+} from '$lib/core/db';
 import { accountService } from './account-service';
 import { z } from 'zod';
 
@@ -7,43 +12,7 @@ import { z } from 'zod';
 // TYPES & SCHEMAS
 // ============================================================================
 
-export interface ReconciliationRecord {
-	id: string;
-	accountId: string;
-	reconciledDate: string;
-	statementBalance: number;
-	calculatedBalance: number;
-	discrepancy: number;
-	reconciliationType: 'manual' | 'automatic';
-	transactionCount: number;
-	reconciledTransactionIds: string[];
-	unreconciledTransactionIds: string[];
-	notes?: string;
-	resolvedAt?: string;
-	createdAt: string;
-	updatedAt: string;
-	deletedAt: string | null;
-}
-
-export interface ReconciliationDiscrepancy {
-	id: string;
-	accountId: string;
-	discrepancyType:
-		| 'missing_transaction'
-		| 'duplicate_transaction'
-		| 'amount_mismatch'
-		| 'timing_difference'
-		| 'unknown';
-	amount: number;
-	description: string;
-	suspectedTransactionId?: string;
-	suggestedAction: 'create_transaction' | 'modify_transaction' | 'ignore' | 'investigate';
-	severity: 'low' | 'medium' | 'high';
-	createdAt: string;
-	updatedAt: string;
-	deletedAt: string | null;
-	resolvedAt?: string;
-}
+export type { ReconciliationRecord, ReconciliationDiscrepancy } from '$lib/core/db';
 
 export interface ReconciliationSummary {
 	accountId: string;
@@ -63,24 +32,6 @@ export interface ReconciliationOptions {
 	autoResolveSmallDiscrepancies: boolean;
 	autoResolveThreshold: number;
 }
-
-// Validation schemas
-const ReconciliationRecordSchema = z.object({
-	id: z.string(),
-	accountId: z.string(),
-	reconciledDate: z.string().datetime(),
-	statementBalance: z.number().finite(),
-	calculatedBalance: z.number().finite(),
-	discrepancy: z.number().finite(),
-	reconciliationType: z.enum(['manual', 'automatic']),
-	transactionCount: z.number().int().min(0),
-	reconciledTransactionIds: z.array(z.string()),
-	unreconciledTransactionIds: z.array(z.string()),
-	notes: z.string().optional(),
-	resolvedAt: z.string().datetime().optional(),
-	createdAt: z.string().datetime(),
-	updatedAt: z.string().datetime()
-});
 
 const ReconciliationOptionsSchema = z.object({
 	tolerance: z.number().positive().default(0.01),
@@ -196,6 +147,14 @@ class ReconciliationService {
 
 		// Store reconciliation record
 		await db.reconciliationRecords.add(reconciliationRecord);
+
+		const reconciledAtIso = reconciliationRecord.reconciledDate;
+		for (const txId of reconciliationRecord.reconciledTransactionIds) {
+			await db.transactions.update(txId, {
+				reconciledAt: reconciledAtIso,
+				updatedAt: new Date().toISOString()
+			});
+		}
 
 		// Detect and create discrepancies if needed
 		if (Math.abs(discrepancy) > validatedOptions.tolerance) {
@@ -576,30 +535,24 @@ class ReconciliationService {
 	 * Auto-resolve small discrepancies
 	 */
 	private async autoResolveSmallDiscrepancy(reconciliation: ReconciliationRecord): Promise<void> {
-		// Create an adjustment transaction to resolve the small discrepancy
-		const { transactionService } = await import('$lib/core/services');
-
-		if (Math.abs(reconciliation.discrepancy) > 0) {
-			await transactionService.createTransaction({
-				type: 'adjustment',
-				status: 'cleared',
-				confidence: 'confirmed',
-				accountId: reconciliation.accountId,
-				amount: reconciliation.discrepancy,
-				currency: (await accountService.getAccount(reconciliation.accountId))?.currency || 'USD',
-				description: `Automatic reconciliation adjustment`,
-				categoryId: undefined,
-				plannedDate: reconciliation.reconciledDate,
-				clearedDate: reconciliation.reconciledDate,
-				notes: `Auto-generated to resolve small discrepancy during reconciliation ${reconciliation.id}`
-			});
-
-			// Mark reconciliation as resolved
-			await db.reconciliationRecords.update(reconciliation.id, {
-				resolvedAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString()
-			});
+		if (Math.abs(reconciliation.discrepancy) <= 0) {
+			return;
 		}
+
+		const account = await accountService.getAccount(reconciliation.accountId);
+		if (!account) {
+			return;
+		}
+
+		await accountService.updateAccount(reconciliation.accountId, {
+			currentBalance: (account.currentBalance ?? 0) + reconciliation.discrepancy
+		});
+
+		await db.reconciliationRecords.update(reconciliation.id, {
+			balanceAdjustmentApplied: reconciliation.discrepancy,
+			resolvedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString()
+		});
 	}
 }
 

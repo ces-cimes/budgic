@@ -43,13 +43,17 @@
 	);
 
 	const waterfallTierInfo: Record<
-		Category['waterfallTier'],
+		NonNullable<Category['waterfallTier']>,
 		{ label: string; description: string }
 	> = {
 		survival: { label: 'Survival', description: 'Essential needs for basic living' },
 		security: { label: 'Security', description: 'Financial safety and stability' },
 		growth: { label: 'Growth', description: 'Personal and financial development' },
-		lifestyle: { label: 'Lifestyle', description: 'Discretionary spending and enjoyment' }
+		lifestyle: { label: 'Lifestyle', description: 'Discretionary spending and enjoyment' },
+		unclassified: {
+			label: 'Unclassified',
+			description: 'Needs manual tier classification before analytics include it'
+		}
 	};
 
 	let filteredCategories = $derived.by(() => {
@@ -66,14 +70,20 @@
 	});
 
 	let groupedCategories = $derived.by(() => {
-		const groups: Map<Category['waterfallTier'], typeof filteredCategories> = new Map();
+		const groups: Map<NonNullable<Category['waterfallTier']>, typeof filteredCategories> = new Map();
 		filteredCategories.forEach((category) => {
-			const tier = category.waterfallTier;
+			const tier = category.waterfallTier ?? 'unclassified';
 			if (!groups.has(tier)) groups.set(tier, []);
 			groups.get(tier)!.push(category);
 		});
 		groups.forEach((cats) => cats.sort((a, b) => a.priority - b.priority));
-		const tierOrder: Category['waterfallTier'][] = ['survival', 'security', 'growth', 'lifestyle'];
+		const tierOrder: NonNullable<Category['waterfallTier']>[] = [
+			'survival',
+			'security',
+			'growth',
+			'lifestyle',
+			'unclassified'
+		];
 		return tierOrder
 			.filter((tier) => groups.has(tier))
 			.map((tier) => ({ tier, categories: groups.get(tier)! }));
@@ -130,11 +140,13 @@
 	}
 
 	function getTierLabel(tier: Category['waterfallTier']): string {
-		return waterfallTierInfo[tier]?.label ?? tier;
+		const safeTier = tier ?? 'unclassified';
+		return waterfallTierInfo[safeTier]?.label ?? safeTier;
 	}
 
 	function getTierDescription(tier: Category['waterfallTier']): string {
-		return waterfallTierInfo[tier]?.description ?? '';
+		const safeTier = tier ?? 'unclassified';
+		return waterfallTierInfo[safeTier]?.description ?? '';
 	}
 
 	function handleDragStart(event: DragEvent, category: Category) {

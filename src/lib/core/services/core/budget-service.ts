@@ -1,5 +1,11 @@
-import { db, generateUUID } from '$lib/core/db';
+import {
+	db,
+	generateUUID,
+	isAnalyticsTier,
+	transactionAutomationCountsInAnalytics
+} from '$lib/core/db';
 import type { Category, Transaction } from '$lib/core/db';
+import type { AnalyticsTier } from '$lib/core/db';
 
 interface BudgetAllocation {
 	categoryId: string;
@@ -18,7 +24,7 @@ interface BudgetSummary {
 	totalRemaining: number;
 	allocations: BudgetAllocation[];
 	byTier: Record<
-		Category['waterfallTier'],
+		AnalyticsTier,
 		{
 			allocated: number;
 			spent: number;
@@ -77,7 +83,7 @@ class BudgetService {
 
 		// Calculate by tier
 		const byTier: Record<
-			Category['waterfallTier'],
+			AnalyticsTier,
 			{ allocated: number; spent: number; remaining: number }
 		> = {
 			survival: { allocated: 0, spent: 0, remaining: 0 },
@@ -88,6 +94,9 @@ class BudgetService {
 
 		allocations.forEach((allocation) => {
 			const tier = allocation.waterfallTier;
+			if (!isAnalyticsTier(tier)) {
+				return;
+			}
 			byTier[tier].allocated += allocation.allocatedAmount;
 			byTier[tier].spent += allocation.spentAmount;
 			byTier[tier].remaining += allocation.remainingAmount;
@@ -180,7 +189,9 @@ class BudgetService {
 
 		for (const category of categories) {
 			const categoryTransactions = recentTransactions.filter(
-				(tx: Transaction) => tx.categoryId === category.id
+				(tx: Transaction) =>
+					tx.categoryId === category.id &&
+					(tx.type !== 'expense' || transactionAutomationCountsInAnalytics(tx))
 			);
 
 			// Convert all amounts to main currency
@@ -290,7 +301,7 @@ class BudgetService {
 			categories: BudgetAllocation[];
 		}[] = [];
 
-		const tiers: Category['waterfallTier'][] = ['survival', 'security', 'growth', 'lifestyle'];
+		const tiers = ['survival', 'security', 'growth', 'lifestyle'] as const;
 
 		tiers.forEach((tier) => {
 			const tierCategories = budgetSummary.allocations.filter((a) => a.waterfallTier === tier);
@@ -337,7 +348,7 @@ class BudgetService {
 	async createCategory(categoryData: {
 		name: string;
 		type: Category['type'];
-		waterfallTier: Category['waterfallTier'];
+		waterfallTier?: Category['waterfallTier'];
 		priority: number;
 		budgetAmount?: number;
 		color?: string;
@@ -348,7 +359,7 @@ class BudgetService {
 			id: generateUUID(),
 			name: categoryData.name,
 			type: categoryData.type,
-			waterfallTier: categoryData.waterfallTier,
+			waterfallTier: categoryData.waterfallTier ?? 'unclassified',
 			priority: categoryData.priority,
 			budgetAmount: categoryData.budgetAmount,
 			color: categoryData.color,
@@ -373,7 +384,11 @@ class BudgetService {
 	private calculateCategorySpending(categoryId: string, transactions: Transaction[]): number {
 		return transactions
 			.filter(
-				(tx) => tx.categoryId === categoryId && tx.type === 'expense' && tx.status === 'cleared'
+				(tx) =>
+					tx.categoryId === categoryId &&
+					tx.type === 'expense' &&
+					tx.status === 'cleared' &&
+					transactionAutomationCountsInAnalytics(tx)
 			)
 			.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
 	}

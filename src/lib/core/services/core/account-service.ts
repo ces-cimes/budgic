@@ -163,7 +163,9 @@ class AccountService {
 	 */
 	async updateAccount(
 		id: string,
-		updates: Partial<Pick<Account, 'name' | 'type' | 'currency' | 'isActive' | 'metadata'>>
+		updates: Partial<
+			Pick<Account, 'name' | 'type' | 'currency' | 'isActive' | 'metadata' | 'currentBalance' | 'initialBalance'>
+		>
 	): Promise<Account> {
 		const account = await db.accounts.get(id);
 		if (!account) {

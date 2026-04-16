@@ -12,6 +12,17 @@ import { balanceProjectionService } from '../analytics/balance-projection-servic
 import { exchangeRateService } from './exchange-rate-service';
 import { addDays } from 'date-fns';
 
+type TransferDetails = NonNullable<Transaction['transferDetails']>;
+
+function automationFromTransferFeeType(
+	feeType: TransferDetails['feeType'] | undefined
+): Transaction['automation'] | undefined {
+	if (!feeType || feeType === 'early-withdrawal' || feeType === 'penalty') {
+		return undefined;
+	}
+	return feeType === 'tax-withholding' ? 'tax-withholding' : 'transfer-fee';
+}
+
 export interface BulkOperationResult {
 	success: number;
 	failed: number;
@@ -292,9 +303,14 @@ class TransactionService {
 			}
 		}
 
+		const automationFromFee = automationFromTransferFeeType(
+			transactionData.transferDetails?.feeType
+		);
+
 		const transaction: Transaction = {
 			id: generateUUID(),
 			...transactionData,
+			automation: automationFromFee ?? transactionData.automation,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null
@@ -383,8 +399,13 @@ class TransactionService {
 			}
 		}
 
+		const automationFromFee = automationFromTransferFeeType(
+			updatedData.transferDetails?.feeType
+		);
+
 		const updatedTransaction: Transaction = {
 			...updatedData,
+			automation: automationFromFee ?? updatedData.automation,
 			updatedAt: new Date().toISOString()
 		};
 
@@ -1608,7 +1629,8 @@ class TransactionService {
 				toAccountId: data.toAccountId,
 				transferAmount: data.amount,
 				feeAmount: data.feeAmount || 0,
-				feeCategoryId: data.feeCategoryId
+				feeCategoryId: data.feeCategoryId,
+				feeDeductionMethod: 'from-transfer-amount'
 			},
 			clearedDate: new Date().toISOString()
 		});
@@ -1628,7 +1650,8 @@ class TransactionService {
 				toAccountId: data.fromAccountId,
 				transferAmount: data.amount,
 				feeAmount: data.feeAmount || 0,
-				feeCategoryId: data.feeCategoryId
+				feeCategoryId: data.feeCategoryId,
+				feeDeductionMethod: 'from-transfer-amount'
 			},
 			clearedDate: new Date().toISOString()
 		});

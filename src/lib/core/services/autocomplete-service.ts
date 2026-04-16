@@ -62,6 +62,7 @@ class AutocompleteService {
 		const selectionAggregates = await this.getSelectionAggregates();
 
 		for (const tx of transactions) {
+			if (tx.type === 'transfer') continue;
 			const description = this.normalizeDescription(tx.description);
 			if (!description) continue;
 
@@ -141,6 +142,10 @@ class AutocompleteService {
 		context?: Record<string, unknown>
 	): Promise<void> {
 		await this.ensureSelectionDataPruned();
+
+		if (context && context['transactionType'] === 'transfer') {
+			return;
+		}
 
 		const normalizedValue = this.normalizeDescription(value);
 		if (!normalizedValue) {

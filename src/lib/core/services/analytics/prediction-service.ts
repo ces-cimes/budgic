@@ -1,4 +1,4 @@
-import { db } from '$lib/core/db';
+import { db, expenseCountsTowardAllowanceAnalytics } from '$lib/core/db';
 import { analyticsService } from './analytics-service';
 import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
@@ -563,6 +563,7 @@ class PredictionService {
 		const budgetData = await budgetService.getBudgetSummary();
 		const transactions = await db.transactions.toArray();
 		const categories = await db.getActiveCategories();
+		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
 
@@ -573,14 +574,21 @@ class PredictionService {
 		const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
 		// Get current month spending
-		const currentMonthTransactions = transactions.filter(
-			(tx) =>
-				tx.type === 'expense' &&
-				tx.status === 'cleared' &&
-				tx.clearedDate &&
-				new Date(tx.clearedDate) >= currentMonthStart &&
-				new Date(tx.clearedDate) <= currentMonthEnd
-		);
+		const currentMonthTransactions = transactions.filter((tx) => {
+			if (
+				!(
+					tx.type === 'expense' &&
+					tx.status === 'cleared' &&
+					tx.clearedDate &&
+					new Date(tx.clearedDate) >= currentMonthStart &&
+					new Date(tx.clearedDate) <= currentMonthEnd
+				)
+			) {
+				return false;
+			}
+			const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
+			return expenseCountsTowardAllowanceAnalytics(tx, tier);
+		});
 
 		// Convert to main currency
 		const convertedTransactions = await this.convertTransactionsToMainCurrency(

@@ -12,6 +12,7 @@
 		getWaterfallTierBorder,
 		getWaterfallTierLabel
 	} from '$lib/utils/waterfall-tier-utils';
+	import { formatTransferLabel } from '$lib/utils/transfer-utils';
 
 	interface Props {
 		transaction: Transaction | any; // Allow grouped transaction objects
@@ -167,7 +168,7 @@
 	// Get transaction description
 	const transactionDescription = $derived(() => {
 		if (isTransfer()) {
-			return 'Transfer';
+			return transferAccountNames;
 		}
 		if (isGroup) {
 			return groupDescription || 'Grouped transaction';
@@ -258,7 +259,10 @@
 					const toAccount = await db.accounts.get(transferDetails()!.toAccountId);
 
 					if (fromAccount && toAccount) {
-						transferAccountNames = `${fromAccount.name} → ${toAccount.name}`;
+						transferAccountNames = formatTransferLabel(transaction as Transaction, [
+							fromAccount,
+							toAccount
+						]);
 					}
 				} catch (error) {
 					console.warn('Failed to load account names for transfer:', error);
@@ -581,7 +585,7 @@
 
 	// Get waterfall tier text color for category display (using CSS variables like amount colors)
 	const categoryTextColor = $derived(() => {
-		let tier: 'survival' | 'security' | 'growth' | 'lifestyle' | null | undefined = null;
+		let tier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified' | null | undefined = null;
 
 		if (isGroup && groupCategoryObj) {
 			tier = groupCategoryObj.waterfallTier;
@@ -599,6 +603,8 @@
 				return 'text-[var(--color-sage-green)]';
 			case 'lifestyle':
 				return 'text-[var(--color-golden-amber)]';
+			case 'unclassified':
+				return 'text-text-tertiary';
 			default:
 				return 'text-text-tertiary';
 		}
@@ -680,10 +686,12 @@
 
 					<!-- Middle Column: Transfer Details (Flexible, Truncates) -->
 					<div class="min-w-0 flex-1">
-						<div class="text-text-primary truncate text-base font-semibold">Transfer</div>
-						<div class="text-text-tertiary truncate text-sm">
+						<div class="text-text-primary truncate text-base font-semibold">
 							{transferAccountNames}
 						</div>
+						{#if transaction.memo}
+							<div class="text-text-tertiary truncate text-sm">{transaction.memo}</div>
+						{/if}
 					</div>
 
 					<!-- Right Column: Amount + Fee (Flexible) -->

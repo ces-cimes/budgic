@@ -1,4 +1,9 @@
-import { db } from '$lib/core/db';
+import {
+	db,
+	expenseCountsTowardAllowanceAnalytics,
+	isAnalyticsTier,
+	transactionAutomationCountsInAnalytics
+} from '$lib/core/db';
 import type { Transaction, Account, Category } from '$lib/core/db';
 import { userService, exchangeRateService } from '../core';
 
@@ -72,6 +77,7 @@ class AnalyticsService {
 	async getSpendingAnalysis(months: number = 12): Promise<SpendingAnalysis> {
 		const transactions = await db.transactions.toArray();
 		const categories = await db.getActiveCategories();
+		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
 
 		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
@@ -83,13 +89,20 @@ class AnalyticsService {
 		// First filter out null/undefined transactions, then apply other filters
 		const recentTransactions = transactions
 			.filter((tx) => tx != null) // Remove null/undefined transactions
-			.filter(
-				(tx) =>
-					tx.type === 'expense' &&
-					tx.status === 'cleared' &&
-					tx.clearedDate &&
-					new Date(tx.clearedDate) >= cutoffDate
-			);
+			.filter((tx) => {
+				if (
+					!(
+						tx.type === 'expense' &&
+						tx.status === 'cleared' &&
+						tx.clearedDate &&
+						new Date(tx.clearedDate) >= cutoffDate
+					)
+				) {
+					return false;
+				}
+				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
+				return expenseCountsTowardAllowanceAnalytics(tx, tier);
+			});
 
 		// Convert all amounts to main currency
 		let totalSpent = 0;
@@ -122,6 +135,9 @@ class AnalyticsService {
 			if (tx.categoryId) {
 				const category = categories.find((c) => c.id === tx.categoryId);
 				const categoryName = category?.name || 'Uncategorized';
+				if (!isAnalyticsTier(category?.waterfallTier)) {
+					continue;
+				}
 				const current = categorySpending.get(tx.categoryId) || { name: categoryName, amount: 0 };
 				current.amount += convertedAmount;
 				categorySpending.set(tx.categoryId, current);
@@ -190,7 +206,8 @@ class AnalyticsService {
 					tx.type === 'expense' &&
 					tx.status === 'cleared' &&
 					tx.clearedDate &&
-					new Date(tx.clearedDate) >= cutoffDate
+					new Date(tx.clearedDate) >= cutoffDate &&
+					transactionAutomationCountsInAnalytics(tx)
 			);
 
 		// Convert all amounts to main currency
@@ -263,7 +280,8 @@ class AnalyticsService {
 					tx.type === 'income' &&
 					tx.status === 'cleared' &&
 					tx.clearedDate &&
-					new Date(tx.clearedDate) >= cutoffDate
+					new Date(tx.clearedDate) >= cutoffDate &&
+					transactionAutomationCountsInAnalytics(tx)
 			);
 
 		// Convert all amounts to main currency
@@ -386,6 +404,8 @@ class AnalyticsService {
 	 */
 	async getFinancialTrends(months: number = 12): Promise<TrendData[]> {
 		const transactions = await db.transactions.toArray();
+		const categories = await db.getActiveCategories();
+		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
 
 		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
@@ -431,10 +451,13 @@ class AnalyticsService {
 				}
 			}
 
-			if (tx.type === 'income') {
+			if (tx.type === 'income' && transactionAutomationCountsInAnalytics(tx)) {
 				current.income += convertedAmount;
 			} else if (tx.type === 'expense') {
-				current.expenses += convertedAmount;
+				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
+				if (expenseCountsTowardAllowanceAnalytics(tx, tier)) {
+					current.expenses += Math.abs(convertedAmount);
+				}
 			}
 
 			monthlyData.set(month, current);
@@ -547,18 +570,27 @@ class AnalyticsService {
 		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
+		const categories = await db.getActiveCategories();
+		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
 
 		// Simple implementation - can be enhanced with more sophisticated logic
 		// First filter out null/undefined transactions, then apply other filters
 		const recentTransactions = transactions
 			.filter((tx) => tx != null) // Remove null/undefined transactions
-			.filter(
-				(tx) =>
-					tx.type === 'expense' &&
-					tx.status === 'cleared' &&
-					tx.clearedDate &&
-					new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-			);
+			.filter((tx) => {
+				if (
+					!(
+						tx.type === 'expense' &&
+						tx.status === 'cleared' &&
+						tx.clearedDate &&
+						new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+					)
+				) {
+					return false;
+				}
+				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
+				return expenseCountsTowardAllowanceAnalytics(tx, tier);
+			});
 
 		// Convert all amounts to main currency
 		let totalSpending = 0;
@@ -600,16 +632,31 @@ class AnalyticsService {
 		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
+		const categories = await db.getActiveCategories();
+		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
 
 		// First filter out null/undefined transactions, then apply other filters
 		const recentTransactions = transactions
 			.filter((tx) => tx != null) // Remove null/undefined transactions
-			.filter(
-				(tx) =>
-					tx.status === 'cleared' &&
-					tx.clearedDate &&
-					new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-			);
+			.filter((tx) => {
+				if (
+					!(
+						tx.status === 'cleared' &&
+						tx.clearedDate &&
+						new Date(tx.clearedDate) >= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+					)
+				) {
+					return false;
+				}
+				if (tx.type === 'income') {
+					return transactionAutomationCountsInAnalytics(tx);
+				}
+				if (tx.type === 'expense') {
+					const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
+					return expenseCountsTowardAllowanceAnalytics(tx, tier);
+				}
+				return false;
+			});
 
 		// Convert all amounts to main currency
 		let totalIncome = 0;
@@ -692,7 +739,11 @@ class AnalyticsService {
 		let recentIncome = 0;
 		// Filter out null/undefined transactions before processing
 		for (const tx of transactions.filter((tx) => tx != null)) {
-			if (tx.type === 'income' && tx.status === 'cleared') {
+			if (
+				tx.type === 'income' &&
+				tx.status === 'cleared' &&
+				transactionAutomationCountsInAnalytics(tx)
+			) {
 				const amount = tx.amount || 0;
 				const transactionCurrency = tx.currency || mainCurrency;
 
@@ -738,6 +789,8 @@ class AnalyticsService {
 		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
+		const categories = await db.getActiveCategories();
+		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
 
 		const savingsAccounts = accounts.filter((acc) => acc.type === 'savings');
 
@@ -769,6 +822,10 @@ class AnalyticsService {
 		// Filter out null/undefined transactions before processing
 		for (const tx of transactions.filter((tx) => tx != null)) {
 			if (tx.type === 'expense' && tx.status === 'cleared') {
+				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
+				if (!expenseCountsTowardAllowanceAnalytics(tx, tier)) {
+					continue;
+				}
 				const amount = Math.abs(tx.amount || 0);
 				const transactionCurrency = tx.currency || mainCurrency;
 

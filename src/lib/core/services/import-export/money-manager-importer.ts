@@ -416,7 +416,7 @@ export class MoneyManagerImporter extends BaseImporter {
 				id: generateUUID(),
 				name: finalName,
 				type: mapCategoryType(row.TYPE || '1'),
-				waterfallTier: 'lifestyle', // Default, user can reorganize
+				waterfallTier: 'unclassified', // Default until user assigns a tier
 				priority: getCategoryPriority(row.ORDERSEQ),
 				budgetAmount: undefined,
 				color: undefined,
@@ -810,7 +810,9 @@ export class MoneyManagerImporter extends BaseImporter {
 		const transferUtime = outRow.UTIME || inRow.UTIME;
 		const transferWdate = outRow.WDATE || inRow.WDATE;
 		const clearedDate = mapDate(transferZdate, transferUtime, transferWdate);
-		const description = outRow.ZCONTENT || inRow.ZCONTENT || 'Transfer';
+		const rawDescription = (outRow.ZCONTENT || inRow.ZCONTENT || '').trim();
+		const description =
+			rawDescription === '' || rawDescription.toLowerCase() === 'transfer' ? undefined : rawDescription;
 
 		// Get account currencies for conversion metadata
 		const fromAccount = fromAccountId ? await db.accounts.get(fromAccountId) : null;
@@ -881,7 +883,8 @@ export class MoneyManagerImporter extends BaseImporter {
 				feeAmount: 0, // TODO: Handle fees if txUidFee exists
 				feeAccountId: undefined,
 				feeAccountAmount: undefined,
-				feeCategoryId: undefined
+				feeCategoryId: undefined,
+				feeDeductionMethod: 'from-transfer-amount'
 			},
 			clearedDate: clearedDate,
 			notes: outRow.ZCONTENT || inRow.ZCONTENT || '',

@@ -843,7 +843,10 @@ const AccountSchema = BaseSchema.extend({
 const CategorySchema = BaseSchema.extend({
 	name: z.string().min(1), // "groceries", "rent", "Netflix"
 	type: z.enum(['expense', 'income']),
-	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle']),
+	// optional: organisational category nodes may omit tier (not selectable in transaction form)
+	waterfallTier: z
+		.enum(['survival', 'security', 'growth', 'lifestyle', 'unclassified'])
+		.optional(),
 	priority: z.number().min(1), // Within tier
 	budgetAmount: z.number().min(0).optional(), // Optional budget allocation
 	color: z.string().optional(),
@@ -958,6 +961,56 @@ export const DependencyType = z.enum([
 	'conditional' // Transaction depends on outcome/status of dependency
 ]);
 
+/** System / import automation labels (excluded from most expense analytics when set) */
+export const AutomationTagSchema = z.enum([
+	'round-up',
+	'interest-income',
+	'interest-charge',
+	'tax-withholding',
+	'transfer-fee',
+	'reconciliation-adjustment',
+	'scheduled-savings'
+]);
+export type AutomationTag = z.infer<typeof AutomationTagSchema>;
+
+const ReimbursementEntrySchema = z.object({
+	id: z.string(),
+	direction: z.enum(['lending', 'borrowing']),
+	amount: z.number().positive(),
+	currency: z.string().min(3).max(3),
+	person: z.string().optional(),
+	status: z.enum(['expecting', 'owed', 'settled', 'forgiven']),
+	settledTransactionId: z.string().optional(),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime()
+});
+export type ReimbursementEntry = z.infer<typeof ReimbursementEntrySchema>;
+
+/** Tiers included in allowance and tier-level expense analytics (excludes unclassified) */
+export const ANALYTICS_TIERS = ['survival', 'security', 'growth', 'lifestyle'] as const;
+export type AnalyticsTier = (typeof ANALYTICS_TIERS)[number];
+
+export function isAnalyticsTier(tier: string | undefined): tier is AnalyticsTier {
+	return (ANALYTICS_TIERS as readonly string[]).includes(tier ?? '');
+}
+
+/** Interest-income is the only automation value that still counts in income/expense analytics filters */
+export function transactionAutomationCountsInAnalytics(tx: {
+	automation?: AutomationTag | null;
+}): boolean {
+	return tx.automation == null || tx.automation === 'interest-income';
+}
+
+/** Cleared expenses that count toward allowance / historical spend (excludes automation noise and unclassified tier) */
+export function expenseCountsTowardAllowanceAnalytics(
+	tx: Transaction,
+	categoryWaterfallTier: string | undefined
+): boolean {
+	if (tx.type !== 'expense' || tx.status !== 'cleared') return false;
+	if (!transactionAutomationCountsInAnalytics(tx)) return false;
+	return isAnalyticsTier(categoryWaterfallTier);
+}
+
 const TransactionSchema = BaseSchema.extend({
 	type: TransactionType,
 	status: TransactionStatus,
@@ -974,12 +1027,21 @@ const TransactionSchema = BaseSchema.extend({
 	// Simplified categorization - single category reference
 	categoryId: z.string().optional(), // References unified Category
 
+	automation: AutomationTagSchema.optional(),
+	memo: z.string().optional(),
+	reimbursements: z.array(ReimbursementEntrySchema).optional(),
+
 	// Planning fields (planned status) - shared across all splits
 	plannedDate: z.string().datetime().optional(),
 	plannedAmount: z.number().optional(), // If different from final amount
+	deadline: z.string().datetime().optional(),
+	spreadingStrategy: z.enum(['linear', 'front-loaded', 'back-loaded']).optional(),
+	debtGroupId: z.string().optional(),
+	acknowledgedDebtPeriod: z.boolean().optional(),
 
 	// Cleared fields (cleared status) - shared across all splits
 	clearedDate: z.string().datetime().optional(),
+	reconciledAt: z.string().datetime().optional(), // set when included in a reconciliation
 	importMetadata: z.string().optional(), // JSON string for import tracking
 
 	// Split Management Fields
@@ -998,7 +1060,19 @@ const TransactionSchema = BaseSchema.extend({
 			feeAmount: z.number().min(0).default(0), // Original fee amount in transaction currency
 			feeAccountId: z.string().optional(), // Which account pays the fee (default: source)
 			feeAccountAmount: z.number().min(0).optional(), // Cached: feeAmount converted to fee account currency
-			feeCategoryId: z.string().optional() // Category for the fee
+			feeCategoryId: z.string().optional(), // Category for the fee
+			feeType: z
+				.enum([
+					'banking-transfer',
+					'tax-withholding',
+					'broker-commission',
+					'early-withdrawal',
+					'penalty',
+					'currency-conversion',
+					'other'
+				])
+				.optional(),
+			feeDeductionMethod: z.enum(['from-transfer-amount', 'added-to-source']).optional()
 		})
 		.optional(),
 
@@ -1274,6 +1348,7 @@ const ReconciliationRecordSchema = BaseSchema.extend({
 	reconciledTransactionIds: z.array(z.string()),
 	unreconciledTransactionIds: z.array(z.string()),
 	notes: z.string().optional(),
+	balanceAdjustmentApplied: z.number().optional(),
 	resolvedAt: z.string().datetime().optional()
 });
 
@@ -1290,7 +1365,13 @@ const ReconciliationDiscrepancySchema = BaseSchema.extend({
 	amount: z.number().finite(),
 	description: z.string().min(1),
 	suspectedTransactionId: z.string().optional(),
-	suggestedAction: z.enum(['create_transaction', 'modify_transaction', 'ignore', 'investigate']),
+	suggestedAction: z.enum([
+		'review_transactions',
+		'accept_adjustment',
+		'modify_transaction',
+		'ignore',
+		'investigate'
+	]),
 	severity: z.enum(['low', 'medium', 'high']),
 	resolvedAt: z.string().datetime().optional()
 });
@@ -1812,6 +1893,49 @@ export class BudgicDB extends Dexie {
 
 		// Version 19: Autocomplete selection tracking
 		this.version(19).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, [fieldKey+value], createdAt, updatedAt, deletedAt',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]'
+		});
+
+		// Version 20: Intelligence foundations — transaction automation/reimbursements/planned extensions,
+		// transfer fee metadata, reconciliation balance adjustment metadata, category unclassified tier
+		this.version(20).stores({
 			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
 			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
 			categories:
@@ -2829,6 +2953,11 @@ export class BudgicDB extends Dexie {
 	}
 
 	async getCategoriesByWaterfallTier(tier: Category['waterfallTier']): Promise<Category[]> {
+		if (!tier) {
+			return await this.categories
+				.filter((category) => !category.deletedAt && !category.waterfallTier)
+				.toArray();
+		}
 		return await this.categories
 			.where('waterfallTier')
 			.equals(tier)
