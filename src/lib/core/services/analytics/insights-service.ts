@@ -5,6 +5,9 @@ import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
+import { userService } from '../core/user-service';
+import { merchantProfileService } from '../intelligence/merchant-profile-service';
+import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
 import { recurringTransactionIntelligenceService } from './recurring-transaction-intelligence-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { creditUtilizationService } from './credit-utilization-service';
@@ -21,6 +24,7 @@ import {
 	getUserMainCurrency
 } from '$lib/utils/currency-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
+import { categoryIdsWithSpendShare, effectiveAmountForCategory } from '$lib/utils/category-utils';
 
 interface CrossRouteInsightData {
 	goals: Goal[];
@@ -1910,6 +1914,66 @@ class InsightsService {
 	// ============================================================================
 
 	/**
+	 * Phase 9.8 — aggregate-only: derive virtual per-category slices from stable merchant profiles
+	 * for pattern stats. Does not persist; only used for category pattern aggregation.
+	 */
+	private async applyShadowCategoryRedistribution(transactions: Transaction[]): Promise<Transaction[]> {
+		const prefs = await userService.getUserPreferences();
+		if (!prefs.insightsShadowCategoryBreakdown) return transactions;
+
+		const cache = new Map<string, Awaited<ReturnType<typeof merchantProfileService.getProfile>>>();
+		const profileFor = async (mk: string, accountId?: string) => {
+			const k = `${mk}|||${accountId ?? ''}`;
+			let p = cache.get(k);
+			if (p === undefined) {
+				p = await merchantProfileService.getProfile(mk, accountId);
+				cache.set(k, p);
+			}
+			return p;
+		};
+
+		const out: Transaction[] = [];
+		for (const tx of transactions) {
+			if (tx.categoryWeights && tx.categoryWeights.length >= 2) {
+				out.push(tx);
+				continue;
+			}
+			const mk = normaliseMerchantKey(tx.description ?? '');
+			if (!mk) {
+				out.push(tx);
+				continue;
+			}
+			const profile = await profileFor(mk, tx.accountId);
+			if (!profile || profile.stability < 0.85 || profile.totalObservations < 8) {
+				out.push(tx);
+				continue;
+			}
+			const raw = profile.weights.filter((w) => w.meanWeight > 0 && w.observationCount > 0);
+			if (raw.length < 2) {
+				out.push(tx);
+				continue;
+			}
+			const sum = raw.reduce((s, w) => s + w.meanWeight, 0);
+			if (sum < 1e-9) {
+				out.push(tx);
+				continue;
+			}
+			const normalized = raw.map((w) => ({
+				categoryId: w.categoryId,
+				weight: w.meanWeight / sum
+			}));
+			const primary = normalized.reduce((a, b) => (b.weight > a.weight ? b : a), normalized[0]!);
+			out.push({
+				...tx,
+				categoryId: primary.categoryId,
+				categoryWeights: normalized,
+				categoryConfidence: 'profile-inferred'
+			});
+		}
+		return out;
+	}
+
+	/**
 	 * Analyze comprehensive spending patterns (async version)
 	 */
 	async analyzeSpendingPatternsAsync(days: number = 90): Promise<{
@@ -1956,7 +2020,8 @@ class InsightsService {
 		const categoryMap = new Map(categories.map((cat) => [cat.id, cat]));
 
 		// Category patterns
-		const categoryPatterns = this.analyzeCategoryPatterns(transactions, categoryMap, days);
+		const categoryPatternSource = await this.applyShadowCategoryRedistribution(transactions);
+		const categoryPatterns = this.analyzeCategoryPatterns(categoryPatternSource, categoryMap, days);
 
 		// Timing patterns
 		const timingPatterns = this.analyzeTimingPatterns(transactions);
@@ -2000,13 +2065,15 @@ class InsightsService {
 		>();
 
 		transactions.forEach((tx) => {
-			if (!tx.categoryId) return;
-			const data = categoryData.get(tx.categoryId) || { amounts: [], dates: [], total: 0 };
-			const amount = Math.abs(tx.amount || 0);
-			data.amounts.push(amount);
-			data.dates.push(tx.clearedDate || tx.createdAt);
-			data.total += amount;
-			categoryData.set(tx.categoryId, data);
+			for (const cid of categoryIdsWithSpendShare(tx)) {
+				const amount = Math.abs(effectiveAmountForCategory(tx, cid));
+				if (amount < 1e-9) continue;
+				const data = categoryData.get(cid) || { amounts: [], dates: [], total: 0 };
+				data.amounts.push(amount);
+				data.dates.push(tx.clearedDate || tx.createdAt);
+				data.total += amount;
+				categoryData.set(cid, data);
+			}
 		});
 
 		const totalSpending = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
@@ -2330,6 +2397,8 @@ class InsightsService {
 		incomeComparativeLine: string | null;
 		savingsTrendSymbol: string | null;
 		feeDriftLine: string | null;
+		shadowCategoryViewEnabled: boolean;
+		shadowEstimatedNote: string | null;
 	}> {
 		const txs = await db.transactions
 			.filter(
@@ -2406,11 +2475,18 @@ class InsightsService {
 			// ignore
 		}
 
+		const prefs = await userService.getUserPreferences();
+		const shadowCategoryViewEnabled = prefs.insightsShadowCategoryBreakdown ?? false;
+
 		return {
 			spendComparativeLine,
 			incomeComparativeLine,
 			savingsTrendSymbol,
-			feeDriftLine
+			feeDriftLine,
+			shadowCategoryViewEnabled,
+			shadowEstimatedNote: shadowCategoryViewEnabled
+				? '~estimated: category breakdown can use stable merchant profiles where available (stored transactions are not changed).'
+				: null
 		};
 	}
 }

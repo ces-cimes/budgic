@@ -86,7 +86,14 @@ class UserService {
 			balanceUpdateAutoResolveThreshold:
 				typeof prefs.balanceUpdateAutoResolveThreshold === 'number'
 					? prefs.balanceUpdateAutoResolveThreshold
-					: 5
+					: 5,
+			insightsShadowCategoryBreakdown: prefs.insightsShadowCategoryBreakdown ?? false,
+			goalRelativePrecisionDismissals:
+				(prefs.goalRelativePrecisionDismissals as UserPreferences['goalRelativePrecisionDismissals']) ??
+				undefined,
+			reviewSessionQueueIds: (prefs.reviewSessionQueueIds as string[] | undefined) ?? undefined,
+			reviewSessionIndex:
+				typeof prefs.reviewSessionIndex === 'number' ? prefs.reviewSessionIndex : undefined
 		} as UserPreferences;
 	}
 
@@ -148,6 +155,7 @@ class UserService {
 				sidebarFooterCards: ['total_balance', 'today_allowance'],
 				includeAccruedInNetWorth: false,
 				balanceUpdateAutoResolveThreshold: 5,
+				insightsShadowCategoryBreakdown: false,
 				...updates,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
@@ -507,6 +515,7 @@ class UserService {
 			sidebarFooterCards: ['total_balance', 'today_allowance'],
 			includeAccruedInNetWorth: false,
 			balanceUpdateAutoResolveThreshold: 5,
+			insightsShadowCategoryBreakdown: false,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null

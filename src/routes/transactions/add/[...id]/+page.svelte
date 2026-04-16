@@ -9,11 +9,15 @@
 		budgetService,
 		userService,
 		planService,
-		negativeAllowanceService
+		negativeAllowanceService,
+		merchantProfileService,
+		goalService
 	} from '$lib/core/services';
+	import { toast } from 'svelte-sonner';
 	import { db } from '$lib/core/db';
 	import type { Account, Transaction, Category, ReimbursementEntry } from '$lib/core/db';
 	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
+	import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
@@ -71,6 +75,100 @@
 		return id.replace(/^debt:/, '').replace(/-/g, ' ');
 	}
 
+	function roundWeightSum(weights: { categoryId: string; weight: number }[]) {
+		const sum = weights.reduce((a, w) => a + w.weight, 0);
+		if (sum < 1e-9) return weights;
+		return weights.map((w) => ({ ...w, weight: w.weight / sum }));
+	}
+
+	function buildCategoryWeights():
+		| { weights: { categoryId: string; weight: number }[]; primaryId: string }
+		| undefined {
+		if (transactionType !== 'expense' || !selectedCategory) return undefined;
+		const extras =
+			softSecondaryCategory && softSecondaryCategory !== selectedCategory
+				? [softSecondaryCategory]
+				: [];
+		if (extras.length === 0) return undefined;
+		const ids = [selectedCategory, ...extras];
+		const n = ids.length;
+		let wts: number[];
+		if (n === 2) {
+			const presetMap: Record<string, [number, number]> = {
+				'80/20': [0.8, 0.2],
+				'70/30': [0.7, 0.3],
+				'60/40': [0.6, 0.4],
+				'50/50': [0.5, 0.5]
+			};
+			wts =
+				softPreset === 'custom'
+					? [softWPrimary, 1 - softWPrimary]
+					: (presetMap[softPreset] ?? [0.7, 0.3]);
+		} else {
+			wts = Array(n).fill(1 / n);
+		}
+		const weights = roundWeightSum(
+			ids.map((categoryId, i) => ({ categoryId, weight: wts[i] ?? 1 / n }))
+		);
+		const primaryId = weights.reduce((a, b) => (b.weight > a.weight ? b : a)).categoryId;
+		return { weights, primaryId };
+	}
+
+	let merchantSuggestTimer: ReturnType<typeof setTimeout> | null = null;
+	let lastSuggestedMerchantKey = $state('');
+
+	async function runMerchantProfileSuggestion() {
+		if (transactionType !== 'expense' || !description.trim()) {
+			merchantSplitNote = null;
+			return;
+		}
+		const mk = normaliseMerchantKey(description.trim());
+		if (!mk) {
+			merchantSplitNote = null;
+			return;
+		}
+		if (softSecondaryCategory) return;
+		const sug = await merchantProfileService.suggestWeights(mk, selectedAccount || undefined);
+		if (!sug || sug.weights.length < 2) {
+			merchantSplitNote = null;
+			return;
+		}
+		const sorted = [...sug.weights].sort((a, b) => b.weight - a.weight);
+		selectedCategory = sorted[0].categoryId;
+		softSecondaryCategory = sorted[1]?.categoryId ?? '';
+		splitSource = 'profile';
+		merchantSplitNote = 'Based on your history at this merchant';
+	}
+
+	$effect(() => {
+		const desc = description;
+		const acc = selectedAccount;
+		const tt = transactionType;
+		if (get(page).params.id) return;
+		if (merchantSuggestTimer) clearTimeout(merchantSuggestTimer);
+		if (tt !== 'expense') {
+			merchantSplitNote = null;
+			return;
+		}
+		const mk = normaliseMerchantKey(desc.trim());
+		if (!mk) {
+			merchantSplitNote = null;
+			return;
+		}
+		if (lastSuggestedMerchantKey && mk !== lastSuggestedMerchantKey.split('::')[0]) {
+			// description merchant key changed — allow new suggestion
+		}
+		merchantSuggestTimer = setTimeout(() => {
+			const key = `${mk}::${acc}`;
+			if (key === lastSuggestedMerchantKey) return;
+			lastSuggestedMerchantKey = key;
+			void runMerchantProfileSuggestion();
+		}, 500);
+		return () => {
+			if (merchantSuggestTimer) clearTimeout(merchantSuggestTimer);
+		};
+	});
+
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
 	let transaction = $state<Transaction | null>(null);
@@ -119,6 +217,12 @@
 		reimbursementStatus = reimbursementDirection === 'lending' ? 'expecting' : 'owed';
 	});
 	let selectedCategory = $state('');
+	/** Phase 9 — second category for two-way soft split (empty = none) */
+	let softSecondaryCategory = $state('');
+	let softPreset = $state<'80/20' | '70/30' | '60/40' | '50/50' | 'custom'>('70/30');
+	let softWPrimary = $state(0.7);
+	let splitSource = $state<'none' | 'profile' | 'manual'>('none');
+	let merchantSplitNote = $state<string | null>(null);
 	let hasInferredCategoryIndicator = $state(false);
 	let inferredCategoryId = $state<string | null>(null);
 	let inferredCategoryLabel = $state('');
@@ -403,6 +507,13 @@
 		const defaultOrderMap = new Map(categories.map((category, index) => [category.id, index]));
 
 		return [...categories]
+			.filter((c) => {
+				if (transactionType === 'expense' || transactionType === 'income') {
+					if (c.waterfallTier === undefined) return false;
+					return transactionType === 'expense' ? c.type === 'expense' : c.type === 'income';
+				}
+				return true;
+			})
 			.sort((left, right) => {
 				const leftScore = categoryBlendScores.get(left.id.toLowerCase()) ?? 0;
 				const rightScore = categoryBlendScores.get(right.id.toLowerCase()) ?? 0;
@@ -532,6 +643,16 @@
 					transactionType = transaction.type;
 					status = transaction.status;
 					selectedCategory = transaction.categoryId || '';
+					if (transaction.categoryWeights && transaction.categoryWeights.length >= 2) {
+						const sorted = [...transaction.categoryWeights].sort((a, b) => b.weight - a.weight);
+						selectedCategory = sorted[0].categoryId;
+						softSecondaryCategory = sorted[1]?.categoryId ?? '';
+						splitSource =
+							transaction.categoryConfidence === 'profile-inferred' ? 'profile' : 'manual';
+					} else {
+						softSecondaryCategory = '';
+						splitSource = 'none';
+					}
 					notes = transaction.notes || '';
 					reference = transaction.reference || '';
 					// Convert UTC dates to local datetime-local format for input
@@ -936,8 +1057,116 @@
 					console.warn('Failed to record note autocomplete usage', selectionError)
 				);
 		}
+
+		try {
+			if (
+				txData.type === 'expense' &&
+				txData.status === 'cleared' &&
+				txData.categoryWeights &&
+				txData.categoryWeights.length >= 2
+			) {
+				const goals = await goalService.getGoals();
+				if (goals.length > 0) {
+					const prefs = await userService.getUserPreferences();
+					const mk = normaliseMerchantKey(txData.description ?? '') || '_';
+					const prev = prefs.goalRelativePrecisionDismissals?.[mk] ?? [];
+					const recent = prev.filter(
+						(d) => Date.now() - new Date(d).getTime() < 30 * 86400000
+					).length;
+					if (recent < 3) {
+						toast.message('Goals track more cleanly with exact splits.', {
+							description:
+								'Weighted categories work for budgeting; for stricter goal math, use “Make exact split” when it matters.',
+							duration: 9000,
+							action: {
+								label: 'Dismiss',
+								onClick: async () => {
+									const p = await userService.getUserPreferences();
+									const nextArr = [
+										...(p.goalRelativePrecisionDismissals?.[mk] ?? []),
+										new Date().toISOString()
+									];
+									await userService.updateUserPreferences({
+										...p,
+										goalRelativePrecisionDismissals: {
+											...(p.goalRelativePrecisionDismissals ?? {}),
+											[mk]: nextArr
+										}
+									});
+								}
+							}
+						});
+					}
+				}
+			}
+		} catch {
+			// non-blocking nudge
+		}
+
 		goto('/transactions');
 		return savedTransaction;
+	}
+
+	async function makeExactSplitAction() {
+		const cw = buildCategoryWeights();
+		if (!cw || cw.weights.length < 2) {
+			error = 'Add a second category and choose a split ratio first.';
+			return;
+		}
+		if (!selectedAccount || !currency) {
+			error = 'Select account and currency first.';
+			return;
+		}
+		const splitCurrency = currency;
+		isLoading = true;
+		error = '';
+		try {
+			const totalAbs = Math.abs(amount);
+			const round2 = (n: number) => Math.round(n * 100) / 100;
+			const shares = cw.weights.map((w) => round2(totalAbs * w.weight));
+			const drift = round2(totalAbs - shares.reduce((a, b) => a + b, 0));
+			const primaryIdx = Math.max(
+				0,
+				cw.weights.findIndex((w) => w.categoryId === cw.primaryId)
+			);
+			shares[primaryIdx] = round2((shares[primaryIdx] ?? 0) + drift);
+
+			const clearedIso =
+				status === 'cleared' && clearedDate
+					? dateUtils.fromLocalDateTimeInput(clearedDate)
+					: undefined;
+			const plannedIso =
+				status === 'planned' && plannedDate
+					? dateUtils.fromLocalDateTimeInput(plannedDate)
+					: undefined;
+
+			const gid = crypto.randomUUID();
+			const groupNm = groupName.trim() || 'Split';
+
+			const txs: Array<Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>> =
+				cw.weights.map((w, i) => ({
+					accountId: selectedAccount,
+					description: description.trim() || undefined,
+					amount: -(shares[i] ?? 0),
+					type: 'expense' as const,
+					status,
+					currency: splitCurrency,
+					categoryId: w.categoryId,
+					categoryConfidence: 'exact',
+					clearedDate: clearedIso,
+					plannedDate: plannedIso,
+					groupId: gid,
+					groupName: groupNm,
+					notes: notes || undefined,
+					reference: reference || undefined
+				}));
+			await transactionService.createTransactionGroup(txs);
+			goto('/transactions');
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not create split';
+		} finally {
+			isLoading = false;
+		}
 	}
 
 	async function handleSubmit(event: Event) {
@@ -946,6 +1175,9 @@
 		error = '';
 
 		try {
+			if (isGroupTransaction && buildCategoryWeights()) {
+				throw new Error('Turn off "Grouped transaction" before saving a soft category split.');
+			}
 			// Validate required fields
 			// Account is required for cleared, pending, and transfers; optional for planned
 			if (
@@ -963,7 +1195,6 @@
 			if (!currency) {
 				throw new Error('Please select a currency');
 			}
-
 			// Auto-assign "Uncategorized" category for expenses without a category
 			let finalCategoryId = selectedCategory;
 			if (transactionType === 'expense' && !selectedCategory) {
@@ -1004,6 +1235,9 @@
 				];
 			}
 
+			const splitBuilt = buildCategoryWeights();
+			const categoryIdResolved = splitBuilt?.primaryId ?? (finalCategoryId || undefined);
+
 			const transactionData: TransactionDraft = {
 				accountId: selectedAccount || undefined, // Optional for planned transactions
 				description: description.trim() || undefined,
@@ -1011,7 +1245,16 @@
 				type: transactionType,
 				status: status,
 				currency,
-				categoryId: finalCategoryId || undefined,
+				categoryId: categoryIdResolved,
+				...(splitBuilt
+					? {
+							categoryWeights: splitBuilt.weights,
+							categoryConfidence:
+								splitSource === 'profile'
+									? ('profile-inferred' as const)
+									: ('weighted' as const)
+						}
+					: {}),
 				notes: notes || undefined,
 				reference: reference || undefined,
 				toAccountId: transactionType === 'transfer' ? toAccountId : undefined,
@@ -1503,6 +1746,100 @@
 						</p>
 					{/if}
 				</div>
+
+				{#if transactionType === 'expense' && selectedCategory}
+					<div class="space-y-2 pt-1">
+						{#if !softSecondaryCategory}
+							<button
+								type="button"
+								class="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]"
+								onclick={() => {
+									const pick = categoryOptions.find((o) => o.value !== selectedCategory)?.value;
+									if (!pick) return;
+									softSecondaryCategory = pick;
+									splitSource = 'manual';
+								}}
+							>
+								+ Split category
+							</button>
+						{:else}
+							<Label.Root>Second category</Label.Root>
+							<SearchableSelect
+								bind:value={softSecondaryCategory}
+								options={categoryOptions.filter((o) => o.value !== selectedCategory)}
+								placeholder="Split category"
+								fieldKey="transaction.category"
+								selectionContext={{
+									transactionType,
+									status,
+									accountId: selectedAccount || undefined
+								}}
+							/>
+							<div class="flex flex-wrap gap-1">
+								{#each ['80/20', '70/30', '60/40', '50/50', 'custom'] as preset}
+									<button
+										type="button"
+										class="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-tertiary)] hover:border-[var(--color-amber)]"
+										onclick={() => {
+											softPreset = preset as typeof softPreset;
+											splitSource = 'manual';
+										}}
+									>
+										{preset}
+									</button>
+								{/each}
+							</div>
+							{#if softPreset === 'custom'}
+								<input
+									type="range"
+									min="0.05"
+									max="0.95"
+									step="0.01"
+									bind:value={softWPrimary}
+									oninput={() => (splitSource = 'manual')}
+									class="w-full"
+									aria-label="Primary share"
+								/>
+							{/if}
+							{#if buildCategoryWeights()}
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									{formatAmount(
+										Math.abs(amount) * (buildCategoryWeights()?.weights[0]?.weight ?? 0),
+										currency || 'USD'
+									)}
+									·
+									{formatAmount(
+										Math.abs(amount) * (buildCategoryWeights()?.weights[1]?.weight ?? 0),
+										currency || 'USD'
+									)}
+								</p>
+							{/if}
+							<div class="flex flex-wrap gap-2">
+								<button
+									type="button"
+									class="text-xs text-[var(--color-text-tertiary)] hover:underline"
+									onclick={() => {
+										softSecondaryCategory = '';
+										merchantSplitNote = null;
+										splitSource = 'none';
+									}}
+								>
+									Remove split
+								</button>
+								<button
+									type="button"
+									class="text-xs text-[var(--color-amber)] hover:underline"
+									onclick={makeExactSplitAction}
+								>
+									Make exact split
+								</button>
+							</div>
+						{/if}
+						{#if merchantSplitNote}
+							<p class="text-xs text-[var(--color-text-tertiary)]">{merchantSplitNote}</p>
+						{/if}
+					</div>
+				{/if}
 
 				{#if transactionType === 'expense' && !selectedCategory}
 					<div

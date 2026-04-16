@@ -15,3 +15,4 @@ export type {
 	SimilarityResult,
 	SimilarityProfileName
 } from './transaction-similarity-engine';
+export { merchantProfileService } from './merchant-profile-service';

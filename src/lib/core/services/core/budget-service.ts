@@ -1,4 +1,5 @@
 import {
+	ANALYTICS_TIERS,
 	db,
 	generateUUID,
 	isAnalyticsTier,
@@ -10,6 +11,11 @@ import type { AllowanceConfidence } from '$lib/core/db';
 import { differenceInCalendarMonths, startOfMonth } from 'date-fns';
 import { recurringTransactionIntelligenceService } from '../analytics/recurring-transaction-intelligence-service';
 import { passiveAccountService } from './passive-account-service';
+import {
+	absAnalyticsTierPortion,
+	effectiveAmountForCategory,
+	tierAmounts
+} from '$lib/utils/category-utils';
 
 interface BudgetAllocation {
 	categoryId: string;
@@ -208,24 +214,36 @@ class BudgetService {
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
 			if (creditPaymentTransferIds.has(tx.id)) continue;
 
-			const tier = tx.categoryId ? categoryById.get(tx.categoryId)?.waterfallTier : undefined;
-			let amount = Math.abs(tx.amount || 0);
+			const fullAbs = Math.abs(tx.amount || 0);
+			let reimbReduction = 0;
 			if (reimbursementAllowanceMode === 'optimistic' && tx.reimbursements?.length) {
-				const openExpected = tx.reimbursements
+				reimbReduction = tx.reimbursements
 					.filter((entry) => entry.direction === 'lending' && entry.status === 'expecting')
 					.reduce((sum, entry) => sum + entry.amount, 0);
-				amount = Math.max(0, amount - openExpected);
 			}
-			amount = await this.convertToMainCurrency(
-				amount,
-				tx.currency ?? mainCurrency,
-				mainCurrency,
-				tx.clearedDate ? new Date(tx.clearedDate) : undefined
-			);
-			if (isAnalyticsTier(tier)) {
-				exactSpend += amount;
-			} else {
-				unclassifiedSpend += amount;
+
+			const ta = tierAmounts(tx, categoryById);
+			let txHadUnclassifiedSlice = false;
+			for (const t of [...ANALYTICS_TIERS, 'unclassified'] as const) {
+				let sliceAbs = Math.abs(ta[t] ?? 0);
+				if (sliceAbs < 1e-9) continue;
+				if (reimbReduction > 0 && fullAbs > 0) {
+					sliceAbs = Math.max(0, sliceAbs - reimbReduction * (sliceAbs / fullAbs));
+				}
+				sliceAbs = await this.convertToMainCurrency(
+					sliceAbs,
+					tx.currency ?? mainCurrency,
+					mainCurrency,
+					tx.clearedDate ? new Date(tx.clearedDate) : undefined
+				);
+				if (isAnalyticsTier(t)) {
+					exactSpend += sliceAbs;
+				} else if (t === 'unclassified') {
+					unclassifiedSpend += sliceAbs;
+					txHadUnclassifiedSlice = true;
+				}
+			}
+			if (txHadUnclassifiedSlice) {
 				unclassifiedTransactionCount += 1;
 			}
 		}
@@ -386,15 +404,15 @@ class BudgetService {
 		for (const category of categories) {
 			const categoryTransactions = recentTransactions.filter(
 				(tx: Transaction) =>
-					tx.categoryId === category.id &&
-					(tx.type !== 'expense' || transactionAutomationCountsInAnalytics(tx))
+					(tx.type !== 'expense' || transactionAutomationCountsInAnalytics(tx)) &&
+					Math.abs(effectiveAmountForCategory(tx, category.id)) > 1e-9
 			);
 
 			// Convert all amounts to main currency
 			let totalSpending = 0;
 			for (const tx of categoryTransactions) {
 				if (tx.type === 'expense') {
-					const amount = Math.abs(tx.amount || 0);
+					const amount = Math.abs(effectiveAmountForCategory(tx, category.id));
 					const transactionCurrency = tx.currency || mainCurrency;
 
 					let convertedAmount = amount;
@@ -628,7 +646,7 @@ class BudgetService {
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
 			if (creditPaymentTransferIds.has(tx.id)) continue;
 			trailing90Spend += await this.convertToMainCurrency(
-				Math.abs(tx.amount || 0),
+				absAnalyticsTierPortion(tx, categoryById),
 				tx.currency ?? userCurrency,
 				userCurrency,
 				cd
@@ -649,14 +667,16 @@ class BudgetService {
 			if (cd < periodStart || cd > now) continue;
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
 			if (creditPaymentTransferIds.has(tx.id)) continue;
-			const tier = tx.categoryId ? categoryById.get(tx.categoryId)?.waterfallTier : undefined;
-			if (!isAnalyticsTier(tier)) continue;
-			let amount = Math.abs(tx.amount || 0);
+			const analyticsPortion = absAnalyticsTierPortion(tx, categoryById);
+			if (analyticsPortion < 1e-9) continue;
+			const fullAbs = Math.abs(tx.amount || 0);
+			let amount = analyticsPortion;
 			if (reimbursementAllowanceMode === 'optimistic' && tx.reimbursements?.length) {
 				const openExpected = tx.reimbursements
 					.filter((e) => e.direction === 'lending' && e.status === 'expecting')
 					.reduce((s, e) => s + e.amount, 0);
-				amount = Math.max(0, amount - openExpected);
+				amount =
+					fullAbs > 0 ? Math.max(0, amount - openExpected * (amount / fullAbs)) : Math.max(0, amount);
 			}
 			committed += await this.convertToMainCurrency(
 				amount,
@@ -869,6 +889,8 @@ class BudgetService {
 	async createCategory(categoryData: {
 		name: string;
 		type: Category['type'];
+		/** Phase 9 — optional tree parent */
+		parentId?: string;
 		waterfallTier?: Category['waterfallTier'];
 		priority: number;
 		budgetAmount?: number;
@@ -880,7 +902,12 @@ class BudgetService {
 			id: generateUUID(),
 			name: categoryData.name,
 			type: categoryData.type,
-			waterfallTier: categoryData.waterfallTier ?? 'unclassified',
+			...(categoryData.parentId ? { parentId: categoryData.parentId } : {}),
+			...('waterfallTier' in categoryData
+				? categoryData.waterfallTier !== undefined
+					? { waterfallTier: categoryData.waterfallTier }
+					: {}
+				: { waterfallTier: 'unclassified' }),
 			priority: categoryData.priority,
 			budgetAmount: categoryData.budgetAmount,
 			color: categoryData.color,
@@ -937,14 +964,15 @@ class BudgetService {
 		let sum = 0;
 		for (const tx of transactions) {
 			if (excludedIds.has(tx.id)) continue;
-			if (tx.categoryId !== categoryId) continue;
 			if (tx.type !== 'expense' || tx.status !== 'cleared') continue;
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
 			if (!tx.clearedDate) continue;
+			const slice = Math.abs(effectiveAmountForCategory(tx, categoryId));
+			if (slice < 1e-9) continue;
 			const cd = new Date(tx.clearedDate);
 			if (cd < periodStart || cd > now) continue;
 			sum += await this.convertToMainCurrency(
-				Math.abs(tx.amount || 0),
+				slice,
 				tx.currency ?? mainCurrency,
 				mainCurrency,
 				cd

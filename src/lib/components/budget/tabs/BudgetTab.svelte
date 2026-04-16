@@ -21,6 +21,7 @@
 	import { budgetService, transactionService, insightsService } from '$lib/core/services';
 	import type { BudgetTabProps, PlanningData } from '../types.js';
 	import type { Category } from '$lib/core/db';
+	import { effectiveAmountForCategory } from '$lib/utils/category-utils';
 	import CategoriesTabContent from '$lib/components/categories/CategoriesTabContent.svelte';
 	import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
 	import type { Insight } from '$lib/core/db';
@@ -47,10 +48,16 @@
 			// Calculate budget data for each category
 			budgetCategories = categories.map((category) => {
 				const categoryTransactions = transactions.filter(
-					(tx) => tx.categoryId === category.id && tx.type === 'expense' && tx.status === 'cleared'
+					(tx) =>
+						tx.type === 'expense' &&
+						tx.status === 'cleared' &&
+						Math.abs(effectiveAmountForCategory(tx, category.id)) > 1e-9
 				);
 
-				const spent = categoryTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+				const spent = categoryTransactions.reduce(
+					(sum, tx) => sum + Math.abs(effectiveAmountForCategory(tx, category.id)),
+					0
+				);
 				const allocated = category.budgetAmount || 0;
 
 				return {

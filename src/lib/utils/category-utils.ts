@@ -2,7 +2,89 @@
  * Category utility functions
  */
 
-import { db, generateUUID, type Category } from '$lib/core/db';
+import {
+	ANALYTICS_TIERS,
+	db,
+	generateUUID,
+	transactionAutomationCountsInAnalytics,
+	type Category,
+	type Transaction
+} from '$lib/core/db';
+
+/** Category ids that receive a non-zero share of this transaction's amount */
+export function categoryIdsWithSpendShare(tx: Transaction): string[] {
+	if (tx.categoryWeights?.length) {
+		return tx.categoryWeights.map((w) => w.categoryId);
+	}
+	return tx.categoryId ? [tx.categoryId] : [];
+}
+
+/** Signed sum of amounts on analytics tiers only (excludes unclassified slice). */
+export function signedSumAnalyticsTierAmounts(
+	tx: Transaction,
+	categories: Map<string, Category>
+): number {
+	const ta = tierAmounts(tx, categories);
+	let s = 0;
+	for (const t of ANALYTICS_TIERS) {
+		s += ta[t] ?? 0;
+	}
+	return s;
+}
+
+/** Absolute spend magnitude attributed to analytics tiers (for expense analytics totals). */
+export function absAnalyticsTierPortion(tx: Transaction, categories: Map<string, Category>): number {
+	return Math.abs(signedSumAnalyticsTierAmounts(tx, categories));
+}
+
+/** Cleared expense with automation rule and at least some amount on survival–lifestyle tiers */
+export function shouldIncludeClearedExpenseInAnalyticsSpend(
+	tx: Transaction,
+	categories: Map<string, Category>
+): boolean {
+	if (tx.type !== 'expense' || tx.status !== 'cleared') return false;
+	if (!transactionAutomationCountsInAnalytics(tx)) return false;
+	return absAnalyticsTierPortion(tx, categories) > 1e-9;
+}
+
+/**
+ * Phase 9 — signed amount attributed to a category (soft split or legacy single categoryId).
+ */
+export function effectiveAmountForCategory(tx: Transaction, categoryId: string): number {
+	const base = tx.amount ?? 0;
+	if (!tx.categoryWeights?.length) {
+		return tx.categoryId === categoryId ? base : 0;
+	}
+	const entry = tx.categoryWeights.find((w) => w.categoryId === categoryId);
+	return entry ? base * entry.weight : 0;
+}
+
+/**
+ * Phase 9 — per-waterfall-tier signed amounts for one transaction.
+ */
+export function tierAmounts(tx: Transaction, categories: Map<string, Category>): Record<string, number> {
+	const result: Record<string, number> = {};
+	const base = tx.amount ?? 0;
+	const addToTier = (tier: string, amount: number) => {
+		result[tier] = (result[tier] ?? 0) + amount;
+	};
+	if (!tx.categoryWeights?.length) {
+		const tier = categories.get(tx.categoryId ?? '')?.waterfallTier ?? 'unclassified';
+		addToTier(tier, base);
+		return result;
+	}
+	for (const { categoryId, weight } of tx.categoryWeights) {
+		const tier = categories.get(categoryId)?.waterfallTier ?? 'unclassified';
+		addToTier(tier, base * weight);
+	}
+	return result;
+}
+
+/** Absolute spend magnitude for a category from a transaction (for expense analytics). */
+export function effectiveAbsExpenseAmountForCategory(tx: Transaction, categoryId: string): number {
+	if (tx.type !== 'expense') return 0;
+	return Math.abs(effectiveAmountForCategory(tx, categoryId));
+}
 
 /**
  * Get or create the "Uncategorized" system category for expenses

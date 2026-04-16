@@ -1,6 +1,8 @@
 import { analyticsService, transactionService, insightsService } from '$lib/core/services';
 import { transactionAutomationCountsInAnalytics } from '$lib/core/db';
 import { formatAmount, formatPercentage, getUserMainCurrency } from '$lib/utils/currency-utils';
+import { categoryIdsWithSpendShare, effectiveAmountForCategory } from '$lib/utils/category-utils';
+import type { Transaction } from '$lib/core/db';
 import type {
 	AnalyticsData,
 	Insight,
@@ -172,12 +174,15 @@ export class AnalyzeService {
 		// First filter out null/undefined transactions
 		transactions
 			.filter((tx) => tx != null) // Remove null/undefined transactions
-			.forEach((tx) => {
-				if (tx.type === 'expense' && tx.categoryId) {
-					const transactionDate = new Date(tx.clearedDate || tx.plannedDate || tx.createdAt);
-					const amount = Math.abs(tx.amount || 0);
+			.forEach((txRaw) => {
+				const tx = txRaw as Transaction;
+				if (tx.type !== 'expense') return;
+				const transactionDate = new Date(tx.clearedDate || tx.plannedDate || tx.createdAt);
+				for (const cid of categoryIdsWithSpendShare(tx)) {
+					const amount = Math.abs(effectiveAmountForCategory(tx, cid));
+					if (amount < 1e-9) continue;
 
-					const existing = categoryMap.get(tx.categoryId) || {
+					const existing = categoryMap.get(cid) || {
 						amount: 0,
 						count: 0,
 						currentPeriod: 0,
@@ -194,7 +199,7 @@ export class AnalyzeService {
 						updatedData.previousPeriod += amount;
 					}
 
-					categoryMap.set(tx.categoryId, updatedData);
+					categoryMap.set(cid, updatedData);
 				}
 			});
 

@@ -362,10 +362,10 @@
 											<Button
 												variant="ghost"
 												size="sm"
-												onclick={() => goto('/insights?tab=patterns')}
+												onclick={() => goto('/insights?tab=patterns&reviewSession=1')}
 												class="text-[var(--color-amber)]"
 											>
-												Go to Insights/Patterns
+												Open review session
 											</Button>
 											<Button variant="ghost" size="sm" onclick={handleDismissClassifyNudge}>
 												Dismiss

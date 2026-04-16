@@ -587,9 +587,13 @@ export function validateTransactionGroup(groupTransactions: Transaction[]): {
 		errors.push('All transactions must have the same importSource');
 	}
 
-	// All transactions must have the same categorization
+	// All transactions must have the same categorization (except multi-row exact category splits)
 	const categoryId = groupTransactions[0].categoryId;
-	if (!groupTransactions.every((tx) => tx.categoryId === categoryId)) {
+	const isExactCategorySplit =
+		type === 'expense' &&
+		groupTransactions.length > 1 &&
+		groupTransactions.every((tx) => tx.categoryConfidence === 'exact');
+	if (!isExactCategorySplit && !groupTransactions.every((tx) => tx.categoryId === categoryId)) {
 		errors.push('All transactions must have the same categoryId');
 	}
 
@@ -740,9 +744,13 @@ export function validateNewGroupTransaction(
 		errors.push('All transactions must have the same importSource');
 	}
 
-	// All transactions must have the same categorization
+	// All transactions must have the same categorization (except multi-row exact category splits)
 	const categoryId = groupTransactions[0].categoryId;
-	if (!groupTransactions.every((tx) => tx.categoryId === categoryId)) {
+	const isExactCategorySplit =
+		type === 'expense' &&
+		groupTransactions.length > 1 &&
+		groupTransactions.every((tx) => tx.categoryConfidence === 'exact');
+	if (!isExactCategorySplit && !groupTransactions.every((tx) => tx.categoryId === categoryId)) {
 		errors.push('All transactions must have the same categoryId');
 	}
 
@@ -894,10 +902,65 @@ const AccountSchema = BaseSchema.extend({
 	passiveRatePromptDismissed: z.boolean().optional()
 });
 
+/** Phase 9 — how category assignment was determined (optional; omit = legacy / unspecified) */
+export const CategoryConfidenceSchema = z.enum([
+	'exact',
+	'weighted',
+	'profile-confirmed',
+	'profile-inferred',
+	'high',
+	'medium',
+	'assumed'
+]);
+export type CategoryConfidence = z.infer<typeof CategoryConfidenceSchema>;
+
+/** Phase 9 — soft split: weights sum to 1; primary categoryId = argmax weight */
+export const CategoryWeightEntrySchema = z.object({
+	categoryId: z.string(),
+	weight: z.number().min(0).max(1)
+});
+export type CategoryWeightEntry = z.infer<typeof CategoryWeightEntrySchema>;
+
+const CATEGORY_WEIGHT_SUM_TOLERANCE = 0.001;
+
+/** Validates categoryWeights invariants; no-op when weights absent */
+export function validateTransactionCategoryWeights(tx: {
+	groupId?: string | null;
+	categoryId?: string | undefined;
+	categoryWeights?: CategoryWeightEntry[] | undefined;
+}): void {
+	if (tx.groupId && tx.categoryWeights && tx.categoryWeights.length > 0) {
+		throw new Error('categoryWeights cannot be set on grouped split transactions');
+	}
+	const w = tx.categoryWeights;
+	if (!w || w.length === 0) return;
+	if (w.length < 2 || w.length > 4) {
+		throw new Error('categoryWeights must have between 2 and 4 entries');
+	}
+	for (const e of w) {
+		if (e.weight < 0 || e.weight > 1) {
+			throw new Error('category weight must be between 0 and 1');
+		}
+	}
+	const sum = w.reduce((s, x) => s + x.weight, 0);
+	if (Math.abs(sum - 1) > CATEGORY_WEIGHT_SUM_TOLERANCE) {
+		throw new Error(`categoryWeights must sum to 1.0 (±${CATEGORY_WEIGHT_SUM_TOLERANCE}), got ${sum}`);
+	}
+	let maxEntry = w[0];
+	for (const e of w) {
+		if (e.weight > maxEntry.weight) maxEntry = e;
+	}
+	if (tx.categoryId !== maxEntry.categoryId) {
+		throw new Error('categoryId must match the category with the highest weight');
+	}
+}
+
 // Unified Category Schema (replaces what/why tags, payees, and budget categories)
 const CategorySchema = BaseSchema.extend({
 	name: z.string().min(1), // "groceries", "rent", "Netflix"
 	type: z.enum(['expense', 'income']),
+	/** Phase 9 — tree parent; undefined = root */
+	parentId: z.string().optional(),
 	// optional: organisational category nodes may omit tier (not selectable in transaction form)
 	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle', 'unclassified']).optional(),
 	priority: z.number().min(1), // Within tier
@@ -1088,6 +1151,9 @@ const TransactionSchema = BaseSchema.extend({
 
 	// Simplified categorization - single category reference
 	categoryId: z.string().optional(), // References unified Category
+	/** Phase 9 — soft probabilistic split (single row); mutually exclusive with multi-row groupId splits */
+	categoryWeights: z.array(CategoryWeightEntrySchema).optional(),
+	categoryConfidence: CategoryConfidenceSchema.optional(),
 
 	automation: AutomationTagSchema.optional(),
 	memo: z.string().optional(),
@@ -1262,7 +1328,19 @@ const UserPreferencesSchema = BaseSchema.extend({
 	/** Phase 10 — net worth uses projected accrual on passive accounts when true */
 	includeAccruedInNetWorth: z.boolean().default(false),
 	/** Phase 10.8 — max absolute ledger gap (account currency) for silent auto-resolve in Update balance */
-	balanceUpdateAutoResolveThreshold: z.number().min(0).max(500).default(5)
+	balanceUpdateAutoResolveThreshold: z.number().min(0).max(500).default(5),
+
+	/** Phase 9.8 — Insights aggregate-only estimated category breakdown from merchant profiles */
+	insightsShadowCategoryBreakdown: z.boolean().default(false),
+
+	/**
+	 * Phase 9.6 — dismissal timestamps (ISO) per `merchantKey::goalCategoryId` for goal-relative precision nudge
+	 */
+	goalRelativePrecisionDismissals: z.record(z.string(), z.array(z.string().datetime())).optional(),
+
+	/** Phase 9.7 — resume review session (transaction ids + cursor) */
+	reviewSessionQueueIds: z.array(z.string()).optional(),
+	reviewSessionIndex: z.number().int().min(0).optional()
 });
 
 // User Actions Schema
@@ -1600,6 +1678,25 @@ const OccasionSchema = BaseSchema.extend({
 	metadata: z.string().optional()
 });
 
+/** Phase 9 — learned merchant → category weight distribution */
+const MerchantCategoryProfileWeightSchema = z.object({
+	categoryId: z.string(),
+	meanWeight: z.number().min(0).max(1),
+	stdDev: z.number().min(0),
+	observationCount: z.number().int().min(0),
+	/** Welford M2 for incremental stdDev */
+	weightM2: z.number().optional()
+});
+
+const MerchantCategoryProfileSchema = BaseSchema.extend({
+	merchantKey: z.string(),
+	accountId: z.string().optional(),
+	weights: z.array(MerchantCategoryProfileWeightSchema),
+	totalObservations: z.number().int().min(0),
+	stability: z.number().min(0).max(1),
+	lastUpdated: z.string().datetime()
+});
+
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
@@ -1629,6 +1726,7 @@ export type EnvelopeBorrowing = z.infer<typeof EnvelopeBorrowingSchema>;
 export type RolloverAdjustment = z.infer<typeof RolloverAdjustmentSchema>;
 export type Occasion = z.infer<typeof OccasionSchema>;
 export type RoundUpRule = z.infer<typeof RoundUpRuleSchema>;
+export type MerchantCategoryProfile = z.infer<typeof MerchantCategoryProfileSchema>;
 
 // Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
@@ -1702,6 +1800,7 @@ export class BudgicDB extends Dexie {
 	rolloverAdjustments!: Table<RolloverAdjustment>;
 	occasions!: Table<Occasion>;
 	roundUpRules!: Table<RoundUpRule>;
+	merchantCategoryProfiles!: Table<MerchantCategoryProfile>;
 
 	constructor() {
 		super('BudgicDB');
@@ -2261,6 +2360,53 @@ export class BudgicDB extends Dexie {
 				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]'
 		});
 
+		// Version 25: Phase 9 — category parentId index; merchant profile table
+		this.version(25).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+			tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
+			merchantCategoryProfiles:
+				'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]'
+		});
+
 		// Add validation hooks
 		this.setupValidationHooks();
 
@@ -2529,6 +2675,12 @@ export class BudgicDB extends Dexie {
 					}
 				}
 
+				validateTransactionCategoryWeights({
+					groupId: obj.groupId,
+					categoryId: obj.categoryId,
+					categoryWeights: obj.categoryWeights
+				});
+
 				const validated = TransactionSchema.parse(obj);
 				Object.assign(obj, validated);
 
@@ -2575,6 +2727,12 @@ export class BudgicDB extends Dexie {
 							}
 						}
 					}
+
+					validateTransactionCategoryWeights({
+						groupId: updated.groupId,
+						categoryId: updated.categoryId,
+						categoryWeights: updated.categoryWeights
+					});
 
 					const parsedUpdate = TransactionSchema.parse(updated);
 					if (parsedUpdate.type === 'transfer') {
@@ -2870,6 +3028,31 @@ export class BudgicDB extends Dexie {
 				}
 			}
 		);
+
+		this.merchantCategoryProfiles.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = MerchantCategoryProfileSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Merchant category profile validation failed:', error);
+				throw error;
+			}
+		});
+		this.merchantCategoryProfiles.hook(
+			'updating',
+			(modifications: Partial<MerchantCategoryProfile>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					MerchantCategoryProfileSchema.parse(updated);
+				} catch (error) {
+					console.error('Merchant category profile update validation failed:', error);
+					throw error;
+				}
+			}
+		);
 	}
 
 	private setupSoftDeleteHooks() {
@@ -2974,6 +3157,14 @@ export class BudgicDB extends Dexie {
 		this.roundUpRules.hook('reading', (obj) => {
 			if (!obj) {
 				console.warn('[DB Hook] roundUpRules: obj is undefined', new Error().stack);
+				return undefined;
+			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.merchantCategoryProfiles.hook('reading', (obj) => {
+			if (!obj) {
+				console.warn('[DB Hook] merchantCategoryProfiles: obj is undefined', new Error().stack);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;

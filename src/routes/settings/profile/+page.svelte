@@ -6,7 +6,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { Switch } from '$lib/components/ui/switch/index.ts';
-	import { BarChart2, HardDrive } from '@lucide/svelte';
+	import { BarChart2, HardDrive, LineChart } from '@lucide/svelte';
 	import type { UserPreferences } from '$lib/core/db';
 
 	// State
@@ -21,6 +21,7 @@
 	// Privacy & data (merged from /settings/security)
 	let analyticsEnabled = $state(true);
 	let backupEnabled = $state(true);
+	let insightsShadowCategoryBreakdown = $state(false);
 
 	// User maturity options
 	const userMaturityOptions = [
@@ -51,6 +52,7 @@
 				userMaturityLevel = preferences.userMaturityLevel || 'beginner';
 				analyticsEnabled = preferences.analyticsEnabled ?? true;
 				backupEnabled = preferences.backupEnabled ?? true;
+				insightsShadowCategoryBreakdown = preferences.insightsShadowCategoryBreakdown ?? false;
 			}
 		} catch (err) {
 			error = 'Failed to load profile settings';
@@ -73,7 +75,8 @@
 				username,
 				userMaturityLevel,
 				analyticsEnabled,
-				backupEnabled
+				backupEnabled,
+				insightsShadowCategoryBreakdown
 			});
 			await navigationStore.refresh();
 			success = 'Saved';
@@ -229,6 +232,28 @@
 							</div>
 						</div>
 						<Switch bind:checked={backupEnabled} aria-label="Toggle data backup" />
+					</div>
+					<div class="flex items-center justify-between gap-4 px-5 py-4">
+						<div class="flex items-center gap-3">
+							<div
+								class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]"
+							>
+								<LineChart class="size-4 text-[var(--color-amber)]" />
+							</div>
+							<div>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									~estimated category breakdown
+								</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									When Insights has stable merchant profiles, category pattern stats can reflect
+									inferred splits. Nothing stored is modified.
+								</p>
+							</div>
+						</div>
+						<Switch
+							bind:checked={insightsShadowCategoryBreakdown}
+							aria-label="Toggle estimated category breakdown from merchant profiles"
+						/>
 					</div>
 				</div>
 

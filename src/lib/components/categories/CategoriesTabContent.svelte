@@ -12,6 +12,7 @@
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import { toast } from 'svelte-sonner';
 	import { formatAmount, getUserMainCurrency } from '$lib/utils/currency-utils';
+	import { effectiveAmountForCategory } from '$lib/utils/category-utils';
 
 	let categories = $state<Category[]>([]);
 	let transactions = $state<any[]>([]);
@@ -27,9 +28,15 @@
 	let categoriesWithBudget = $derived(
 		categories.map((category) => {
 			const categoryTransactions = transactions.filter(
-				(tx) => tx.categoryId === category.id && tx.type === 'expense' && tx.status === 'cleared'
+				(tx) =>
+					tx.type === 'expense' &&
+					tx.status === 'cleared' &&
+					Math.abs(effectiveAmountForCategory(tx, category.id)) > 1e-9
 			);
-			const spent = categoryTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+			const spent = categoryTransactions.reduce(
+				(sum, tx) => sum + Math.abs(effectiveAmountForCategory(tx, category.id)),
+				0
+			);
 			const allocated = category.budgetAmount || 0;
 			const remaining = allocated - spent;
 			return {
@@ -42,10 +49,9 @@
 		})
 	);
 
-	const waterfallTierInfo: Record<
-		NonNullable<Category['waterfallTier']>,
-		{ label: string; description: string }
-	> = {
+	type TierGroupKey = NonNullable<Category['waterfallTier']> | 'no_tier';
+
+	const waterfallTierInfo: Record<TierGroupKey, { label: string; description: string }> = {
 		survival: { label: 'Survival', description: 'Essential needs for basic living' },
 		security: { label: 'Security', description: 'Financial safety and stability' },
 		growth: { label: 'Growth', description: 'Personal and financial development' },
@@ -53,8 +59,24 @@
 		unclassified: {
 			label: 'Unclassified',
 			description: 'Needs manual tier classification before analytics include it'
+		},
+		no_tier: {
+			label: 'Organizational',
+			description: 'No waterfall tier — not offered in the transaction category picker'
 		}
 	};
+
+	let categoryById = $derived(new Map(categories.map((c) => [c.id, c])));
+
+	function categoryTreeDepth(category: Category): number {
+		let depth = 0;
+		let pid = category.parentId;
+		while (pid && depth < 12) {
+			depth += 1;
+			pid = categoryById.get(pid)?.parentId;
+		}
+		return depth;
+	}
 
 	let filteredCategories = $derived.by(() => {
 		let filtered = categoriesWithBudget;
@@ -70,21 +92,20 @@
 	});
 
 	let groupedCategories = $derived.by(() => {
-		const groups: Map<
-			NonNullable<Category['waterfallTier']>,
-			typeof filteredCategories
-		> = new Map();
+		const groups: Map<TierGroupKey, typeof filteredCategories> = new Map();
 		filteredCategories.forEach((category) => {
-			const tier = category.waterfallTier ?? 'unclassified';
+			const tier: TierGroupKey =
+				category.waterfallTier === undefined ? 'no_tier' : category.waterfallTier;
 			if (!groups.has(tier)) groups.set(tier, []);
 			groups.get(tier)!.push(category);
 		});
 		groups.forEach((cats) => cats.sort((a, b) => a.priority - b.priority));
-		const tierOrder: NonNullable<Category['waterfallTier']>[] = [
+		const tierOrder: TierGroupKey[] = [
 			'survival',
 			'security',
 			'growth',
 			'lifestyle',
+			'no_tier',
 			'unclassified'
 		];
 		return tierOrder
@@ -142,12 +163,12 @@
 		return 'text-green-500';
 	}
 
-	function getTierLabel(tier: Category['waterfallTier']): string {
+	function getTierLabel(tier: TierGroupKey): string {
 		const safeTier = tier ?? 'unclassified';
 		return waterfallTierInfo[safeTier]?.label ?? safeTier;
 	}
 
-	function getTierDescription(tier: Category['waterfallTier']): string {
+	function getTierDescription(tier: TierGroupKey): string {
 		const safeTier = tier ?? 'unclassified';
 		return waterfallTierInfo[safeTier]?.description ?? '';
 	}
@@ -199,8 +220,11 @@
 				newPriority = targetCategory.priority;
 			}
 
+			const tierUpdate: Partial<Category> =
+				newTier === 'no_tier' ? { waterfallTier: undefined } : { waterfallTier: newTier };
+
 			await budgetService.updateBudgetCategory(draggedCategoryId, {
-				waterfallTier: newTier,
+				...tierUpdate,
 				priority: newPriority
 			});
 
@@ -345,7 +369,12 @@
 
 								<div class="min-w-0 flex-1">
 									<div class="mb-1 flex items-center gap-2">
-										<h4 class="text-primary font-semibold">{category.name}</h4>
+										<h4
+											class="text-primary font-semibold"
+											style:padding-left="{categoryTreeDepth(category) * 12}px"
+										>
+											{category.name}
+										</h4>
 										<Badge variant="outline" class="text-xs capitalize">
 											{category.type}
 										</Badge>

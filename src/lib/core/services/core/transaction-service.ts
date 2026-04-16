@@ -12,6 +12,7 @@ import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 import { balanceProjectionService } from '../analytics/balance-projection-service';
 import { exchangeRateService } from './exchange-rate-service';
 import { addDays, addWeeks, addMonths } from 'date-fns';
+import { merchantProfileService } from '../intelligence/merchant-profile-service';
 
 type TransferDetails = NonNullable<Transaction['transferDetails']>;
 
@@ -484,6 +485,12 @@ class TransactionService {
 		await roundUpService.applyRulesForExpense(transaction);
 		await this.checkRepaymentOverdueInsights();
 
+		if (transaction.status === 'cleared') {
+			merchantProfileService.onTransactionSaved(transaction).catch((err) =>
+				console.warn('merchantProfileService.onTransactionSaved failed', err)
+			);
+		}
+
 		return transaction;
 	}
 
@@ -547,6 +554,20 @@ class TransactionService {
 			updatedAt: new Date().toISOString()
 		};
 
+		// Dexie shallow merge does not remove optional keys; explicit clears must delete properties.
+		if (
+			Object.prototype.hasOwnProperty.call(updates, 'categoryWeights') &&
+			updates.categoryWeights === undefined
+		) {
+			delete (updatedTransaction as Record<string, unknown>).categoryWeights;
+		}
+		if (
+			Object.prototype.hasOwnProperty.call(updates, 'categoryConfidence') &&
+			updates.categoryConfidence === undefined
+		) {
+			delete (updatedTransaction as Record<string, unknown>).categoryConfidence;
+		}
+
 		await db.transactions.update(id, updatedTransaction);
 
 		// Update account balance for both old and new accountId (if changed)
@@ -591,6 +612,12 @@ class TransactionService {
 			await roundUpService.applyRulesForExpense(updatedTransaction);
 		}
 		await this.checkRepaymentOverdueInsights();
+
+		if (updatedTransaction.status === 'cleared') {
+			merchantProfileService.onTransactionSaved(updatedTransaction).catch((err) =>
+				console.warn('merchantProfileService.onTransactionSaved failed', err)
+			);
+		}
 
 		return updatedTransaction;
 	}
@@ -1589,6 +1616,15 @@ class TransactionService {
 		// Clear balance projection cache for affected accounts
 		if (accountIds.size > 0) {
 			balanceProjectionService.clearCacheForAccounts(Array.from(accountIds));
+		}
+
+		const savedGroup = await db.transactions.where('groupId').equals(groupId).toArray();
+		for (const t of savedGroup) {
+			if (t.status === 'cleared') {
+				merchantProfileService.onTransactionSaved(t).catch((err) =>
+					console.warn('merchantProfileService.onTransactionSaved failed', err)
+				);
+			}
 		}
 
 		return groupId;

@@ -1,11 +1,12 @@
-import {
-	db,
-	expenseCountsTowardAllowanceAnalytics,
-	isAnalyticsTier,
-	transactionAutomationCountsInAnalytics
-} from '$lib/core/db';
+import { db, isAnalyticsTier, transactionAutomationCountsInAnalytics } from '$lib/core/db';
 import type { Transaction, Account, Category } from '$lib/core/db';
 import { userService, exchangeRateService } from '../core';
+import {
+	absAnalyticsTierPortion,
+	categoryIdsWithSpendShare,
+	effectiveAmountForCategory,
+	shouldIncludeClearedExpenseInAnalyticsSpend
+} from '$lib/utils/category-utils';
 
 interface SpendingAnalysis {
 	totalSpent: number;
@@ -77,7 +78,7 @@ class AnalyticsService {
 	async getSpendingAnalysis(months: number = 12): Promise<SpendingAnalysis> {
 		const transactions = await db.transactions.toArray();
 		const categories = await db.getActiveCategories();
-		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+		const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
 		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
@@ -100,8 +101,7 @@ class AnalyticsService {
 				) {
 					return false;
 				}
-				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
-				return expenseCountsTowardAllowanceAnalytics(tx, tier);
+				return shouldIncludeClearedExpenseInAnalyticsSpend(tx, categoryMap);
 			});
 
 		// Convert all amounts to main currency
@@ -109,7 +109,7 @@ class AnalyticsService {
 		const categorySpending = new Map<string, { name: string; amount: number }>();
 
 		for (const tx of recentTransactions) {
-			const amount = Math.abs(tx.amount || 0);
+			const amount = absAnalyticsTierPortion(tx, categoryMap);
 			const transactionCurrency = tx.currency || mainCurrency;
 
 			// Convert to main currency
@@ -132,15 +132,27 @@ class AnalyticsService {
 
 			totalSpent += convertedAmount;
 
-			if (tx.categoryId) {
-				const category = categories.find((c) => c.id === tx.categoryId);
+			for (const cid of categoryIdsWithSpendShare(tx)) {
+				const sliceAbs = Math.abs(effectiveAmountForCategory(tx, cid));
+				if (sliceAbs === 0) continue;
+				const category = categories.find((c) => c.id === cid);
 				const categoryName = category?.name || 'Uncategorized';
 				if (!isAnalyticsTier(category?.waterfallTier)) {
 					continue;
 				}
-				const current = categorySpending.get(tx.categoryId) || { name: categoryName, amount: 0 };
-				current.amount += convertedAmount;
-				categorySpending.set(tx.categoryId, current);
+				let convertedSlice = sliceAbs;
+				if (transactionCurrency !== mainCurrency) {
+					const cvt = await exchangeRateService.convertAmount(
+						sliceAbs,
+						transactionCurrency,
+						mainCurrency,
+						tx.clearedDate ? new Date(tx.clearedDate) : undefined
+					);
+					if (cvt !== null) convertedSlice = cvt;
+				}
+				const current = categorySpending.get(cid) || { name: categoryName, amount: 0 };
+				current.amount += convertedSlice;
+				categorySpending.set(cid, current);
 			}
 		}
 
@@ -160,7 +172,8 @@ class AnalyticsService {
 		const monthlySpending = await this.calculateMonthlyBreakdownWithConversion(
 			recentTransactions,
 			months,
-			mainCurrency
+			mainCurrency,
+			(tx) => absAnalyticsTierPortion(tx, categoryMap)
 		);
 		const spendingTrend = this.calculateTrend(monthlySpending.map((m) => m.amount));
 
@@ -202,18 +215,18 @@ class AnalyticsService {
 			.filter((tx: Transaction) => tx != null) // Remove null/undefined transactions
 			.filter(
 				(tx: Transaction) =>
-					tx.categoryId === categoryId &&
 					tx.type === 'expense' &&
 					tx.status === 'cleared' &&
 					tx.clearedDate &&
 					new Date(tx.clearedDate) >= cutoffDate &&
-					transactionAutomationCountsInAnalytics(tx)
+					transactionAutomationCountsInAnalytics(tx) &&
+					Math.abs(effectiveAmountForCategory(tx, categoryId)) > 1e-9
 			);
 
 		// Convert all amounts to main currency
 		let totalSpent = 0;
 		for (const tx of categoryTransactions) {
-			const amount = Math.abs(tx.amount || 0);
+			const amount = Math.abs(effectiveAmountForCategory(tx, categoryId));
 			const transactionCurrency = tx.currency || mainCurrency;
 
 			let convertedAmount = amount;
@@ -240,7 +253,8 @@ class AnalyticsService {
 		const monthlyBreakdown = await this.calculateMonthlyBreakdownWithConversion(
 			categoryTransactions,
 			months,
-			mainCurrency
+			mainCurrency,
+			(tx) => Math.abs(effectiveAmountForCategory(tx, categoryId))
 		);
 		const trend = this.calculateTrend(monthlyBreakdown.map((m) => m.amount));
 
@@ -405,7 +419,7 @@ class AnalyticsService {
 	async getFinancialTrends(months: number = 12): Promise<TrendData[]> {
 		const transactions = await db.transactions.toArray();
 		const categories = await db.getActiveCategories();
-		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+		const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
 		// Get user's main currency
 		const preferences = await userService.getUserPreferences();
@@ -454,9 +468,19 @@ class AnalyticsService {
 			if (tx.type === 'income' && transactionAutomationCountsInAnalytics(tx)) {
 				current.income += convertedAmount;
 			} else if (tx.type === 'expense') {
-				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
-				if (expenseCountsTowardAllowanceAnalytics(tx, tier)) {
-					current.expenses += Math.abs(convertedAmount);
+				if (shouldIncludeClearedExpenseInAnalyticsSpend(tx, categoryMap)) {
+					const portion = absAnalyticsTierPortion(tx, categoryMap);
+					let convPortion = portion;
+					if (transactionCurrency !== mainCurrency) {
+						const cvt = await exchangeRateService.convertAmount(
+							portion,
+							transactionCurrency,
+							mainCurrency,
+							tx.clearedDate ? new Date(tx.clearedDate) : undefined
+						);
+						if (cvt !== null) convPortion = cvt;
+					}
+					current.expenses += convPortion;
 				}
 			}
 
@@ -506,7 +530,8 @@ class AnalyticsService {
 	private async calculateMonthlyBreakdownWithConversion(
 		transactions: Transaction[],
 		months: number,
-		mainCurrency: string
+		mainCurrency: string,
+		expenseMagnitude?: (tx: Transaction) => number
 	): Promise<{ month: string; amount: number }[]> {
 		const monthlyData = new Map<string, number>();
 
@@ -515,7 +540,10 @@ class AnalyticsService {
 			const month = new Date(tx.clearedDate!).toISOString().substring(0, 7);
 			const current = monthlyData.get(month) || 0;
 
-			const amount = Math.abs(tx.amount || 0);
+			const amount =
+				tx.type === 'expense' && expenseMagnitude !== undefined
+					? expenseMagnitude(tx)
+					: Math.abs(tx.amount || 0);
 			const transactionCurrency = tx.currency || mainCurrency;
 
 			// Convert to main currency
@@ -571,7 +599,7 @@ class AnalyticsService {
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
 		const categories = await db.getActiveCategories();
-		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+		const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
 		// Simple implementation - can be enhanced with more sophisticated logic
 		// First filter out null/undefined transactions, then apply other filters
@@ -588,14 +616,13 @@ class AnalyticsService {
 				) {
 					return false;
 				}
-				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
-				return expenseCountsTowardAllowanceAnalytics(tx, tier);
+				return shouldIncludeClearedExpenseInAnalyticsSpend(tx, categoryMap);
 			});
 
 		// Convert all amounts to main currency
 		let totalSpending = 0;
 		for (const tx of recentTransactions) {
-			const amount = Math.abs(tx.amount || 0);
+			const amount = absAnalyticsTierPortion(tx, categoryMap);
 			const transactionCurrency = tx.currency || mainCurrency;
 
 			let convertedAmount = amount;
@@ -633,7 +660,7 @@ class AnalyticsService {
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
 		const categories = await db.getActiveCategories();
-		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+		const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
 		// First filter out null/undefined transactions, then apply other filters
 		const recentTransactions = transactions
@@ -652,8 +679,7 @@ class AnalyticsService {
 					return transactionAutomationCountsInAnalytics(tx);
 				}
 				if (tx.type === 'expense') {
-					const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
-					return expenseCountsTowardAllowanceAnalytics(tx, tier);
+					return shouldIncludeClearedExpenseInAnalyticsSpend(tx, categoryMap);
 				}
 				return false;
 			});
@@ -663,31 +689,46 @@ class AnalyticsService {
 		let totalExpenses = 0;
 
 		for (const tx of recentTransactions) {
-			const amount = tx.amount || 0;
 			const transactionCurrency = tx.currency || mainCurrency;
 
-			let convertedAmount = amount;
-			if (transactionCurrency !== mainCurrency) {
-				const converted = await exchangeRateService.convertAmount(
-					Math.abs(amount),
-					transactionCurrency,
-					mainCurrency,
-					tx.clearedDate ? new Date(tx.clearedDate) : undefined
-				);
-				if (converted !== null) {
-					// Preserve sign
-					convertedAmount = amount < 0 ? -converted : converted;
-				} else {
-					console.warn(
-						`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`
-					);
-				}
-			}
-
 			if (tx.type === 'income') {
+				const amount = tx.amount || 0;
+				let convertedAmount = amount;
+				if (transactionCurrency !== mainCurrency) {
+					const converted = await exchangeRateService.convertAmount(
+						Math.abs(amount),
+						transactionCurrency,
+						mainCurrency,
+						tx.clearedDate ? new Date(tx.clearedDate) : undefined
+					);
+					if (converted !== null) {
+						convertedAmount = amount < 0 ? -converted : converted;
+					} else {
+						console.warn(
+							`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`
+						);
+					}
+				}
 				totalIncome += convertedAmount;
 			} else if (tx.type === 'expense') {
-				totalExpenses += convertedAmount;
+				const portion = absAnalyticsTierPortion(tx, categoryMap);
+				let convertedPortion = portion;
+				if (transactionCurrency !== mainCurrency) {
+					const converted = await exchangeRateService.convertAmount(
+						portion,
+						transactionCurrency,
+						mainCurrency,
+						tx.clearedDate ? new Date(tx.clearedDate) : undefined
+					);
+					if (converted !== null) {
+						convertedPortion = converted;
+					} else {
+						console.warn(
+							`Failed to convert ${transactionCurrency} to ${mainCurrency} for transaction ${tx.id}`
+						);
+					}
+				}
+				totalExpenses += convertedPortion;
 			}
 		}
 
@@ -790,7 +831,7 @@ class AnalyticsService {
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
 		const categories = await db.getActiveCategories();
-		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+		const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
 		const savingsAccounts = accounts.filter((acc) => acc.type === 'savings');
 
@@ -822,11 +863,10 @@ class AnalyticsService {
 		// Filter out null/undefined transactions before processing
 		for (const tx of transactions.filter((tx) => tx != null)) {
 			if (tx.type === 'expense' && tx.status === 'cleared') {
-				const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
-				if (!expenseCountsTowardAllowanceAnalytics(tx, tier)) {
+				if (!shouldIncludeClearedExpenseInAnalyticsSpend(tx, categoryMap)) {
 					continue;
 				}
-				const amount = Math.abs(tx.amount || 0);
+				const amount = absAnalyticsTierPortion(tx, categoryMap);
 				const transactionCurrency = tx.currency || mainCurrency;
 
 				let convertedAmount = amount;

@@ -4,13 +4,15 @@
 	 * Spending pulse, Recurring, Anomalies, Your patterns, Upcoming.
 	 * Spending primary; app usage secondary and de-emphasized.
 	 */
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import {
 		insightsService,
 		recurringTransactionIntelligenceService,
 		transactionService,
-		budgetService
+		budgetService,
+		merchantProfileService
 	} from '$lib/core/services';
+	import { invalidateAll } from '$app/navigation';
 	import type { RecurringPattern } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
 	import type { Category } from '$lib/core/db';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
@@ -22,6 +24,7 @@
 	import { page } from '$app/stores';
 	import { toast } from 'svelte-sonner';
 	import RecurringPatternSheet from './RecurringPatternSheet.svelte';
+	import ReviewSession from '$lib/components/review/ReviewSession.svelte';
 	import { ChevronRight } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Progress } from '$lib/components/ui/progress';
@@ -64,6 +67,8 @@
 		incomeComparativeLine: string | null;
 		savingsTrendSymbol: string | null;
 		feeDriftLine: string | null;
+		shadowCategoryViewEnabled?: boolean;
+		shadowEstimatedNote?: string | null;
 	} | null>(null);
 	let anomalies = $state<
 		Array<{
@@ -86,8 +91,9 @@
 	let upcomingSummary = $state<string>('');
 	let upcomingWeekAmount = $state<number | null>(null);
 	let loading = $state(true);
-	/** Prevents duplicate scroll/toast when `review=1` effect re-runs. */
-	let reviewStubLock = $state(false);
+	let reviewSessionOpen = $state(false);
+	let reviewUrlHandled = $state(false);
+	let retrospectiveApplying = $state(false);
 	let recurringSheetOpen = $state(false);
 	let selectedPatternId = $state<string | null>(null);
 	let alertTypeInsights = $state<Insight[]>([]);
@@ -98,36 +104,24 @@
 		goto(url.pathname + url.search, { replaceState: true, noScroll: true });
 	}
 
-	/** Phase 8 follow-up: `review=1` deep link until Phase 9.7 review session exists. */
+	/** Phase 9.7 — guided review session from plan/allowance nudge (`reviewSession=1`) or legacy `review=1`. */
 	$effect(() => {
 		if (!patternsTabActive) return;
 		const url = $page.url;
-		if (url.searchParams.get('review') !== '1' || reviewStubLock) return;
-		reviewStubLock = true;
-		void (async () => {
-			try {
-				await tick();
-				document.getElementById('insights-data-quality')?.scrollIntoView({
-					behavior: 'smooth',
-					block: 'start'
-				});
-				toast.message("Bulk review isn't available yet", {
-					description:
-						'Use the Transactions list to classify items. A guided review session is planned (Phase 9.7).',
-					action: {
-						label: 'Transactions',
-						onClick: () => {
-							void goto('/transactions');
-						}
-					}
-				});
-				const next = new URL(url);
-				next.searchParams.delete('review');
-				await goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
-			} finally {
-				reviewStubLock = false;
-			}
-		})();
+		const want =
+			url.searchParams.get('reviewSession') === '1' || url.searchParams.get('review') === '1';
+		if (!want || reviewUrlHandled) return;
+		reviewUrlHandled = true;
+		reviewSessionOpen = true;
+		const next = new URL(url);
+		next.searchParams.delete('reviewSession');
+		next.searchParams.delete('review');
+		void goto(`${next.pathname}${next.search}`, { replaceState: true, noScroll: true });
+	});
+
+	$effect(() => {
+		if (reviewSessionOpen) return;
+		reviewUrlHandled = false;
 	});
 
 	$effect(() => {
@@ -275,7 +269,28 @@
 
 	function handleDataQualityBarClick() {
 		if (unclassifiedTxCount > 0) {
-			goto('/insights?tab=patterns&review=1', { replaceState: true, noScroll: true });
+			reviewSessionOpen = true;
+		}
+	}
+
+	async function applyRetrospectiveBulk() {
+		if (retrospectiveApplying) return;
+		retrospectiveApplying = true;
+		try {
+			const n = await merchantProfileService.applyAllRetrospectiveEligible();
+			if (n === 0) {
+				toast.message('No updates applied', {
+					description:
+						'Stable multi-category merchant profiles need at least 8 observations and 85% stability.'
+				});
+			} else {
+				toast.success(`Applied learned splits to ${n} transaction(s).`);
+				await invalidateAll();
+			}
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : 'Bulk apply failed');
+		} finally {
+			retrospectiveApplying = false;
 		}
 	}
 
@@ -523,6 +538,9 @@
 						{#if phase8Surface.feeDriftLine}
 							<p class="text-muted-foreground text-xs">{phase8Surface.feeDriftLine}</p>
 						{/if}
+						{#if phase8Surface.shadowEstimatedNote}
+							<p class="text-muted-foreground text-xs italic">{phase8Surface.shadowEstimatedNote}</p>
+						{/if}
 					{/if}
 				</div>
 			</section>
@@ -549,6 +567,25 @@
 							</p>
 						{/if}
 					</button>
+				</section>
+			{/if}
+
+			{#if !loading}
+				<section class="mt-3 rounded-xl border border-border bg-card px-4 py-3">
+					<p class="text-muted-foreground mb-2 text-xs">
+						When merchant profiles are very stable, apply their mean split to past matching cleared
+						expenses (optional).
+					</p>
+					<Button
+						type="button"
+						variant="secondary"
+						size="sm"
+						class="text-xs"
+						disabled={retrospectiveApplying}
+						onclick={() => void applyRetrospectiveBulk()}
+					>
+						{retrospectiveApplying ? 'Applying…' : 'Apply learned splits to history'}
+					</Button>
 				</section>
 			{/if}
 
@@ -763,6 +800,15 @@
 			</div>
 		{/if}
 	</div>
+
+	<ReviewSession
+		bind:open={reviewSessionOpen}
+		{userCurrency}
+		onClose={() => {
+			reviewSessionOpen = false;
+			void refreshRecurringFromServices(userCurrency);
+		}}
+	/>
 
 	<!-- Recurring pattern drill-in sheet -->
 	<RecurringPatternSheet
