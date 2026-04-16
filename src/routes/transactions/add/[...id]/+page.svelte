@@ -51,6 +51,7 @@
 	import { getCurrencyInfo, formatAmount } from '$lib/utils/currency-utils';
 	import { dateUtils } from '$lib/utils/date-utils';
 	import { autocompleteService, type DescriptionSuggestion } from '$lib/core/services/autocomplete-service';
+	import type { CategoryUsage } from '$lib/core/services/core/budget-service';
 
 	function debtGroupIdFromLabel(label: string): string | undefined {
 		const t = label
@@ -119,6 +120,7 @@
 	let inferredCategoryId = $state<string | null>(null);
 	let inferredCategoryLabel = $state('');
 	let notes = $state('');
+	let tagsInput = $state('');
 	let reference = $state('');
 	let toAccountId = $state('');
 	let plannedDate = $state('');
@@ -183,6 +185,32 @@
 	let reimbursementStatus = $state<ReimbursementEntry['status']>('expecting');
 	let reimbursementInitializedFromAmount = $state(false);
 	let reimbursementPersonSuggestions = $state<string[]>([]);
+	let amountManuallyTouched = $state(false);
+	let suggestedAmount = $state<number | null>(null);
+	let amountHint = $derived(
+		suggestedAmount !== null && !amountManuallyTouched ? formatAmount(suggestedAmount, currency || 'USD') : null
+	);
+	let descriptionIntelligence = $state<Awaited<
+		ReturnType<typeof autocompleteService.getDescriptionIntelligence>
+	> | null>(null);
+	let anomalyHint = $derived.by(() => {
+		if (!descriptionIntelligence?.amountStats || !description.trim()) return null;
+		const threshold =
+			descriptionIntelligence.amountStats.median + descriptionIntelligence.amountStats.stddev * 2;
+		if (!amountManuallyTouched || Math.abs(amount) <= threshold) return null;
+		return `Amount is above your usual range for this description (${formatAmount(
+			threshold,
+			currency || 'USD'
+		)} threshold).`;
+	});
+	let suggestedPlannedDate = $state('');
+	let plannedDateManuallyTouched = $state(false);
+	let noteSuggestions = $state<string[]>([]);
+	let tagSuggestions = $state<string[]>([]);
+	let categoryUsageById = $state<Map<string, CategoryUsage>>(new Map());
+	let transferDestinationScores = $state<Map<string, { frequency: number; typicalAmount: number | null }>>(
+		new Map()
+	);
 
 	// Settlement on income (Phase 3.3)
 	type SettlementTarget = {
@@ -301,6 +329,9 @@
 	}
 
 	function handleDescriptionSuggestionSelected(suggestion: DescriptionSuggestion) {
+		if (!amountManuallyTouched && typeof suggestion.typicalAmount === 'number' && suggestion.typicalAmount > 0) {
+			suggestedAmount = suggestion.typicalAmount;
+		}
 		if (!suggestion.inferredCategoryId) {
 			clearInferredCategoryIndicator();
 			return;
@@ -351,7 +382,37 @@
 			})
 			.map((category) => ({
 				value: category.id,
-				label: category.name
+				label: category.name,
+				chip: categoryUsageById.get(category.id)?.budget
+					? {
+							label: `${Math.round((categoryUsageById.get(category.id)?.usageRatio ?? 0) * 100)}%`,
+							color:
+								categoryUsageById.get(category.id)?.color === 'red'
+									? '#ef4444'
+									: categoryUsageById.get(category.id)?.color === 'amber'
+										? '#f59e0b'
+										: categoryUsageById.get(category.id)?.color === 'green'
+											? '#10b981'
+											: '#6b7280'
+						}
+					: undefined
+			}));
+	});
+
+	let transferAccountOptions = $derived.by(() => {
+		const defaultOrderMap = new Map(accounts.map((account, index) => [account.id, index]));
+		return [...accounts]
+			.filter((account) => account.id !== selectedAccount)
+			.sort((left, right) => {
+				const leftRank = transferDestinationScores.get(left.id)?.frequency ?? 0;
+				const rightRank = transferDestinationScores.get(right.id)?.frequency ?? 0;
+				if (leftRank !== rightRank) return rightRank - leftRank;
+				return (defaultOrderMap.get(left.id) ?? 0) - (defaultOrderMap.get(right.id) ?? 0);
+			})
+			.map((account) => ({
+				value: account.id,
+				label: account.name,
+				hint: formatAmount(account.currentBalance, account.currency)
 			}));
 	});
 
@@ -365,6 +426,7 @@
 				autocompleteService.getBlendedBoundedFieldScores('transaction.account'),
 				autocompleteService.getBlendedBoundedFieldScores('transaction.category')
 			]);
+			categoryUsageById = await budgetService.getCategoryUsage();
 
 			// Load available currencies
 			const activeCurrencies = await db.getActiveCurrencies();
@@ -429,6 +491,7 @@
 						amount = transaction.amount ?? 0;
 						toAccountId = transaction.toAccountId || '';
 					}
+					amountManuallyTouched = true;
 					currency = transaction.currency || currency || null;
 					transactionType = transaction.type;
 					status = transaction.status;
@@ -558,6 +621,101 @@
 			console.error(err);
 		}
 	});
+
+	$effect(() => {
+		const sourceAccount = selectedAccount;
+		if (transactionType !== 'transfer' || !sourceAccount) {
+			transferDestinationScores = new Map();
+			return;
+		}
+		let cancelled = false;
+		autocompleteService.getTransferDestinationSuggestions(sourceAccount, 10).then((rows) => {
+			if (cancelled) return;
+			transferDestinationScores = new Map(
+				rows.map((row) => [row.accountId, { frequency: row.frequency, typicalAmount: row.typicalAmount }])
+			);
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		const nextDescription = description.trim();
+		if (!nextDescription) {
+			descriptionIntelligence = null;
+			suggestedPlannedDate = '';
+			noteSuggestions = [];
+			return;
+		}
+		let cancelled = false;
+		autocompleteService.getDescriptionIntelligence(nextDescription).then((value) => {
+			if (cancelled) return;
+			descriptionIntelligence = value;
+			if (
+				status === 'planned' &&
+				!plannedDate &&
+				!plannedDateManuallyTouched &&
+				value?.dateInference &&
+				value.dateInference.confidence > 0.75
+			) {
+				suggestedPlannedDate = dateUtils.toLocalDateTimeInput(value.dateInference.nextDate);
+			} else if (plannedDate) {
+				suggestedPlannedDate = '';
+			}
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		const memo = notes.trim();
+		const merchantDescription = description.trim();
+		if (!merchantDescription || memo.length < 2) {
+			noteSuggestions = [];
+			return;
+		}
+		let cancelled = false;
+		autocompleteService.getNoteSuggestionsForMerchant(merchantDescription, memo, 6).then((rows) => {
+			if (cancelled) return;
+			noteSuggestions = rows.map((row) => row.value);
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		const token = tagsInput.split(',').at(-1)?.trim().toLowerCase() ?? '';
+		if (!token) {
+			tagSuggestions = [];
+			return;
+		}
+		let cancelled = false;
+		autocompleteService.getTagSuggestions(token, 6).then((rows) => {
+			if (cancelled) return;
+			tagSuggestions = rows;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		if (transactionType !== 'transfer' || !selectedAccount || !toAccountId || amountManuallyTouched) return;
+		const pair = transferDestinationScores.get(toAccountId);
+		if (pair?.typicalAmount && pair.typicalAmount > 0) {
+			suggestedAmount = pair.typicalAmount;
+		}
+	});
+
+	function acceptSuggestedPlannedDate() {
+		if (!suggestedPlannedDate || plannedDate) return;
+		plannedDate = suggestedPlannedDate;
+		plannedDateManuallyTouched = true;
+		suggestedPlannedDate = '';
+	}
 
 	// Computed properties
 	let isEditMode = $derived(!!transaction);
@@ -693,6 +851,14 @@
 				});
 			}
 		}
+		const merchantKey = descriptionIntelligence?.merchantKey;
+		if (txData.notes && merchantKey) {
+			autocompleteService
+				.recordSelection('transaction.notes', txData.notes, false, { merchantKey })
+				.catch((selectionError) =>
+					console.warn('Failed to record note autocomplete usage', selectionError)
+				);
+		}
 		goto('/transactions');
 		return savedTransaction;
 	}
@@ -730,6 +896,17 @@
 
 			// Prepare transaction data
 			const transferMagnitude = Math.abs(amount);
+			const parsedTags = tagsInput
+				.split(',')
+				.map((entry) => entry.trim())
+				.filter((entry, index, list) => entry.length > 0 && list.indexOf(entry) === index);
+			for (const tag of parsedTags) {
+				autocompleteService
+					.recordSelection('transaction.tags', tag, false)
+					.catch((selectionError) =>
+						console.warn('Failed to record tag autocomplete usage', selectionError)
+					);
+			}
 			let reimbursements: ReimbursementEntry[] | undefined;
 			if (showReimbursementSection && reimbursementAmount > 0) {
 				const now = new Date().toISOString();
@@ -943,7 +1120,7 @@
 						id="amount"
 						type="number"
 						bind:value={amount}
-						placeholder="0.00"
+						placeholder={amountHint ?? '0.00'}
 						step={(() => {
 							const info = currentCurrencyInfo();
 							if (!info) return '0.01';
@@ -955,9 +1132,23 @@
 						})()}
 						required
 						onfocus={handleInputFocus}
+						onfocusin={() => {
+							amountManuallyTouched = true;
+							suggestedAmount = null;
+						}}
+						oninput={() => {
+							amountManuallyTouched = true;
+							suggestedAmount = null;
+						}}
 						class="font-display w-48 border-0 border-b-2 border-[var(--color-amber)] bg-transparent text-center text-4xl text-[var(--color-hero-number)] outline-none placeholder:text-[var(--color-text-disabled)] focus:border-[var(--color-amber)]"
 					/>
 				</div>
+				{#if amountHint && !amountManuallyTouched}
+					<p class="text-xs text-[var(--color-text-tertiary)]">Suggested amount: {amountHint}</p>
+				{/if}
+				{#if anomalyHint}
+					<p class="text-xs text-[var(--color-amber)]">{anomalyHint}</p>
+				{/if}
 			</div>
 
 			<!-- ── Type & status ── -->
@@ -1016,14 +1207,39 @@
 				</h2>
 
 				<div class="space-y-2">
-					<Label.Root for="description">Description</Label.Root>
+					<Label.Root for="description"
+						>{transactionType === 'transfer' ? 'Note (optional)' : 'Description'}</Label.Root
+					>
 					<DescriptionAutocomplete
 						bind:value={description}
 						placeholder="e.g., Grocery shopping, Salary deposit"
+						fieldKey={transactionType === 'transfer'
+							? 'transaction.transfer.memo'
+							: 'transaction.description'}
+						suggestionFetcher={transactionType === 'transfer'
+							? async (partial, limit) => {
+									if (!selectedAccount || !toAccountId) return [];
+									const ranked = await autocompleteService.getTransferMemoSuggestions(
+										selectedAccount,
+										toAccountId,
+										partial,
+										limit
+									);
+									return ranked.map((entry) => ({
+										value: entry.value,
+										frequency: entry.selectionFrequency,
+										lastUsed: entry.lastSelected ?? new Date(),
+										typicalAmount: null
+									}));
+								}
+							: undefined}
 						selectionContext={{
 							accountId: selectedAccount || undefined,
 							categoryId: selectedCategory || undefined,
-							transactionType
+							transactionType,
+							fromAccountId: selectedAccount || undefined,
+							toAccountId: toAccountId || undefined,
+							typicalAmount: suggestedAmount ?? undefined
 						}}
 						onfocus={handleInputFocus}
 						onSuggestionSelected={handleDescriptionSuggestionSelected}
@@ -1065,8 +1281,28 @@
 							type="datetime-local"
 							bind:value={plannedDate}
 							required
+							onkeydown={(event) => {
+								if ((event.key === 'Tab' || event.key === 'Enter') && suggestedPlannedDate && !plannedDate) {
+									acceptSuggestedPlannedDate();
+								}
+							}}
+							oninput={() => (plannedDateManuallyTouched = true)}
 							onfocus={handleInputFocus}
 						/>
+						{#if suggestedPlannedDate && !plannedDate}
+							<div class="mt-1 flex items-center justify-between gap-2">
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									Suggested date: {new Date(dateUtils.fromLocalDateTimeInput(suggestedPlannedDate)).toLocaleString()}
+								</p>
+								<button
+									type="button"
+									class="text-xs text-[var(--color-amber)] hover:underline"
+									onclick={acceptSuggestedPlannedDate}
+								>
+									Use suggested date
+								</button>
+							</div>
+						{/if}
 					{:else}
 						<Input.Root
 							id="transactionDate"
@@ -1193,7 +1429,7 @@
 						<Label.Root for="toAccount">Destination account *</Label.Root>
 						<SearchableSelect
 							bind:value={toAccountId}
-							options={accountOptions}
+							options={transferAccountOptions}
 							placeholder="Select destination account"
 						/>
 					</div>
@@ -1478,6 +1714,35 @@
 					class="border-input bg-background text-primary focus:ring-ring w-full resize-none rounded-md border px-3 py-2 focus:border-transparent focus:ring-2"
 					onfocus={handleInputFocus}
 				></textarea>
+				{#if noteSuggestions.length > 0}
+					<div class="flex flex-wrap gap-1">
+						{#each noteSuggestions as noteSuggestion}
+							<button
+								type="button"
+								class="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-tertiary)] hover:border-[var(--color-amber)]"
+								onclick={() => (notes = noteSuggestion)}
+							>
+								{noteSuggestion}
+							</button>
+						{/each}
+					</div>
+				{/if}
+
+				<Label.Root for="tags" class="md:w-40 md:flex-shrink-0 md:text-right">Tags</Label.Root>
+				<div class="space-y-1">
+					<Input.Root
+						id="tags"
+						bind:value={tagsInput}
+						placeholder="comma,separated,tags"
+						list="tag-suggestions"
+						onfocus={handleInputFocus}
+					/>
+					<datalist id="tag-suggestions">
+						{#each tagSuggestions as tagSuggestion}
+							<option value={tagSuggestion}></option>
+						{/each}
+					</datalist>
+				</div>
 
 				<LabelWithTooltip
 					for="priority"

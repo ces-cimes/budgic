@@ -8,6 +8,10 @@
 		value: string;
 		label: string;
 		hint?: string;
+	chip?: {
+		label: string;
+		color?: string;
+	};
 	}
 
 	interface Props {
@@ -221,7 +225,7 @@
 					{#each filteredOptions as option, index (option.value)}
 						<button
 							type="button"
-							class="hover:bg-accent flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-left text-sm {index ===
+							class="hover:bg-accent flex w-full min-w-0 items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm {index ===
 							highlightedIndex
 								? 'bg-accent'
 								: ''}"
@@ -232,15 +236,25 @@
 							onfocus={() => (highlightedIndex = index)}
 							onclick={() => selectOption(option.value)}
 						>
-							<span class="min-w-0">
+							<span class="min-w-0 flex-1">
 								<span class="block truncate">{option.label}</span>
 								{#if option.hint}
 									<span class="text-muted-foreground block truncate text-xs">{option.hint}</span>
 								{/if}
 							</span>
-							{#if value === option.value}
-								<CheckIcon class="size-4 shrink-0 opacity-70" />
-							{/if}
+							<span class="flex shrink-0 items-center gap-2">
+								{#if option.chip}
+									<span
+										class="max-w-28 truncate rounded-full px-2 py-0.5 text-[10px] font-medium"
+										style={`background-color: color-mix(in srgb, ${option.chip.color ?? 'var(--color-muted)'} 18%, transparent); color: ${option.chip.color ?? 'var(--color-text-tertiary)'};`}
+									>
+										{option.chip.label}
+									</span>
+								{/if}
+								{#if value === option.value}
+									<CheckIcon class="size-4 shrink-0 opacity-70" />
+								{/if}
+							</span>
 						</button>
 					{/each}
 				{/if}

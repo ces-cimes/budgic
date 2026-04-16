@@ -13,6 +13,7 @@
 		fieldKey?: string;
 		selectionContext?: Record<string, unknown>;
 		onSuggestionSelected?: (suggestion: DescriptionSuggestion) => void;
+	suggestionFetcher?: (partial: string, limit: number) => Promise<DescriptionSuggestion[]>;
 	}
 
 	let {
@@ -22,7 +23,8 @@
 		onfocus,
 		fieldKey = 'transaction.description',
 		selectionContext,
-		onSuggestionSelected
+	onSuggestionSelected,
+	suggestionFetcher
 	}: Props = $props();
 
 	const DEBOUNCE_MS = 180;
@@ -50,10 +52,9 @@
 		let cancelled = false;
 		const timeoutId = setTimeout(async () => {
 			try {
-				const nextSuggestions = await autocompleteService.getSuggestionsForDescription(
-					query,
-					SUGGESTION_LIMIT
-				);
+				const nextSuggestions = suggestionFetcher
+					? await suggestionFetcher(query, SUGGESTION_LIMIT)
+					: await autocompleteService.getSuggestionsForDescription(query, SUGGESTION_LIMIT);
 				if (!cancelled) {
 					suggestions = nextSuggestions;
 					highlightedIndex = nextSuggestions.length > 0 ? 0 : -1;
@@ -218,6 +219,9 @@
 							<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
 								Used {suggestion.frequency} time{suggestion.frequency === 1 ? '' : 's'} in 90 days
 								- {formatLastUsed(suggestion.lastUsed)}
+								{#if (suggestion.variationCount ?? 0) > 1}
+									- inc. {suggestion.variationCount} variations
+								{/if}
 							</p>
 						</button>
 					</li>

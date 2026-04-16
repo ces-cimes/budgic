@@ -38,6 +38,14 @@ export interface BudgetSummary {
 	unclassifiedTransactionCount: number;
 }
 
+export interface CategoryUsage {
+	categoryId: string;
+	spent: number;
+	budget: number | null;
+	usageRatio: number | null;
+	color: 'green' | 'amber' | 'red' | 'gray';
+}
+
 /** Phase 5.1 — forward allowance projection (committed / planned / uncertainty) */
 export interface AllowanceProjection {
 	committed: number;
@@ -295,6 +303,49 @@ class BudgetService {
 			waterfallTier: category.waterfallTier,
 			priority: category.priority
 		};
+	}
+
+	async getCategoryUsage(): Promise<Map<string, CategoryUsage>> {
+		const categories = await db.getActiveCategories();
+		const transactions = await db.transactions.toArray();
+		const accounts = await db.getActiveAccounts();
+		const prefs = await db.userPreferences.toCollection().first();
+		const mainCurrency = prefs?.currency ?? 'USD';
+		const creditPaymentTransferIds = this.detectCreditPaymentTransfers(transactions, accounts);
+		const now = new Date();
+		const budgetPeriodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+		const usage = new Map<string, CategoryUsage>();
+		for (const category of categories) {
+			const budget = category.budgetAmount && category.budgetAmount > 0 ? category.budgetAmount : null;
+			let spent = 0;
+			if (budget !== null) {
+				spent = await this.calculateCategorySpending(
+					category.id,
+					transactions,
+					creditPaymentTransferIds,
+					mainCurrency,
+					budgetPeriodStart
+				);
+			}
+
+			const usageRatio = budget !== null && budget > 0 ? spent / budget : null;
+			usage.set(category.id, {
+				categoryId: category.id,
+				spent,
+				budget,
+				usageRatio,
+				color:
+					usageRatio === null
+						? 'gray'
+						: usageRatio > 0.9
+							? 'red'
+							: usageRatio >= 0.7
+								? 'amber'
+								: 'green'
+			});
+		}
+		return usage;
 	}
 
 	/**

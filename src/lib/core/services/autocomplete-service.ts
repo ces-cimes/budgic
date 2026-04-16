@@ -1,18 +1,26 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { AutocompleteUsage, Transaction } from '$lib/core/db';
+import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
 
 export interface DescriptionSuggestion {
 	value: string;
 	frequency: number;
 	inferredCategoryId?: string;
 	lastUsed: Date;
+	typicalAmount?: number | null;
+	merchantKey?: string;
+	variationCount?: number;
 }
 
 interface DescriptionAggregate {
 	value: string;
+	merchantKey: string;
 	lastUsedMs: number;
 	frequencyLast90Days: number;
 	categoryCounts: Map<string, number>;
+	variations: Set<string>;
+	variationCounts: Map<string, number>;
+	amountSamples: number[];
 }
 
 interface SelectionAggregate {
@@ -25,6 +33,30 @@ export interface RankedValue {
 	score: number;
 	selectionFrequency: number;
 	lastSelected?: Date;
+}
+
+export interface AmountStats {
+	median: number;
+	stddev: number;
+	sampleSize: number;
+}
+
+export interface DateInference {
+	nextDate: string;
+	confidence: number;
+}
+
+export interface DescriptionIntelligence {
+	merchantKey: string;
+	typicalAmount: number | null;
+	amountStats: AmountStats | null;
+	dateInference: DateInference | null;
+}
+
+export interface TransferDestinationSuggestion {
+	accountId: string;
+	frequency: number;
+	typicalAmount: number | null;
 }
 
 export type BoundedAutocompleteFieldKey = 'transaction.account' | 'transaction.category';
@@ -66,24 +98,34 @@ class AutocompleteService {
 			const description = this.normalizeDescription(tx.description);
 			if (!description) continue;
 
-			const descriptionKey = description.toLowerCase();
+			const merchantKey = normaliseMerchantKey(description);
+			const descriptionKey = merchantKey || description.toLowerCase();
 			const usedAtMs = this.getTransactionTimestampMs(tx);
 
 			let aggregate = aggregates.get(descriptionKey);
 			if (!aggregate) {
 				aggregate = {
 					value: description,
+					merchantKey: descriptionKey,
 					lastUsedMs: usedAtMs,
 					frequencyLast90Days: 0,
-					categoryCounts: new Map<string, number>()
+					categoryCounts: new Map<string, number>(),
+					variations: new Set<string>(),
+					variationCounts: new Map<string, number>(),
+					amountSamples: []
 				};
 				aggregates.set(descriptionKey, aggregate);
 			} else if (usedAtMs > aggregate.lastUsedMs) {
 				aggregate.lastUsedMs = usedAtMs;
 			}
+			aggregate.variations.add(description);
+			aggregate.variationCounts.set(description, (aggregate.variationCounts.get(description) ?? 0) + 1);
 
 			if (usedAtMs >= ninetyDaysAgoMs) {
 				aggregate.frequencyLast90Days += 1;
+			}
+			if (tx.status === 'cleared') {
+				aggregate.amountSamples.push(Math.abs(tx.amount ?? 0));
 			}
 
 			if (tx.categoryId) {
@@ -121,10 +163,13 @@ class AutocompleteService {
 			})
 			.slice(0, Math.max(1, limit))
 			.map(({ item }) => ({
-				value: item.value,
+				value: this.getCanonicalVariation(item),
 				frequency: item.frequencyLast90Days,
 				inferredCategoryId: this.getMostFrequentCategoryId(item.categoryCounts),
-				lastUsed: new Date(item.lastUsedMs)
+				lastUsed: new Date(item.lastUsedMs),
+				typicalAmount: this.computeMedian(item.amountSamples.slice(0, 10)),
+				merchantKey: item.merchantKey,
+				variationCount: item.variations.size
 			}));
 
 		this.suggestionCache.set(cacheKey, {
@@ -143,7 +188,13 @@ class AutocompleteService {
 	): Promise<void> {
 		await this.ensureSelectionDataPruned();
 
-		if (context && context['transactionType'] === 'transfer') {
+		// Phase 0.6: exclude generic description learning for transfers — but Phase 7.6
+		// transfer memo pool must still persist under `transaction.transfer.memo`.
+		if (
+			context &&
+			context['transactionType'] === 'transfer' &&
+			fieldKey !== 'transaction.transfer.memo'
+		) {
 			return;
 		}
 
@@ -159,6 +210,7 @@ class AutocompleteService {
 			value: normalizedValue,
 			selectedFromSuggestion,
 			context: context ? JSON.stringify(context) : undefined,
+			typicalAmount: this.resolveTypicalAmount(context),
 			timestamp: nowIso,
 			createdAt: nowIso,
 			updatedAt: nowIso,
@@ -166,6 +218,114 @@ class AutocompleteService {
 		});
 
 		this.suggestionCache.clear();
+	}
+
+	async getDescriptionIntelligence(description: string): Promise<DescriptionIntelligence | null> {
+		const normalizedDescription = this.normalizeDescription(description);
+		if (!normalizedDescription) return null;
+
+		const merchantKey = normaliseMerchantKey(normalizedDescription);
+		const stats = await this.getAmountStatsForMerchant(merchantKey, normalizedDescription);
+		const dateInference = await this.getDateInferenceForMerchant(merchantKey, normalizedDescription);
+
+		return {
+			merchantKey,
+			typicalAmount: stats?.median ?? null,
+			amountStats: stats,
+			dateInference
+		};
+	}
+
+	async getTransferMemoSuggestions(
+		fromAccountId: string,
+		toAccountId: string,
+		partial: string,
+		limit = 8
+	): Promise<RankedValue[]> {
+		const usageRows = await db.autocompleteUsage.where('fieldKey').equals('transaction.transfer.memo').toArray();
+		const query = partial.trim().toLowerCase();
+		const filtered = usageRows.filter((row) => {
+			if (!row.context) return false;
+			try {
+				const parsed = JSON.parse(row.context) as { fromAccountId?: string; toAccountId?: string };
+				if (parsed.fromAccountId !== fromAccountId || parsed.toAccountId !== toAccountId) return false;
+			} catch {
+				return false;
+			}
+			return query.length === 0 || row.value.toLowerCase().includes(query);
+		});
+		return this.rankUsageRows(filtered).slice(0, limit);
+	}
+
+	async getNoteSuggestionsForMerchant(
+		description: string,
+		partial: string,
+		limit = 8
+	): Promise<RankedValue[]> {
+		const merchantKey = normaliseMerchantKey(description);
+		if (!merchantKey) return [];
+
+		const usageRows = await db.autocompleteUsage.where('fieldKey').equals('transaction.notes').toArray();
+		const query = partial.trim().toLowerCase();
+		const filtered = usageRows.filter((row) => {
+			if (!row.context) return false;
+			try {
+				const parsed = JSON.parse(row.context) as { merchantKey?: string };
+				if (parsed.merchantKey !== merchantKey) return false;
+			} catch {
+				return false;
+			}
+			return query.length === 0 || row.value.toLowerCase().startsWith(query);
+		});
+		return this.rankUsageRows(filtered).slice(0, limit);
+	}
+
+	async getTagSuggestions(partial: string, limit = 8): Promise<string[]> {
+		const query = partial.trim().toLowerCase();
+		if (!query) return [];
+
+		const usageRows = await db.autocompleteUsage.where('fieldKey').equals('transaction.tags').toArray();
+		const frequencyMap = new Map<string, number>();
+		for (const row of usageRows) {
+			const normalized = row.value.trim().toLowerCase();
+			if (!normalized.startsWith(query)) continue;
+			frequencyMap.set(normalized, (frequencyMap.get(normalized) ?? 0) + 1);
+		}
+
+		return Array.from(frequencyMap.entries())
+			.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+			.slice(0, limit)
+			.map(([tag]) => tag);
+	}
+
+	async getTransferDestinationSuggestions(
+		fromAccountId: string,
+		limit = 5
+	): Promise<TransferDestinationSuggestion[]> {
+		const transactions = await db.transactions.toArray();
+		const frequencies = new Map<string, number>();
+		const amountsByDestination = new Map<string, number[]>();
+
+		for (const tx of transactions) {
+			if (tx.type !== 'transfer') continue;
+			if (tx.accountId !== fromAccountId) continue;
+			const destinationId = tx.transferDetails?.toAccountId ?? tx.toAccountId;
+			if (!destinationId) continue;
+
+			frequencies.set(destinationId, (frequencies.get(destinationId) ?? 0) + 1);
+			const bucket = amountsByDestination.get(destinationId) ?? [];
+			bucket.push(Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0));
+			amountsByDestination.set(destinationId, bucket);
+		}
+
+		return Array.from(frequencies.entries())
+			.map(([accountId, frequency]) => ({
+				accountId,
+				frequency,
+				typicalAmount: this.computeMedian((amountsByDestination.get(accountId) ?? []).slice(0, 10))
+			}))
+			.sort((a, b) => b.frequency - a.frequency)
+			.slice(0, limit);
 	}
 
 	async getRankedValuesForField(fieldKey: string): Promise<RankedValue[]> {
@@ -400,6 +560,141 @@ class AutocompleteService {
 		}
 
 		return winner;
+	}
+
+	private getCanonicalVariation(aggregate: DescriptionAggregate): string {
+		let winner = aggregate.value;
+		let winnerCount = -1;
+		for (const [variation, count] of aggregate.variationCounts.entries()) {
+			if (count > winnerCount) {
+				winner = variation;
+				winnerCount = count;
+			}
+		}
+		return winner;
+	}
+
+	private rankUsageRows(rows: AutocompleteUsage[]): RankedValue[] {
+		const nowMs = Date.now();
+		const aggregateMap = new Map<string, SelectionAggregate>();
+		for (const row of rows) {
+			const normalized = this.normalizeDescription(row.value);
+			if (!normalized) continue;
+			const key = normalized.toLowerCase();
+			const selectedAtMs = Date.parse(row.timestamp);
+			const existing = aggregateMap.get(key);
+			if (!existing) {
+				aggregateMap.set(key, {
+					selectionFrequency: 1,
+					lastSelectedMs: Number.isNaN(selectedAtMs) ? null : selectedAtMs
+				});
+				continue;
+			}
+			existing.selectionFrequency += 1;
+			if (!Number.isNaN(selectedAtMs)) {
+				existing.lastSelectedMs =
+					existing.lastSelectedMs === null ? selectedAtMs : Math.max(existing.lastSelectedMs, selectedAtMs);
+			}
+		}
+
+		return Array.from(aggregateMap.entries())
+			.map(([value, aggregate]) => ({
+				value,
+				score:
+					this.normalizeFrequency(aggregate.selectionFrequency) *
+					this.computeRecencyScore(aggregate.lastSelectedMs, nowMs),
+				selectionFrequency: aggregate.selectionFrequency,
+				lastSelected: aggregate.lastSelectedMs ? new Date(aggregate.lastSelectedMs) : undefined
+			}))
+			.sort((a, b) => b.score - a.score || b.selectionFrequency - a.selectionFrequency);
+	}
+
+	private async getAmountStatsForMerchant(
+		merchantKey: string,
+		fallbackDescription: string
+	): Promise<AmountStats | null> {
+		const transactions = await db.transactions.toArray();
+		const amounts: number[] = [];
+		for (const tx of transactions) {
+			if (tx.type === 'transfer') continue;
+			if (tx.status !== 'cleared') continue;
+			const normalized = this.normalizeDescription(tx.description);
+			if (!normalized) continue;
+			const key = normaliseMerchantKey(normalized) || normalized.toLowerCase();
+			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase()) continue;
+			amounts.push(Math.abs(tx.amount ?? 0));
+		}
+		if (amounts.length < 3) return null;
+
+		const sorted = [...amounts].sort((a, b) => a - b);
+		const median = this.computeMedian(sorted);
+		if (median === null) return null;
+		const mean = sorted.reduce((sum, value) => sum + value, 0) / sorted.length;
+		const variance = sorted.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sorted.length;
+		return { median, stddev: Math.sqrt(variance), sampleSize: sorted.length };
+	}
+
+	private async getDateInferenceForMerchant(
+		merchantKey: string,
+		fallbackDescription: string
+	): Promise<DateInference | null> {
+		const transactions = await db.transactions.toArray();
+		const dates: Date[] = [];
+		for (const tx of transactions) {
+			if (tx.type === 'transfer') continue;
+			const normalized = this.normalizeDescription(tx.description);
+			if (!normalized) continue;
+			const key = normaliseMerchantKey(normalized) || normalized.toLowerCase();
+			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase()) continue;
+			const timestamp = tx.clearedDate ?? tx.plannedDate ?? tx.createdAt;
+			const parsed = new Date(timestamp);
+			if (!Number.isNaN(parsed.getTime())) {
+				dates.push(parsed);
+			}
+		}
+
+		if (dates.length < 3) return null;
+		const sorted = dates.sort((a, b) => a.getTime() - b.getTime());
+		const intervalsDays: number[] = [];
+		for (let i = 1; i < sorted.length; i += 1) {
+			const deltaMs = sorted[i].getTime() - sorted[i - 1].getTime();
+			const deltaDays = deltaMs / (24 * 60 * 60 * 1000);
+			if (deltaDays > 0) intervalsDays.push(deltaDays);
+		}
+		if (intervalsDays.length < 2) return null;
+
+		const medianInterval = this.computeMedian(intervalsDays);
+		if (medianInterval === null) return null;
+		const meanInterval =
+			intervalsDays.reduce((sum, value) => sum + value, 0) / intervalsDays.length;
+		const variance =
+			intervalsDays.reduce((sum, value) => sum + (value - meanInterval) ** 2, 0) /
+			intervalsDays.length;
+		const stddev = Math.sqrt(variance);
+		const confidence = Math.max(0, Math.min(1, 1 - stddev / Math.max(1, medianInterval)));
+		if (confidence <= 0.75) return null;
+
+		const nextDate = new Date(sorted[sorted.length - 1].getTime());
+		nextDate.setDate(nextDate.getDate() + Math.round(medianInterval));
+		return {
+			nextDate: nextDate.toISOString(),
+			confidence
+		};
+	}
+
+	private resolveTypicalAmount(context?: Record<string, unknown>): number | null {
+		const raw = context?.['typicalAmount'];
+		return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+	}
+
+	private computeMedian(values: number[]): number | null {
+		if (values.length === 0) return null;
+		const sorted = [...values].sort((a, b) => a - b);
+		const middle = Math.floor(sorted.length / 2);
+		if (sorted.length % 2 === 0) {
+			return (sorted[middle - 1] + sorted[middle]) / 2;
+		}
+		return sorted[middle];
 	}
 }
 

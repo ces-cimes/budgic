@@ -10,3 +10,21 @@ export function formatTransferLabel(tx: Transaction, accounts: Account[]): strin
 		accounts.find((a) => a.id === tx.transferDetails?.toAccountId)?.name ?? 'Unknown';
 	return `${src} → ${dst}`;
 }
+
+export function normaliseMerchantKey(description: string): string {
+	const trimmed = description.trim().toLowerCase();
+	if (!trimmed) return '';
+
+	const withoutPunctuation = trimmed
+		.replace(/[.,/#!$%^&*;:{}=_`~()"'?+<>\\[\]|-]+/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+	if (!withoutPunctuation) return '';
+
+	const withoutStoreSuffixes = withoutPunctuation
+		.replace(/\s*(#|№)\s*\d+[a-zа-я]*$/iu, '')
+		.replace(/\s+\d+[a-zа-я-]*$/iu, '')
+		.trim();
+
+	return withoutStoreSuffixes || withoutPunctuation;
+}
