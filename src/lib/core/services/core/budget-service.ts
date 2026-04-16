@@ -209,8 +209,14 @@ class BudgetService {
 			byTier[tier].remaining += allocation.remainingAmount;
 		});
 
+		/** Trailing window for allowance-confidence ratio (aligns with projection mental model). */
+		const confidenceWindowStart = new Date(nowForBudget);
+		confidenceWindowStart.setDate(confidenceWindowStart.getDate() - 90);
+
 		for (const tx of transactions) {
 			if (tx.type !== 'expense' || tx.status !== 'cleared') continue;
+			const clearedAt = tx.clearedDate ? new Date(tx.clearedDate) : new Date(tx.createdAt);
+			if (clearedAt < confidenceWindowStart) continue;
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
 			if (creditPaymentTransferIds.has(tx.id)) continue;
 

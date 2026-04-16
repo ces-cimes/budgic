@@ -16,7 +16,7 @@
 	import type { RecurringPattern } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
 	import type { Category } from '$lib/core/db';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
-	import { dismissedAnomalies, dismissAnomaly } from '$lib/stores/dismissed-anomalies';
+	import { isAnomalyDismissed, dismissAnomaly } from '$lib/stores/dismissed-anomalies.svelte';
 	import { db } from '$lib/core/db';
 	import BehavioralPatterns from './BehavioralPatterns.svelte';
 	import AppUsageAnalytics from './AppUsageAnalytics.svelte';
@@ -29,6 +29,34 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Progress } from '$lib/components/ui/progress';
 	import type { Insight } from '$lib/core/db';
+	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
+
+	type Phase8Surface = {
+		spendComparativeLine: string | null;
+		incomeComparativeLine: string | null;
+		savingsTrendSymbol: string | null;
+		feeDriftLine: string | null;
+		shadowCategoryViewEnabled?: boolean;
+		shadowEstimatedNote?: string | null;
+	};
+
+	type AnomalyRow = {
+		type: 'unusual_amount' | 'unusual_timing' | 'unusual_category';
+		transactionId: string;
+		description?: string;
+		amount?: number;
+		currency?: string;
+		txType?: 'expense' | 'income' | 'transfer' | 'adjustment';
+		categoryName?: string;
+	};
+
+	type PatternStatsRow = {
+		peakDay: string;
+		peakTime: string;
+		biggestCategory: string;
+		mostFrequentCategory: string;
+		avgAmount: number;
+	};
 
 	interface Props {
 		isLoading: boolean;
@@ -38,6 +66,8 @@
 		insightTypeFilter?: string;
 		/** False when Insights tab is not Patterns (inactive panels stay mounted). */
 		patternsTabActive?: boolean;
+		/** Increment from parent on manual refresh to bypass navigation cache. */
+		patternsDataNonce?: number;
 	}
 
 	const {
@@ -45,7 +75,8 @@
 		userCurrency = 'USD',
 		className = '',
 		insightTypeFilter,
-		patternsTabActive = true
+		patternsTabActive = true,
+		patternsDataNonce = 0
 	}: Props = $props();
 
 	let spendingPulse = $state<string>('Loading your spending pulse…');
@@ -60,34 +91,28 @@
 		needsReview: boolean;
 	};
 	let recurringList = $state<RecurringRow[]>([]);
+
+	type PatternsTabCacheSnapshot = {
+		spendingPulse: string;
+		isNewUser: boolean;
+		recurringList: RecurringRow[];
+		dataQualityRatio: number | null;
+		unclassifiedTxCount: number;
+		phase8Surface: Phase8Surface | null;
+		anomalies: AnomalyRow[];
+		patternStats: PatternStatsRow | null;
+		upcomingSummary: string;
+		upcomingWeekAmount: number | null;
+	};
+
+	let patternsTabCacheKey = '';
+	let patternsTabCache: PatternsTabCacheSnapshot | null = null;
+
 	let dataQualityRatio = $state<number | null>(null);
 	let unclassifiedTxCount = $state(0);
-	let phase8Surface = $state<{
-		spendComparativeLine: string | null;
-		incomeComparativeLine: string | null;
-		savingsTrendSymbol: string | null;
-		feeDriftLine: string | null;
-		shadowCategoryViewEnabled?: boolean;
-		shadowEstimatedNote?: string | null;
-	} | null>(null);
-	let anomalies = $state<
-		Array<{
-			type: 'unusual_amount' | 'unusual_timing' | 'unusual_category';
-			transactionId: string;
-			description?: string;
-			amount?: number;
-			currency?: string;
-			txType?: 'expense' | 'income' | 'transfer' | 'adjustment';
-			categoryName?: string;
-		}>
-	>([]);
-	let patternStats = $state<{
-		peakDay: string;
-		peakTime: string;
-		biggestCategory: string;
-		mostFrequentCategory: string;
-		avgAmount: number;
-	} | null>(null);
+	let phase8Surface = $state<Phase8Surface | null>(null);
+	let anomalies = $state<AnomalyRow[]>([]);
+	let patternStats = $state<PatternStatsRow | null>(null);
 	let upcomingSummary = $state<string>('');
 	let upcomingWeekAmount = $state<number | null>(null);
 	let loading = $state(true);
@@ -317,9 +342,48 @@
 		const months = 90 / 30;
 		const totalMonthlySpend = months > 0 ? expenseSum / months : 0;
 		recurringList = await buildRecurringRows(recurringPatterns, currency, totalMonthlySpend);
+		// Invalidate navigation cache so restored state matches fresh recurring rows
+		patternsTabCacheKey = '';
+		patternsTabCache = null;
 	}
 
-	onMount(async () => {
+	function applyPatternsCache(s: PatternsTabCacheSnapshot) {
+		spendingPulse = s.spendingPulse;
+		isNewUser = s.isNewUser;
+		recurringList = s.recurringList;
+		dataQualityRatio = s.dataQualityRatio;
+		unclassifiedTxCount = s.unclassifiedTxCount;
+		phase8Surface = s.phase8Surface;
+		anomalies = s.anomalies;
+		patternStats = s.patternStats;
+		upcomingSummary = s.upcomingSummary;
+		upcomingWeekAmount = s.upcomingWeekAmount;
+	}
+
+	function capturePatternsCache(): PatternsTabCacheSnapshot {
+		return {
+			spendingPulse,
+			isNewUser,
+			recurringList: recurringList.map((r) => ({ ...r })),
+			dataQualityRatio,
+			unclassifiedTxCount,
+			phase8Surface: phase8Surface ? { ...phase8Surface } : null,
+			anomalies: anomalies.map((a) => ({ ...a })),
+			patternStats: patternStats ? { ...patternStats } : null,
+			upcomingSummary,
+			upcomingWeekAmount
+		};
+	}
+
+	async function loadPatternsHeavy(options?: { force?: boolean }) {
+		const rev = crossRouteSyncService.getSurfaceDataRevision();
+		const cacheKey = `${rev}:${userCurrency}`;
+		if (!options?.force && patternsTabCache && patternsTabCacheKey === cacheKey) {
+			applyPatternsCache(patternsTabCache);
+			loading = false;
+			return;
+		}
+
 		loading = true;
 		try {
 			const days = 90;
@@ -388,7 +452,7 @@
 
 			// Anomalies: enrich with transaction + category for transaction-like display (no "Unusually large..." text)
 			const rawAnomalies = (patternsResult.anomalyPatterns || []).slice(0, 10);
-			const enriched: typeof anomalies = [];
+			const enriched: AnomalyRow[] = [];
 			for (const a of rawAnomalies) {
 				const tx = await transactionService.getTransaction(a.transactionId);
 				let categoryName: string | undefined;
@@ -450,6 +514,10 @@
 				upcomingWeekAmount = null;
 				upcomingSummary = 'No major recurring spending predicted this week.';
 			}
+
+			const revAfter = crossRouteSyncService.getSurfaceDataRevision();
+			patternsTabCacheKey = `${revAfter}:${userCurrency}`;
+			patternsTabCache = capturePatternsCache();
 		} catch (e) {
 			console.error('PatternsTabContent load error:', e);
 			spendingPulse = 'Unable to load patterns right now. Try refreshing.';
@@ -467,6 +535,18 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	onMount(() => {
+		void loadPatternsHeavy();
+	});
+
+	let lastPatternsDataNonce = $state(-1);
+	$effect(() => {
+		const n = patternsDataNonce;
+		if (n <= 0 || n === lastPatternsDataNonce) return;
+		lastPatternsDataNonce = n;
+		void loadPatternsHeavy({ force: true });
 	});
 </script>
 
@@ -539,7 +619,9 @@
 							<p class="text-muted-foreground text-xs">{phase8Surface.feeDriftLine}</p>
 						{/if}
 						{#if phase8Surface.shadowEstimatedNote}
-							<p class="text-muted-foreground text-xs italic">{phase8Surface.shadowEstimatedNote}</p>
+							<p class="text-muted-foreground text-xs italic">
+								{phase8Surface.shadowEstimatedNote}
+							</p>
 						{/if}
 					{/if}
 				</div>
@@ -571,7 +653,7 @@
 			{/if}
 
 			{#if !loading}
-				<section class="mt-3 rounded-xl border border-border bg-card px-4 py-3">
+				<section class="border-border bg-card mt-3 rounded-xl border px-4 py-3">
 					<p class="text-muted-foreground mb-2 text-xs">
 						When merchant profiles are very stable, apply their mean split to past matching cleared
 						expenses (optional).
@@ -649,7 +731,7 @@
 			</section>
 
 			<!-- 3. Anomalies (transaction-like: description + category left, amount + type badge right; no "Unusually large..." text) -->
-			{@const visibleAnomalies = anomalies.filter((a) => !$dismissedAnomalies.has(a.transactionId))}
+			{@const visibleAnomalies = anomalies.filter((a) => !isAnomalyDismissed(a.transactionId))}
 			{#if visibleAnomalies.length > 0}
 				<section>
 					<h2

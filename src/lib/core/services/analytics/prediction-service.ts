@@ -4,6 +4,12 @@ import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { userService, exchangeRateService } from '../core';
 import type { Transaction, Category, Goal, Account } from '$lib/core/db';
+import { devLog, devWarn } from '$lib/utils/dev-log';
+import {
+	categoryIdsWithSpendShare,
+	effectiveAmountForCategory,
+	shouldIncludeClearedExpenseInAnalyticsSpend
+} from '$lib/utils/category-utils';
 
 /**
  * Prediction Service
@@ -150,7 +156,7 @@ class PredictionService {
 
 		// Log if we find split transactions (for debugging)
 		if (transactionsByGroup.size > 0) {
-			console.log(
+			devLog(
 				`[PredictionService] Found ${transactionsByGroup.size} transaction groups ` +
 					`with ${relevantTransactions.filter((tx) => tx.groupId).length} split transactions`
 			);
@@ -161,7 +167,7 @@ class PredictionService {
 			(sum, tx) => sum + Math.abs(tx.amount || 0),
 			0
 		);
-		console.log(
+		devLog(
 			`[PredictionService] Filtered ${relevantTransactions.length} transactions ` +
 				`(total: ${totalBeforeConversion.toFixed(2)}) for prediction${categoryId ? ` (category: ${categoryId})` : ''}`
 		);
@@ -181,7 +187,7 @@ class PredictionService {
 			Math.abs(totalBeforeConversion - totalAfterConversion) > 0.01 &&
 			totalBeforeConversion > 0
 		) {
-			console.warn(
+			devWarn(
 				`[PredictionService] Currency conversion changed total: ` +
 					`${totalBeforeConversion.toFixed(2)} -> ${totalAfterConversion.toFixed(2)}. ` +
 					`This is expected if transactions are in different currencies.`
@@ -190,7 +196,7 @@ class PredictionService {
 
 		if (relevantTransactions.length < 10) {
 			// Not enough data
-			console.log(
+			devLog(
 				`[PredictionService] Not enough transactions (${relevantTransactions.length} < 10) for prediction`
 			);
 			return [];
@@ -279,7 +285,7 @@ class PredictionService {
 		const monthsCovered = monthlyAmounts.length;
 
 		// Enhanced debug logging to identify issues
-		console.log(
+		devLog(
 			`[PredictionService] ${categoryName}: ` +
 				`Total transactions: ${transactions.length}, ` +
 				`Total before grouping: ${totalBeforeGrouping.toFixed(2)} ${mainCurrency}, ` +
@@ -312,7 +318,7 @@ class PredictionService {
 			// The actual average should be close to expectedAvgMonthlyActual
 			const ratio = avgMonthly / expectedAvgMonthlyActual;
 			if (ratio < 0.9 || ratio > 1.1) {
-				console.warn(
+				devWarn(
 					`[PredictionService] Potential calculation issue for ${categoryName}: ` +
 						`Avg monthly (${avgMonthly.toFixed(2)}) differs from expected ` +
 						`(${expectedAvgMonthlyActual.toFixed(2)}) based on ${monthsCovered} months with data. ` +
@@ -352,7 +358,7 @@ class PredictionService {
 		// If prediction seems too low compared to historical average, use a weighted approach
 		// that considers both the algorithm prediction and the historical average
 		if (avgMonthly > 0 && predictedMonthlyAdjusted < avgMonthly * 0.3) {
-			console.warn(
+			devWarn(
 				`[PredictionService] Prediction for ${categoryName} seems unusually low: ` +
 					`${predictedMonthlyAdjusted.toFixed(2)} vs historical avg ${avgMonthly.toFixed(2)}. ` +
 					`Blending with historical average.`
@@ -360,7 +366,7 @@ class PredictionService {
 			// Blend prediction with historical average (70% prediction, 30% historical)
 			predictedMonthlyAdjusted = predictedMonthlyAdjusted * 0.7 + avgMonthly * 0.3;
 
-			console.log(
+			devLog(
 				`[PredictionService] ${categoryName}: Adjusted prediction to ${predictedMonthlyAdjusted.toFixed(2)} per month`
 			);
 		}
@@ -563,7 +569,7 @@ class PredictionService {
 		const budgetData = await budgetService.getBudgetSummary();
 		const transactions = await db.transactions.toArray();
 		const categories = await db.getActiveCategories();
-		const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
+		const categoryById = new Map(categories.map((c) => [c.id, c]));
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
 
@@ -586,8 +592,7 @@ class PredictionService {
 			) {
 				return false;
 			}
-			const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
-			return expenseCountsTowardAllowanceAnalytics(tx, tier);
+			return shouldIncludeClearedExpenseInAnalyticsSpend(tx, categoryById);
 		});
 
 		// Convert to main currency
@@ -596,12 +601,15 @@ class PredictionService {
 			mainCurrency
 		);
 
-		// Group by category
+		// Group by category (Phase 9 soft splits: attribute slice amounts per category id)
 		const categorySpending = new Map<string, number>();
 		for (const tx of convertedTransactions) {
-			if (tx.categoryId) {
-				const current = categorySpending.get(tx.categoryId) || 0;
-				categorySpending.set(tx.categoryId, current + Math.abs(tx.amount || 0));
+			for (const cid of categoryIdsWithSpendShare(tx)) {
+				const tier = categoryById.get(cid)?.waterfallTier;
+				if (!expenseCountsTowardAllowanceAnalytics(tx, tier)) continue;
+				const add = Math.abs(effectiveAmountForCategory(tx, cid));
+				if (add < 1e-9) continue;
+				categorySpending.set(cid, (categorySpending.get(cid) || 0) + add);
 			}
 		}
 
@@ -634,13 +642,17 @@ class PredictionService {
 				factors.push('Current spending velocity');
 
 				// Get historical data for better prediction
-				const historicalTransactions = transactions.filter(
+				const historicalCandidates = transactions.filter(
 					(tx) =>
 						tx.type === 'expense' &&
-						tx.categoryId === category.id &&
 						tx.status === 'cleared' &&
 						tx.clearedDate &&
 						new Date(tx.clearedDate) < currentMonthStart
+				);
+				const historicalTransactions = this.transactionsAttributedToCategory(
+					historicalCandidates,
+					category.id,
+					categoryById
 				);
 
 				if (historicalTransactions.length >= 3) {
@@ -663,8 +675,13 @@ class PredictionService {
 				}
 			} else {
 				// No spending yet, use historical average
-				const historicalTransactions = transactions.filter(
-					(tx) => tx.type === 'expense' && tx.categoryId === category.id && tx.status === 'cleared'
+				const historicalCandidates = transactions.filter(
+					(tx) => tx.type === 'expense' && tx.status === 'cleared'
+				);
+				const historicalTransactions = this.transactionsAttributedToCategory(
+					historicalCandidates,
+					category.id,
+					categoryById
 				);
 
 				if (historicalTransactions.length >= 3) {
@@ -1039,7 +1056,7 @@ class PredictionService {
 
 				// Validate transaction amount
 				if (isNaN(txAmount) || txAmount < 0) {
-					console.warn(
+					devWarn(
 						`[PredictionService] Invalid transaction amount for ${tx.id}: ${tx.amount}. Skipping.`
 					);
 					continue;
@@ -1048,7 +1065,7 @@ class PredictionService {
 				current.amount += txAmount;
 				monthlyData.set(month, current);
 			} else {
-				console.warn(`[PredictionService] Transaction ${tx.id} missing clearedDate. Skipping.`);
+				devWarn(`[PredictionService] Transaction ${tx.id} missing clearedDate. Skipping.`);
 			}
 		}
 
@@ -1108,7 +1125,7 @@ class PredictionService {
 					});
 				} else {
 					// Conversion failed - log warning but include with original amount
-					console.warn(
+					devWarn(
 						`Failed to convert ${absAmount} ${txCurrency} to ${mainCurrency} for transaction ${tx.id}. ` +
 							`Using original amount.`
 					);
@@ -1167,6 +1184,31 @@ class PredictionService {
 		}
 
 		return Array.from(monthlyContributions.values()).sort();
+	}
+
+	/**
+	 * Phase 9 — transactions that contribute a non-zero analytics slice to a category (for monthly averages).
+	 * Returns shallow copies with positive `amount` = slice magnitude in transaction currency.
+	 */
+	private transactionsAttributedToCategory(
+		candidates: Transaction[],
+		categoryId: string,
+		categoryById: Map<string, Category>
+	): Transaction[] {
+		const out: Transaction[] = [];
+		for (const tx of candidates) {
+			const slice = effectiveAmountForCategory(tx, categoryId);
+			if (Math.abs(slice) < 1e-9) continue;
+			const tier = categoryById.get(categoryId)?.waterfallTier;
+			if (!expenseCountsTowardAllowanceAnalytics(tx, tier)) continue;
+			out.push({
+				...tx,
+				amount: Math.abs(slice),
+				categoryId,
+				categoryWeights: undefined
+			});
+		}
+		return out;
 	}
 
 	/**

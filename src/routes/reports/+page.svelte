@@ -24,6 +24,7 @@
 		type ReportType
 	} from '$lib/components/reports';
 	import { analyzeService, userService } from '$lib/core/services';
+	import { devLog } from '$lib/utils/dev-log';
 
 	const reportTabs: TabConfig[] = [
 		{ id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -163,11 +164,11 @@
 	}
 
 	async function handleExportReport() {
-		console.log('Exporting report...');
+		devLog('Exporting report...');
 	}
 
 	async function handleSetReminder() {
-		console.log('Setting reminder...');
+		devLog('Setting reminder...');
 	}
 
 	async function handleGenerateReport(type: ReportType) {
@@ -181,7 +182,7 @@
 
 	async function handleDownloadReport(reportId: string) {
 		try {
-			console.log('Download report:', reportId);
+			devLog('Download report:', reportId);
 		} catch (error) {
 			console.error('Error downloading report:', error);
 		}

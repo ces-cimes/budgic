@@ -138,6 +138,7 @@ export async function calculateEnhancedAllowance(
 	// Get all transactions for historical analysis
 	const allTransactions = await transactionService.getTransactionsByAccount(account.id);
 	const preferences = await db.userPreferences.toCollection().first();
+	const mainCurrency = preferences?.currency || account.currency || 'USD';
 	const reimbursementAllowanceMode: ReimbursementAllowanceMode =
 		preferences?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
 	const adjustedTransactions = applyReimbursementAllowanceMode(
@@ -164,8 +165,13 @@ export async function calculateEnhancedAllowance(
 	const categories = await db.getActiveCategories();
 	const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
 
-	// Calculate historical spending data
-	const historicalData = calculateHistoricalSpending(clearedTransactions, start, tierByCategoryId);
+	// Calculate historical spending data (FX-converted to main currency, same as global allowance)
+	const historicalData = await calculateHistoricalSpendingWithConversion(
+		clearedTransactions,
+		start,
+		mainCurrency,
+		tierByCategoryId
+	);
 
 	// Calculate method weights based on data availability
 	const methodWeights = calculateMethodWeights(
@@ -175,7 +181,13 @@ export async function calculateEnhancedAllowance(
 	);
 
 	// Calculate spent so far in current period
-	const spentSoFar = calculateSpentSoFar(clearedTransactions, start, now, tierByCategoryId);
+	const spentSoFar = await calculateSpentSoFarWithConversion(
+		clearedTransactions,
+		start,
+		now,
+		mainCurrency,
+		tierByCategoryId
+	);
 
 	// Calculate buffer amount
 	const bufferTransactions = clearedTransactions

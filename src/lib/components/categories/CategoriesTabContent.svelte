@@ -173,6 +173,36 @@
 		return waterfallTierInfo[safeTier]?.description ?? '';
 	}
 
+	/** True if `nodeId` is a strict descendant of `ancestorId` (walks parent chain from node). */
+	function isDescendantOf(nodeId: string, ancestorId: string): boolean {
+		let id: string | undefined = categoryById.get(nodeId)?.parentId;
+		for (let g = 0; g < 24 && id; g++) {
+			if (id === ancestorId) return true;
+			id = categoryById.get(id)?.parentId;
+		}
+		return false;
+	}
+
+	function eligibleParentOptions(cat: Category): Category[] {
+		return categories.filter(
+			(c) => c.id !== cat.id && c.type === cat.type && !isDescendantOf(c.id, cat.id)
+		);
+	}
+
+	async function updateCategoryParent(cat: Category, newParentId: string) {
+		try {
+			const next = newParentId.trim() === '' ? undefined : newParentId;
+			await budgetService.updateBudgetCategory(cat.id, { parentId: next });
+			const categoriesData = await budgetService.getBudgetCategories();
+			categories = categoriesData;
+			toast.success('Category parent updated');
+		} catch (err) {
+			error = 'Failed to update category parent';
+			console.error(err);
+			toast.error('Could not update parent');
+		}
+	}
+
 	function handleDragStart(event: DragEvent, category: Category) {
 		draggedCategory = category;
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
@@ -413,6 +443,23 @@
 											{/if}
 										</p>
 									{/if}
+									<label class="text-muted-foreground mt-2 block text-xs font-medium">
+										Parent (category tree)
+										<select
+											class="border-input bg-background text-foreground mt-1 block w-full max-w-xs rounded-md border px-2 py-1.5 text-sm"
+											value={category.parentId ?? ''}
+											onchange={(e) =>
+												updateCategoryParent(
+													category,
+													(e.currentTarget as HTMLSelectElement).value
+												)}
+										>
+											<option value="">— Top level —</option>
+											{#each eligibleParentOptions(category) as p (p.id)}
+												<option value={p.id}>{p.name}</option>
+											{/each}
+										</select>
+									</label>
 								</div>
 
 								<div class="flex items-center gap-2">

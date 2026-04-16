@@ -46,7 +46,6 @@ export interface InsightMetadata {
 	remaining?: number;
 	threshold?: number;
 	confidence?: number;
-	whyTagId?: string;
 	category?: InsightCategory;
 	sourceRoute?: 'plan' | 'goals' | 'analyze' | 'system';
 	tags?: string[];

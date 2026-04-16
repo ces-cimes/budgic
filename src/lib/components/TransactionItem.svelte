@@ -22,6 +22,8 @@
 		isSelected?: boolean;
 		context?: 'main' | 'transactions' | 'plan';
 		showDate?: boolean;
+		/** When the date group spans multiple calendar days, show a short date instead of time. */
+		secondaryDateMode?: 'time' | 'calendar';
 		// Grouped transaction props
 		isGroup?: boolean;
 		groupTransactions?: Transaction[];
@@ -40,6 +42,7 @@
 		isSelected = false,
 		context = 'main',
 		showDate = true,
+		secondaryDateMode = 'time',
 		// Grouped transaction props
 		isGroup = false,
 		groupTransactions = [],
@@ -70,6 +73,20 @@
 		} else {
 			return getTime(transaction.clearedDate);
 		}
+	});
+
+	const displayLeftStripe = $derived(() => {
+		if (secondaryDateMode === 'calendar') {
+			const raw =
+				transaction.status === 'planned' ? transaction.plannedDate : transaction.clearedDate;
+			if (!raw) return '';
+			try {
+				return dateUtils.formatDate(raw, 'MMM d');
+			} catch {
+				return '';
+			}
+		}
+		return displayTime();
 	});
 
 	// Determine if transaction is overdue
@@ -690,11 +707,11 @@
 				<div class="flex items-center gap-2">
 					<!-- Left Border Area: Time Display (Fixed Width) -->
 					<div class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center">
-						{#if displayTime()}
+						{#if displayLeftStripe()}
 							<div
 								class="text-text-secondary -rotate-90 transform text-xs font-medium whitespace-nowrap"
 							>
-								{displayTime()}
+								{displayLeftStripe()}
 							</div>
 						{/if}
 					</div>
@@ -789,11 +806,11 @@
 					<div class="flex items-center gap-2">
 						<!-- Left Border Area: Time Display (Fixed Width) -->
 						<div class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center">
-							{#if displayTime()}
+							{#if displayLeftStripe()}
 								<div
 									class="text-text-secondary -rotate-90 transform text-xs font-medium whitespace-nowrap"
 								>
-									{displayTime()}
+									{displayLeftStripe()}
 								</div>
 							{/if}
 						</div>
@@ -932,11 +949,11 @@
 				<div class="flex items-center gap-2">
 					<!-- Left Border Area: Time Display (Fixed Width) -->
 					<div class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center">
-						{#if displayTime()}
+						{#if displayLeftStripe()}
 							<div
 								class="text-text-secondary -rotate-90 transform text-xs font-medium whitespace-nowrap"
 							>
-								{displayTime()}
+								{displayLeftStripe()}
 							</div>
 						{/if}
 					</div>

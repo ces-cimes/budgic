@@ -17,6 +17,7 @@
 
 	// Services
 	import { insightsService, userService } from '$lib/core/services';
+	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
 
 	// Tab configuration: Patterns | Optimize | Badges (Alerts → bell panel; Savings merged into Optimize)
 	const allInsightsTabs: TabConfig[] = [
@@ -33,6 +34,8 @@
 	let userCurrency = $state<string>('USD');
 	/** Phase 5: Optimize tab hidden for Beginner maturity */
 	let maturityLevel = $state<'beginner' | 'intermediate' | 'advanced' | 'expert'>('beginner');
+	/** Bumps to force Patterns tab heavy reload (header refresh). */
+	let patternsDataNonce = $state(0);
 
 	// Visible tabs: hide Optimize for beginner (UX_SPEC Phase 5)
 	const insightsTabs = $derived(
@@ -107,6 +110,8 @@
 	async function handleRefresh() {
 		isLoading = true;
 		try {
+			crossRouteSyncService.notifyAnalyticsSurfacesStale();
+			patternsDataNonce++;
 			// Force update with predictions included
 			await insightsService.generateCrossRouteInsights(
 				{
@@ -159,6 +164,7 @@
 						{userCurrency}
 						insightTypeFilter={insightTypeFilter ?? undefined}
 						patternsTabActive={activeTab === 'patterns'}
+						{patternsDataNonce}
 					/>
 				</TabContent>
 

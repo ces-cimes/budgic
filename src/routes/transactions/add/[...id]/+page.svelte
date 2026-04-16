@@ -18,6 +18,7 @@
 	import type { Account, Transaction, Category, ReimbursementEntry } from '$lib/core/db';
 	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
 	import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
+	import { devLog } from '$lib/utils/dev-log';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
@@ -2334,7 +2335,7 @@
 				<DependencyManager
 					transactionId={transaction.id}
 					onDependenciesChange={() => {
-						console.log('Dependencies updated');
+						devLog('Dependencies updated');
 					}}
 				/>
 				<DependencyGraphVisualization transactionId={transaction.id} />

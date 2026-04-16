@@ -5,6 +5,7 @@
 
 import { db, generateUUID, type ExchangeRate } from '$lib/core/db';
 import { userService } from './user-service';
+import { devLog } from '$lib/utils/dev-log';
 
 interface ExchangeRateAPIResponse {
 	rates: Record<string, number>;
@@ -286,7 +287,7 @@ class ExchangeRateService {
 				}
 			});
 
-			console.log(`Updated exchange rates for base currency: ${baseCurrency}`);
+			devLog(`Updated exchange rates for base currency: ${baseCurrency}`);
 		} catch (error) {
 			console.error('Failed to update exchange rates:', error);
 			throw error;

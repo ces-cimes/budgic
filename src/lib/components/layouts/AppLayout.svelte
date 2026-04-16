@@ -4,13 +4,13 @@
 	import MobileNavigation from './MobileNavigation.svelte';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 	import { goto } from '$app/navigation';
-	import { typePickerOpen, closeTypePicker } from '$lib/stores/type-picker-store.svelte';
+	import { typePicker, closeTypePicker } from '$lib/stores/type-picker-store.svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
 	import * as Popover from '$lib/components/ui/popover/index.ts';
 	import { TypePicker } from '$lib/components/transactions';
 	import Fab from '$lib/components/Fab.svelte';
 	import { Plus } from '@lucide/svelte';
-	import { bulkSelectionActive } from '$lib/stores/bulk-selection-store';
+	import { bulkSelection } from '$lib/stores/bulk-selection-store.svelte';
 	import type { Transaction } from '$lib/core/db';
 
 	interface Props {
@@ -47,9 +47,9 @@
 
 	<!-- Type picker Dialog: used on mobile for FAB, and when openTypePicker() is called (e.g. list empty state, Home CTA) -->
 	<Dialog.Root
-		open={$typePickerOpen}
+		open={typePicker.open}
 		onOpenChange={(o) => {
-			typePickerOpen.set(!!o);
+			typePicker.open = !!o;
 		}}
 	>
 		<Dialog.Content class="max-h-[85vh] overflow-y-auto sm:max-w-sm" showCloseButton={true}>
@@ -62,13 +62,13 @@
 	</Dialog.Root>
 
 	<!-- Global FAB: mobile = opens Dialog; desktop = Popover anchored to FAB -->
-	{#if !$bulkSelectionActive}
+	{#if !bulkSelection.active}
 		{#if isMobile.current}
 			<Fab
 				position="bottom-right"
 				size="md"
 				variant="default"
-				onclick={() => typePickerOpen.set(true)}
+				onclick={() => (typePicker.open = true)}
 			>
 				{#snippet children()}
 					<Plus />

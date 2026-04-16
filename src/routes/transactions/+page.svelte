@@ -13,7 +13,7 @@
 	import TransactionList, {
 		type FilterState
 	} from '$lib/components/transactions/TransactionList.svelte';
-	import { bulkSelectionActive } from '$lib/stores/bulk-selection-store';
+	import { bulkSelection } from '$lib/stores/bulk-selection-store.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import * as Popover from '$lib/components/ui/popover/index.ts';
@@ -99,11 +99,11 @@
 	}
 
 	$effect(() => {
-		bulkSelectionActive.set(selectionMode);
+		bulkSelection.active = selectionMode;
 	});
 
 	onDestroy(() => {
-		bulkSelectionActive.set(false);
+		bulkSelection.active = false;
 	});
 
 	const BULK_CURRENCY_PICKER_BASE = getAllSystemCurrencyDefaults().map((row) =>
@@ -567,7 +567,9 @@
 		</Header>
 	{/snippet}
 
-	<div class="mx-auto max-w-4xl min-w-0 overflow-x-clip overscroll-x-contain px-5 py-4 sm:px-6">
+	<div
+		class="mx-auto flex min-h-full min-w-0 max-w-4xl flex-1 flex-col overflow-x-clip overscroll-x-contain px-5 py-4 sm:px-6"
+	>
 		{#if isLoading}
 			<!-- Skeleton loading state — no spinners -->
 			<div class="squircle-2xl squircle-border squircle-fill-tertiary mb-4 px-5 py-3.5">

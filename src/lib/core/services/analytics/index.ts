@@ -12,6 +12,7 @@
  * - Credit utilization optimization
  */
 
+export type { AnalyticsMetadata } from './analytics-metadata';
 export { analyticsService } from './analytics-service';
 export { interestOptimizationService } from './interest-optimization-service';
 export { insightsService } from './insights-service';

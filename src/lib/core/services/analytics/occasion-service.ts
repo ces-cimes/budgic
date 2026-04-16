@@ -9,6 +9,7 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { Occasion, Transaction } from '$lib/core/db';
 import { transactionService } from '../core/transaction-service';
+import { exchangeRateService } from '../core/exchange-rate-service';
 
 export type OccasionType = 'weekly' | 'monthly' | 'annual';
 
@@ -130,6 +131,7 @@ function countOccurrencesInPeriod(occasion: Occasion, periodStart: Date, periodE
 	return 0;
 }
 
+// @legacy-dormant — occasions UI removed (Phase 8); service retained for existing DB rows.
 class OccasionService {
 	public get ready() {
 		return db.isOpen();
@@ -167,13 +169,20 @@ class OccasionService {
 		for (const occasion of occasions) {
 			const occurrences = countOccurrencesInPeriod(occasion, periodStart, periodEnd);
 			if (occurrences === 0) continue;
-			// Use occasion.currency; if different from requested currency, we skip conversion for simplicity (could add later)
 			const amountDelta = occasion.expectedAmountDelta * occurrences;
 			result.push({ occasion, occurrences, amountDelta });
 			if (occasion.currency === currency) {
 				totalDelta += amountDelta;
 			} else {
-				totalDelta += amountDelta; // TODO: convert if needed
+				const abs = Math.abs(amountDelta);
+				const sign = amountDelta >= 0 ? 1 : -1;
+				const converted = await exchangeRateService.convertAmount(
+					abs,
+					occasion.currency,
+					currency,
+					periodStart
+				);
+				totalDelta += converted != null ? sign * converted : amountDelta;
 			}
 		}
 		return { totalDelta, currency, occasions: result };

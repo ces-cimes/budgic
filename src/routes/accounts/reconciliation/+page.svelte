@@ -4,18 +4,10 @@
 	import ReconciliationHistory from '$lib/components/ReconciliationHistory.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
-	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import { Badge } from '$lib/components/ui/badge';
+	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
-	import {
-		TrendingUp,
-		History,
-		Plus,
-		AlertCircle,
-		CheckCircle2,
-		Clock,
-		BarChart3
-	} from '@lucide/svelte';
+	import { History } from '@lucide/svelte';
 	import type { ReconciliationRecord } from '$lib/core/db';
 	import { reconciliationService, accountService } from '$lib/core/services';
 	import { onMount } from 'svelte';
@@ -23,7 +15,7 @@
 	import Header from '$lib/components/Header.svelte';
 
 	// State variables
-	let activeTab = $state('reconcile');
+	let historyOpen = $state(false);
 	let selectedAccountId = $state('');
 	let reconciliationStats = $state({
 		totalAccounts: 0,
@@ -58,8 +50,8 @@
 		const tabParam = urlParams.get('tab');
 		const accountParam = urlParams.get('account');
 
-		if (tabParam && (tabParam === 'reconcile' || tabParam === 'history')) {
-			activeTab = tabParam;
+		if (tabParam === 'history') {
+			historyOpen = true;
 		}
 
 		if (accountParam) {
@@ -134,12 +126,11 @@
 		// Refresh stats
 		loadReconciliationStats();
 
-		// Switch to history tab to show the result
-		activeTab = 'history';
+		historyOpen = true;
 
 		// Update URL without causing navigation
 		const url = new URL($page.url);
-		url.searchParams.set('tab', 'history');
+		url.searchParams.delete('tab');
 		if (result.accountId) {
 			url.searchParams.set('account', result.accountId);
 		}
@@ -149,26 +140,16 @@
 	// Handle reconcile button click from history
 	function handleReconcileClick(accountId: string) {
 		selectedAccountId = accountId;
-		activeTab = 'reconcile';
+		historyOpen = false;
 
 		// Update URL
 		const url = new URL($page.url);
-		url.searchParams.set('tab', 'reconcile');
+		url.searchParams.delete('tab');
 		if (accountId) {
 			url.searchParams.set('account', accountId);
 		} else {
 			url.searchParams.delete('account');
 		}
-		history.replaceState({}, '', url);
-	}
-
-	// Handle tab change
-	function handleTabChange(newTab: string) {
-		activeTab = newTab;
-
-		// Update URL
-		const url = new URL($page.url);
-		url.searchParams.set('tab', newTab);
 		history.replaceState({}, '', url);
 	}
 
@@ -277,29 +258,15 @@
 				{/if}
 			</div>
 
-			<!-- Tab switcher -->
-			<div class="flex items-center gap-1">
+			<!-- Primary form + history as secondary panel -->
+			<div class="flex flex-wrap items-center gap-2">
 				<button
 					type="button"
-					onclick={() => handleTabChange('reconcile')}
-					class="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors
-						{activeTab === 'reconcile'
-						? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
-						: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
-				>
-					<Plus class="size-3.5" />
-					New reconciliation
-				</button>
-				<button
-					type="button"
-					onclick={() => handleTabChange('history')}
-					class="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition-colors
-						{activeTab === 'history'
-						? 'bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
-						: 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]'}"
+					onclick={() => (historyOpen = true)}
+					class="flex items-center gap-1.5 rounded-full border border-[var(--color-border)] px-4 py-1.5 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-tertiary)]"
 				>
 					<History class="size-3.5" />
-					History
+					Reconciliation history
 					{#if reconciliationStats.hasDiscrepancies > 0}
 						<span
 							class="ml-0.5 rounded-full bg-[var(--color-warm-coral)] px-1.5 py-0.5 text-[10px] font-bold text-white"
@@ -309,16 +276,22 @@
 				</button>
 			</div>
 
-			<!-- Tab content -->
-			{#if activeTab === 'reconcile'}
-				<ReconciliationForm
-					{selectedAccountId}
-					initialStatementBalance={statementBalanceFromUrl}
-					onReconciliationComplete={handleReconciliationComplete}
-				/>
-			{:else}
-				<ReconciliationHistory {selectedAccountId} onReconcileClick={handleReconcileClick} />
-			{/if}
+			<ReconciliationForm
+				{selectedAccountId}
+				initialStatementBalance={statementBalanceFromUrl}
+				onReconciliationComplete={handleReconciliationComplete}
+			/>
+
+			<DialogDrawer
+				open={historyOpen}
+				onOpenChange={(v) => (historyOpen = v)}
+				title="Reconciliation history"
+				description="Past sessions and discrepancies for your accounts."
+			>
+				{#snippet children()}
+					<ReconciliationHistory {selectedAccountId} onReconcileClick={handleReconcileClick} />
+				{/snippet}
+			</DialogDrawer>
 		</div>
 	{/snippet}
 </PageLayout>

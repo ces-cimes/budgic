@@ -25,6 +25,7 @@
 	import { formatPercentage } from '$lib/utils/currency-utils';
 	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
 	import type { Transaction, Account } from '$lib/core/db';
+	import { devLog } from '$lib/utils/dev-log';
 
 	// State
 	let isLoading = $state(true);
@@ -188,13 +189,13 @@
 	// Pick Money Manager CSV files
 	async function pickMMFiles() {
 		try {
-			console.log('Picking CSV files...');
+			devLog('Picking CSV files...');
 			const files = await pickMultipleFiles({
 				types: ['text/csv'],
 				extensions: ['.csv']
 			});
 
-			console.log(
+			devLog(
 				'Picked files:',
 				files.length,
 				files.map((f) => ({ name: f.name, size: f.size }))
@@ -202,14 +203,14 @@
 
 			if (files.length > 0) {
 				mmFiles = files;
-				console.log(
+				devLog(
 					'mmFiles updated:',
 					mmFiles.length,
 					mmFiles.map((f) => ({ name: f.name, size: f.size }))
 				);
 				await handleMMFileSelection();
 			} else {
-				console.log('No files selected or user cancelled');
+				devLog('No files selected or user cancelled');
 			}
 		} catch (err) {
 			error = `Failed to pick files: ${err instanceof Error ? err.message : 'Unknown error'}`;

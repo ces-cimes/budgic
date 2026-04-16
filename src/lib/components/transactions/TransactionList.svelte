@@ -343,6 +343,21 @@
 		return transaction.clearedDate || transaction.plannedDate || transaction.createdAt;
 	}
 
+	/** When a non-day group contains txs on different calendar days, show date per row instead of time. */
+	function groupSpansMultipleCalendarDays(transactions: (Transaction | any)[]): boolean {
+		if (propGroupingMode === 'none') return false;
+		if (transactions.length < 2) return false;
+		const keys = new Set<string>();
+		for (const t of transactions) {
+			const raw = getTransactionDate(t);
+			const d = new Date(raw);
+			if (Number.isNaN(d.getTime())) continue;
+			keys.add(d.toISOString().slice(0, 10));
+			if (keys.size > 1) return true;
+		}
+		return false;
+	}
+
 	// Derived filtered transactions with fuzzy search and date grouping
 	let filteredTransactions = $derived(() => {
 		const currentFilters = filters;
@@ -1059,7 +1074,7 @@
 	}
 </script>
 
-<div class="transaction-list max-w-full min-w-0">
+<div class="transaction-list flex min-h-full max-w-full min-w-0 flex-1 flex-col">
 	{#if enableFilters}
 		<!-- Filter Bar -->
 		<div class="bg-background sticky top-0 z-10 mb-4">
@@ -1255,10 +1270,10 @@
 
 	<div
 		bind:this={monthSwipeSurfaceEl}
-		class="w-full max-w-full"
+		class="flex min-h-0 w-full max-w-full flex-1 flex-col"
 		use:swipe={showDateNavigation ? monthSwipeActionOptions : undefined}
 	>
-		<div class="w-full">
+		<div class="flex min-h-0 w-full flex-1 flex-col">
 			<!-- Summary stays outside the transformed slider so swipe translation affects only the list track. -->
 			{#if showSummary}
 				<section class="mb-4">
@@ -1337,6 +1352,7 @@
 							{/if}
 
 							{#each filteredTransactions() as dateGroup}
+								{@const spanMulti = groupSpansMultipleCalendarDays(dateGroup.transactions)}
 								{@const totals = dateGroupTotals[dateGroup.group.key] ?? {
 									income: 0,
 									expenses: 0,
@@ -1437,6 +1453,7 @@
 														isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
 														context="transactions"
 														showDate={false}
+														secondaryDateMode={spanMulti ? 'calendar' : 'time'}
 														isGroup={true}
 														groupTransactions={transactionOrGroup.transactions}
 														totalAmount={getTransactionAmount(transactionOrGroup)}
@@ -1454,6 +1471,7 @@
 														isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
 														context="transactions"
 														showDate={false}
+														secondaryDateMode={spanMulti ? 'calendar' : 'time'}
 													/>
 												{/if}
 											</div>

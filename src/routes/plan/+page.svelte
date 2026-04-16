@@ -56,6 +56,33 @@
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { addDays, startOfWeek } from 'date-fns';
 	import { resolveSmartLabel, type SmartPatternForLabel } from '$lib/utils/smart-date-labels';
+	import {
+		getCachedWeekAnnotations,
+		setCachedWeekAnnotations
+	} from '$lib/utils/plan-week-annotations-cache';
+	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
+
+	type PlanAllowanceSnapshot = {
+		cacheKey: string;
+		enhancedAllowance: EnhancedAllowance | null;
+		dailyAllowance: DailyAllowance | null;
+		allowanceConfidence: {
+			ratio: number;
+			tier: 'low' | 'medium' | 'high';
+			unclassifiedSpend: number;
+			totalSpend: number;
+		} | null;
+		unclassifiedTransactionCount: number;
+		debtPromptGroupId: string | null;
+		nudgeClassifyDismissed: boolean;
+		negativeAllowanceStatus: NegativeAllowanceStatus | null;
+		recoverySuggestions: RecoverySuggestion[];
+		planningData: PlanningData | null;
+		weeklyProjections: WeeklyProjection[];
+		weekDayAnnotations: Record<string, string>;
+	};
+
+	let planAllowanceCache: PlanAllowanceSnapshot | null = null;
 
 	const planTabs: TabConfig[] = [
 		{ id: 'allowance', label: 'Allowance', icon: DollarSign },
@@ -142,16 +169,31 @@
 	});
 
 	$effect(() => {
-		if (selectedAccountId && !isLoading) loadPlanData();
-	});
-
-	$effect(() => {
 		const urlParams = new URLSearchParams($page.url.search);
 		const goalsParam = urlParams.get('goalsTab');
 		if (goalsParam && goalsSubTabs.some((t) => t.id === goalsParam)) goalsSubTab = goalsParam;
 	});
 
-	async function loadPlanData() {
+	async function loadPlanData(options?: { force?: boolean }) {
+		const dayKey = new Date().toISOString().slice(0, 10);
+		const rev = crossRouteSyncService.getSurfaceDataRevision();
+		const cacheKey = `${rev}:${userCurrency}:${selectedAccountId}:${dayKey}`;
+		if (!options?.force && planAllowanceCache?.cacheKey === cacheKey) {
+			enhancedAllowance = planAllowanceCache.enhancedAllowance;
+			dailyAllowance = planAllowanceCache.dailyAllowance;
+			allowanceConfidence = planAllowanceCache.allowanceConfidence;
+			unclassifiedTransactionCount = planAllowanceCache.unclassifiedTransactionCount;
+			debtPromptGroupId = planAllowanceCache.debtPromptGroupId;
+			nudgeClassifyDismissed = planAllowanceCache.nudgeClassifyDismissed;
+			negativeAllowanceStatus = planAllowanceCache.negativeAllowanceStatus;
+			recoverySuggestions = planAllowanceCache.recoverySuggestions;
+			planningData = planAllowanceCache.planningData;
+			weeklyProjections = planAllowanceCache.weeklyProjections;
+			weekDayAnnotations = planAllowanceCache.weekDayAnnotations;
+			isPlanDataLoading = false;
+			return;
+		}
+
 		isPlanDataLoading = true;
 		try {
 			enhancedAllowance = await planService.getEnhancedAllowance();
@@ -201,28 +243,51 @@
 			}
 
 			try {
-				const patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
-				const slices: SmartPatternForLabel[] = patterns.map((p) => ({
-					frequency: p.frequency,
-					confidence: p.confidence,
-					typicalDayOfMonth: p.typicalDayOfMonth,
-					typicalDayOfWeek: p.typicalDayOfWeek,
-					averageAmount: p.averageAmount,
-					txType: p.metadata?.type
-				}));
-				const now = new Date();
-				const ws = startOfWeek(now, { weekStartsOn: 1 });
-				const ann: Record<string, string> = {};
-				for (let i = 0; i < 7; i++) {
-					const d = addDays(ws, i);
-					const key = d.toISOString().slice(0, 10);
-					const lab = resolveSmartLabel(d, slices);
-					if (lab === 'Payday' || lab === 'Rent day') ann[key] = lab;
+				const annCacheKey = selectedAccountId || 'default';
+				const cachedAnn = getCachedWeekAnnotations(annCacheKey);
+				if (cachedAnn) {
+					weekDayAnnotations = cachedAnn;
+				} else {
+					const patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
+					const slices: SmartPatternForLabel[] = patterns.map((p) => ({
+						frequency: p.frequency,
+						confidence: p.confidence,
+						typicalDayOfMonth: p.typicalDayOfMonth,
+						typicalDayOfWeek: p.typicalDayOfWeek,
+						averageAmount: p.averageAmount,
+						txType: p.metadata?.type
+					}));
+					const now = new Date();
+					const ws = startOfWeek(now, { weekStartsOn: 1 });
+					const ann: Record<string, string> = {};
+					for (let i = 0; i < 7; i++) {
+						const d = addDays(ws, i);
+						const key = d.toISOString().slice(0, 10);
+						const lab = resolveSmartLabel(d, slices);
+						if (lab === 'Payday' || lab === 'Rent day') ann[key] = lab;
+					}
+					weekDayAnnotations = ann;
+					setCachedWeekAnnotations(annCacheKey, ann);
 				}
-				weekDayAnnotations = ann;
 			} catch {
 				weekDayAnnotations = {};
 			}
+
+			const revAfter = crossRouteSyncService.getSurfaceDataRevision();
+			planAllowanceCache = {
+				cacheKey: `${revAfter}:${userCurrency}:${selectedAccountId}:${dayKey}`,
+				enhancedAllowance,
+				dailyAllowance,
+				allowanceConfidence,
+				unclassifiedTransactionCount,
+				debtPromptGroupId,
+				nudgeClassifyDismissed,
+				negativeAllowanceStatus,
+				recoverySuggestions: [...recoverySuggestions],
+				planningData,
+				weeklyProjections: [...weeklyProjections],
+				weekDayAnnotations: { ...weekDayAnnotations }
+			};
 		} catch (err) {
 			console.error('Error loading plan data:', err);
 		} finally {
@@ -240,7 +305,7 @@
 		try {
 			await budgetService.acknowledgeIntentionalDebt(debtPromptGroupId, currentPeriodKey());
 			debtPromptGroupId = null;
-			await loadPlanData();
+			await loadPlanData({ force: true });
 		} catch (e) {
 			console.error(e);
 		}
@@ -251,7 +316,7 @@
 		try {
 			await budgetService.dismissDebtPromptForPeriod(debtPromptGroupId, currentPeriodKey());
 			debtPromptGroupId = null;
-			await loadPlanData();
+			await loadPlanData({ force: true });
 		} catch (e) {
 			console.error(e);
 		}

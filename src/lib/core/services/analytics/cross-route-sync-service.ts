@@ -7,6 +7,7 @@ import { transactionService } from '../core/transaction-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { db } from '../../db';
 import type { Goal, Transaction, Category, Insight } from '../../db';
+import { devLog } from '$lib/utils/dev-log';
 
 interface SyncEvent {
 	type:
@@ -21,7 +22,7 @@ interface SyncEvent {
 		| 'category_updated';
 	entityId: string;
 	entityType: 'goal' | 'transaction' | 'budget' | 'category';
-	data?: any;
+	data?: unknown;
 	timestamp: string;
 }
 
@@ -31,11 +32,27 @@ interface SyncContext {
 	triggerEvent: SyncEvent;
 }
 
+function syncPayloadCategoryId(data: unknown): string | undefined {
+	if (!data || typeof data !== 'object') return undefined;
+	const o = data as Record<string, unknown>;
+	if (typeof o.categoryId === 'string') return o.categoryId;
+	const tx = o.transaction;
+	if (tx && typeof tx === 'object' && typeof (tx as Transaction).categoryId === 'string') {
+		return (tx as Transaction).categoryId;
+	}
+	return undefined;
+}
+
 class CrossRouteSyncService {
 	private syncQueue: SyncEvent[] = [];
 	private isProcessing = false;
 	private syncInterval: NodeJS.Timeout | null = null;
 	private eventListeners: Map<string, ((event: SyncEvent) => Promise<void>)[]> = new Map();
+	/**
+	 * Increments when sync events process that may change analytics / allowance / patterns surfaces.
+	 * UI can skip expensive reloads when revision matches a cached snapshot (see Patterns tab, Plan allowance).
+	 */
+	private surfaceDataRevision = 0;
 
 	constructor() {
 		this.setupEventListeners();
@@ -232,7 +249,7 @@ class CrossRouteSyncService {
 	/**
 	 * Handle budget update
 	 */
-	async onBudgetUpdated(categoryId: string, budgetData: any): Promise<void> {
+	async onBudgetUpdated(categoryId: string, budgetData: unknown): Promise<void> {
 		await this.emitSyncEvent({
 			type: 'budget_updated',
 			entityId: categoryId,
@@ -277,8 +294,38 @@ class CrossRouteSyncService {
 
 			// Notify listeners
 			await this.notifyListeners(event);
+
+			this.bumpSurfaceDataRevisionForEvent(event);
 		} catch (error) {
 			console.error('Error processing sync event:', error);
+		}
+	}
+
+	/** Current revision — compare with last loaded to avoid redundant heavy fetches. */
+	getSurfaceDataRevision(): number {
+		return this.surfaceDataRevision;
+	}
+
+	/** Manual invalidation (e.g. Insights header refresh) so Plan/Patterns caches drop. */
+	notifyAnalyticsSurfacesStale(): void {
+		this.surfaceDataRevision++;
+	}
+
+	private bumpSurfaceDataRevisionForEvent(event: SyncEvent): void {
+		switch (event.type) {
+			case 'transaction_created':
+			case 'transaction_updated':
+			case 'transaction_deleted':
+			case 'budget_updated':
+			case 'category_updated':
+			case 'goal_created':
+			case 'goal_updated':
+			case 'goal_deleted':
+			case 'goal_completed':
+				this.surfaceDataRevision++;
+				break;
+			default:
+				break;
 		}
 	}
 
@@ -329,7 +376,7 @@ class CrossRouteSyncService {
 
 			case 'transaction_created':
 			case 'transaction_updated':
-				await this.updateGoalProgress(event.data?.categoryId);
+				await this.updateGoalProgress(syncPayloadCategoryId(event.data));
 				break;
 
 			case 'budget_updated':
@@ -621,7 +668,7 @@ class CrossRouteSyncService {
 	 * Start the sync service
 	 */
 	start(): void {
-		console.log('Cross-route sync service started');
+		devLog('Cross-route sync service started');
 	}
 
 	/**
@@ -632,7 +679,7 @@ class CrossRouteSyncService {
 			clearTimeout(this.syncInterval);
 			this.syncInterval = null;
 		}
-		console.log('Cross-route sync service stopped');
+		devLog('Cross-route sync service stopped');
 	}
 }
 

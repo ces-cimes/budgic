@@ -75,7 +75,7 @@ export class AnalyzeService {
 		}
 	}
 
-	async loadTransactions(): Promise<any[]> {
+	async loadTransactions(): Promise<Transaction[]> {
 		try {
 			return await transactionService.getAllTransactions();
 		} catch (error) {

@@ -28,6 +28,7 @@ import {
 	getBufferStatus,
 	getBufferThresholds
 } from '$lib/utils/account-metadata-utils';
+import { devLog, devWarn } from '$lib/utils/dev-log';
 import {
 	getMaxFlexibilityDays,
 	validateFlexibilityMovement
@@ -223,13 +224,13 @@ class OptimizationService {
 	 */
 	async optimize(options: OptimizationOptions = {}): Promise<OptimizationResult> {
 		const startTime = Date.now();
-		console.log('[Optimization] Starting optimization', { options });
+		devLog('[Optimization] Starting optimization', { options });
 
 		try {
 			// Validate dependencies first
-			console.log('[Optimization] Validating dependencies...');
+			devLog('[Optimization] Validating dependencies...');
 			const validationResult = await this.validateDependencies();
-			console.log('[Optimization] Dependency validation result:', validationResult);
+			devLog('[Optimization] Dependency validation result:', validationResult);
 			if (!validationResult.isValid) {
 				return {
 					success: false,
@@ -252,12 +253,12 @@ class OptimizationService {
 			}
 
 			// Get transactions to optimize
-			console.log('[Optimization] Getting transactions to optimize...');
+			devLog('[Optimization] Getting transactions to optimize...');
 			const transactions = await this.getTransactionsToOptimize(options);
-			console.log('[Optimization] Found transactions:', transactions.length);
+			devLog('[Optimization] Found transactions:', transactions.length);
 
 			// Create original plan
-			console.log('[Optimization] Creating original plan...');
+			devLog('[Optimization] Creating original plan...');
 			const originalPlan = new Map<string, Transaction>();
 			transactions.forEach((tx) => {
 				if (!tx) {
@@ -266,7 +267,7 @@ class OptimizationService {
 				}
 				originalPlan.set(tx.id, { ...tx });
 			});
-			console.log('[Optimization] Original plan created with', originalPlan.size, 'transactions');
+			devLog('[Optimization] Original plan created with', originalPlan.size, 'transactions');
 
 			// Evaluate baseline score
 			const baselineScore = await this.evaluatePlan(originalPlan, options);
@@ -336,7 +337,7 @@ class OptimizationService {
 		const daysAhead = options.daysAhead || 90;
 		const endDate = options.endDate || addDays(startDate, daysAhead);
 
-		console.log('[Optimization] Getting transactions by date range:', {
+		devLog('[Optimization] Getting transactions by date range:', {
 			startDate: startDate.toISOString(),
 			endDate: endDate.toISOString()
 		});
@@ -346,8 +347,8 @@ class OptimizationService {
 			startDate.toISOString(),
 			endDate.toISOString()
 		);
-		console.log('[Optimization] Retrieved', allTransactions.length, 'transactions from date range');
-		console.log(
+		devLog('[Optimization] Retrieved', allTransactions.length, 'transactions from date range');
+		devLog(
 			'[Optimization] Transaction sample:',
 			allTransactions.slice(0, 3).map((tx) => ({
 				id: tx?.id,
@@ -358,15 +359,15 @@ class OptimizationService {
 		);
 
 		// Get valid account IDs to filter transactions
-		console.log('[Optimization] Getting valid accounts...');
+		devLog('[Optimization] Getting valid accounts...');
 		const allAccounts = await accountService.getAccounts();
-		console.log('[Optimization] Found', allAccounts.length, 'valid accounts');
+		devLog('[Optimization] Found', allAccounts.length, 'valid accounts');
 		const validAccountIds = new Set(allAccounts.map((a) => a.id));
 
 		// Filter by account if specified, and ensure accounts exist
 		let transactions = allTransactions.filter((tx) => {
 			if (!tx) {
-				console.warn('[Optimization] Found undefined transaction in filter step');
+				devWarn('[Optimization] Found undefined transaction in filter step');
 				return false;
 			}
 			// Ensure transaction has a valid account
@@ -379,12 +380,12 @@ class OptimizationService {
 			}
 			return true;
 		});
-		console.log('[Optimization] After account filtering:', transactions.length, 'transactions');
+		devLog('[Optimization] After account filtering:', transactions.length, 'transactions');
 
 		// Only include planned transactions with flexibility
 		transactions = transactions.filter((tx) => {
 			if (!tx) {
-				console.warn('[Optimization] Found undefined transaction in flexibility filter');
+				devWarn('[Optimization] Found undefined transaction in flexibility filter');
 				return false;
 			}
 			if (tx.status !== 'planned') return false;
@@ -392,7 +393,7 @@ class OptimizationService {
 			if (!tx.flexibilityTier || tx.flexibilityTier === 'fixed') return false;
 			return true;
 		});
-		console.log('[Optimization] Final filtered transactions:', transactions.length);
+		devLog('[Optimization] Final filtered transactions:', transactions.length);
 
 		return transactions;
 	}
@@ -410,9 +411,9 @@ class OptimizationService {
 
 		try {
 			// Get all planned transactions
-			console.log('[Optimization] Getting planned transactions for dependency validation...');
+			devLog('[Optimization] Getting planned transactions for dependency validation...');
 			const transactions = await transactionService.getTransactionsByStatus('planned');
-			console.log(
+			devLog(
 				'[Optimization] Found',
 				transactions.length,
 				'planned transactions for validation'

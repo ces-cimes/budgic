@@ -4,7 +4,7 @@ import { budgetService } from '../core/budget-service';
 import { transactionService } from '../core/transaction-service';
 import { accountService } from '../core/account-service';
 import { userService } from '../core/user-service';
-import type { Badge, Goal, Transaction, Category } from '$lib/core/db';
+import type { Badge, Goal, Transaction, Category, UserAction } from '$lib/core/db';
 import type { BadgeInsight } from '$lib/components/insights/types';
 
 /**
@@ -491,7 +491,7 @@ class BadgeService {
 	/**
 	 * Calculate logging streak (consecutive days with transaction logging)
 	 */
-	private calculateLoggingStreak(userActions: any[], transactions: Transaction[]): number {
+	private calculateLoggingStreak(userActions: UserAction[], transactions: Transaction[]): number {
 		const now = new Date();
 		const dates = new Set<string>();
 

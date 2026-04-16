@@ -25,6 +25,7 @@ import {
 } from '$lib/utils/currency-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 import { categoryIdsWithSpendShare, effectiveAmountForCategory } from '$lib/utils/category-utils';
+import { devLog } from '$lib/utils/dev-log';
 
 interface CrossRouteInsightData {
 	goals: Goal[];
@@ -873,6 +874,8 @@ class InsightsService {
 		const insights: Insight[] = [];
 
 		try {
+			const prefs = await userService.getUserPreferences();
+			const userCurrency = prefs?.currency ?? 'USD';
 			const analysis = await emergencyFundService.analyzeEmergencyFund();
 			if (!analysis) {
 				return insights; // No emergency fund designated
@@ -881,7 +884,6 @@ class InsightsService {
 			// Critical or depleted status
 			if (analysis.status === 'critical' || analysis.status === 'depleted') {
 				const severity = analysis.status === 'depleted' ? 'alert' : 'alert';
-				const userCurrency = 'USD'; // TODO: Get from user preferences
 
 				insights.push({
 					id: generateUUID(),
@@ -912,8 +914,6 @@ class InsightsService {
 			}
 			// Low status
 			else if (analysis.status === 'low') {
-				const userCurrency = 'USD'; // TODO: Get from user preferences
-
 				insights.push({
 					id: generateUUID(),
 					type: 'emergency_fund',
@@ -942,8 +942,6 @@ class InsightsService {
 			}
 			// Partial usage warning
 			else if (analysis.partialUsage && analysis.partialUsage.percentageUsed > 0) {
-				const userCurrency = 'USD'; // TODO: Get from user preferences
-
 				insights.push({
 					id: generateUUID(),
 					type: 'emergency_fund',
@@ -1106,7 +1104,7 @@ class InsightsService {
 		const insights: Insight[] = [];
 
 		try {
-			console.log('[InsightsService] Generating prediction insights...');
+			devLog('[InsightsService] Generating prediction insights...');
 			// 1. Predict budget outcomes (budget risk analysis)
 			const budgetPredictions = await this.predictBudgetOutcomes(data);
 
@@ -1182,7 +1180,7 @@ class InsightsService {
 			// 3. Spending forecasts - show all predictions for debugging, but prioritize high-risk/high-value
 			const spendingForecasts = await predictionService.predictSpending(undefined, 1);
 
-			console.log(`[InsightsService] Generated ${spendingForecasts.length} spending forecasts`);
+			devLog(`[InsightsService] Generated ${spendingForecasts.length} spending forecasts`);
 
 			// Sort by risk and confidence, then take top 25 (increased to see more predictions)
 			const sortedForecasts = spendingForecasts
@@ -1197,7 +1195,7 @@ class InsightsService {
 				.slice(0, 25); // Increased limit to see more predictions
 
 			for (const forecast of sortedForecasts) {
-				console.log(
+				devLog(
 					`[InsightsService] Creating insight for ${forecast.categoryName}: predictedAmount=${forecast.predictedAmount}, currency should be main currency`
 				);
 				insights.push({
@@ -1226,7 +1224,7 @@ class InsightsService {
 				});
 			}
 
-			console.log(`[InsightsService] Created ${insights.length} total prediction insights`);
+			devLog(`[InsightsService] Created ${insights.length} total prediction insights`);
 
 			// 4. Seasonal pattern detection - only high-confidence, significant patterns
 			const seasonalPatterns = await predictionService.detectSeasonalPatterns();
@@ -1666,10 +1664,10 @@ class InsightsService {
 		const allPredictionInsights = await db.insights.where('type').equals('prediction').toArray();
 
 		const activePredictions = allPredictionInsights.filter((i) => i.isActive && !i.dismissedAt);
-		console.log(
+		devLog(
 			`[InsightsService] Found ${allPredictionInsights.length} total prediction insights, ${activePredictions.length} active`
 		);
-		console.log(
+		devLog(
 			`[InsightsService] Invalidating ${activePredictions.length} active prediction insights due to currency change`
 		);
 
@@ -1683,7 +1681,7 @@ class InsightsService {
 			});
 		}
 
-		console.log(
+		devLog(
 			`[InsightsService] Successfully invalidated ${allPredictionInsights.length} prediction insights (marked as deleted)`
 		);
 	}
@@ -1745,7 +1743,7 @@ class InsightsService {
 
 			// Debug logging to track value retrieval
 			if (insight.title && insight.title.includes('Forecast')) {
-				console.log(`[InsightsService] Retrieving prediction for ${insight.title}:`, {
+				devLog(`[InsightsService] Retrieving prediction for ${insight.title}:`, {
 					metadataPredictedAmount: metadata.predictedAmount,
 					metadataPredictedValue: metadata.predictedValue,
 					insightAmount: insight.amount,

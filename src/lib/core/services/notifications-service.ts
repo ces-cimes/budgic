@@ -1,5 +1,5 @@
 import { insightsService } from './analytics/insights-service';
-import { getPanelAlerts, getBadgeVariant } from '$lib/utils/alert-tiers';
+import { getPanelAlerts, getBadgeVariant, getPanelGroupedBadgeCount } from '$lib/utils/alert-tiers';
 import type { Insight } from '$lib/core/db';
 
 /**
@@ -72,7 +72,7 @@ class NotificationsService {
 			const panelInsights = getPanelAlerts(allUnread);
 
 			this._panelUnreadInsights = panelInsights;
-			this._panelUnreadCount = panelInsights.length;
+			this._panelUnreadCount = getPanelGroupedBadgeCount(allUnread);
 			this._earlierAlerts = earlier;
 			this._lastUpdate = Date.now();
 		} catch (error) {
@@ -87,7 +87,6 @@ class NotificationsService {
 		try {
 			await insightsService.markAsRead(insightId);
 			this._panelUnreadInsights = this._panelUnreadInsights.filter((i) => i.id !== insightId);
-			this._panelUnreadCount = this._panelUnreadCount - 1;
 			await this.refresh();
 		} catch (error) {
 			console.error('Error marking insight as read:', error);
@@ -102,7 +101,6 @@ class NotificationsService {
 		try {
 			await insightsService.dismissInsight(insightId);
 			this._panelUnreadInsights = this._panelUnreadInsights.filter((i) => i.id !== insightId);
-			this._panelUnreadCount = this._panelUnreadCount - 1;
 			await this.refresh();
 		} catch (error) {
 			console.error('Error dismissing insight:', error);
@@ -118,7 +116,6 @@ class NotificationsService {
 			await insightsService.snoozeInsights(insightIds, snoozedUntilIso);
 			const idSet = new Set(insightIds);
 			this._panelUnreadInsights = this._panelUnreadInsights.filter((i) => !idSet.has(i.id));
-			this._panelUnreadCount = this._panelUnreadInsights.length;
 			await this.refresh();
 		} catch (error) {
 			console.error('Error snoozing insights:', error);

@@ -18,6 +18,7 @@
 	import type { OverviewTabProps, UnifiedInsight } from '../types';
 	import { accountService } from '$lib/core/services';
 	import { onMount } from 'svelte';
+	import { devLog } from '$lib/utils/dev-log';
 
 	let hasCreditAccounts = $state(false);
 
@@ -74,7 +75,7 @@
 
 	function handleViewAll(category: string) {
 		// TODO: Implement view all for specific category
-		console.log('View all insights for category:', category);
+		devLog('View all insights for category:', category);
 	}
 
 	onMount(async () => {

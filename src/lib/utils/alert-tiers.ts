@@ -32,9 +32,19 @@ export function getPanelAlerts(insights: Insight[]): Insight[] {
 	);
 }
 
-/** Count of unread panel alerts (Critical + High only) for badge. */
+/** Count of unread panel alerts (Critical + High only), raw insight rows. */
 export function getPanelUnreadCount(insights: Insight[]): number {
 	return getPanelAlerts(insights).length;
+}
+
+/**
+ * Badge count aligned with the alerts panel: one per grouped row (same type + title + severity).
+ */
+export function getPanelGroupedBadgeCount(insights: Insight[]): number {
+	const { critical, high } = splitByTier(insights);
+	return (
+		groupPanelAlertsForDisplay(critical).length + groupPanelAlertsForDisplay(high).length
+	);
 }
 
 /** Badge color: red if any Critical, else amber if any High. */
