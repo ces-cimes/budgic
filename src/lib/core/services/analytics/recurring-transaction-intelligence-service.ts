@@ -189,11 +189,21 @@ function groupSameEventTransactions(txs: Transaction[]): Transaction[] {
 				// Merge into one synthetic transaction with the summed amount
 				const summedAmount = eventTxs.reduce((s, tx) => s + (tx.amount ?? 0), 0);
 				const ids = eventTxs.map((tx) => tx.id);
+				// Pick the most common categoryId across the merged originals so that
+				// analyzeGroupForPattern can correctly learn the category even when the
+				// first (base) transaction is a transfer leg with no category assigned.
+				const catCounts = new Map<string, number>();
+				for (const tx of eventTxs) {
+					if (tx.categoryId)
+						catCounts.set(tx.categoryId, (catCounts.get(tx.categoryId) ?? 0) + 1);
+				}
+				const bestCatId = [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 				const synthetic: Transaction = {
 					...base,
 					id: `synthetic:${ids.join('+')}`,
 					amount: summedAmount,
-					notes: ids.join(',')
+					notes: ids.join(','),
+					categoryId: bestCatId ?? base.categoryId
 				};
 				result.push(synthetic);
 				ids.forEach((id) => used.add(id));
@@ -349,19 +359,50 @@ class RecurringTransactionIntelligenceService {
 	/**
 	 * Return the canonical (365-day, minOccurrences=2) pattern set.
 	 *
-	 * Checks serviceCache first, then coalesces concurrent callers onto a single
-	 * in-flight Promise so the O(n²) worker is never invoked more than once at a time.
-	 * Without this, concurrent callers overwrite each other's `worker.onmessage`
-	 * handler and all but the last caller hang permanently.
+	 * Three-tier lookup:
+	 *   1. In-memory serviceCache  (fast, cleared on page unload)
+	 *   2. IndexedDB recurringPatternsCache  (survives page refresh, 24 h TTL)
+	 *   3. Full O(n²) detection  (always fresh, result written to both caches)
+	 *
+	 * Concurrent callers are coalesced onto a single in-flight Promise so the
+	 * worker's `onmessage` handler is never overwritten by a second caller.
 	 */
 	private async _getCanonical(): Promise<RecurringPattern[]> {
+		// Tier 1: in-memory cache
 		const cached = serviceCache.get<RecurringPattern[]>('recurring:patterns:canonical');
 		if (cached !== null) return cached;
 
+		// Tier 2: IndexedDB — survives page refresh
+		try {
+			const dbRow = await db.recurringPatternsCache.get('canonical');
+			if (
+				dbRow &&
+				Date.now() - new Date(dbRow.computedAt).getTime() < 24 * 60 * 60 * 1000
+			) {
+				const patterns = dbRow.patterns as RecurringPattern[];
+				serviceCache.set('recurring:patterns:canonical', patterns, PATTERN_CACHE_TTL);
+				for (const p of patterns) this.patternCache.set(p.id, p);
+				devLog(`[Recurring] loaded ${patterns.length} patterns from IndexedDB cache`);
+				return patterns;
+			}
+		} catch {
+			// IndexedDB unavailable — fall through to full detection
+		}
+
+		// Tier 3: full detection (coalesced so only one worker runs at a time)
 		if (!this._canonicalInFlight) {
 			this._canonicalInFlight = this._runDetection(365, 2)
-				.then((result) => {
+				.then(async (result) => {
 					serviceCache.set('recurring:patterns:canonical', result, PATTERN_CACHE_TTL);
+					try {
+						await db.recurringPatternsCache.put({
+							id: 'canonical',
+							patterns: result,
+							computedAt: new Date().toISOString()
+						});
+					} catch {
+						// Non-fatal — in-memory cache still serves subsequent requests
+					}
 					this._canonicalInFlight = null;
 					return result;
 				})
@@ -741,13 +782,53 @@ class RecurringTransactionIntelligenceService {
 	}
 
 	/**
-	 * Clear pattern cache
+	 * Patch the `learnedCategoryId` for a single pattern across all cache layers
+	 * without invalidating or re-running detection.
+	 *
+	 * Called by the UI immediately after `applyPatternTier` so that the next page
+	 * refresh reads the correct category from the IndexedDB-persisted canonical set.
+	 */
+	async patchPatternCategory(patternId: string, categoryId: string): Promise<void> {
+		// 1. patternCache (per-ID lookup map)
+		const inMap = this.patternCache.get(patternId);
+		if (inMap) {
+			this.patternCache.set(patternId, { ...inMap, learnedCategoryId: categoryId });
+		}
+
+		// 2. serviceCache (in-memory canonical array)
+		const canonical = serviceCache.get<RecurringPattern[]>('recurring:patterns:canonical');
+		if (canonical) {
+			const patched = canonical.map((p) =>
+				p.id === patternId ? { ...p, learnedCategoryId: categoryId } : p
+			);
+			serviceCache.set('recurring:patterns:canonical', patched, PATTERN_CACHE_TTL);
+		}
+
+		// 3. IndexedDB canonical row (survives page refresh)
+		try {
+			const dbRow = await db.recurringPatternsCache.get('canonical');
+			if (dbRow) {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const patched = dbRow.patterns.map((p: any) =>
+					p.id === patternId ? { ...p, learnedCategoryId: categoryId } : p
+				);
+				await db.recurringPatternsCache.put({ ...dbRow, patterns: patched });
+			}
+		} catch {
+			// Non-fatal — in-memory cache still serves subsequent requests
+		}
+	}
+
+	/**
+	 * Clear pattern cache (both in-memory and IndexedDB).
 	 */
 	clearCache(): void {
 		this.patternCache.clear();
 		serviceCache.invalidatePattern(/^recurring:patterns:/);
-		// Also abandon any in-flight detection so the next call starts fresh
+		// Abandon any in-flight detection so the next call starts fresh
 		this._canonicalInFlight = null;
+		// Delete the persisted row so a page-refresh cold start also re-detects
+		void db.recurringPatternsCache.delete('canonical');
 	}
 
 	// ============================================================================
@@ -812,12 +893,19 @@ class RecurringTransactionIntelligenceService {
 			return new Date(dateA).getTime() - new Date(dateB).getTime();
 		});
 
-		const amounts = group.map((tx) => Math.abs(tx.amount || 0));
+		const rawAmounts = group.map((tx) => Math.abs(tx.amount || 0));
 		const dates = group.map((tx) => tx.clearedDate || tx.plannedDate || tx.createdAt);
 
 		// Calculate frequency
 		const frequency = this.detectFrequency(dates);
 		if (!frequency) return null;
+
+		// Strip zero-amount entries before computing the average.
+		// Transfer-type transactions (e.g. credit-card payment legs) are often stored with
+		// amount=0 in the DB while the UI resolves the real value from the counterpart leg.
+		// Treating zeros as genuine occurrences would pull averageAmount to zero.
+		// If ALL amounts are zero we keep them (no data to fall back to).
+		const amounts = rawAmounts.some((a) => a > 0) ? rawAmounts.filter((a) => a > 0) : rawAmounts;
 
 		// IQR outlier filter: exclude one-off anomalies (e.g. rent + realtor cut in one month)
 		// from the amount prediction while keeping them in historicalAmounts for display.
@@ -864,9 +952,16 @@ class RecurringTransactionIntelligenceService {
 			occurrences: group.length,
 			firstObserved: dates[0],
 			lastObserved: dates[dates.length - 1],
-			historicalAmounts: amounts,
+			historicalAmounts: rawAmounts, // full record including zeros for display
 			historicalDates: dates,
-			matchingTransactionIds: group.map((tx) => tx.id),
+			// Expand synthetic IDs back to their original transaction IDs so that
+			// callers (e.g. applyPatternTier) can reliably bulkGet from IndexedDB.
+			// Synthetic transactions encode their originals in `notes` as a comma list.
+			matchingTransactionIds: group.flatMap((tx) =>
+				tx.id.startsWith('synthetic:')
+					? (tx.notes ?? '').split(',').filter(Boolean)
+					: [tx.id]
+			),
 			descriptionPattern: this.extractDescriptionPattern(group),
 			categoryConfidence: 0,
 			metadata: {
@@ -1493,8 +1588,10 @@ class RecurringTransactionIntelligenceService {
 		const sortedDates = combined.map((c) => c.date);
 		const sortedAmounts = combined.map((c) => c.amount);
 
-		// IQR + EMA: same logic as analyzeGroupForPattern
-		const { core: coreAmounts } = iqrFilter(sortedAmounts);
+		// Strip zeros before IQR+EMA (same rationale as analyzeGroupForPattern)
+		const nonZeroAmounts =
+			sortedAmounts.some((a) => a > 0) ? sortedAmounts.filter((a) => a > 0) : sortedAmounts;
+		const { core: coreAmounts } = iqrFilter(nonZeroAmounts);
 		const averageAmount = ema(coreAmounts);
 
 		// Create merged pattern
@@ -1502,7 +1599,7 @@ class RecurringTransactionIntelligenceService {
 			...base,
 			id: generateUUID(), // New ID for merged pattern
 			matchingTransactionIds: Array.from(allTransactionIds),
-			historicalAmounts: sortedAmounts,
+			historicalAmounts: sortedAmounts, // full record including zeros
 			historicalDates: sortedDates,
 			occurrences: sortedAmounts.length,
 			firstObserved: sortedDates[0],

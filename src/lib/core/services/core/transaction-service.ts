@@ -16,10 +16,13 @@ import { addDays, addWeeks, addMonths } from 'date-fns';
 import { merchantProfileService } from '../intelligence/merchant-profile-service';
 
 /** Invalidate all derived caches that depend on the transaction table. */
-function invalidateTransactionCaches(): void {
+async function invalidateTransactionCaches(): Promise<void> {
 	serviceCache.invalidate('transactions:snapshot');
 	serviceCache.invalidatePattern(/^prediction:spending:/);
 	serviceCache.invalidatePattern(/^recurring:patterns:/);
+	// Also clear the persisted IndexedDB pattern cache so a page-refresh cold
+	// start picks up the mutation rather than serving a 24 h stale result.
+	await db.recurringPatternsCache.delete('canonical');
 }
 
 type TransferDetails = NonNullable<Transaction['transferDetails']>;
@@ -499,7 +502,7 @@ class TransactionService {
 			);
 		}
 
-		invalidateTransactionCaches();
+		await invalidateTransactionCaches();
 		return transaction;
 	}
 
@@ -628,7 +631,7 @@ class TransactionService {
 			);
 		}
 
-		invalidateTransactionCaches();
+		await invalidateTransactionCaches();
 		return updatedTransaction;
 	}
 
@@ -666,7 +669,7 @@ class TransactionService {
 
 		// Emit sync event for transaction deletion
 		await crossRouteSyncService.onTransactionDeleted(id);
-		invalidateTransactionCaches();
+		await invalidateTransactionCaches();
 	}
 
 	/**

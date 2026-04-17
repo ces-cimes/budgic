@@ -48,6 +48,10 @@
 		currency?: string;
 		txType?: 'expense' | 'income' | 'transfer' | 'adjustment';
 		categoryName?: string;
+		/** Human-readable explanation, e.g. "3.2× your typical 38 000 ₽" */
+		context?: string;
+		/** patternId of the recurring pattern this anomaly relates to, if any */
+		relatedPatternId?: string;
 	};
 
 	type PatternStatsRow = {
@@ -89,6 +93,8 @@
 		inferred: boolean;
 		allowanceImpact: number;
 		needsReview: boolean;
+		type: 'expense' | 'income' | 'transfer' | undefined;
+		waterfallTier: NonNullable<import('$lib/core/db').Category['waterfallTier']> | undefined;
 	};
 	let recurringList = $state<RecurringRow[]>([]);
 
@@ -245,11 +251,17 @@
 			const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(p.id);
 			const pm = patternMonthlyEstimate(p);
 			const allowanceImpact = totalMonthlySpend > 0 ? pm / totalMonthlySpend : 0;
+			const rawType = p.metadata?.type;
+			const txType: RecurringRow['type'] =
+				rawType === 'expense' || rawType === 'income' || rawType === 'transfer'
+					? rawType
+					: undefined;
+			const approxPrefix = p.patternType === 'approximate' || p.patternType === 'seasonal' ? '~' : '';
 			rows.push({
 				patternId: p.id,
 				description: p.metadata?.notes || p.descriptionPattern || 'Recurring',
 				amount: pred
-					? `~${formatAmount(pred.predictedAmount, p.metadata?.currency || currency)}`
+					? `${approxPrefix}${formatAmount(pred.predictedAmount, p.metadata?.currency || currency)}`
 					: '—',
 				nextDate: pred?.nextOccurrenceDate
 					? new Date(pred.nextOccurrenceDate).toLocaleDateString('en-US', {
@@ -259,37 +271,71 @@
 					: '—',
 				inferred: p.patternType === 'approximate' || p.patternType === 'seasonal',
 				allowanceImpact,
-				needsReview: patternNeedsReviewHeuristic(p)
+				needsReview: patternNeedsReviewHeuristic(p),
+				type: txType,
+				waterfallTier: p.learnedCategoryId
+					? (await db.categories.get(p.learnedCategoryId))?.waterfallTier
+					: undefined
 			});
 		}
-		rows.sort((a, b) => b.allowanceImpact - a.allowanceImpact);
+		// Sort: no tier first (needs action), then explicitly unclassified, then assigned — all by impact within group
+		rows.sort(recurringRowComparator);
 		return rows;
+	}
+
+	/** Stable sort used in both buildRecurringRows and the optimistic patch after applyPatternTier */
+	function recurringRowComparator(a: RecurringRow, b: RecurringRow): number {
+		const tierOrder = (t: RecurringRow['waterfallTier']) =>
+			t === undefined ? 0 : t === 'unclassified' ? 1 : 2;
+		const ord = tierOrder(a.waterfallTier) - tierOrder(b.waterfallTier);
+		return ord !== 0 ? ord : b.allowanceImpact - a.allowanceImpact;
 	}
 
 	async function applyPatternTier(patternId: string, tier: NonNullable<Category['waterfallTier']>) {
 		const p = await recurringTransactionIntelligenceService.getPattern(patternId);
-		if (!p?.matchingTransactionIds?.length) return;
-		const txs = (await db.transactions.bulkGet(p.matchingTransactionIds)).filter(
-			(t): t is import('$lib/core/db').Transaction => t != null && !t.deletedAt
-		);
-		const counts = new Map<string, number>();
-		for (const t of txs) {
-			if (!t.categoryId) continue;
-			counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1);
-		}
-		if (counts.size === 0) return;
-		let bestId: string | null = null;
-		let bestN = 0;
-		for (const [id, n] of counts) {
-			if (n > bestN) {
-				bestId = id;
-				bestN = n;
+		if (!p) return;
+
+		// Always prefer p.learnedCategoryId — it is the SAME category ID that buildRecurringRows
+		// reads back from the DB on every load.  Writing to any other category would cause the
+		// tier to show up in other parts of the app but revert to "Unassigned" here on refresh,
+		// because buildRecurringRows would read the un-tiered learnedCategoryId category instead.
+		let targetCategoryId: string | null = p.learnedCategoryId ?? null;
+
+		if (!targetCategoryId) {
+			// Fallback for patterns where category learning hasn't run yet: compute from transactions.
+			if (!p.matchingTransactionIds?.length) return;
+			const txs = (await db.transactions.bulkGet(p.matchingTransactionIds)).filter(
+				(t): t is import('$lib/core/db').Transaction => t != null && !t.deletedAt
+			);
+			const counts = new Map<string, number>();
+			for (const t of txs) {
+				if (!t.categoryId) continue;
+				counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1);
 			}
+			if (counts.size === 0) return;
+			let bestId: string | null = null;
+			let bestN = 0;
+			for (const [id, n] of counts) {
+				if (n > bestN) { bestId = id; bestN = n; }
+			}
+			if (!bestId) return;
+			const tied = [...counts.values()].filter((n) => n === bestN).length;
+			if (tied > 1) return;
+			targetCategoryId = bestId;
 		}
-		if (!bestId) return;
-		const tied = [...counts.values()].filter((n) => n === bestN).length;
-		if (tied > 1) return;
-		await budgetService.updateBudgetCategory(bestId, { waterfallTier: tier });
+
+		await budgetService.updateBudgetCategory(targetCategoryId, { waterfallTier: tier });
+
+		// Patch learnedCategoryId across all cache layers (in-memory + IndexedDB) so that
+		// the next page refresh correctly reads the tier without re-running detection.
+		await recurringTransactionIntelligenceService.patchPatternCategory(patternId, targetCategoryId);
+
+		// Optimistic patch: immediately highlight the chip and re-sort without waiting for rebuild.
+		recurringList = [...recurringList
+			.map((r) => (r.patternId === patternId ? { ...r, waterfallTier: tier } : r))]
+			.sort(recurringRowComparator);
+
+		// Full rebuild for eventual consistency (amounts, dates, etc.)
 		await refreshRecurringFromServices(userCurrency);
 	}
 
@@ -320,13 +366,26 @@
 		}
 	}
 
-	const tierChipDefs: { tier: NonNullable<Category['waterfallTier']>; label: string }[] = [
-		{ tier: 'unclassified', label: 'U' },
-		{ tier: 'survival', label: 'S' },
-		{ tier: 'security', label: 'Se' },
-		{ tier: 'growth', label: 'G' },
-		{ tier: 'lifestyle', label: 'L' }
+	const tierChipDefs: {
+		tier: NonNullable<Category['waterfallTier']>;
+		label: string;
+		hint: string;
+	}[] = [
+		{ tier: 'survival', label: 'Survival', hint: 'Non-negotiable — rent, food, utilities' },
+		{ tier: 'security', label: 'Security', hint: 'Buffer, savings, debt repayment' },
+		{ tier: 'growth', label: 'Growth', hint: 'Investment, learning, building' },
+		{ tier: 'lifestyle', label: 'Lifestyle', hint: 'Wants and quality-of-life' },
+		{ tier: 'unclassified', label: 'Unclassified', hint: 'Not yet categorised' }
 	];
+
+	/** Tailwind classes for an active (selected) tier chip */
+	const tierActiveClasses: Record<NonNullable<Category['waterfallTier']>, string> = {
+		survival: 'bg-rose-500/15 text-rose-600 border-rose-500/50 dark:text-rose-400',
+		security: 'bg-amber-500/15 text-amber-600 border-amber-500/50 dark:text-amber-400',
+		growth: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/50 dark:text-emerald-400',
+		lifestyle: 'bg-blue-500/15 text-blue-600 border-blue-500/50 dark:text-blue-400',
+		unclassified: 'bg-muted text-muted-foreground border-border'
+	};
 
 	async function refreshRecurringFromServices(currency: string) {
 		const [summary, recurringPatterns, allTx] = await Promise.all([
@@ -342,7 +401,19 @@
 			.reduce((s, t) => s + Math.abs(t.amount || 0), 0);
 		const months = 90 / 30;
 		const totalMonthlySpend = months > 0 ? expenseSum / months : 0;
-		recurringList = await buildRecurringRows(recurringPatterns, currency, totalMonthlySpend);
+
+		// Snapshot tiers that are already known (e.g. from an optimistic patch) so that a
+		// learnedCategoryId mismatch in the rebuilt rows doesn't wipe them out and cause a flicker.
+		const knownTiers = new Map(recurringList.map((r) => [r.patternId, r.waterfallTier]));
+
+		const rebuilt = await buildRecurringRows(recurringPatterns, currency, totalMonthlySpend);
+		// Merge: if the rebuild couldn't resolve a tier (undefined) but we already knew it, keep it.
+		recurringList = rebuilt
+			.map((r) => ({
+				...r,
+				waterfallTier: r.waterfallTier ?? knownTiers.get(r.patternId)
+			}))
+			.sort(recurringRowComparator);
 		// Invalidate navigation cache so restored state matches fresh recurring rows
 		patternsTabCacheKey = '';
 		patternsTabCache = null;
@@ -458,8 +529,11 @@
 			const recurringPatterns = await recurringTransactionIntelligenceService.detectPatterns(90, 2);
 			recurringList = await buildRecurringRows(recurringPatterns, userCurrency, totalMonthlySpend);
 
-			// Anomalies: enrich with transaction + category for transaction-like display (no "Unusually large..." text)
-			const rawAnomalies = (patternsResult.anomalyPatterns || []).slice(0, 10);
+			// Unusual Activity: only surface unusual_amount anomalies — the most actionable type.
+			// unusual_timing / unusual_category are low-signal without additional context.
+			const rawAnomalies = (patternsResult.anomalyPatterns || [])
+				.filter((a) => a.type === 'unusual_amount')
+				.slice(0, 8);
 			const enriched: AnomalyRow[] = [];
 			for (const a of rawAnomalies) {
 				const tx = await transactionService.getTransaction(a.transactionId);
@@ -475,6 +549,25 @@
 						: tx?.type === 'income'
 							? Math.abs(rawAmount)
 							: rawAmount;
+
+				// Find a related recurring pattern to give the anomaly context
+				const matchingPattern = recurringPatterns.find(
+					(p) =>
+						p.matchingTransactionIds.includes(a.transactionId) ||
+						(tx?.description &&
+							p.descriptionPattern &&
+							tx.description.toLowerCase().includes(p.descriptionPattern.toLowerCase()))
+				);
+				let context: string | undefined;
+				if (matchingPattern && matchingPattern.averageAmount > 0) {
+					const ratio = Math.abs(rawAmount) / matchingPattern.averageAmount;
+					const typical = formatAmount(
+						matchingPattern.averageAmount,
+						tx?.currency ?? userCurrency
+					);
+					context = `${ratio.toFixed(1)}× your typical ${typical}`;
+				}
+
 				enriched.push({
 					type: a.type,
 					transactionId: a.transactionId,
@@ -482,7 +575,9 @@
 					amount: displayAmount,
 					currency: tx?.currency,
 					txType: tx?.type,
-					categoryName
+					categoryName,
+					context,
+					relatedPatternId: matchingPattern?.id
 				});
 			}
 			anomalies = enriched;
@@ -694,7 +789,8 @@
 				{:else}
 					<ul class="space-y-2">
 						{#each recurringList as item}
-							<li class="border-border bg-card rounded-xl border-2">
+							{@const isUnassigned = item.waterfallTier === undefined}
+							<li class="bg-card rounded-xl border-2 {isUnassigned ? 'border-amber-400/40 dark:border-amber-500/30' : 'border-border'}">
 								<button
 									type="button"
 									class="hover:bg-muted/30 focus-visible:ring-ring flex w-full items-center gap-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
@@ -707,7 +803,24 @@
 										<p
 											class="text-foreground flex flex-wrap items-center gap-2 truncate font-semibold"
 										>
-											<span class="truncate">{item.inferred ? '~' : ''}{item.description}</span>
+											<!-- direction badge: ↑ income (green), ↓ expense (muted-red), ⇄ transfer (info) -->
+											{#if item.type === 'income'}
+												<span class="shrink-0 text-[var(--color-sage-green)] text-xs" aria-label="Income">↑</span>
+											{:else if item.type === 'transfer'}
+												<span class="shrink-0 text-[var(--color-info)] text-xs" aria-label="Transfer">⇄</span>
+											{:else}
+												<span class="shrink-0 text-[var(--color-expense)] text-xs" aria-label="Expense">↓</span>
+											{/if}
+											<span class="truncate">{item.description}</span>
+											{#if isUnassigned}
+												<span class="shrink-0 rounded border border-amber-400/50 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+													Unassigned
+												</span>
+											{:else if item.waterfallTier !== 'unclassified'}
+												<span class="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium {tierActiveClasses[item.waterfallTier!]}">
+													{tierChipDefs.find((c) => c.tier === item.waterfallTier)?.label}
+												</span>
+											{/if}
 											{#if item.needsReview}
 												<span
 													class="border-border text-muted-foreground shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
@@ -720,83 +833,111 @@
 										</p>
 									</div>
 									<div class="flex shrink-0 items-center gap-2">
-										<span class="text-amount text-foreground">{item.amount}</span>
+										<span class="text-amount {item.type === 'income'
+											? 'text-[var(--color-sage-green)]'
+											: item.type === 'transfer'
+												? 'text-[var(--color-info)]'
+												: 'text-[var(--color-expense)]'}">
+											{item.type === 'income' ? '+' : item.type === 'expense' ? '−' : ''}{item.amount}
+										</span>
 										<ChevronRight class="text-muted-foreground h-4 w-4" />
 									</div>
 								</button>
-								<div class="border-border flex flex-wrap gap-1 border-t px-3 py-2">
+							<div class="border-border border-t px-3 py-2">
+								<p class="text-muted-foreground mb-1.5 text-[10px] font-medium tracking-wide uppercase">
+									{isUnassigned ? 'Assign budget tier' : 'Budget tier'}
+								</p>
+								<div class="flex flex-wrap gap-1">
 									{#each tierChipDefs as chip (chip.tier)}
+										{@const isActive = chip.tier === item.waterfallTier}
 										<button
 											type="button"
-											class="border-border text-muted-foreground hover:bg-muted/60 rounded border px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase"
+											title={chip.hint}
+											class="rounded border px-2 py-0.5 text-[10px] font-semibold transition-colors {isActive
+												? tierActiveClasses[chip.tier]
+												: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground'}"
 											onclick={() => applyPatternTier(item.patternId, chip.tier)}
 										>
 											{chip.label}
 										</button>
 									{/each}
 								</div>
+							</div>
 							</li>
 						{/each}
 					</ul>
 				{/if}
 			</section>
 
-			<!-- 3. Anomalies (transaction-like: description + category left, amount + type badge right; no "Unusually large..." text) -->
+			<!-- 3. Unusual Activity — only unusual_amount, with context ratio and pattern link -->
 			{@const visibleAnomalies = anomalies.filter((a) => !isAnomalyDismissed(a.transactionId))}
 			{#if visibleAnomalies.length > 0}
 				<section>
-					<h2
-						class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-					>
-						Anomalies
-					</h2>
+					<div class="mb-2">
+						<h2
+							class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Unusual Activity
+						</h2>
+						<p class="text-muted-foreground text-xs mt-0.5">
+							Transactions that look out of the ordinary for your spending history.
+						</p>
+					</div>
 					<ul class="space-y-2">
 						{#each visibleAnomalies as a (a.transactionId)}
 							<li class="border-border bg-card overflow-hidden rounded-xl border-2">
-								<div
-									role="button"
-									tabindex="0"
-									class="hover:bg-muted/30 focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
-									onclick={() => goto(`/transactions/add/${a.transactionId}`)}
-									onkeydown={(e) =>
-										e.key === 'Enter' && goto(`/transactions/add/${a.transactionId}`)}
-								>
-									<div class="min-w-0 flex-1">
-										<p class="text-foreground truncate text-base font-semibold">
-											{a.description ?? 'Transaction'}
-										</p>
-										{#if a.categoryName}
-											<p class="text-muted-foreground mt-0.5 truncate text-sm">{a.categoryName}</p>
-										{/if}
+								<div class="px-4 py-3">
+									<div class="flex items-start gap-2">
+										<div class="min-w-0 flex-1">
+											<p class="text-foreground truncate text-base font-semibold">
+												{a.description ?? 'Transaction'}
+											</p>
+											{#if a.categoryName}
+												<p class="text-muted-foreground mt-0.5 truncate text-sm">{a.categoryName}</p>
+											{/if}
+											{#if a.context}
+												<p class="text-[var(--color-warning)] mt-1 text-xs font-medium">{a.context}</p>
+											{/if}
+										</div>
+										<div class="flex shrink-0 flex-col items-end gap-1">
+											<span
+												class="text-amount {a.txType === 'income'
+													? 'text-[var(--color-sage-green)]'
+													: a.txType === 'transfer'
+														? 'text-[var(--color-info)]'
+														: 'text-foreground'}"
+											>
+												{formatTransactionAmount(a.amount ?? 0, a.currency ?? userCurrency, true)}
+											</span>
+										</div>
 									</div>
-									<div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
-										<span
-											class="text-amount {a.txType === 'income'
-												? 'text-[var(--color-sage-green)]'
-												: a.txType === 'transfer'
-													? 'text-[var(--color-info)]'
-													: 'text-foreground'}"
-										>
-											{formatTransactionAmount(a.amount ?? 0, a.currency ?? userCurrency, true)}
-										</span>
-										<span
-											class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium tracking-wider uppercase {anomalyBadgeClass(
-												a.type
-											)}"
-										>
-											{anomalyTypeLabel(a.type)}
-										</span>
+									<div class="mt-2 flex flex-wrap items-center gap-2">
 										<button
 											type="button"
-											class="text-muted-foreground hover:text-foreground text-xs font-medium"
-											onclick={(e) => {
-												e.preventDefault();
-												e.stopPropagation();
-												dismissAnomaly(a.transactionId);
-											}}
+											class="text-muted-foreground hover:text-foreground text-xs font-medium underline-offset-2 hover:underline"
+											onclick={() => goto(`/transactions/add/${a.transactionId}`)}
+										>
+											View transaction
+										</button>
+										{#if a.relatedPatternId}
+											<button
+												type="button"
+												class="text-muted-foreground hover:text-foreground text-xs font-medium underline-offset-2 hover:underline"
+												onclick={() => {
+													selectedPatternId = a.relatedPatternId!;
+													recurringSheetOpen = true;
+												}}
+											>
+												View pattern
+											</button>
+										{/if}
+										<button
+											type="button"
+											class="text-muted-foreground hover:text-foreground ml-auto text-xs font-medium"
+											onclick={() => dismissAnomaly(a.transactionId)}
 											title="This transaction is normal for you"
 										>
-											This is normal
+											Dismiss
 										</button>
 									</div>
 								</div>

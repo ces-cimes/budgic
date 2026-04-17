@@ -1728,6 +1728,17 @@ export type Occasion = z.infer<typeof OccasionSchema>;
 export type RoundUpRule = z.infer<typeof RoundUpRuleSchema>;
 export type MerchantCategoryProfile = z.infer<typeof MerchantCategoryProfileSchema>;
 
+/** Single-row cache for the computed canonical recurring pattern set.
+ *  The `patterns` field is the serialised RecurringPattern[] from the intelligence service.
+ *  We avoid importing that type here to keep db.ts free of analytics service dependencies. */
+export interface RecurringPatternsCacheEntry {
+	/** Always 'canonical' — only one row is ever stored. */
+	id: 'canonical';
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	patterns: any[];
+	computedAt: string; // ISO date
+}
+
 // Transaction-specific utility functions after Transaction type is defined
 export const TransactionUtils = {
 	/**
@@ -1801,6 +1812,7 @@ export class BudgicDB extends Dexie {
 	occasions!: Table<Occasion>;
 	roundUpRules!: Table<RoundUpRule>;
 	merchantCategoryProfiles!: Table<MerchantCategoryProfile>;
+	recurringPatternsCache!: Table<RecurringPatternsCacheEntry>;
 
 	constructor() {
 		super('BudgicDB');
@@ -2405,6 +2417,54 @@ export class BudgicDB extends Dexie {
 				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
 			merchantCategoryProfiles:
 				'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]'
+		});
+
+		// Version 26: add recurringPatternsCache for O(n²)-free cold starts
+		this.version(26).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+			tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
+			merchantCategoryProfiles:
+				'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]',
+			recurringPatternsCache: 'id, computedAt'
 		});
 
 		// Add validation hooks
