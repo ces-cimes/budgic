@@ -225,15 +225,42 @@ export class TransactionSimilarityEngine {
 			}
 		};
 	}
+
+	/**
+	 * Hard 0/1 dimension: transactions with opposite economic directions (money-in vs
+	 * money-out) should never be clustered together regardless of description/amount match.
+	 *
+	 * Direction is determined by the raw sign of `amount`:
+	 *   positive → money flowing in the "normal" direction for the transaction type
+	 *   negative → reversal / refund / return
+	 *
+	 * This prevents e.g. a borrowed 15k (logged as negative expense) and a returned 15k
+	 * (positive expense) from forming a spurious "recurring" pattern.
+	 */
+	static directionDimension(weight: number): SimilarityDimension {
+		return {
+			name: 'direction',
+			weight,
+			compute: (a, b) => {
+				const dirA = (a.amount ?? 0) >= 0 ? 1 : -1;
+				const dirB = (b.amount ?? 0) >= 0 ? 1 : -1;
+				return dirA === dirB ? 1 : 0;
+			}
+		};
+	}
 }
 
+// Weights sum to 1.0.
+// direction weight 0.20 means opposite-sign pairs can score at most 0.80 even with
+// perfect description/amount/account/temporal — safely below the 0.65 threshold.
 export const RECURRING_DETECTION_CONFIG: SimilarityConfig = {
 	threshold: 0.65,
 	dimensions: [
-		TransactionSimilarityEngine.descriptionDimension(0.45),
-		TransactionSimilarityEngine.amountDimension(0.3, 0.1),
-		TransactionSimilarityEngine.accountDimension(0.15),
-		TransactionSimilarityEngine.temporalDimension(0.1)
+		TransactionSimilarityEngine.descriptionDimension(0.40),
+		TransactionSimilarityEngine.amountDimension(0.25, 0.1),
+		TransactionSimilarityEngine.directionDimension(0.20),
+		TransactionSimilarityEngine.accountDimension(0.10),
+		TransactionSimilarityEngine.temporalDimension(0.05)
 	]
 };
 

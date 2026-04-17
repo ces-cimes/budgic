@@ -5,7 +5,10 @@ import {
 	notificationsService,
 	userService
 } from '$lib/core/services';
+import { scheduler } from '$lib/utils/scheduler';
 import { planTabs, insightsNavTabsForMaturity, reportsTabs } from '$lib/config/nav-tabs';
+
+const NAV_BADGES_TASK = 'nav:badge-updates';
 
 export interface NavTabDef {
 	id: string;
@@ -53,7 +56,6 @@ class NavigationStore {
 	private _loading = $state(true);
 	private _initialized = $state(false);
 
-	private updateInterval: ReturnType<typeof setInterval> | null = null;
 	private initializationPromise: Promise<void> | null = null;
 
 	constructor() {
@@ -494,24 +496,14 @@ class NavigationStore {
 	 * Start periodic badge updates
 	 */
 	private startBadgeUpdates(): void {
-		if (this.updateInterval) {
-			clearInterval(this.updateInterval);
-		}
-
-		// Update badges every 30 seconds
-		this.updateInterval = setInterval(() => {
-			this.updateBadges();
-		}, 30 * 1000);
+		scheduler.schedule(NAV_BADGES_TASK, () => this.updateBadges(), 30 * 1000);
 	}
 
 	/**
 	 * Stop periodic badge updates
 	 */
 	stopBadgeUpdates(): void {
-		if (this.updateInterval) {
-			clearInterval(this.updateInterval);
-			this.updateInterval = null;
-		}
+		scheduler.cancel(NAV_BADGES_TASK);
 	}
 
 	/**

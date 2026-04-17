@@ -8,8 +8,11 @@
 		crossRouteSyncService,
 		notificationsService,
 		exchangeRateService,
-		badgeService
+		badgeService,
+		recurringTransactionIntelligenceService
 	} from '$lib/core/services';
+	import { performanceMonitor } from '$lib/core/services/core/performance-monitor';
+	import { devLog } from '$lib/utils/dev-log';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
 	import { AppLayout } from '$lib/components/layouts';
 	import { Toaster } from '$lib/components/ui/sonner';
@@ -21,6 +24,16 @@
 	onMount(() => {
 		registerServiceWorker();
 		handleOfflineStatus();
+
+		// In dev, surface slow operations (>500 ms) to the console.
+		if (import.meta.env.DEV) {
+			performanceMonitor.addListener((report) => {
+				const slow = report.services.filter((s) => s.maxExecutionTime > 500);
+				if (slow.length > 0) {
+					devLog('[perf] slow operations:', slow.map((s) => `${s.serviceName} ${s.maxExecutionTime.toFixed(0)}ms`));
+				}
+			});
+		}
 
 		// Start insights service auto-updates
 		insightsService.startAutoUpdates();
@@ -38,6 +51,16 @@
 
 		// Initial badge check
 		badgeService.checkAllBadges(true).catch(console.error);
+
+		// Pre-warm the recurring pattern cache so plan/patterns pages don't cold-start.
+		// Runs during browser idle time to avoid competing with startup work.
+		const warmPatterns = () =>
+			recurringTransactionIntelligenceService.detectPatterns().catch(() => {});
+		if (typeof requestIdleCallback !== 'undefined') {
+			requestIdleCallback(warmPatterns, { timeout: 30_000 });
+		} else {
+			setTimeout(warmPatterns, 5_000);
+		}
 
 		// Cleanup on unmount
 		return () => {

@@ -3,8 +3,13 @@ import { analyticsService } from './analytics-service';
 import { goalService } from '../core/goal-service';
 import { budgetService } from '../core/budget-service';
 import { userService, exchangeRateService } from '../core';
+import { serviceCache } from '../core/service-cache';
+import { performanceMonitor } from '../core/performance-monitor';
 import type { Transaction, Category, Goal, Account } from '$lib/core/db';
 import { devLog, devWarn } from '$lib/utils/dev-log';
+
+const SNAPSHOT_TTL = 5 * 60 * 1000;
+const PREDICTION_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours — predictions don't meaningfully change intra-day
 import {
 	categoryIdsWithSpendShare,
 	effectiveAmountForCategory,
@@ -117,7 +122,24 @@ class PredictionService {
 	 * Predict spending for the next period using multiple algorithms
 	 */
 	async predictSpending(categoryId?: string, months: number = 1): Promise<SpendingForecast[]> {
-		const transactions = await db.transactions.toArray();
+		const cacheKey = `prediction:spending:${categoryId ?? 'all'}:${months}`;
+		return serviceCache.getOrSet(
+			cacheKey,
+			() => this._predictSpending(categoryId, months),
+			PREDICTION_CACHE_TTL
+		);
+	}
+
+	private async _predictSpending(
+		categoryId?: string,
+		months: number = 1
+	): Promise<SpendingForecast[]> {
+		return performanceMonitor.monitor('PredictionService', 'predictSpending', async () => {
+		const transactions = await serviceCache.getOrSet(
+			'transactions:snapshot',
+			() => db.transactions.toArray(),
+			SNAPSHOT_TTL
+		);
 		const categories = await db.getActiveCategories();
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';
@@ -243,6 +265,7 @@ class PredictionService {
 		}
 
 		return forecasts;
+		}); // end performanceMonitor.monitor
 	}
 
 	/**

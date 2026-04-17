@@ -11,8 +11,16 @@ import { roundUpService } from './round-up-service';
 import { crossRouteSyncService } from '../analytics/cross-route-sync-service';
 import { balanceProjectionService } from '../analytics/balance-projection-service';
 import { exchangeRateService } from './exchange-rate-service';
+import { serviceCache } from './service-cache';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { merchantProfileService } from '../intelligence/merchant-profile-service';
+
+/** Invalidate all derived caches that depend on the transaction table. */
+function invalidateTransactionCaches(): void {
+	serviceCache.invalidate('transactions:snapshot');
+	serviceCache.invalidatePattern(/^prediction:spending:/);
+	serviceCache.invalidatePattern(/^recurring:patterns:/);
+}
 
 type TransferDetails = NonNullable<Transaction['transferDetails']>;
 
@@ -491,6 +499,7 @@ class TransactionService {
 			);
 		}
 
+		invalidateTransactionCaches();
 		return transaction;
 	}
 
@@ -619,6 +628,7 @@ class TransactionService {
 			);
 		}
 
+		invalidateTransactionCaches();
 		return updatedTransaction;
 	}
 
@@ -656,6 +666,7 @@ class TransactionService {
 
 		// Emit sync event for transaction deletion
 		await crossRouteSyncService.onTransactionDeleted(id);
+		invalidateTransactionCaches();
 	}
 
 	/**

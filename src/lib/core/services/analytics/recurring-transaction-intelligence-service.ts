@@ -13,6 +13,9 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { Transaction, Category } from '$lib/core/db';
 import { transactionService } from '../core/transaction-service';
+import { performanceMonitor } from '../core/performance-monitor';
+import { serviceCache } from '../core/service-cache';
+import { devLog } from '$lib/utils/dev-log';
 import {
 	RECURRING_DETECTION_CONFIG,
 	TransactionSimilarityEngine,
@@ -20,6 +23,9 @@ import {
 	type SimilarityProfileName
 } from '../intelligence/transaction-similarity-engine';
 import TransactionSimilarityWorker from '../intelligence/transaction-similarity.worker?worker';
+
+const PATTERN_CACHE_TTL = 10 * 60 * 1000; // 10 minutes — O(n²) is expensive to recompute
+
 import {
 	format,
 	parseISO,
@@ -32,6 +38,175 @@ import {
 	startOfMonth,
 	getDay
 } from 'date-fns';
+
+/**
+ * Normalize a transaction description to a grouping key for pre-filtering.
+ * Strips digits (store codes, order numbers) and non-letter characters so that
+ * "Tesco Stores 4321" and "Tesco Stores 9876" collapse to the same key.
+ */
+function descGroupKey(description: string | null | undefined): string {
+	if (!description) return '';
+	return description
+		.toLowerCase()
+		.replace(/[0-9]+/g, '') // strip all digit sequences
+		.replace(/[^a-z]/g, '') // strip non-letters
+		.substring(0, 16); // cap to avoid overly specific keys
+}
+
+/**
+ * Remove transactions whose normalized description appears only once in the set.
+ * Such transactions can never form a recurring group, so they are noise for the
+ * O(n²) clustering step.
+ *
+ * Conservative approach: only exclude a transaction when its key is long enough
+ * to be unambiguous (≥ 4 letters after stripping digits/punctuation) AND that key
+ * appears exactly once across the whole dataset.  Short or empty keys — which arise
+ * from numeric-heavy descriptions like bank references, rent wire IDs, or salary
+ * BACS codes — are always kept so they can still be grouped by the fuzzy engine.
+ */
+function preFilterForClustering<T extends { description?: string | null }>(txs: T[]): T[] {
+	const counts = new Map<string, number>();
+	for (const tx of txs) {
+		const key = descGroupKey(tx.description);
+		if (key.length >= 4) counts.set(key, (counts.get(key) ?? 0) + 1);
+	}
+	const filtered = txs.filter((tx) => {
+		const key = descGroupKey(tx.description);
+		// Short/empty key → can't judge → keep (conservative)
+		if (key.length < 4) return true;
+		// Long meaningful key → only exclude confirmed singletons
+		return (counts.get(key) ?? 0) >= 2;
+	});
+	// Sanity-check: if we somehow filtered everything out, use the full set
+	return filtered.length >= 2 ? filtered : txs;
+}
+
+/**
+ * Exponential moving average over a chronologically-ordered array of values.
+ * α = 0.3 → recent observations carry ~3× more weight than observations from
+ * 3 periods ago, while still smoothing out single-period noise.
+ *
+ * The array must be sorted oldest-first (which matches the group sort in
+ * analyzeGroupForPattern).
+ */
+function ema(values: number[], alpha = 0.3): number {
+	if (!values.length) return 0;
+	return values.reduce((acc, v, i) => (i === 0 ? v : alpha * v + (1 - alpha) * acc));
+}
+
+/**
+ * Split an array of amounts into an IQR-based "core" (typical values) and
+ * "outliers" (values beyond 1.5 × IQR from the quartile fences).
+ *
+ * With fewer than 4 data points we cannot reliably compute quartiles, so the
+ * full set is treated as core.  Outliers are returned separately so callers
+ * can log them without losing the raw historical record.
+ */
+function iqrFilter(values: number[]): { core: number[]; outliers: number[] } {
+	if (values.length < 4) return { core: values, outliers: [] };
+	const sorted = [...values].sort((a, b) => a - b);
+	const q1 = sorted[Math.floor(sorted.length * 0.25)];
+	const q3 = sorted[Math.floor(sorted.length * 0.75)];
+	const fence = (q3 - q1) * 1.5;
+	return {
+		core: values.filter((v) => v >= q1 - fence && v <= q3 + fence),
+		outliers: values.filter((v) => v < q1 - fence || v > q3 + fence)
+	};
+}
+
+/**
+ * Collapse same-day split payments into a single synthetic transaction so the
+ * clustering engine sees the full payment amount rather than each component.
+ *
+ * Two (or more) transactions are merged when ALL of the following hold:
+ *   1. Their normalized descriptions match EXACTLY (after descGroupKey normalisation),
+ *      and the key is at least 4 characters long.
+ *   2. Their `clearedDate` falls within ±1 calendar day of each other.
+ *   3. They share the same economic direction (both positive or both negative amount).
+ *
+ * The exact-description guard is intentionally strict to minimise false positives.
+ * If in doubt the transactions are left separate — the fuzzy clustering stage can
+ * still detect the recurring pattern via description similarity.
+ *
+ * The synthetic transaction inherits the first transaction's metadata and carries
+ * the summed amount.  `matchingTransactionIds` is stored in the `notes` field as
+ * a comma-separated list so the original IDs are not lost.
+ */
+function groupSameEventTransactions(txs: Transaction[]): Transaction[] {
+	const used = new Set<string>();
+	const result: Transaction[] = [];
+
+	// Build an index: normalizedDescriptionKey → Transaction[]
+	const byKey = new Map<string, Transaction[]>();
+	for (const tx of txs) {
+		const key = descGroupKey(tx.description);
+		if (key.length < 4) {
+			// Description too short to reliably match — keep as-is
+			result.push(tx);
+			used.add(tx.id);
+			continue;
+		}
+		if (!byKey.has(key)) byKey.set(key, []);
+		byKey.get(key)!.push(tx);
+	}
+
+	for (const [, group] of byKey) {
+		// Sort oldest-first so we pick the earliest tx as the synthetic base
+		group.sort((a, b) => (a.clearedDate ?? '').localeCompare(b.clearedDate ?? ''));
+
+		for (let i = 0; i < group.length; i++) {
+			const base = group[i];
+			if (used.has(base.id)) continue;
+
+			const dir = (base.amount ?? 0) >= 0 ? 1 : -1;
+			const baseDate = base.clearedDate ? new Date(base.clearedDate) : null;
+			if (!baseDate) {
+				result.push(base);
+				used.add(base.id);
+				continue;
+			}
+
+			// Collect all transactions in the same event window
+			const eventTxs: Transaction[] = [base];
+			for (let j = i + 1; j < group.length; j++) {
+				const other = group[j];
+				if (used.has(other.id)) continue;
+				const otherDir = (other.amount ?? 0) >= 0 ? 1 : -1;
+				if (otherDir !== dir) continue;
+				const otherDate = other.clearedDate ? new Date(other.clearedDate) : null;
+				if (!otherDate) continue;
+				const dayDiff = Math.abs(
+					Math.round((otherDate.getTime() - baseDate.getTime()) / 86_400_000)
+				);
+				if (dayDiff <= 1) eventTxs.push(other);
+			}
+
+			if (eventTxs.length === 1) {
+				// No merge needed — single transaction
+				result.push(base);
+				used.add(base.id);
+			} else {
+				// Merge into one synthetic transaction with the summed amount
+				const summedAmount = eventTxs.reduce((s, tx) => s + (tx.amount ?? 0), 0);
+				const ids = eventTxs.map((tx) => tx.id);
+				const synthetic: Transaction = {
+					...base,
+					id: `synthetic:${ids.join('+')}`,
+					amount: summedAmount,
+					notes: ids.join(',')
+				};
+				result.push(synthetic);
+				ids.forEach((id) => used.add(id));
+				devLog(
+					`[Recurring] merged ${eventTxs.length} split-payment txs → amount ${summedAmount.toFixed(0)}`,
+					ids
+				);
+			}
+		}
+	}
+
+	return result;
+}
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -131,10 +306,23 @@ export interface BusinessDayConfig {
 // ============================================================================
 
 class RecurringTransactionIntelligenceService {
+	// Per-ID cache for fast single-pattern lookups (populated alongside serviceCache)
 	private patternCache: Map<string, RecurringPattern> = new Map();
-	private cacheExpiry: Map<string, number> = new Map();
-	private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 	private readonly similarityEngine = new TransactionSimilarityEngine();
+	// Persistent worker: created on first large cluster request, reused across calls.
+	private _worker: InstanceType<typeof TransactionSimilarityWorker> | null = null;
+
+	/**
+	 * Single shared Promise for the canonical detection run.
+	 *
+	 * The worker uses `worker.onmessage =` (assignment), so if multiple callers invoke
+	 * `clusterTransactions` concurrently, each one overwrites the previous handler and
+	 * only the LAST caller's Promise ever resolves — all earlier ones hang forever.
+	 *
+	 * By sharing one Promise for all concurrent callers we guarantee the O(n²) worker
+	 * step runs exactly once at a time, and every caller awaits the same result.
+	 */
+	private _canonicalInFlight: Promise<RecurringPattern[]> | null = null;
 
 	/**
 	 * Detect recurring patterns from transaction history
@@ -143,10 +331,69 @@ class RecurringTransactionIntelligenceService {
 		days: number = 365,
 		minOccurrences: number = 3
 	): Promise<RecurringPattern[]> {
-		const cacheKey = `patterns_${days}_${minOccurrences}`;
-		const cached = this.getCachedPatterns(cacheKey);
-		if (cached) return cached;
+		return performanceMonitor.monitor(
+			'RecurringTransactionIntelligenceService',
+			'detectPatterns',
+			() => this._detectPatterns(days, minOccurrences)
+		);
+	}
 
+	private async _detectPatterns(
+		days: number,
+		minOccurrences: number
+	): Promise<RecurringPattern[]> {
+		const canonical = await this._getCanonical();
+		return this._deriveFromCanonical(canonical, days, minOccurrences);
+	}
+
+	/**
+	 * Return the canonical (365-day, minOccurrences=2) pattern set.
+	 *
+	 * Checks serviceCache first, then coalesces concurrent callers onto a single
+	 * in-flight Promise so the O(n²) worker is never invoked more than once at a time.
+	 * Without this, concurrent callers overwrite each other's `worker.onmessage`
+	 * handler and all but the last caller hang permanently.
+	 */
+	private async _getCanonical(): Promise<RecurringPattern[]> {
+		const cached = serviceCache.get<RecurringPattern[]>('recurring:patterns:canonical');
+		if (cached !== null) return cached;
+
+		if (!this._canonicalInFlight) {
+			this._canonicalInFlight = this._runDetection(365, 2)
+				.then((result) => {
+					serviceCache.set('recurring:patterns:canonical', result, PATTERN_CACHE_TTL);
+					this._canonicalInFlight = null;
+					return result;
+				})
+				.catch((err) => {
+					this._canonicalInFlight = null;
+					throw err;
+				});
+		}
+
+		return this._canonicalInFlight;
+	}
+
+	/** Filter the canonical set to the requested (days, minOccurrences) window. */
+	private _deriveFromCanonical(
+		canonical: RecurringPattern[],
+		days: number,
+		minOccurrences: number
+	): RecurringPattern[] {
+		// Fast path: caller wants the canonical set or a superset of it
+		if (days >= 365 && minOccurrences <= 2) return canonical;
+
+		// Derive a subset by filtering on date window and per-window occurrence count.
+		// historicalDates contains all observed dates so we can count within any window.
+		const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+		return canonical.filter((p) => {
+			if (p.lastObserved < cutoff) return false;
+			const inWindow = p.historicalDates.filter((d) => d >= cutoff).length;
+			return inWindow >= minOccurrences;
+		});
+	}
+
+	private async _runDetection(days: number, minOccurrences: number): Promise<RecurringPattern[]> {
 		const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 		const transactions = await db.transactions
 			.where('clearedDate')
@@ -154,26 +401,45 @@ class RecurringTransactionIntelligenceService {
 			.and((tx) => !tx.deletedAt && tx.status === 'cleared')
 			.toArray();
 
-		const patterns: RecurringPattern[] = [];
+		// Step 1: collapse same-day split payments into one synthetic transaction so the
+		// clustering engine sees the full payment amount rather than each component.
+		const eventGrouped = groupSameEventTransactions(transactions);
+
+		// Step 2: pre-filter singletons. A transaction whose description appears only once
+		// in the dataset cannot form a recurring group, so it is noise for O(n²) clustering.
+		const clusterInput = preFilterForClustering(eventGrouped);
+
+		devLog(
+			`[Recurring] window=${days}d  raw=${transactions.length}` +
+				`  after-event-group=${eventGrouped.length}` +
+				`  after-prefilter=${clusterInput.length}` +
+				`  (${eventGrouped.length - clusterInput.length} singletons removed)`
+		);
+
+		const rawPatterns: RecurringPattern[] = [];
 
 		// Group transactions by similarity (description, amount, account, temporal cadence)
 		const transactionGroups = await this.clusterTransactions(
-			transactions,
+			clusterInput,
 			'RECURRING_DETECTION_CONFIG',
 			2
 		);
+
+		devLog(`[Recurring] clusters=${transactionGroups.length}`);
 
 		for (const group of transactionGroups) {
 			if (group.length < minOccurrences) continue;
 
 			const pattern = await this.analyzeGroupForPattern(group);
 			if (pattern && pattern.confidence >= 30) {
-				patterns.push(pattern);
+				rawPatterns.push(pattern);
 			}
 		}
 
+		devLog(`[Recurring] raw patterns=${rawPatterns.length}  (before merge)`);
+
 		// Merge duplicate patterns (same description, same type, similar amounts)
-		const mergedPatterns = this.mergeDuplicatePatterns(patterns);
+		const mergedPatterns = this.mergeDuplicatePatterns(rawPatterns);
 
 		// Calculate date relevancy and active status
 		const now = new Date();
@@ -182,22 +448,49 @@ class RecurringTransactionIntelligenceService {
 			pattern.isActive = this.isPatternActive(pattern, now);
 		}
 
-		// Sort by active status first, then date relevancy, then confidence
+		// Sort: active first → most occurrences → soonest next occurrence → most recent → confidence
+		const frequencyPeriodDays: Record<RecurringPattern['frequency'], number> = {
+			daily: 1,
+			weekly: 7,
+			biweekly: 14,
+			monthly: 30,
+			quarterly: 91,
+			yearly: 365,
+			irregular: 30
+		};
+		const approxDaysUntilNext = (p: RecurringPattern): number => {
+			const period = frequencyPeriodDays[p.frequency] ?? 30;
+			const daysSinceLast = (now.getTime() - new Date(p.lastObserved).getTime()) / 86_400_000;
+			return Math.max(0, period - (daysSinceLast % period));
+		};
 		mergedPatterns.sort((a, b) => {
-			// Active patterns first
-			if (a.isActive !== b.isActive) {
-				return a.isActive ? -1 : 1;
-			}
-			// Then by date relevancy
-			if (Math.abs(a.dateRelevancy - b.dateRelevancy) > 5) {
-				return b.dateRelevancy - a.dateRelevancy;
-			}
-			// Finally by confidence
+			if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+			if (a.occurrences !== b.occurrences) return b.occurrences - a.occurrences;
+			const urgencyDiff = approxDaysUntilNext(a) - approxDaysUntilNext(b);
+			if (Math.abs(urgencyDiff) > 2) return urgencyDiff; // soonest next first
+			if (Math.abs(a.dateRelevancy - b.dateRelevancy) > 5) return b.dateRelevancy - a.dateRelevancy;
 			return b.confidence - a.confidence;
 		});
 
-		this.setCachedPatterns(cacheKey, patterns);
-		return patterns;
+		devLog(
+			`[Recurring] final patterns=${mergedPatterns.length}`,
+			mergedPatterns.slice(0, 15).map((p) => ({
+				desc: p.descriptionPattern,
+				freq: p.frequency,
+				n: p.occurrences,
+				avg: p.averageAmount.toFixed(0),
+				active: p.isActive,
+				nextIn: `${approxDaysUntilNext(p).toFixed(0)}d`,
+				conf: p.confidence
+			}))
+		);
+
+		// Also populate the per-ID cache for fast single-pattern lookups
+		for (const pattern of mergedPatterns) {
+			this.patternCache.set(pattern.id, pattern);
+		}
+
+		return mergedPatterns;
 	}
 
 	/**
@@ -452,12 +745,21 @@ class RecurringTransactionIntelligenceService {
 	 */
 	clearCache(): void {
 		this.patternCache.clear();
-		this.cacheExpiry.clear();
+		serviceCache.invalidatePattern(/^recurring:patterns:/);
+		// Also abandon any in-flight detection so the next call starts fresh
+		this._canonicalInFlight = null;
 	}
 
 	// ============================================================================
 	// PRIVATE HELPER METHODS
 	// ============================================================================
+
+	private getWorker(): InstanceType<typeof TransactionSimilarityWorker> {
+		if (!this._worker) {
+			this._worker = new TransactionSimilarityWorker();
+		}
+		return this._worker;
+	}
 
 	private async clusterTransactions(
 		transactions: Transaction[],
@@ -471,7 +773,7 @@ class RecurringTransactionIntelligenceService {
 			return this.similarityEngine.cluster(transactions, config, minGroupSize);
 		}
 
-		const worker = new TransactionSimilarityWorker();
+		const worker = this.getWorker();
 
 		try {
 			const clusteredIndices = await new Promise<number[][]>((resolve, reject) => {
@@ -492,9 +794,11 @@ class RecurringTransactionIntelligenceService {
 				group.map((index) => transactions[index]).filter(Boolean)
 			);
 		} catch {
+			// Worker failed — terminate it so a fresh one is created next call,
+			// then fall back to main-thread clustering.
+			this._worker?.terminate();
+			this._worker = null;
 			return this.similarityEngine.cluster(transactions, config, minGroupSize);
-		} finally {
-			worker.terminate();
 		}
 	}
 
@@ -515,8 +819,23 @@ class RecurringTransactionIntelligenceService {
 		const frequency = this.detectFrequency(dates);
 		if (!frequency) return null;
 
-		// Calculate average amount
-		const averageAmount = amounts.reduce((sum, a) => sum + a, 0) / amounts.length;
+		// IQR outlier filter: exclude one-off anomalies (e.g. rent + realtor cut in one month)
+		// from the amount prediction while keeping them in historicalAmounts for display.
+		const { core: coreAmounts, outliers: outlierAmounts } = iqrFilter(amounts);
+		if (outlierAmounts.length > 0) {
+			devLog(
+				`[Recurring] IQR excluded ${outlierAmounts.length} outlier(s) from amount calc:`,
+				outlierAmounts,
+				'core range:',
+				Math.min(...coreAmounts).toFixed(0),
+				'–',
+				Math.max(...coreAmounts).toFixed(0)
+			);
+		}
+
+		// EMA-weighted average: recent amounts carry more weight than old ones.
+		// coreAmounts is already sorted oldest-first (group was sorted by date above).
+		const averageAmount = ema(coreAmounts);
 
 		// Calculate typical day of month/week
 		const typicalDayOfMonth = this.calculateTypicalDayOfMonth(dates);
@@ -537,7 +856,7 @@ class RecurringTransactionIntelligenceService {
 			dateRelevancy: 0, // Will be recalculated later
 			averageAmount,
 			amountVariability: this.calculateAmountVariability({
-				historicalAmounts: amounts
+				historicalAmounts: coreAmounts
 			} as RecurringPattern),
 			typicalDayOfMonth,
 			typicalDayOfWeek,
@@ -1167,25 +1486,30 @@ class RecurringTransactionIntelligenceService {
 			allDates.push(...pattern.historicalDates);
 		}
 
-		// Sort dates
-		allDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+		// Sort dates (and keep amounts aligned with the same sort order)
+		const combined = allDates
+			.map((d, i) => ({ date: d, amount: allAmounts[i] }))
+			.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+		const sortedDates = combined.map((c) => c.date);
+		const sortedAmounts = combined.map((c) => c.amount);
 
-		// Recalculate average amount
-		const averageAmount = allAmounts.reduce((sum, a) => sum + a, 0) / allAmounts.length;
+		// IQR + EMA: same logic as analyzeGroupForPattern
+		const { core: coreAmounts } = iqrFilter(sortedAmounts);
+		const averageAmount = ema(coreAmounts);
 
 		// Create merged pattern
 		const merged: RecurringPattern = {
 			...base,
 			id: generateUUID(), // New ID for merged pattern
 			matchingTransactionIds: Array.from(allTransactionIds),
-			historicalAmounts: allAmounts,
-			historicalDates: allDates,
-			occurrences: allAmounts.length,
-			firstObserved: allDates[0],
-			lastObserved: allDates[allDates.length - 1],
+			historicalAmounts: sortedAmounts,
+			historicalDates: sortedDates,
+			occurrences: sortedAmounts.length,
+			firstObserved: sortedDates[0],
+			lastObserved: sortedDates[sortedDates.length - 1],
 			averageAmount,
 			amountVariability: this.calculateAmountVariability({
-				historicalAmounts: allAmounts
+				historicalAmounts: coreAmounts
 			} as RecurringPattern),
 			// Recalculate frequency with merged data
 			frequency: this.detectFrequency(allDates) || base.frequency,
@@ -1300,23 +1624,6 @@ class RecurringTransactionIntelligenceService {
 		return daysSinceLast <= expectedInterval * 2;
 	}
 
-	private getCachedPatterns(key: string): RecurringPattern[] | null {
-		const expiry = this.cacheExpiry.get(key);
-		if (expiry && expiry > Date.now()) {
-			// Cache is valid, but we need to return patterns by key
-			// For now, return null and rely on patternCache
-			return null;
-		}
-		return null;
-	}
-
-	private setCachedPatterns(key: string, patterns: RecurringPattern[]): void {
-		this.cacheExpiry.set(key, Date.now() + this.CACHE_TTL);
-		// Also cache individual patterns
-		for (const pattern of patterns) {
-			this.patternCache.set(pattern.id, pattern);
-		}
-	}
 }
 
 // Export singleton instance

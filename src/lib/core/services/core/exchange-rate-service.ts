@@ -5,7 +5,10 @@
 
 import { db, generateUUID, type ExchangeRate } from '$lib/core/db';
 import { userService } from './user-service';
+import { scheduler } from '$lib/utils/scheduler';
 import { devLog } from '$lib/utils/dev-log';
+
+const EXCHANGE_RATE_TASK = 'exchange-rate:auto-update';
 
 interface ExchangeRateAPIResponse {
 	rates: Record<string, number>;
@@ -18,7 +21,6 @@ class ExchangeRateService {
 	/** Use same-origin API proxy in browser to avoid CORS blocking the external API */
 	private readonly API_PROXY_PATH = '/api/exchange-rates';
 	private readonly CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
-	private updateInterval: ReturnType<typeof setInterval> | null = null;
 	private isUpdating = false;
 
 	/**
@@ -373,31 +375,18 @@ class ExchangeRateService {
 	 * Start automatic rate updates (daily)
 	 */
 	startAutoUpdates(): void {
-		if (this.updateInterval) {
-			return; // Already started
-		}
-
-		// Update immediately
-		this.updateAllRates().catch((err) => {
-			console.error('Initial rate update failed:', err);
-		});
-
-		// Then update daily (every 24 hours)
-		this.updateInterval = setInterval(() => {
-			this.updateAllRates().catch((err) => {
-				console.error('Scheduled rate update failed:', err);
-			});
-		}, this.CACHE_DURATION_MS);
+		scheduler.schedule(
+			EXCHANGE_RATE_TASK,
+			() => this.updateAllRates().catch((err) => console.error('Rate update failed:', err)),
+			this.CACHE_DURATION_MS
+		);
 	}
 
 	/**
 	 * Stop automatic rate updates
 	 */
 	stopAutoUpdates(): void {
-		if (this.updateInterval) {
-			clearInterval(this.updateInterval);
-			this.updateInterval = null;
-		}
+		scheduler.cancel(EXCHANGE_RATE_TASK);
 	}
 
 	/**

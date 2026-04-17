@@ -1,6 +1,9 @@
 import { insightsService } from './analytics/insights-service';
 import { getPanelAlerts, getBadgeVariant, getPanelGroupedBadgeCount } from '$lib/utils/alert-tiers';
+import { scheduler } from '$lib/utils/scheduler';
 import type { Insight } from '$lib/core/db';
+
+const NOTIFICATIONS_TASK = 'notifications:poll';
 
 /**
  * Notifications Service
@@ -11,7 +14,6 @@ class NotificationsService {
 	private _panelUnreadInsights: Insight[] = [];
 	private _earlierAlerts: Insight[] = [];
 	private _lastUpdate = 0;
-	private _updateInterval: ReturnType<typeof setInterval> | null = null;
 	private readonly UPDATE_FREQUENCY = 30 * 1000; // 30 seconds
 
 	public get ready() {
@@ -142,23 +144,14 @@ class NotificationsService {
 	 * Start polling for updates
 	 */
 	private startPolling(): void {
-		if (this._updateInterval) {
-			clearInterval(this._updateInterval);
-		}
-
-		this._updateInterval = setInterval(() => {
-			this.refresh();
-		}, this.UPDATE_FREQUENCY);
+		scheduler.schedule(NOTIFICATIONS_TASK, () => this.refresh(), this.UPDATE_FREQUENCY);
 	}
 
 	/**
 	 * Stop polling for updates
 	 */
 	stopPolling(): void {
-		if (this._updateInterval) {
-			clearInterval(this._updateInterval);
-			this._updateInterval = null;
-		}
+		scheduler.cancel(NOTIFICATIONS_TASK);
 	}
 
 	/**

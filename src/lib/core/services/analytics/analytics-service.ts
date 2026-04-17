@@ -1,6 +1,7 @@
 import { db, isAnalyticsTier, transactionAutomationCountsInAnalytics } from '$lib/core/db';
 import type { Transaction, Account, Category } from '$lib/core/db';
 import { userService, exchangeRateService } from '../core';
+import { performanceMonitor } from '../core/performance-monitor';
 import {
 	absAnalyticsTierPortion,
 	categoryIdsWithSpendShare,
@@ -76,7 +77,12 @@ class AnalyticsService {
 	 * Get comprehensive spending analysis (converted to main currency)
 	 */
 	async getSpendingAnalysis(months: number = 12): Promise<SpendingAnalysis> {
-		const transactions = await db.transactions.toArray();
+		return performanceMonitor.monitor('AnalyticsService', 'getSpendingAnalysis', () =>
+			this._getSpendingAnalysis(months)
+		);
+	}
+
+	private async _getSpendingAnalysis(months: number): Promise<SpendingAnalysis> {
 		const categories = await db.getActiveCategories();
 		const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
@@ -86,19 +92,17 @@ class AnalyticsService {
 
 		const cutoffDate = new Date();
 		cutoffDate.setMonth(cutoffDate.getMonth() - months);
+		// Use the indexed clearedDate column to avoid a full table scan.
+		// Only transactions with a clearedDate value inside the window are returned.
+		const rawTransactions = await db.transactions
+			.where('clearedDate')
+			.aboveOrEqual(cutoffDate.toISOString())
+			.toArray();
 
-		// First filter out null/undefined transactions, then apply other filters
-		const recentTransactions = transactions
-			.filter((tx) => tx != null) // Remove null/undefined transactions
+		const recentTransactions = rawTransactions
+			.filter((tx) => tx != null)
 			.filter((tx) => {
-				if (
-					!(
-						tx.type === 'expense' &&
-						tx.status === 'cleared' &&
-						tx.clearedDate &&
-						new Date(tx.clearedDate) >= cutoffDate
-					)
-				) {
+				if (!(tx.type === 'expense' && tx.status === 'cleared' && tx.clearedDate)) {
 					return false;
 				}
 				return shouldIncludeClearedExpenseInAnalyticsSpend(tx, categoryMap);

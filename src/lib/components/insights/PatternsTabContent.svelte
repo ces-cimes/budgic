@@ -116,6 +116,7 @@
 	let upcomingSummary = $state<string>('');
 	let upcomingWeekAmount = $state<number | null>(null);
 	let loading = $state(true);
+	let loadingPatterns = $state(false);
 	let reviewSessionOpen = $state(false);
 	let reviewUrlHandled = $state(false);
 	let retrospectiveApplying = $state(false);
@@ -386,17 +387,24 @@
 
 		loading = true;
 		try {
-			const days = 90;
-			const [behavioral, patternsResult, allTx, budgetSummary, surface] = await Promise.all([
+			// === Tier 1: fast data — unblock the loading spinner immediately ===
+			const [behavioral, budgetSummary] = await Promise.all([
 				insightsService.getBehavioralPatternInsights(),
+				budgetService.getBudgetSummary()
+			]);
+			dataQualityRatio = budgetSummary?.confidence?.ratio ?? null;
+			unclassifiedTxCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
+			loading = false;
+			loadingPatterns = true;
+
+			// === Tier 2: heavy data — fill in while UI is already showing ===
+			const days = 90;
+			const [patternsResult, allTx, surface] = await Promise.all([
 				insightsService.analyzeSpendingPatternsAsync(days),
 				transactionService.getAllTransactions(),
-				budgetService.getBudgetSummary(),
 				insightsService.getPhase8PatternsSurfaceMetrics(userCurrency)
 			]);
 			phase8Surface = surface;
-			dataQualityRatio = budgetSummary?.confidence?.ratio ?? null;
-			unclassifiedTxCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
 
 			const cleared = (allTx || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
 			const firstTx = cleared.length
@@ -534,6 +542,7 @@
 			upcomingWeekAmount = null;
 		} finally {
 			loading = false;
+			loadingPatterns = false;
 		}
 	}
 
@@ -671,15 +680,17 @@
 				</section>
 			{/if}
 
-			<!-- 2. Recurring (transaction-like cards) -->
-			<section>
-				<h2
-					class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-				>
-					Recurring
-				</h2>
-				{#if recurringList.length === 0}
-					<p class="text-muted-foreground text-sm">No recurring transactions detected yet.</p>
+		<!-- 2. Recurring (transaction-like cards) -->
+		<section>
+			<h2
+				class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+			>
+				Recurring
+			</h2>
+			{#if loadingPatterns && recurringList.length === 0}
+				<div class="h-10 animate-pulse rounded-lg bg-[var(--color-bg-tertiary)]"></div>
+			{:else if recurringList.length === 0}
+				<p class="text-muted-foreground text-sm">No recurring transactions detected yet.</p>
 				{:else}
 					<ul class="space-y-2">
 						{#each recurringList as item}

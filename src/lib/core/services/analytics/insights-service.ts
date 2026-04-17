@@ -1,4 +1,7 @@
 import { db, generateUUID } from '$lib/core/db';
+import { scheduler } from '$lib/utils/scheduler';
+import { serviceCache } from '../core/service-cache';
+import { performanceMonitor } from '../core/performance-monitor';
 import { analyticsService } from './analytics-service';
 import { predictionService } from './prediction-service';
 import { goalService } from '../core/goal-service';
@@ -44,10 +47,13 @@ interface InsightGenerationContext {
 	onInsightsPage?: boolean; // Flag to indicate if called from insights page
 }
 
+const INSIGHTS_AUTO_UPDATE_TASK = 'insights:auto-update';
+const SNAPSHOT_TTL = 5 * 60 * 1000;
+
 class InsightsService {
 	private lastUpdate = 0;
 	private lastPredictionUpdate = 0;
-	private updateFrequency = 5 * 60 * 1000; // 5 minutes
+	private updateFrequency = 15 * 60 * 1000; // 15 minutes — background idle refresh
 	private predictionUpdateFrequency = 24 * 60 * 60 * 1000; // 24 hours - predictions update less frequently
 	private isUpdating = false;
 
@@ -294,6 +300,7 @@ class InsightsService {
 		}
 
 		this.isUpdating = true;
+		const _start = performance.now();
 
 		try {
 			// Clean up expired insights first
@@ -411,6 +418,13 @@ class InsightsService {
 			console.error('Error generating cross-route insights:', error);
 		} finally {
 			this.isUpdating = false;
+			performanceMonitor.recordMetric({
+				serviceName: 'InsightsService',
+				methodName: 'generateCrossRouteInsights',
+				executionTime: performance.now() - _start,
+				timestamp: Date.now(),
+				success: true
+			});
 		}
 	}
 
@@ -1623,28 +1637,23 @@ class InsightsService {
 	 * Start automatic insight updates
 	 */
 	startAutoUpdates(): void {
-		// Update immediately (without predictions to avoid performance issues)
-		this.generateCrossRouteInsights({
-			timeRange: 'month',
-			includePredictions: false, // Exclude predictions from auto-updates
-			includeBehavioral: true
-		});
-
-		// Then update every 5 minutes (without predictions)
-		setInterval(() => {
+		const run = () =>
 			this.generateCrossRouteInsights({
 				timeRange: 'month',
-				includePredictions: false, // Exclude predictions from auto-updates
+				includePredictions: false,
 				includeBehavioral: true
 			});
-		}, this.updateFrequency);
+
+		// Use idle scheduling so the refresh yields to UI frames and pauses
+		// automatically when the document is hidden (battery-friendly).
+		scheduler.scheduleIdle(INSIGHTS_AUTO_UPDATE_TASK, run, this.updateFrequency);
 	}
 
 	/**
 	 * Stop automatic updates
 	 */
 	stopAutoUpdates(): void {
-		// In a real implementation, we'd track and clear intervals
+		scheduler.cancel(INSIGHTS_AUTO_UPDATE_TASK);
 	}
 
 	/**
@@ -2398,12 +2407,29 @@ class InsightsService {
 		shadowCategoryViewEnabled: boolean;
 		shadowEstimatedNote: string | null;
 	}> {
-		const txs = await db.transactions
-			.filter(
-				(t) =>
-					Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string'
-			)
-			.toArray();
+		return performanceMonitor.monitor(
+			'InsightsService',
+			'getPhase8PatternsSurfaceMetrics',
+			() => this._getPhase8PatternsSurfaceMetrics(mainCurrency)
+		);
+	}
+
+	private async _getPhase8PatternsSurfaceMetrics(mainCurrency: string): Promise<{
+		spendComparativeLine: string | null;
+		incomeComparativeLine: string | null;
+		savingsTrendSymbol: string | null;
+		feeDriftLine: string | null;
+		shadowCategoryViewEnabled: boolean;
+		shadowEstimatedNote: string | null;
+	}> {
+		const allTxs = await serviceCache.getOrSet(
+			'transactions:snapshot',
+			() => db.transactions.toArray(),
+			SNAPSHOT_TTL
+		);
+		const txs = allTxs.filter(
+			(t) => Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string'
+		);
 
 		const savingsIds = new Set(
 			(await db.accounts.filter((a) => !a.deletedAt && a.type === 'savings').toArray()).map(

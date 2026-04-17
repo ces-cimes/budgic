@@ -1,7 +1,10 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { AutocompleteUsage, Transaction } from '$lib/core/db';
 import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
+import { serviceCache } from './core/service-cache';
 import { recurringTransactionIntelligenceService } from './analytics/recurring-transaction-intelligence-service';
+
+const SNAPSHOT_TTL = 5 * 60 * 1000;
 
 export interface DescriptionSuggestion {
 	value: string;
@@ -74,7 +77,6 @@ class AutocompleteService {
 		string,
 		{ expiresAt: number; value: DescriptionSuggestion[] }
 	>();
-	private transactionsSnapshotCache: { expiresAt: number; value: Transaction[] } | null = null;
 	private cleanupPromise: Promise<void> | null = null;
 	private cleanupDone = false;
 
@@ -487,7 +489,7 @@ class AutocompleteService {
 
 	clearCache() {
 		this.suggestionCache.clear();
-		this.transactionsSnapshotCache = null;
+		serviceCache.invalidate('transactions:snapshot');
 	}
 
 	private async ensureSelectionDataPruned(): Promise<void> {
@@ -552,16 +554,11 @@ class AutocompleteService {
 	}
 
 	private async getTransactionsSnapshot(): Promise<Transaction[]> {
-		const now = Date.now();
-		if (this.transactionsSnapshotCache && this.transactionsSnapshotCache.expiresAt > now) {
-			return this.transactionsSnapshotCache.value;
-		}
-		const transactions = await db.transactions.toArray();
-		this.transactionsSnapshotCache = {
-			expiresAt: now + CACHE_TTL_MS,
-			value: transactions
-		};
-		return transactions;
+		return serviceCache.getOrSet(
+			'transactions:snapshot',
+			() => db.transactions.toArray(),
+			SNAPSHOT_TTL
+		);
 	}
 
 	private normalizeFrequency(value: number): number {
