@@ -2103,11 +2103,24 @@ class InsightsService {
 					? data.amounts.reduce((sum, amt) => sum + amt, 0) / data.amounts.length
 					: 0;
 
-			// Calculate trend by comparing first half vs second half
-			const sortedDates = data.dates.sort();
-			const midpoint = Math.floor(sortedDates.length / 2);
-			const firstHalf = data.amounts.slice(0, midpoint);
-			const secondHalf = data.amounts.slice(midpoint);
+			// Calculate trend by comparing first half vs second half (amounts must follow chronological dates)
+			const pairs = data.dates.map((date, index) => ({
+				date,
+				amount: data.amounts[index],
+				index
+			}));
+			pairs.sort((a, b) => {
+				const ta = new Date(a.date).getTime();
+				const tb = new Date(b.date).getTime();
+				const da = Number.isFinite(ta) ? ta : 0;
+				const db = Number.isFinite(tb) ? tb : 0;
+				if (da !== db) return da - db;
+				return a.index - b.index;
+			});
+			const chronologicAmounts = pairs.map((p) => p.amount);
+			const midpoint = Math.floor(chronologicAmounts.length / 2);
+			const firstHalf = chronologicAmounts.slice(0, midpoint);
+			const secondHalf = chronologicAmounts.slice(midpoint);
 
 			const firstHalfAvg =
 				firstHalf.length > 0 ? firstHalf.reduce((sum, amt) => sum + amt, 0) / firstHalf.length : 0;
