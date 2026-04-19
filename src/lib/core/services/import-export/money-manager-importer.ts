@@ -6,7 +6,7 @@
  */
 
 import { db, generateUUID } from '$lib/core/db';
-import type { Account, Category, Transaction, Currency } from '$lib/core/db';
+import type { Account, Category, Currency, ImportQuality, Transaction } from '$lib/core/db';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { automationDetector } from '../intelligence/automation-detector';
@@ -19,12 +19,33 @@ import {
 	mapTransactionType,
 	mapDate,
 	mapAmount,
+	mapDateWithQuality,
+	mapAmountWithQuality,
 	extractCurrencyCode,
+	extractCurrencyCodeWithQuality,
 	flattenCategoryName,
 	parseTimestamp,
+	parseTimestampWithQuality,
 	isDeleted,
 	getCategoryPriority
 } from './money-manager-mapper';
+import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
+
+function mergeImportQuality(
+	...parts: (Partial<ImportQuality> | undefined)[]
+): ImportQuality | undefined {
+	const out: ImportQuality = {};
+	for (const p of parts) {
+		if (!p) continue;
+		if (p.amountInferred) out.amountInferred = true;
+		if (p.dateInferred) out.dateInferred = true;
+		if (p.currencyFallback) out.currencyFallback = true;
+	}
+	if (out.amountInferred === true || out.dateInferred === true || out.currencyFallback === true) {
+		return out;
+	}
+	return undefined;
+}
 
 /**
  * Money Manager Importer
@@ -612,25 +633,31 @@ export class MoneyManagerImporter extends BaseImporter {
 		}
 
 		// Get category (optional for adjustments)
-		const categoryId =
+		let categoryId =
 			ctgUid && ctgUid !== '-4' && ctgUid !== 'null'
 				? this.categoryMappings.get(ctgUid)
 				: undefined;
 
+		if (mapTransactionType(doType) === 'expense' && categoryId === undefined) {
+			const uncategorized = await getOrCreateUncategorizedCategory();
+			categoryId = uncategorized.id;
+		}
+
 		// Get currency - IMPORTANT: Preserve original currency from MM, never convert
 		const currencyUid = row.currencyUid || 'RUB_RUB';
+		const currencyFile = this.csvFiles.get('CURRENCY');
+		const extractedCurrency = extractCurrencyCodeWithQuality(currencyUid, currencyFile);
 		const currencyId = this.currencyMappings.get(currencyUid);
 		let currency = currencyId
 			? await db.currencies.get(currencyId)
-			: await db.getCurrencyByCode(extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')));
+			: await db.getCurrencyByCode(extractedCurrency.code);
 
 		// If currency still not found, try to extract from currencyUid directly
 		if (!currency) {
-			const extractedCode = extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY'));
-			currency = await db.getCurrencyByCode(extractedCode);
+			currency = await db.getCurrencyByCode(extractedCurrency.code);
 			if (!currency) {
 				this.addWarning(
-					`Currency not found for transaction (uid: ${currencyUid}, extracted: ${extractedCode}), using USD`
+					`Currency not found for transaction (uid: ${currencyUid}, extracted: ${extractedCurrency.code}), using USD`
 				);
 			}
 		}
@@ -641,25 +668,26 @@ export class MoneyManagerImporter extends BaseImporter {
 		const inZmoney = parseFloat(row.IN_ZMONEY || '0');
 		const zmoney = parseFloat(row.ZMONEY || '0');
 
-		// Original amount in transaction currency
-		const amount = mapAmount(inZmoney, doType);
+		const inAmountQ = mapAmountWithQuality(inZmoney, doType);
+		const amount = inAmountQ.amount;
 
 		// Get account to check currency
 		const account = accountId ? await db.accounts.get(accountId) : null;
 		const accountCurrency = account?.currency;
 		const finalCurrency =
-			currency?.code || extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')) || 'USD';
+			currency?.code || extractedCurrency.code || 'USD';
 
+		const zmAmountQ = mapAmountWithQuality(zmoney, doType);
 		// Cached conversion to account currency
 		// If currencies match, accountAmount = amount (1:1)
 		// Otherwise, use ZMONEY (cached conversion from MM)
 		const accountAmount =
 			accountCurrency && finalCurrency === accountCurrency
 				? amount // Currencies match - use original amount
-				: mapAmount(zmoney, doType); // Currencies differ - use cached conversion
+				: zmAmountQ.amount; // Currencies differ - use cached conversion
 
-		// Use ZDATE (transaction time) as primary source, UTIME as fallback, WDATE as last resort
-		const clearedDate = mapDate(row.ZDATE, row.UTIME, row.WDATE);
+		const clearedDateQ = mapDateWithQuality(row.ZDATE, row.UTIME, row.WDATE);
+		const clearedDate = clearedDateQ.iso;
 		const description = row.ZCONTENT || '';
 
 		// Check for duplicate by MM UID only (using preloaded map - O(1) lookup)
@@ -731,6 +759,17 @@ export class MoneyManagerImporter extends BaseImporter {
 			);
 		}
 
+		const createdQ = parseTimestampWithQuality(row.UTIME);
+		const updatedQ = parseTimestampWithQuality(row.UTIME);
+		const importQuality = mergeImportQuality(
+			inAmountQ.importQuality,
+			zmAmountQ.importQuality,
+			clearedDateQ.importQuality,
+			createdQ.importQuality,
+			updatedQ.importQuality,
+			extractedCurrency.importQuality
+		);
+
 		const transaction: Transaction = {
 			id: generateUUID(),
 			type: mapTransactionType(doType),
@@ -746,8 +785,9 @@ export class MoneyManagerImporter extends BaseImporter {
 			importSource: 'money-manager',
 			importMetadata: importMetadata,
 			currencyConversion: currencyConversion,
-			createdAt: parseTimestamp(row.UTIME),
-			updatedAt: parseTimestamp(row.UTIME),
+			importQuality,
+			createdAt: createdQ.iso,
+			updatedAt: updatedQ.iso,
 			deletedAt: null
 		};
 
@@ -859,10 +899,15 @@ export class MoneyManagerImporter extends BaseImporter {
 
 		// Get currency
 		const currencyUid = outRow.currencyUid || 'RUB_RUB';
+		const currencyFile = this.csvFiles.get('CURRENCY');
+		const extractedCurrency = extractCurrencyCodeWithQuality(currencyUid, currencyFile);
 		const currencyId = this.currencyMappings.get(currencyUid);
-		const currency = currencyId
+		let currency = currencyId
 			? await db.currencies.get(currencyId)
-			: await db.getCurrencyByCode(extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY')));
+			: await db.getCurrencyByCode(extractedCurrency.code);
+		if (!currency) {
+			currency = await db.getCurrencyByCode(extractedCurrency.code);
+		}
 
 		// Transfer amounts from MM CSV:
 		// - outRow.IN_ZMONEY: Original transfer amount in transaction currency (for source account perspective)
@@ -886,7 +931,8 @@ export class MoneyManagerImporter extends BaseImporter {
 		const transferZdate = outRow.ZDATE || inRow.ZDATE;
 		const transferUtime = outRow.UTIME || inRow.UTIME;
 		const transferWdate = outRow.WDATE || inRow.WDATE;
-		const clearedDate = mapDate(transferZdate, transferUtime, transferWdate);
+		const clearedDateQ = mapDateWithQuality(transferZdate, transferUtime, transferWdate);
+		const clearedDate = clearedDateQ.iso;
 		const rawDescription = (outRow.ZCONTENT || inRow.ZCONTENT || '').trim();
 		const description =
 			rawDescription === '' || rawDescription.toLowerCase() === 'transfer'
@@ -915,7 +961,7 @@ export class MoneyManagerImporter extends BaseImporter {
 				: undefined;
 
 		// Calculate exchange rates for conversion metadata
-		const finalCurrency = currency?.code || 'USD';
+		const finalCurrency = currency?.code || extractedCurrency.code || 'USD';
 		let sourceExchangeRate: number | undefined;
 		let destExchangeRate: number | undefined;
 
@@ -947,6 +993,16 @@ export class MoneyManagerImporter extends BaseImporter {
 					}
 				: undefined;
 
+		const transferUtimeRaw = outRow.UTIME || inRow.UTIME;
+		const createdQ = parseTimestampWithQuality(transferUtimeRaw);
+		const updatedQ = parseTimestampWithQuality(transferUtimeRaw);
+		const transferImportQuality = mergeImportQuality(
+			clearedDateQ.importQuality,
+			createdQ.importQuality,
+			updatedQ.importQuality,
+			extractedCurrency.importQuality
+		);
+
 		const transaction: Transaction = {
 			id: generateUUID(),
 			type: 'transfer',
@@ -970,8 +1026,9 @@ export class MoneyManagerImporter extends BaseImporter {
 			importSource: 'money-manager',
 			importMetadata: importMetadata,
 			currencyConversion: currencyConversion,
-			createdAt: parseTimestamp(outRow.UTIME || inRow.UTIME),
-			updatedAt: parseTimestamp(outRow.UTIME || inRow.UTIME),
+			importQuality: transferImportQuality,
+			createdAt: createdQ.iso,
+			updatedAt: updatedQ.iso,
 			deletedAt: null
 		};
 

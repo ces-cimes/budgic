@@ -5,7 +5,7 @@
  * Handles field transformations, type conversions, and data normalization.
  */
 
-import type { Account, Category, Transaction, Currency } from '$lib/core/db';
+import type { Account, Category, ImportQuality, Transaction } from '$lib/core/db';
 import type { CSVFile } from './types';
 
 /**
@@ -80,12 +80,16 @@ export function mapTransactionType(doType: string | number): Transaction['type']
  * @param wdate - MM WDATE date string (YYYY-MM-DD) - last resort fallback
  * @returns ISO datetime string
  */
-export function mapDate(zdate?: string | number, utime?: string | number, wdate?: string): string {
+export function mapDateWithQuality(
+	zdate?: string | number,
+	utime?: string | number,
+	wdate?: string
+): { iso: string; importQuality?: Partial<ImportQuality> } {
 	// Priority 1: Use ZDATE if available (authoritative transaction timestamp)
 	if (zdate && zdate !== 'null' && zdate !== '0' && zdate !== '') {
 		const timestamp = typeof zdate === 'string' ? parseInt(zdate, 10) : zdate;
 		if (!isNaN(timestamp) && timestamp > 0) {
-			return new Date(timestamp).toISOString();
+			return { iso: new Date(timestamp).toISOString() };
 		}
 	}
 
@@ -93,7 +97,7 @@ export function mapDate(zdate?: string | number, utime?: string | number, wdate?
 	if (utime && utime !== 'null' && utime !== '0' && utime !== '') {
 		const timestamp = typeof utime === 'string' ? parseInt(utime, 10) : utime;
 		if (!isNaN(timestamp) && timestamp > 0) {
-			return new Date(timestamp).toISOString();
+			return { iso: new Date(timestamp).toISOString() };
 		}
 	}
 
@@ -109,19 +113,23 @@ export function mapDate(zdate?: string | number, utime?: string | number, wdate?
 			);
 			// Set to noon UTC to avoid midnight edge cases and ensure consistent ordering
 			date.setUTCHours(12, 0, 0, 0);
-			return date.toISOString();
+			return { iso: date.toISOString() };
 		}
 
 		// Fallback: try to parse as UTC date string
 		const parsed = new Date(wdate + 'T00:00:00.000Z');
 		if (!isNaN(parsed.getTime())) {
 			parsed.setUTCHours(12, 0, 0, 0);
-			return parsed.toISOString();
+			return { iso: parsed.toISOString() };
 		}
 	}
 
 	// Last resort: current date
-	return new Date().toISOString();
+	return { iso: new Date().toISOString(), importQuality: { dateInferred: true } };
+}
+
+export function mapDate(zdate?: string | number, utime?: string | number, wdate?: string): string {
+	return mapDateWithQuality(zdate, utime, wdate).iso;
 }
 
 /**
@@ -134,16 +142,22 @@ export function mapDate(zdate?: string | number, utime?: string | number, wdate?
  * @param doType - MM transaction type (kept for backward compatibility, not used)
  * @returns Budgic amount (preserves original sign from CSV)
  */
-export function mapAmount(zmoney: string | number, doType?: string | number): number {
+export function mapAmountWithQuality(
+	zmoney: string | number,
+	_doType?: string | number
+): { amount: number; importQuality?: Partial<ImportQuality> } {
 	const amount = typeof zmoney === 'string' ? parseFloat(zmoney) : zmoney;
 
 	if (isNaN(amount)) {
-		return 0;
+		return { amount: 0, importQuality: { amountInferred: true } };
 	}
 
 	// MM CSV exports already have correct signs in IN_ZMONEY
-	// Just return the amount as-is - no conversion needed
-	return amount;
+	return { amount };
+}
+
+export function mapAmount(zmoney: string | number, doType?: string | number): number {
+	return mapAmountWithQuality(zmoney, doType).amount;
 }
 
 /**
@@ -157,16 +171,19 @@ export function mapAmount(zmoney: string | number, doType?: string | number): nu
  * @param currencyFile - CURRENCY CSV file for lookup
  * @returns ISO currency code (e.g., "RUB", "USD")
  */
-export function extractCurrencyCode(currencyUid: string, currencyFile?: CSVFile): string {
+export function extractCurrencyCodeWithQuality(
+	currencyUid: string,
+	currencyFile?: CSVFile
+): { code: string; importQuality?: Partial<ImportQuality> } {
 	if (!currencyUid || currencyUid === 'null' || currencyUid.trim() === '') {
-		return 'USD'; // Default fallback
+		return { code: 'USD', importQuality: { currencyFallback: true } };
 	}
 
 	// Try to find in currency file first
 	if (currencyFile) {
 		const currencyRow = currencyFile.rows.find((row) => row.uid === currencyUid);
 		if (currencyRow && currencyRow.ISO) {
-			return currencyRow.ISO;
+			return { code: currencyRow.ISO };
 		}
 	}
 
@@ -176,15 +193,19 @@ export function extractCurrencyCode(currencyUid: string, currencyFile?: CSVFile)
 	const parts = currencyUid.split('_');
 	if (parts.length >= 2) {
 		// Return the second ISO code (transaction currency), not the first (base currency)
-		return parts[1]; // Return target/transaction currency
+		return { code: parts[1] };
 	}
 
 	// If only one part, use it (fallback for edge cases)
 	if (parts.length === 1 && parts[0]) {
-		return parts[0];
+		return { code: parts[0] };
 	}
 
-	return 'USD'; // Default fallback
+	return { code: 'USD', importQuality: { currencyFallback: true } };
+}
+
+export function extractCurrencyCode(currencyUid: string, currencyFile?: CSVFile): string {
+	return extractCurrencyCodeWithQuality(currencyUid, currencyFile).code;
 }
 
 /**
@@ -209,19 +230,26 @@ export function flattenCategoryName(categoryName: string, parentName?: string): 
  * @param utime - MM timestamp (milliseconds since epoch as string)
  * @returns ISO datetime string
  */
-export function parseTimestamp(utime: string | number): string {
+export function parseTimestampWithQuality(utime: string | number): {
+	iso: string;
+	importQuality?: Partial<ImportQuality>;
+} {
 	if (!utime || utime === 'null' || utime === '0') {
-		return new Date().toISOString();
+		return { iso: new Date().toISOString(), importQuality: { dateInferred: true } };
 	}
 
 	const timestamp = typeof utime === 'string' ? parseInt(utime, 10) : utime;
 
 	if (isNaN(timestamp) || timestamp === 0) {
-		return new Date().toISOString();
+		return { iso: new Date().toISOString(), importQuality: { dateInferred: true } };
 	}
 
 	// MM timestamps are in milliseconds
-	return new Date(timestamp).toISOString();
+	return { iso: new Date(timestamp).toISOString() };
+}
+
+export function parseTimestamp(utime: string | number): string {
+	return parseTimestampWithQuality(utime).iso;
 }
 
 /**

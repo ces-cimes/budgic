@@ -43,10 +43,14 @@ export {
 	mapCategoryType,
 	mapTransactionType,
 	mapDate,
+	mapDateWithQuality,
 	mapAmount,
+	mapAmountWithQuality,
 	extractCurrencyCode,
+	extractCurrencyCodeWithQuality,
 	flattenCategoryName,
 	parseTimestamp,
+	parseTimestampWithQuality,
 	isDeleted,
 	getCategoryPriority
 } from './money-manager-mapper';

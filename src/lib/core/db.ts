@@ -1136,6 +1136,13 @@ export function expenseCountsTowardAllowanceAnalytics(
 	return isAnalyticsTier(categoryWaterfallTier);
 }
 
+/** Tags silent MM import fallbacks (amount/date/currency) for review and analytics weighting */
+const ImportQualitySchema = z.object({
+	amountInferred: z.boolean().optional(),
+	dateInferred: z.boolean().optional(),
+	currencyFallback: z.boolean().optional()
+});
+
 const TransactionSchema = BaseSchema.extend({
 	type: TransactionType,
 	status: TransactionStatus,
@@ -1222,6 +1229,7 @@ const TransactionSchema = BaseSchema.extend({
 	reference: z.string().optional(),
 	notes: z.string().optional(),
 	importSource: z.string().optional(),
+	importQuality: ImportQualitySchema.optional(),
 
 	// Optimization fields
 	priority: z.number().min(1).max(10).optional(), // Priority score 1-10 (higher = more important)
@@ -1706,6 +1714,7 @@ export type Account = z.infer<typeof AccountSchema>;
 export type Currency = z.infer<typeof CurrencySchema>;
 export type Category = z.infer<typeof CategorySchema>;
 export type Transaction = z.infer<typeof TransactionSchema>;
+export type ImportQuality = z.infer<typeof ImportQualitySchema>;
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 export type UserAction = z.infer<typeof UserActionSchema>;
 export type AutocompleteUsage = z.infer<typeof AutocompleteUsageSchema>;
