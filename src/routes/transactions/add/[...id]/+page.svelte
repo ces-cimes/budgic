@@ -16,7 +16,10 @@
 	import { toast } from 'svelte-sonner';
 	import { db } from '$lib/core/db';
 	import type { Account, Transaction, Category, ReimbursementEntry } from '$lib/core/db';
-	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
+	import {
+		getOrCreateUncategorizedCategory,
+		getOrCreateUncategorizedIncomeCategory
+	} from '$lib/utils/category-utils';
 	import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
 	import { devLog } from '$lib/utils/dev-log';
 	import * as Form from '$lib/components/ui/form/index.ts';
@@ -1196,11 +1199,14 @@
 			if (!currency) {
 				throw new Error('Please select a currency');
 			}
-			// Auto-assign "Uncategorized" category for expenses without a category
+			// Auto-assign "Uncategorized" category when no category is selected (expense / income)
 			let finalCategoryId = selectedCategory;
 			if (transactionType === 'expense' && !selectedCategory) {
 				const uncategorizedCategory = await getOrCreateUncategorizedCategory();
 				finalCategoryId = uncategorizedCategory.id;
+			} else if (transactionType === 'income' && !selectedCategory) {
+				const uncategorizedIncome = await getOrCreateUncategorizedIncomeCategory();
+				finalCategoryId = uncategorizedIncome.id;
 			}
 
 			// Prepare transaction data
@@ -1849,6 +1855,17 @@
 						<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
 						<p class="text-sm text-[var(--color-text-secondary)]">
 							This expense will be assigned to "Uncategorized". Add a category for better tracking.
+						</p>
+					</div>
+				{/if}
+
+				{#if transactionType === 'income' && !selectedCategory}
+					<div
+						class="flex items-center gap-3 rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3"
+					>
+						<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
+						<p class="text-sm text-[var(--color-text-secondary)]">
+							This income will be assigned to "Uncategorized". Add a category for better tracking.
 						</p>
 					</div>
 				{/if}

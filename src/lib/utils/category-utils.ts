@@ -135,3 +135,47 @@ export function isUncategorizedCategory(category: Category | null | undefined): 
 	if (!category) return false;
 	return category.name.toLowerCase() === 'uncategorized' && category.type === 'expense';
 }
+
+const UNCATEGORIZED_INCOME_NAME = 'Uncategorized';
+
+/**
+ * Get or create the "Uncategorized" system category for income
+ * Mirrors expense uncategorized: unclassified tier until the user assigns a real category.
+ */
+export async function getOrCreateUncategorizedIncomeCategory(): Promise<Category> {
+	const existing = await db.categories
+		.filter(
+			(cat) =>
+				cat.name.toLowerCase() === UNCATEGORIZED_INCOME_NAME.toLowerCase() &&
+				cat.type === 'income' &&
+				!cat.deletedAt
+		)
+		.first();
+
+	if (existing) {
+		return existing;
+	}
+
+	const uncategorizedIncome: Category = {
+		id: generateUUID(),
+		name: UNCATEGORIZED_INCOME_NAME,
+		type: 'income',
+		waterfallTier: 'unclassified',
+		priority: 999,
+		budgetAmount: undefined,
+		color: '#8A8F98',
+		description: 'Income that has not been categorized yet',
+		isActive: true,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+		deletedAt: null
+	};
+
+	await db.categories.add(uncategorizedIncome);
+	return uncategorizedIncome;
+}
+
+export function isUncategorizedIncomeCategory(category: Category | null | undefined): boolean {
+	if (!category) return false;
+	return category.name.toLowerCase() === 'uncategorized' && category.type === 'income';
+}

@@ -29,7 +29,10 @@ import {
 	isDeleted,
 	getCategoryPriority
 } from './money-manager-mapper';
-import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
+import {
+	getOrCreateUncategorizedCategory,
+	getOrCreateUncategorizedIncomeCategory
+} from '$lib/utils/category-utils';
 
 function mergeImportQuality(
 	...parts: (Partial<ImportQuality> | undefined)[]
@@ -641,6 +644,9 @@ export class MoneyManagerImporter extends BaseImporter {
 		if (mapTransactionType(doType) === 'expense' && categoryId === undefined) {
 			const uncategorized = await getOrCreateUncategorizedCategory();
 			categoryId = uncategorized.id;
+		} else if (mapTransactionType(doType) === 'income' && categoryId === undefined) {
+			const uncategorizedIncome = await getOrCreateUncategorizedIncomeCategory();
+			categoryId = uncategorizedIncome.id;
 		}
 
 		// Get currency - IMPORTANT: Preserve original currency from MM, never convert
