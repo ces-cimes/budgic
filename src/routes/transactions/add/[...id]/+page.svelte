@@ -343,6 +343,15 @@
 	let transferDestinationScores = $state<
 		Map<string, { frequency: number; typicalAmount: number | null }>
 	>(new Map());
+	const suggestedPillClass =
+		'inline-flex items-center rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-tertiary)]';
+	let tagSuggestionToken = $derived(() => tagsInput.split(',').at(-1)?.trim() ?? '');
+	let showTransferDestinationSuggested = $derived(
+		transactionType === 'transfer' &&
+			Boolean(selectedAccount) &&
+			transferDestinationScores.size > 0 &&
+			!toAccountId
+	);
 	const DEFAULT_TAX_RATE = 0.13;
 	let toAccount = $derived(accounts.find((account) => account.id === toAccountId));
 	let canEstimateTransferTax = $derived(
@@ -1484,7 +1493,10 @@
 					/>
 				</div>
 				{#if amountHint && !amountManuallyTouched}
-					<p class="text-xs text-[var(--color-text-tertiary)]">Suggested amount: {amountHint}</p>
+					<div class="flex items-center gap-2">
+						<span class={suggestedPillClass}>Suggested</span>
+						<p class="text-xs text-[var(--color-text-tertiary)]">Amount: {amountHint}</p>
+					</div>
 				{/if}
 				{#if anomalyHint}
 					<p class="text-xs text-[var(--color-amber)]">{anomalyHint}</p>
@@ -1645,11 +1657,14 @@
 						/>
 						{#if suggestedPlannedDate && !plannedDate}
 							<div class="mt-1 flex items-center justify-between gap-2">
-								<p class="text-xs text-[var(--color-text-tertiary)]">
-									Suggested date: {new Date(
-										dateUtils.fromLocalDateTimeInput(suggestedPlannedDate)
-									).toLocaleString()}
-								</p>
+								<div class="flex items-center gap-2">
+									<span class={suggestedPillClass}>Suggested</span>
+									<p class="text-xs text-[var(--color-text-tertiary)]">
+										Date: {new Date(
+											dateUtils.fromLocalDateTimeInput(suggestedPlannedDate)
+										).toLocaleString()}
+									</p>
+								</div>
 								<button
 									type="button"
 									class="text-xs text-[var(--color-amber)] hover:underline"
@@ -1768,9 +1783,12 @@
 						selectionContext={{ transactionType, status, accountId: selectedAccount || undefined }}
 					/>
 					{#if hasInferredCategoryIndicator && selectedCategory === inferredCategoryId}
-						<p class="text-xs text-[var(--color-text-tertiary)]">
-							Category inferred from description: {inferredCategoryLabel}
-						</p>
+						<div class="flex items-center gap-2">
+							<span class={suggestedPillClass}>Suggested</span>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								Category inferred from description: {inferredCategoryLabel}
+							</p>
+						</div>
 					{/if}
 				</div>
 
@@ -1863,7 +1881,10 @@
 							</div>
 						{/if}
 						{#if merchantSplitNote}
-							<p class="text-xs text-[var(--color-text-tertiary)]">{merchantSplitNote}</p>
+							<div class="flex items-center gap-2">
+								<span class={suggestedPillClass}>Suggested</span>
+								<p class="text-xs text-[var(--color-text-tertiary)]">{merchantSplitNote}</p>
+							</div>
 						{/if}
 					</div>
 				{/if}
@@ -1898,6 +1919,14 @@
 							options={transferAccountOptions}
 							placeholder="Select destination account"
 						/>
+						{#if showTransferDestinationSuggested}
+							<div class="flex items-center gap-2">
+								<span class={suggestedPillClass}>Suggested</span>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									Destination options are ranked by your transfer history.
+								</p>
+							</div>
+						{/if}
 					</div>
 
 					{#if hasTransferFee}
@@ -2247,6 +2276,12 @@
 					onfocus={handleInputFocus}
 				></textarea>
 				{#if noteSuggestions.length > 0}
+					<div class="mb-1 flex items-center gap-2">
+						<span class={suggestedPillClass}>Suggested</span>
+						<p class="text-xs text-[var(--color-text-tertiary)]">
+							Tap a suggested note based on similar entries.
+						</p>
+					</div>
 					<div class="flex flex-wrap gap-1">
 						{#each noteSuggestions as noteSuggestion}
 							<button
@@ -2269,6 +2304,14 @@
 						list="tag-suggestions"
 						onfocus={handleInputFocus}
 					/>
+					{#if tagSuggestions.length > 0 && tagSuggestionToken.length > 0}
+						<div class="flex items-center gap-2">
+							<span class={suggestedPillClass}>Suggested</span>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								Tag suggestions are available for "{tagSuggestionToken}".
+							</p>
+						</div>
+					{/if}
 					<datalist id="tag-suggestions">
 						{#each tagSuggestions as tagSuggestion}
 							<option value={tagSuggestion}></option>

@@ -40,6 +40,11 @@
 	let showDropdown = $derived(
 		isFocused && !isDropdownDismissed && suggestions.length > 0 && !disabled
 	);
+	const isSuggestedMatch = $derived.by(() => {
+		if (!lastSuggestionValue) return false;
+		const normalized = normalizeCommittedValue(value);
+		return normalized !== null && normalized === lastSuggestionValue;
+	});
 
 	$effect(() => {
 		const query = value.trim();
@@ -195,6 +200,15 @@
 		oninput={handleInput}
 		autocomplete="off"
 	/>
+	{#if isSuggestedMatch}
+		<div class="mt-1">
+			<span
+				class="inline-flex items-center rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-tertiary)]"
+			>
+				Suggested
+			</span>
+		</div>
+	{/if}
 
 	{#if showDropdown}
 		<div
