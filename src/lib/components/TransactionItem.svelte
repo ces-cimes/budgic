@@ -31,6 +31,7 @@
 		groupDescription?: string;
 		groupCategory?: string;
 		groupCurrency?: string;
+		hasImportQualityFlag?: boolean;
 		defaultExpanded?: boolean;
 	}
 
@@ -50,8 +51,21 @@
 		groupDescription = '',
 		groupCategory = '',
 		groupCurrency = 'USD',
+		hasImportQualityFlag = false,
 		defaultExpanded = false
 	}: Props = $props();
+
+	const rowHasImportQualityFlag = $derived.by(() => {
+		if (isGroup) {
+			if (hasImportQualityFlag) return true;
+			return groupTransactions.some((tx) => {
+				const q = tx.importQuality;
+				return Boolean(q?.amountInferred || q?.dateInferred || q?.currencyFallback);
+			});
+		}
+		const q = transaction?.importQuality;
+		return Boolean(q?.amountInferred || q?.dateInferred || q?.currencyFallback);
+	});
 
 	// Extract time (HH:MM) from date string - timezone-safe
 	const getTime = (dateString: string | undefined): string => {
@@ -721,6 +735,15 @@
 						<div class="text-text-primary truncate text-base font-semibold">
 							{transferAccountNames}
 						</div>
+						{#if rowHasImportQualityFlag}
+							<div class="mt-0.5">
+								<span
+									class="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-text-tertiary)]/70"
+									title="Imported row has inferred data"
+									aria-label="Import quality flagged"
+								></span>
+							</div>
+						{/if}
 						{#if transaction.memo}
 							<div class="text-text-tertiary truncate text-sm">{transaction.memo}</div>
 						{/if}
@@ -820,6 +843,15 @@
 							<div class="text-text-primary truncate text-base font-semibold">
 								{transactionDescription() || 'Grouped transaction'}
 							</div>
+							{#if rowHasImportQualityFlag}
+								<div class="mt-0.5">
+									<span
+										class="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-text-tertiary)]/70"
+										title="Imported row has inferred data"
+										aria-label="Import quality flagged"
+									></span>
+								</div>
+							{/if}
 							<div class="text-text-tertiary truncate text-sm">
 								<span>{accountName()}</span>
 								<span class="mx-1">-</span>
@@ -989,6 +1021,14 @@
 									class="bg-info border-info/50 h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full border"
 									title="Recurring transaction"
 								></div>
+							{/if}
+
+							{#if rowHasImportQualityFlag}
+								<span
+									class="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[var(--color-text-tertiary)]/70"
+									title="Imported row has inferred data"
+									aria-label="Import quality flagged"
+								></span>
 							{/if}
 						</div>
 

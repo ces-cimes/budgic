@@ -133,6 +133,8 @@
 
 		// User currency for formatting
 		userCurrency?: string | null;
+		reviewQueueHref?: string;
+		qualityFilter?: 'all' | 'flagged';
 	}
 
 	const {
@@ -157,8 +159,16 @@
 		onVisibleSelectionIdsChange,
 		onAddTransaction,
 		onTransactionLongPress,
-		userCurrency = null
+		userCurrency = null,
+		reviewQueueHref = '/transactions?quality=flagged',
+		qualityFilter = 'all'
 	}: TransactionListProps = $props();
+
+	function hasImportQualityFlag(transaction: Transaction | any): boolean {
+		const q = transaction?.importQuality;
+		if (!q) return false;
+		return Boolean(q.amountInferred || q.dateInferred || q.currencyFallback);
+	}
 
 	// Currency formatting hook
 	const currencyFormat = useCurrencyFormatting();
@@ -364,6 +374,11 @@
 
 		// Filter out null, undefined, or deleted transactions
 		let filtered = transactions.filter((t) => t && !t.deletedAt);
+
+		// Route-level quality query filter (pre-Phase-3 review queue fallback)
+		if (qualityFilter === 'flagged') {
+			filtered = filtered.filter((t) => hasImportQualityFlag(t));
+		}
 
 		// Filter by search query using fuzzy search
 		if (currentFilters.searchQuery.trim()) {
@@ -660,7 +675,8 @@
 				accountId: firstTransaction.accountId,
 				categoryId: firstTransaction.categoryId,
 				transactions: groupTransactions,
-				totalAmount: totalAmount
+				totalAmount: totalAmount,
+				hasImportQualityFlag: groupTransactions.some((tx) => hasImportQualityFlag(tx))
 			});
 		});
 
@@ -728,6 +744,21 @@
 		}
 
 		return sortedGroups;
+	});
+
+	const flaggedVisibleCount = $derived(() => {
+		let count = 0;
+		for (const dateGroup of filteredTransactions()) {
+			for (const transactionOrGroup of dateGroup.transactions) {
+				if (transactionOrGroup.isGroup) {
+					const groupRows = transactionOrGroup.transactions ?? [];
+					count += groupRows.filter((tx: Transaction) => hasImportQualityFlag(tx)).length;
+				} else if (hasImportQualityFlag(transactionOrGroup)) {
+					count += 1;
+				}
+			}
+		}
+		return count;
 	});
 
 	// Summary stats and per-date-group totals, converted to main currency (async)
@@ -1275,6 +1306,24 @@
 	>
 		<div class="flex min-h-0 w-full flex-1 flex-col">
 			<!-- Summary stays outside the transformed slider so swipe translation affects only the list track. -->
+			{#if flaggedVisibleCount() > 0}
+				<section class="mb-3">
+					<div
+						class="border-border flex items-center justify-between gap-3 rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-2.5"
+					>
+						<p class="text-xs text-[var(--color-text-secondary)]">
+							{flaggedVisibleCount()} transaction{flaggedVisibleCount() === 1 ? '' : 's'} have flagged
+							import data
+						</p>
+						<a
+							href={reviewQueueHref}
+							class="text-xs font-medium text-[var(--color-amber)] hover:underline"
+						>
+							Review
+						</a>
+					</div>
+				</section>
+			{/if}
 			{#if showSummary}
 				<section class="mb-4">
 					<div class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5">
@@ -1461,6 +1510,7 @@
 															'Grouped Transaction'}
 														groupCategory={getCategoryName(transactionOrGroup)}
 														groupCurrency={getTransactionCurrency(transactionOrGroup)}
+														hasImportQualityFlag={transactionOrGroup.hasImportQualityFlag}
 													/>
 												{:else}
 													<TransactionItem

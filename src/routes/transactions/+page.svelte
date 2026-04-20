@@ -58,6 +58,11 @@
 		groupingMode: 'smart',
 		currentMonth: new Date()
 	});
+	const reviewQueueHref = '/transactions?quality=flagged';
+	const qualityFilter = $derived.by(() => {
+		const qualityParam = $page.url.searchParams.get('quality');
+		return qualityParam === 'flagged' ? 'flagged' : 'all';
+	});
 
 	function onFiltersChange(newFilters: FilterState) {
 		transactionFilters = newFilters;
@@ -605,6 +610,8 @@
 				{accounts}
 				categories={budgetCategories}
 				{userCurrency}
+				{reviewQueueHref}
+				{qualityFilter}
 				filters={transactionFilters}
 				{onFiltersChange}
 				onTransactionClick={handleTransactionClick}

@@ -176,6 +176,11 @@
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
 	let transaction = $state<Transaction | null>(null);
+	const importQualityFlags = $derived(() => ({
+		amountInferred: Boolean(transaction?.importQuality?.amountInferred),
+		dateInferred: Boolean(transaction?.importQuality?.dateInferred),
+		currencyFallback: Boolean(transaction?.importQuality?.currencyFallback)
+	}));
 	let accountBlendScores = $state<Map<string, number>>(new Map());
 	let categoryBlendScores = $state<Map<string, number>>(new Map());
 
@@ -1484,6 +1489,16 @@
 				{#if anomalyHint}
 					<p class="text-xs text-[var(--color-amber)]">{anomalyHint}</p>
 				{/if}
+				{#if isEditMode && importQualityFlags().amountInferred}
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						Amount was inferred during import. Confirm or correct if needed.
+					</p>
+				{/if}
+				{#if isEditMode && importQualityFlags().currencyFallback}
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						Currency was inferred during import. Confirm it matches the source record.
+					</p>
+				{/if}
 			</div>
 
 			<!-- ── Type & status ── -->
@@ -1725,6 +1740,11 @@
 							</Select.Content>
 						</Select.Root>
 					{/if}
+				{/if}
+				{#if isEditMode && importQualityFlags().dateInferred}
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						Date was estimated from import data. Confirm or edit the date.
+					</p>
 				{/if}
 			</div>
 
