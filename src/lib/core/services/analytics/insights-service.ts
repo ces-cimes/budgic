@@ -26,6 +26,7 @@ import {
 	formatPercentage,
 	getUserMainCurrency
 } from '$lib/utils/currency-utils';
+import { iqrFilter, iqrOutlierScore } from '$lib/utils/data-quality-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 import { categoryIdsWithSpendShare, effectiveAmountForCategory } from '$lib/utils/category-utils';
 import { devLog } from '$lib/utils/dev-log';
@@ -2261,26 +2262,44 @@ class InsightsService {
 			confidence: number;
 		}> = [];
 
-		// Calculate statistics
-		const amounts = transactions.map((tx) => Math.abs(tx.amount || 0));
-		const avgAmount = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-		const variance =
-			amounts.reduce((sum, amt) => sum + Math.pow(amt - avgAmount, 2), 0) / amounts.length;
-		const stdDev = Math.sqrt(variance);
+		const globalAmounts = transactions.map((tx) => Math.abs(tx.amount || 0));
+		const globalOutliers = new Set(iqrFilter(globalAmounts, 1.5).outliers);
 
-		// Detect unusual amounts (more than 2 standard deviations)
+		// Compare within category pools to avoid cross-category false positives.
+		const categoryTransactions = new Map<string, Transaction[]>();
 		transactions.forEach((tx) => {
-			const amount = Math.abs(tx.amount || 0);
-			if (amount > avgAmount + 2 * stdDev) {
-				const category = tx.categoryId ? categoryMap.get(tx.categoryId) : null;
+			if (!tx.categoryId) return;
+			const existing = categoryTransactions.get(tx.categoryId) ?? [];
+			existing.push(tx);
+			categoryTransactions.set(tx.categoryId, existing);
+		});
+
+		for (const [categoryId, txs] of categoryTransactions.entries()) {
+			if (txs.length < 4) {
+				continue;
+			}
+
+			const amounts = txs.map((tx) => Math.abs(tx.amount || 0));
+			const outliers = new Set(iqrFilter(amounts, 1.5).outliers);
+			const category = categoryMap.get(categoryId);
+
+			txs.forEach((tx) => {
+				const amount = Math.abs(tx.amount || 0);
+				if (!outliers.has(amount)) return;
+
+				const categoryScore = iqrOutlierScore(amount, amounts, 1.5);
+				const globalScore = globalOutliers.has(amount)
+					? iqrOutlierScore(amount, globalAmounts, 1.5)
+					: 0;
+
 				anomalies.push({
 					type: 'unusual_amount',
 					description: `Unusually large transaction: ${formatAmount(amount, tx.currency || 'USD')} in ${category?.name || 'Unknown'}`,
 					transactionId: tx.id,
-					confidence: Math.min(100, Math.round(((amount - avgAmount) / stdDev) * 20))
+					confidence: Math.min(100, Math.round((0.55 + Math.max(categoryScore, globalScore) * 0.45) * 100))
 				});
-			}
-		});
+			});
+		}
 
 		// Detect unusual timing (transactions at odd hours)
 		const hourCounts = new Map<number, number>();

@@ -16,6 +16,7 @@ import { transactionService } from '../core/transaction-service';
 import { performanceMonitor } from '../core/performance-monitor';
 import { serviceCache } from '../core/service-cache';
 import { devLog } from '$lib/utils/dev-log';
+import { canonicalDuplicateKey, iqrFilter } from '$lib/utils/data-quality-utils';
 import {
 	RECURRING_DETECTION_CONFIG,
 	TransactionSimilarityEngine,
@@ -92,26 +93,6 @@ function preFilterForClustering<T extends { description?: string | null }>(txs: 
 function ema(values: number[], alpha = 0.3): number {
 	if (!values.length) return 0;
 	return values.reduce((acc, v, i) => (i === 0 ? v : alpha * v + (1 - alpha) * acc));
-}
-
-/**
- * Split an array of amounts into an IQR-based "core" (typical values) and
- * "outliers" (values beyond 1.5 × IQR from the quartile fences).
- *
- * With fewer than 4 data points we cannot reliably compute quartiles, so the
- * full set is treated as core.  Outliers are returned separately so callers
- * can log them without losing the raw historical record.
- */
-function iqrFilter(values: number[]): { core: number[]; outliers: number[] } {
-	if (values.length < 4) return { core: values, outliers: [] };
-	const sorted = [...values].sort((a, b) => a - b);
-	const q1 = sorted[Math.floor(sorted.length * 0.25)];
-	const q3 = sorted[Math.floor(sorted.length * 0.75)];
-	const fence = (q3 - q1) * 1.5;
-	return {
-		core: values.filter((v) => v >= q1 - fence && v <= q3 + fence),
-		outliers: values.filter((v) => v < q1 - fence || v > q3 + fence)
-	};
 }
 
 /**
@@ -909,7 +890,7 @@ class RecurringTransactionIntelligenceService {
 
 		// IQR outlier filter: exclude one-off anomalies (e.g. rent + realtor cut in one month)
 		// from the amount prediction while keeping them in historicalAmounts for display.
-		const { core: coreAmounts, outliers: outlierAmounts } = iqrFilter(amounts);
+		const { core: coreAmounts, outliers: outlierAmounts } = iqrFilter(amounts, 1.5);
 		if (outlierAmounts.length > 0) {
 			devLog(
 				`[Recurring] IQR excluded ${outlierAmounts.length} outlier(s) from amount calc:`,
@@ -1432,12 +1413,10 @@ class RecurringTransactionIntelligenceService {
 			.anyOf(pattern.matchingTransactionIds)
 			.toArray();
 
-		// Group by date and amount
+		// Group by canonical duplicate key (amount + normalized date + description prefix)
 		const groups = new Map<string, Transaction[]>();
 		for (const tx of transactions) {
-			const date = tx.clearedDate || tx.plannedDate || tx.createdAt;
-			const amount = Math.round((tx.amount || 0) * 100) / 100; // Round to 2 decimals
-			const key = `${date}_${amount}`;
+			const key = canonicalDuplicateKey(tx);
 
 			if (!groups.has(key)) {
 				groups.set(key, []);
@@ -1591,7 +1570,7 @@ class RecurringTransactionIntelligenceService {
 		// Strip zeros before IQR+EMA (same rationale as analyzeGroupForPattern)
 		const nonZeroAmounts =
 			sortedAmounts.some((a) => a > 0) ? sortedAmounts.filter((a) => a > 0) : sortedAmounts;
-		const { core: coreAmounts } = iqrFilter(nonZeroAmounts);
+		const { core: coreAmounts } = iqrFilter(nonZeroAmounts, 1.5);
 		const averageAmount = ema(coreAmounts);
 
 		// Create merged pattern

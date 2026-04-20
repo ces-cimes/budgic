@@ -29,6 +29,7 @@ import { transactionService } from '../core/transaction-service';
 import { accountService } from '../core/account-service';
 import { budgetService } from '../core/budget-service';
 import { getBufferAmount } from '$lib/utils/account-metadata-utils';
+import { canonicalDuplicateKey, iqrFilter, iqrOutlierScore } from '$lib/utils/data-quality-utils';
 import { subMonths, startOfMonth, endOfMonth, parseISO, format, isAfter, isBefore } from 'date-fns';
 
 // ============================================================================
@@ -930,7 +931,7 @@ class LearningAdaptationService {
 
 		// Group by amount, date, and description
 		transactions.forEach((tx) => {
-			const key = `${tx.amount}_${tx.clearedDate?.substring(0, 10)}_${tx.description?.substring(0, 20)}`;
+			const key = canonicalDuplicateKey(tx);
 			const existing = seen.get(key) || [];
 			existing.push(tx);
 			seen.set(key, existing);
@@ -973,25 +974,20 @@ class LearningAdaptationService {
 
 		// Check each category for outliers
 		for (const [categoryId, txs] of categoryTransactions.entries()) {
-			if (txs.length < 5) {
+			if (txs.length < 4) {
 				continue; // Need enough data
 			}
 
 			const amounts = txs.map((tx) => Math.abs(tx.amount || 0));
-			const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-			const variance =
-				amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
-			const stdDev = Math.sqrt(variance);
-
-			// Flag transactions more than 3 standard deviations away
-			const threshold = avg + 3 * stdDev;
+			const outliers = new Set(iqrFilter(amounts, 2.0).outliers);
 			txs.forEach((tx) => {
 				const amount = Math.abs(tx.amount || 0);
-				if (amount > threshold) {
+				if (outliers.has(amount)) {
+					const score = iqrOutlierScore(amount, amounts, 2.0);
 					issues.push({
 						type: 'outlier',
 						transactionId: tx.id,
-						severity: 'low',
+						severity: score >= 0.8 ? 'high' : score >= 0.4 ? 'medium' : 'low',
 						description: `Unusually large amount (${this.formatCurrency(amount)}) for this category`,
 						suggestedAction: 'Verify amount is correct or mark as one-time exception'
 					});

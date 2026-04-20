@@ -5,6 +5,7 @@ import type {
 	ReconciliationRecord,
 	ReconciliationDiscrepancy
 } from '$lib/core/db';
+import { canonicalDuplicateKey } from '$lib/utils/data-quality-utils';
 import { accountService } from './account-service';
 import { z } from 'zod';
 
@@ -316,7 +317,7 @@ class ReconciliationService {
 		// Look for duplicate transactions (same amount, same date)
 		const duplicateCandidates = new Map<string, Transaction[]>();
 		for (const transaction of transactions) {
-			const key = `${transaction.amount}_${transaction.plannedDate}_${transaction.description}`;
+			const key = canonicalDuplicateKey(transaction);
 			if (!duplicateCandidates.has(key)) {
 				duplicateCandidates.set(key, []);
 			}
