@@ -24,6 +24,7 @@
 		label: string;
 		date: Date;
 		dateKey: string;
+		index: number;
 		isToday: boolean;
 		spentActual: number;
 		spentProjected: number;
@@ -106,6 +107,7 @@
 					label: DAY_LABELS[i],
 					date,
 					dateKey: key,
+					index: i,
 					isToday,
 					spentActual,
 					spentProjected,
@@ -153,25 +155,33 @@
 					{:else}
 						<span class="h-[11px]"></span>
 					{/if}
-					<div
-						class="flex min-h-[4px] w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--color-bg-surface)]"
-						style="height: 40px;"
-					>
-						{#if day.isFuture}
-							<!-- Projected: show projected spend as bar -->
-							{#if day.spentProjected > 0}
+					<div class="relative w-full">
+						<div
+							class="flex min-h-[4px] w-full flex-col justify-end overflow-hidden rounded-t bg-[var(--color-bg-surface)]"
+							style="height: 40px;"
+						>
+							{#if day.isFuture}
+								<!-- Projected: show projected spend as bar -->
+								{#if day.spentProjected > 0}
+									<div
+										class="w-full rounded-t border border-dashed border-[var(--color-amber)] bg-[var(--color-amber)]/50"
+										style="height: {Math.min(100, (day.spentProjected / dailyBudget) * 100)}%;"
+									></div>
+								{/if}
+							{:else}
+								<!-- Actual: show spent vs daily budget -->
 								<div
-									class="w-full rounded-t border border-dashed border-[var(--color-amber)] bg-[var(--color-amber)]/50"
-									style="height: {Math.min(100, (day.spentProjected / dailyBudget) * 100)}%;"
+									class="w-full rounded-t transition-all {day.spentActual > dailyBudget
+										? 'bg-[var(--color-warm-coral)]'
+										: 'bg-[var(--color-amber)]'}"
+									style="height: {Math.min(100, (day.spentActual / dailyBudget) * 100)}%;"
 								></div>
 							{/if}
-						{:else}
-							<!-- Actual: show spent vs daily budget -->
+						</div>
+						{#if day.isToday && day.index < 6}
 							<div
-								class="w-full rounded-t transition-all {day.spentActual > dailyBudget
-									? 'bg-[var(--color-warm-coral)]'
-									: 'bg-[var(--color-amber)]'}"
-								style="height: {Math.min(100, (day.spentActual / dailyBudget) * 100)}%;"
+								class="pointer-events-none absolute top-0 -right-[5px] bottom-0 z-10 w-0 border-r-2 border-dashed border-[var(--color-amber)]/80"
+								title="Today boundary: actual to projected"
 							></div>
 						{/if}
 					</div>
@@ -190,5 +200,8 @@
 				Daily reference: {formatAmount(dailyBudget, currency)}
 			</p>
 		{/if}
+		<p class="text-[10px] text-[var(--color-text-tertiary)]">
+			Solid = actual, dashed = projected
+		</p>
 	{/if}
 </div>

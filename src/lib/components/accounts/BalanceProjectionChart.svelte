@@ -31,9 +31,16 @@
 		daysAhead?: number;
 		showDetails?: boolean;
 		className?: string;
+		showTemporalBoundary?: boolean;
 	}
 
-	const { accountId, daysAhead = 90, showDetails = true, className = '' }: Props = $props();
+	const {
+		accountId,
+		daysAhead = 90,
+		showDetails = true,
+		className = '',
+		showTemporalBoundary = false
+	}: Props = $props();
 
 	let projections = $state<AccountProjection[]>([]);
 	let isLoading = $state(true);
@@ -161,6 +168,60 @@
 			return 'stroke-[var(--color-amber)] fill-[var(--color-amber)]/20';
 		return 'stroke-green-500 fill-green-500/20';
 	}
+
+	function getXPosition(index: number, total: number): number {
+		if (total <= 1) return 0;
+		return (index / (total - 1)) * 800;
+	}
+
+	function getYPosition(balance: number): number {
+		const range = chartData.maxBalance - chartData.minBalance;
+		if (range <= 0) return 200;
+		return 200 - ((balance - chartData.minBalance) / range) * 200;
+	}
+
+	const temporalBoundary = $derived.by(() => {
+		const points = chartData.points;
+		if (!showTemporalBoundary || points.length <= 1) {
+			return {
+				actualPolylinePoints: '',
+				forecastPolylinePoints: '',
+				todayX: null as number | null,
+				hasTemporalSegments: false
+			};
+		}
+
+		const todayStart = startOfDay(new Date()).getTime();
+		const firstForecastIndex = points.findIndex((point) => point.date.getTime() >= todayStart);
+		if (firstForecastIndex <= 0 || firstForecastIndex >= points.length) {
+			return {
+				actualPolylinePoints: '',
+				forecastPolylinePoints: '',
+				todayX: null,
+				hasTemporalSegments: false
+			};
+		}
+
+		const actualIndices = Array.from({ length: firstForecastIndex + 1 }, (_, i) => i);
+		const forecastIndices = Array.from(
+			{ length: points.length - firstForecastIndex + 1 },
+			(_, i) => i + firstForecastIndex - 1
+		);
+
+		const actualPolylinePoints = actualIndices
+			.map((index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`)
+			.join(' ');
+		const forecastPolylinePoints = forecastIndices
+			.map((index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`)
+			.join(' ');
+
+		return {
+			actualPolylinePoints,
+			forecastPolylinePoints,
+			todayX: getXPosition(firstForecastIndex, points.length),
+			hasTemporalSegments: true
+		};
+	});
 </script>
 
 <div class={className}>
@@ -313,8 +374,34 @@
 									opacity="0.6"
 								/>
 
-								<!-- Balance line (amber to match legend) -->
-								{#if chartData.points.length > 1 && chartData.maxBalance - chartData.minBalance > 0}
+								<!-- Balance line -->
+								{#if temporalBoundary.hasTemporalSegments}
+									{#if temporalBoundary.todayX !== null}
+										<line
+											x1={temporalBoundary.todayX}
+											y1="0"
+											x2={temporalBoundary.todayX}
+											y2="200"
+											stroke="var(--color-text-tertiary)"
+											stroke-width="1.5"
+											stroke-dasharray="3 3"
+											opacity="0.75"
+										/>
+									{/if}
+									<polyline
+										points={temporalBoundary.actualPolylinePoints}
+										fill="none"
+										stroke="var(--color-amber)"
+										stroke-width="2"
+									/>
+									<polyline
+										points={temporalBoundary.forecastPolylinePoints}
+										fill="none"
+										stroke="var(--color-amber)"
+										stroke-width="2"
+										stroke-dasharray="5 4"
+									/>
+								{:else if chartData.points.length > 1 && chartData.maxBalance - chartData.minBalance > 0}
 									<polyline
 										points={chartData.points
 											.map(
@@ -360,10 +447,25 @@
 
 						<!-- Legend -->
 						<div class="flex items-center gap-4 text-xs">
-							<div class="flex items-center gap-2">
-								<div class="h-0.5 w-4 bg-[var(--color-amber)]"></div>
-								<span class="text-muted-foreground">Projected Balance</span>
-							</div>
+							{#if temporalBoundary.hasTemporalSegments}
+								<div class="flex items-center gap-2">
+									<div class="h-0.5 w-4 bg-[var(--color-amber)]"></div>
+									<span class="text-muted-foreground">Actual balance</span>
+								</div>
+								<div class="flex items-center gap-2">
+									<div class="h-0.5 w-4 border-t-2 border-dashed border-[var(--color-amber)]"></div>
+									<span class="text-muted-foreground">Projected balance</span>
+								</div>
+								<div class="flex items-center gap-2">
+									<div class="h-3 w-0 border-r-2 border-dashed border-[var(--color-text-tertiary)]"></div>
+									<span class="text-muted-foreground">Today boundary</span>
+								</div>
+							{:else}
+								<div class="flex items-center gap-2">
+									<div class="h-0.5 w-4 bg-[var(--color-amber)]"></div>
+									<span class="text-muted-foreground">Projected Balance</span>
+								</div>
+							{/if}
 							<div class="flex items-center gap-2">
 								<div class="h-0.5 w-4 border-t-2 border-dashed bg-yellow-500"></div>
 								<span class="text-muted-foreground">Buffer Level</span>

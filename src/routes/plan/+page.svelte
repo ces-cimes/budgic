@@ -479,7 +479,11 @@
 								>
 									30-day cash flow
 								</h3>
-								<BalanceProjectionChart daysAhead={30} showDetails={false} />
+								<BalanceProjectionChart
+									daysAhead={30}
+									showDetails={false}
+									showTemporalBoundary={true}
+								/>
 							</div>
 							{#if sinkingFunds.length > 0}
 								<details
