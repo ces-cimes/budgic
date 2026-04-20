@@ -610,6 +610,9 @@
 									>
 										Expenses
 									</div>
+									<div class="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]/80">
+										from planned transactions
+									</div>
 								</div>
 							</div>
 							<div class="border-border border-t pt-4 text-center">

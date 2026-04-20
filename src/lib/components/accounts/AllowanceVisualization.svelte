@@ -283,7 +283,7 @@
 						{formatTransactionAmount(allowance.total.spentSoFar, allowance.total.currency)} / {formatTransactionAmount(
 							allowance.total.monthly,
 							allowance.total.currency
-						)}
+						)} allowance
 					</span>
 				</div>
 				<Progress value={totalUsage()} max={100} class="h-3" />

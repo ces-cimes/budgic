@@ -142,7 +142,7 @@
 					{formatAmount(allowance.total.spentSoFar, allowance.total.currency)} spent
 				</span>
 				<span>
-					{formatAmount(allowance.total.monthly, allowance.total.currency)} budget
+					{formatAmount(allowance.total.monthly, allowance.total.currency)} allowance
 				</span>
 			</div>
 		</div>
