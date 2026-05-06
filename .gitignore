@@ -55,4 +55,5 @@ pnpm-debug.log*
 .cache
 /.cursor/
 
-/docs/
+docs
+extracted
