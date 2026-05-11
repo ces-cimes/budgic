@@ -1991,6 +1991,7 @@ class InsightsService {
 			averageAmount: number;
 			frequency: number;
 			trend: 'increasing' | 'decreasing' | 'stable';
+			trendSuppressed: boolean;
 			percentageOfTotal: number;
 		}>;
 		timingPatterns: {
@@ -2061,6 +2062,7 @@ class InsightsService {
 		averageAmount: number;
 		frequency: number;
 		trend: 'increasing' | 'decreasing' | 'stable';
+		trendSuppressed: boolean;
 		percentageOfTotal: number;
 	}> {
 		const categoryData = new Map<
@@ -2092,6 +2094,7 @@ class InsightsService {
 			averageAmount: number;
 			frequency: number;
 			trend: 'increasing' | 'decreasing' | 'stable';
+			trendSuppressed: boolean;
 			percentageOfTotal: number;
 		}> = [];
 
@@ -2140,12 +2143,15 @@ class InsightsService {
 				trend = 'decreasing';
 			}
 
+			const trendSuppressed = chronologicAmounts.length < 8 || firstHalfAvg <= 0;
+
 			patterns.push({
 				categoryId,
 				categoryName: category.name,
 				averageAmount: Math.round(averageAmount * 100) / 100,
 				frequency: data.amounts.length,
 				trend,
+				trendSuppressed,
 				percentageOfTotal:
 					totalSpending > 0 ? Math.round((data.total / totalSpending) * 10000) / 100 : 0
 			});

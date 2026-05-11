@@ -10,6 +10,7 @@
 		onDismiss?: (insightId: string) => void;
 		onAction?: (insightId: string) => void;
 		className?: string;
+		descriptionClass?: string;
 	}
 
 	const {
@@ -19,7 +20,8 @@
 		onViewAll,
 		onDismiss,
 		onAction,
-		className = ''
+		className = '',
+		descriptionClass
 	}: Props = $props();
 
 	// Sort insights by priority (severity) and then by date
@@ -80,7 +82,7 @@
 	{:else}
 		<div class="space-y-3">
 			{#each displayedInsights() as insight (insight.id)}
-				<InsightCard {insight} {onDismiss} {onAction} />
+				<InsightCard {insight} {onDismiss} {onAction} {descriptionClass} />
 			{/each}
 		</div>
 

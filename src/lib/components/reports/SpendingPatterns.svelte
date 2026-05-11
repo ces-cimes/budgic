@@ -115,7 +115,7 @@
 					</h3>
 					<div class="space-y-3">
 						{#each spendingPatterns.categoryPatterns.slice(0, 5) as category (category.categoryId)}
-							{@const TrendIcon = getTrendIcon(category.trend)}
+							{@const TrendIcon = category.trendSuppressed ? null : getTrendIcon(category.trend)}
 							<div class="bg-card border-border rounded-lg border p-4">
 								<div class="mb-2 flex items-center justify-between">
 									<div class="flex-1">
@@ -126,10 +126,14 @@
 										</p>
 									</div>
 									<div class="flex items-center gap-2">
-										<TrendIcon class="h-4 w-4 {getTrendColor(category.trend)}" />
-										<span class="text-sm font-medium {getTrendColor(category.trend)}">
-											{category.trend}
-										</span>
+										{#if category.trendSuppressed}
+											<span class="text-muted-foreground text-xs">—</span>
+										{:else if TrendIcon}
+											<TrendIcon class="h-4 w-4 {getTrendColor(category.trend)}" />
+											<span class="text-sm font-medium {getTrendColor(category.trend)}">
+												{category.trend}
+											</span>
+										{/if}
 									</div>
 								</div>
 								<div class="text-muted-foreground flex items-center justify-between text-xs">

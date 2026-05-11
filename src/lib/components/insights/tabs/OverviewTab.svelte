@@ -213,6 +213,7 @@
 						maxItems={3}
 						showViewAll={insightsByCategory().celebrations.length > 3}
 						onViewAll={() => handleViewAll('celebrations')}
+						descriptionClass="text-muted-foreground mt-1 text-xs leading-relaxed"
 						{onDismiss}
 						{onAction}
 					/>

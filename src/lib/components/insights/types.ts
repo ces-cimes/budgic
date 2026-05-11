@@ -187,6 +187,8 @@ export interface InsightCardProps {
 	onDismiss?: (insightId: string) => void;
 	onAction?: (insightId: string) => void;
 	className?: string;
+	/** Tailwind classes for the description paragraph (default: muted + text-sm). */
+	descriptionClass?: string;
 }
 
 export interface InsightListProps {
@@ -197,6 +199,8 @@ export interface InsightListProps {
 	onDismiss?: (insightId: string) => void;
 	onAction?: (insightId: string) => void;
 	className?: string;
+	/** Passed through to each `InsightCard` description. */
+	descriptionClass?: string;
 }
 
 export interface InsightFiltersProps {

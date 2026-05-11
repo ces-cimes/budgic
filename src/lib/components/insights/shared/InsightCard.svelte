@@ -10,6 +10,7 @@
 		onDismiss?: (insightId: string) => void;
 		onAction?: (insightId: string) => void;
 		className?: string;
+		descriptionClass?: string;
 	}
 
 	const {
@@ -18,7 +19,8 @@
 		showActions = true,
 		onDismiss,
 		onAction,
-		className = ''
+		className = '',
+		descriptionClass = 'text-muted-foreground mt-1 text-sm leading-relaxed'
 	}: Props = $props();
 
 	// Severity styling
@@ -100,7 +102,7 @@
 					<h3 class="font-semibold {config.textColor} text-sm leading-tight">
 						{insight.title}
 					</h3>
-					<p class="text-muted-foreground mt-1 text-sm leading-relaxed">
+					<p class={descriptionClass}>
 						{insight.description}
 					</p>
 				</div>

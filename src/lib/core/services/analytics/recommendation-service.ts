@@ -412,7 +412,11 @@ class RecommendationService {
 		// Top spending categories
 		const topCategories = context.spendingPatterns.categoryPatterns.slice(0, 3);
 		topCategories.forEach((cat) => {
-			if (cat.trend === 'increasing' && cat.percentageOfTotal > 20) {
+			if (
+				!cat.trendSuppressed &&
+				cat.trend === 'increasing' &&
+				cat.percentageOfTotal > 20
+			) {
 				recommendations.push({
 					id: `category-increasing-${cat.categoryId}`,
 					type: 'category',

@@ -60,7 +60,7 @@
 	</div>
 	<div class="min-w-0 flex-1">
 		<h4 class="font-medium {getSeverityTextColor(insight.severity)}">{insight.title}</h4>
-		<p class="text-muted-foreground text-sm">{insight.message}</p>
+		<p class="text-muted-foreground text-xs">{insight.message}</p>
 		{#if showTimestamp}
 			<p class="text-muted-foreground mt-1 text-xs">
 				{formatTimestamp(insight.timestamp)}

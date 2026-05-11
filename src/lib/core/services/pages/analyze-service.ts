@@ -213,28 +213,31 @@ export class AnalyzeService {
 		const categoryData: CategoryData[] = Array.from(categoryMap.entries()).map(
 			([categoryId, data]) => {
 				const percentage = totalSpending > 0 ? (data.amount / totalSpending) * 100 : 0;
+				const readableName = categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-				// Calculate real trend percentage change
-				let trendValue = 0;
-				let isPositive = true;
+				const trendReliable =
+					data.previousPeriod > 0 && data.currentPeriod > 0 && data.count >= 3;
 
-				if (data.previousPeriod > 0) {
-					trendValue = ((data.currentPeriod - data.previousPeriod) / data.previousPeriod) * 100;
-					isPositive = trendValue >= 0;
-				} else if (data.currentPeriod > 0) {
-					// New category, mark as increase
-					trendValue = 100;
-					isPositive = true;
+				const base: CategoryData = {
+					name: readableName,
+					amount: data.amount,
+					percentage: Math.round(percentage * 10) / 10,
+					color: this.getCategoryColor(categoryId)
+				};
+
+				if (!trendReliable) {
+					return base;
 				}
 
+				const trendValue =
+					((data.currentPeriod - data.previousPeriod) / data.previousPeriod) * 100;
+				const isPositive = trendValue >= 0;
+
 				return {
-					name: categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()), // Convert ID to readable name
-					amount: data.amount,
-					percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal
-					color: this.getCategoryColor(categoryId),
+					...base,
 					trend: {
-						label: categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
-						value: Math.round(trendValue * 10) / 10, // Real trend calculation
+						label: readableName,
+						value: Math.round(trendValue * 10) / 10,
 						isPositive
 					}
 				};

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { CategoriesTabProps } from '../types.js';
 	import * as Card from '$lib/components/ui/card/index.ts';
-	import { PieChart, TrendingUp } from '@lucide/svelte';
+	import { PieChart, TrendingUp, Minus } from '@lucide/svelte';
 	import { formatMainCurrencyAmount, formatPercentage } from '$lib/utils/currency-utils';
 
 	interface Props extends CategoriesTabProps {
@@ -48,19 +48,25 @@
 	<Card.Root class="p-6">
 		<h3 class="text-primary mb-4 text-lg font-semibold">Category Trends</h3>
 		<div class="space-y-4">
-			{#each categoryData.filter((c) => c.trend) as category (category.name)}
+			{#each categoryData as category (category.name)}
 				<div class="bg-muted/50 flex items-center justify-between rounded-lg p-3">
 					<div class="flex items-center gap-3">
-						<TrendingUp
-							class="h-4 w-4 {category.trend?.isPositive ? 'text-green-500' : 'text-red-500'}"
-						/>
+						{#if category.trend}
+							<TrendingUp
+								class="h-4 w-4 {category.trend.isPositive ? 'text-green-500' : 'text-red-500'}"
+							/>
+						{:else}
+							<Minus class="text-muted-foreground h-4 w-4" aria-hidden="true" />
+						{/if}
 						<span class="text-primary text-sm font-medium">{category.name}</span>
 					</div>
-					<div class="text-sm {category.trend?.isPositive ? 'text-green-500' : 'text-red-500'}">
-						{category.trend?.isPositive ? '+' : ''}{category.trend
-							? (category.trend.isPositive ? '+' : '') + formatPercentage(category.trend.value)
-							: ''}
-					</div>
+					{#if category.trend}
+						<div class="text-sm {category.trend.isPositive ? 'text-green-500' : 'text-red-500'}">
+							{category.trend.isPositive ? '+' : ''}{formatPercentage(category.trend.value)}
+						</div>
+					{:else}
+						<div class="text-muted-foreground text-xs">—</div>
+					{/if}
 				</div>
 			{/each}
 		</div>

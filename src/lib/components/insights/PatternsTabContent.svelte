@@ -95,6 +95,8 @@
 		needsReview: boolean;
 		type: 'expense' | 'income' | 'transfer' | undefined;
 		waterfallTier: NonNullable<import('$lib/core/db').Category['waterfallTier']> | undefined;
+		/** 0–100 from recurring intelligence `confidence` */
+		confidence: number;
 	};
 	let recurringList = $state<RecurringRow[]>([]);
 
@@ -241,6 +243,26 @@
 		return relVar > 40 || p.categoryConfidence < 45 || !p.learnedCategoryId;
 	}
 
+	function baseConfidenceDots(confidence: number): 1 | 2 | 3 {
+		if (confidence < 50) return 1;
+		if (confidence < 80) return 2;
+		return 3;
+	}
+
+	function recurringConfidenceDotCount(item: RecurringRow): number {
+		if (item.waterfallTier === undefined) return 0;
+		const base = baseConfidenceDots(item.confidence);
+		if (item.waterfallTier === 'unclassified') return Math.min(1, base);
+		return base;
+	}
+
+	function recurringConfidenceAria(dotCount: number): string {
+		if (dotCount <= 0) return 'Recurring pattern: tier not assigned — confidence not shown';
+		if (dotCount === 1) return 'Pattern confidence: low';
+		if (dotCount === 2) return 'Pattern confidence: medium';
+		return 'Pattern confidence: high';
+	}
+
 	async function buildRecurringRows(
 		patterns: RecurringPattern[],
 		currency: string,
@@ -275,7 +297,8 @@
 				type: txType,
 				waterfallTier: p.learnedCategoryId
 					? (await db.categories.get(p.learnedCategoryId))?.waterfallTier
-					: undefined
+					: undefined,
+				confidence: typeof p.confidence === 'number' ? p.confidence : 0
 			});
 		}
 		// Sort: no tier first (needs action), then explicitly unclassified, then assigned — all by impact within group
@@ -790,6 +813,7 @@
 					<ul class="space-y-2">
 						{#each recurringList as item}
 							{@const isUnassigned = item.waterfallTier === undefined}
+							{@const dotN = recurringConfidenceDotCount(item)}
 							<li class="bg-card rounded-xl border-2 {isUnassigned ? 'border-amber-400/40 dark:border-amber-500/30' : 'border-border'}">
 								<button
 									type="button"
@@ -840,6 +864,14 @@
 												: 'text-[var(--color-expense)]'}">
 											{item.type === 'income' ? '+' : item.type === 'expense' ? '−' : ''}{item.amount}
 										</span>
+										{#if dotN > 0}
+											<span
+												class="text-muted-foreground shrink-0 tracking-tight text-[10px] select-none"
+												aria-label={recurringConfidenceAria(dotN)}
+											>
+												{'●'.repeat(dotN)}
+											</span>
+										{/if}
 										<ChevronRight class="text-muted-foreground h-4 w-4" />
 									</div>
 								</button>
