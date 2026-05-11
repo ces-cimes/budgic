@@ -9,6 +9,14 @@ export {
 	ESSENTIAL_DETECTION_CONFIG,
 	resolveSimilarityProfile
 } from './transaction-similarity-engine';
+export { expandEssentialCandidatesWithSimilarity } from './essential-candidate-similarity';
+export type { EssentialCandidateSerialized } from './essential-candidate-similarity';
+export { buildUnclassifiedPatternHints } from './import-pattern-hints';
+export type { ImportPatternHint } from './import-pattern-hints';
+export {
+	mergeDailyMicroInterestTransactions,
+	recalculateBalancesForAccounts
+} from './interest-daily-merge';
 export type {
 	SimilarityDimension,
 	SimilarityConfig,

@@ -77,10 +77,12 @@ class AutomationDetector {
 				const toAccountId = transfer.transferDetails?.toAccountId;
 				if (!toAccountId) return false;
 				const destination = accountById.get(toAccountId);
-				if (!destination || destination.type !== 'savings') return false;
+				if (!destination || (destination.type !== 'savings' && destination.type !== 'investment'))
+					return false;
 				const transferTs = Date.parse(transfer.clearedDate!);
 				if (Number.isNaN(transferTs)) return false;
-				if (Math.abs(transferTs - expenseTs) > 60_000) return false;
+				// Allow small clock / ordering skew between purchase and round-up transfer (up to 5 minutes).
+				if (Math.abs(transferTs - expenseTs) > 300_000) return false;
 				const transferAmount = Math.abs(
 					transfer.transferDetails?.transferAmount ?? transfer.amount ?? 0
 				);

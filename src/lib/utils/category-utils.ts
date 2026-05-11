@@ -33,7 +33,10 @@ export function signedSumAnalyticsTierAmounts(
 }
 
 /** Absolute spend magnitude attributed to analytics tiers (for expense analytics totals). */
-export function absAnalyticsTierPortion(tx: Transaction, categories: Map<string, Category>): number {
+export function absAnalyticsTierPortion(
+	tx: Transaction,
+	categories: Map<string, Category>
+): number {
 	return Math.abs(signedSumAnalyticsTierAmounts(tx, categories));
 }
 
@@ -62,7 +65,10 @@ export function effectiveAmountForCategory(tx: Transaction, categoryId: string):
 /**
  * Phase 9 — per-waterfall-tier signed amounts for one transaction.
  */
-export function tierAmounts(tx: Transaction, categories: Map<string, Category>): Record<string, number> {
+export function tierAmounts(
+	tx: Transaction,
+	categories: Map<string, Category>
+): Record<string, number> {
 	const result: Record<string, number> = {};
 	const base = tx.amount ?? 0;
 	const addToTier = (tier: string, amount: number) => {
@@ -178,4 +184,36 @@ export async function getOrCreateUncategorizedIncomeCategory(): Promise<Category
 export function isUncategorizedIncomeCategory(category: Category | null | undefined): boolean {
 	if (!category) return false;
 	return category.name.toLowerCase() === 'uncategorized' && category.type === 'income';
+}
+
+const GIFT_CATEGORY_NAME = 'Gifts';
+
+/** Expense category for gift / no-reimbursement tagging from import flows. */
+export async function getOrCreateGiftsCategory(): Promise<Category> {
+	const existing = await db.categories
+		.filter(
+			(cat) =>
+				cat.name.toLowerCase() === GIFT_CATEGORY_NAME.toLowerCase() &&
+				cat.type === 'expense' &&
+				!cat.deletedAt
+		)
+		.first();
+	if (existing) return existing;
+
+	const gifts: Category = {
+		id: generateUUID(),
+		name: GIFT_CATEGORY_NAME,
+		type: 'expense',
+		waterfallTier: 'lifestyle',
+		priority: 50,
+		budgetAmount: undefined,
+		color: '#C084FC',
+		description: 'Gifts and non-reimbursable personal transfers',
+		isActive: true,
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+		deletedAt: null
+	};
+	await db.categories.add(gifts);
+	return gifts;
 }

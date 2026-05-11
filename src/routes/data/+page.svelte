@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import {
-		userService,
-		budgetService,
-		transactionService,
-		accountService
-	} from '$lib/core/services';
+	import { userService, transactionService, accountService } from '$lib/core/services';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import * as Select from '$lib/components/ui/select/index.ts';
@@ -23,7 +18,16 @@
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
 	import { formatPercentage } from '$lib/utils/currency-utils';
-	import { getOrCreateUncategorizedCategory } from '$lib/utils/category-utils';
+	import {
+		getOrCreateUncategorizedCategory,
+		getOrCreateGiftsCategory
+	} from '$lib/utils/category-utils';
+	import {
+		computeBatchExpenseSpendBreakdown,
+		countUnclassifiedExpenseTransactions,
+		shouldOpenImportWizard,
+		classifiedExpenseShare
+	} from '$lib/utils/import-wizard-batch-metrics';
 	import type { Transaction, Account, DataCorrection } from '$lib/core/db';
 	import { devLog } from '$lib/utils/dev-log';
 	import { page } from '$app/stores';
@@ -109,9 +113,14 @@
 	let mmResult = $state<ImportResult | null>(null);
 	let showMMImport = $state(false);
 	let importWizardOpen = $state(false);
-	let wizardBeforeRatio = $state(0);
+	let wizardBeforeClassifiedExpenseShare = $state(0);
+	let wizardExpenseTxIds = $state<string[]>([]);
+	let wizardExpenseAbsByTxId = $state<Record<string, number>>({});
 	let wizardCategoryTierByTxId = $state<Record<string, string | undefined>>({});
 	let wizardPersonAccountCandidates = $state<string[]>([]);
+	let wizardPersonAccountPanels = $state<
+		Array<{ accountId: string; name: string; txs: Transaction[] }>
+	>([]);
 
 	// Export format options
 	const exportFormatOptions = [
@@ -291,9 +300,6 @@
 		mmProgress = null;
 
 		try {
-			const beforeSummary = await budgetService.getBudgetSummary();
-			wizardBeforeRatio = beforeSummary.confidence?.ratio ?? 0;
-
 			// Read CSV files
 			const csvFiles = await readMultipleCSVFiles(mmFiles);
 
@@ -332,7 +338,7 @@
 
 	async function prepareImportWizardState(result: ImportResult): Promise<void> {
 		const batch = result.importBatch;
-		if (!batch || batch.unclassifiedTransactionIds.length < 10) {
+		if (!batch?.transactionIds?.length) {
 			importWizardOpen = false;
 			return;
 		}
@@ -341,7 +347,19 @@
 		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
 		const txs = (
 			await Promise.all(batch.transactionIds.map((id) => db.transactions.get(id)))
-		).filter((tx): tx is Transaction => !!tx);
+		).filter((tx): tx is Transaction => !!tx && !tx.deletedAt);
+
+		const breakdown = computeBatchExpenseSpendBreakdown(txs, categoryTierById);
+		const ucCount = countUnclassifiedExpenseTransactions(txs, categoryTierById);
+		if (!shouldOpenImportWizard(breakdown, ucCount)) {
+			importWizardOpen = false;
+			return;
+		}
+
+		wizardExpenseTxIds = batch.wizardExpenseTransactionIds ?? [];
+		wizardExpenseAbsByTxId = batch.wizardExpenseAbsByTransactionId ?? {};
+		wizardBeforeClassifiedExpenseShare = classifiedExpenseShare(breakdown);
+
 		wizardCategoryTierByTxId = Object.fromEntries(
 			txs.map((tx) => [
 				tx.id,
@@ -350,7 +368,84 @@
 		);
 
 		wizardPersonAccountCandidates = await detectPersonAccountCandidates(batch.accountIdsAffected);
+		wizardPersonAccountPanels = await loadPersonAccountTransactionPanels(
+			batch.accountIdsAffected,
+			wizardPersonAccountCandidates
+		);
 		importWizardOpen = true;
+	}
+
+	async function loadPersonAccountTransactionPanels(
+		accountIdsAffected: string[],
+		personNames: string[]
+	): Promise<Array<{ accountId: string; name: string; txs: Transaction[] }>> {
+		if (!personNames.length) return [];
+		const accounts = (
+			await Promise.all(accountIdsAffected.map((id) => accountService.getAccount(id)))
+		).filter((a): a is Account => !!a && personNames.includes(a.name));
+		const out: Array<{ accountId: string; name: string; txs: Transaction[] }> = [];
+		for (const account of accounts) {
+			const txs = await transactionService.getTransactionsByAccount(account.id);
+			const sorted = txs
+				.filter((tx) => !tx.deletedAt)
+				.sort(
+					(a, b) =>
+						Date.parse(b.clearedDate || b.plannedDate || b.createdAt) -
+						Date.parse(a.clearedDate || a.plannedDate || a.createdAt)
+				)
+				.slice(0, 20);
+			out.push({ accountId: account.id, name: account.name, txs: sorted });
+		}
+		return out;
+	}
+
+	async function refreshWizardTierForTx(txId: string): Promise<void> {
+		const tx = await db.transactions.get(txId);
+		if (!tx) return;
+		const categories = await db.getActiveCategories();
+		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
+		const tier = tx.categoryId ? categoryTierById[tx.categoryId] : undefined;
+		wizardCategoryTierByTxId = {
+			...wizardCategoryTierByTxId,
+			[txId]: tier as string | undefined
+		};
+	}
+
+	async function tagPersonTxAsGift(txId: string): Promise<void> {
+		const gifts = await getOrCreateGiftsCategory();
+		await transactionService.updateTransaction(
+			txId,
+			{ categoryId: gifts.id },
+			{ dataCorrectionSource: 'user' }
+		);
+		await refreshWizardTierForTx(txId);
+		void navigationStore.updateBadges();
+	}
+
+	async function tagPersonTxAsReimbursement(txId: string, personName: string): Promise<void> {
+		const tx = await db.transactions.get(txId);
+		if (!tx?.currency) return;
+		const amount = Math.abs(tx.amount || 0);
+		if (amount <= 0) return;
+		const now = new Date().toISOString();
+		const next = [...(tx.reimbursements ?? [])];
+		next.push({
+			id: crypto.randomUUID(),
+			direction: 'lending',
+			amount,
+			currency: tx.currency,
+			person: personName,
+			status: 'expecting',
+			createdAt: now,
+			updatedAt: now
+		});
+		await transactionService.updateTransaction(
+			txId,
+			{ reimbursements: next },
+			{ dataCorrectionSource: 'user' }
+		);
+		await refreshWizardTierForTx(txId);
+		void navigationStore.updateBadges();
 	}
 
 	async function detectPersonAccountCandidates(accountIds: string[]): Promise<string[]> {
@@ -393,12 +488,23 @@
 		}
 		const categories = await db.getActiveCategories();
 		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
-		for (const id of transactionIds) {
-			const tx = await db.transactions.get(id);
-			wizardCategoryTierByTxId[id] = tx?.categoryId
-				? (categoryTierById[tx.categoryId] as string | undefined)
-				: undefined;
+		const batchIds = mmResult?.importBatch?.transactionIds;
+		const nextTiers = { ...wizardCategoryTierByTxId };
+		if (batchIds?.length) {
+			for (const bid of batchIds) {
+				const tx = await db.transactions.get(bid);
+				if (!tx?.categoryId || !categoryIds.has(tx.categoryId)) continue;
+				nextTiers[bid] = categoryTierById[tx.categoryId] as string | undefined;
+			}
+		} else {
+			for (const id of transactionIds) {
+				const tx = await db.transactions.get(id);
+				nextTiers[id] = tx?.categoryId
+					? (categoryTierById[tx.categoryId] as string | undefined)
+					: undefined;
+			}
 		}
+		wizardCategoryTierByTxId = nextTiers;
 		await userService.trackUserAction({
 			action: 'create_import_classification_rule',
 			details: JSON.stringify({ transactionIds, tier })
@@ -505,7 +611,8 @@
 				{#each [{ id: 'import', label: 'Import' }, { id: 'export', label: 'Export' }, { id: 'review', label: 'Review queue' }, { id: 'reconcile', label: 'Reconcile' }, { id: 'corrections', label: 'Corrections log' }] as tab}
 					<a
 						href="/data?tab={tab.id}"
-						class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors {dataTab === tab.id
+						class="rounded-full px-3 py-1.5 text-xs font-medium transition-colors {dataTab ===
+						tab.id
 							? 'bg-[var(--color-amber)] text-[var(--color-bg-primary)]'
 							: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'}"
 					>
@@ -529,8 +636,9 @@
 					</div>
 					<div class="space-y-3 px-5 py-4">
 						<div class="space-y-1.5">
-							<label for="export-format" class="text-sm font-medium text-[var(--color-text-primary)]"
-								>Format</label
+							<label
+								for="export-format"
+								class="text-sm font-medium text-[var(--color-text-primary)]">Format</label
 							>
 							<select
 								id="export-format"
@@ -553,303 +661,311 @@
 				</div>
 			{:else if dataTab === 'import'}
 				<!-- Import Budgic backup -->
-			<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
-				<div class="border-border border-b px-5 py-3">
-					<h2
-						class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-					>
-						Import from Budgic backup
-					</h2>
-				</div>
-				<div class="space-y-2 px-5 py-4">
-					<button
-						onclick={importData}
-						disabled={isImporting || isImportingMM}
-						class="border-border rounded-xl border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
-					>
-						Select JSON file
-					</button>
-					<p class="text-xs text-[var(--color-text-tertiary)]">
-						Restore from a previous Budgic JSON export
-					</p>
-				</div>
-			</div>
-
-			<!-- Import Money Manager -->
-			<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
-				<div class="border-border flex items-center justify-between border-b px-5 py-3">
-					<div>
+				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 						>
-							Import from Money Manager
+							Import from Budgic backup
 						</h2>
-						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-							ASSETS.csv, ZCATEGORY.csv, INOUTCOME.csv, CURRENCY.csv…
+					</div>
+					<div class="space-y-2 px-5 py-4">
+						<button
+							onclick={importData}
+							disabled={isImporting || isImportingMM}
+							class="border-border rounded-xl border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+						>
+							Select JSON file
+						</button>
+						<p class="text-xs text-[var(--color-text-tertiary)]">
+							Restore from a previous Budgic JSON export
 						</p>
 					</div>
-					<button
-						type="button"
-						onclick={() => (showMMImport = !showMMImport)}
-						class="text-xs font-medium text-[var(--color-amber)]"
-					>
-						{showMMImport ? 'Hide' : 'Options'}
-					</button>
 				</div>
-				<div class="space-y-4 px-5 py-4">
-					<button
-						onclick={pickMMFiles}
-						disabled={isImporting || isImportingMM}
-						class="border-border rounded-xl border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
-					>
-						Select CSV files
-					</button>
 
-					{#if mmFiles.length > 0}
-						<div class="space-y-1 rounded-xl bg-[var(--color-bg-surface)] p-3">
-							<p class="text-xs font-medium text-[var(--color-text-secondary)]">
-								{mmFiles.length} file{mmFiles.length > 1 ? 's' : ''} selected
-							</p>
-							{#each mmFiles as file}
-								<p class="text-xs text-[var(--color-text-tertiary)]">• {file.name}</p>
-							{/each}
-						</div>
-					{/if}
-
-					{#if mmSchema}
-						<div
-							class="rounded-xl p-3 {mmSchema.isValid
-								? 'border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8'
-								: 'border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)]'}"
-						>
-							{#if mmSchema.isValid}
-								<p class="text-xs text-[var(--color-sage-green)]">
-									All required tables found ({mmSchema.tables.length})
-								</p>
-							{:else}
-								<p class="text-xs text-[var(--color-amber)]">
-									Missing: {mmSchema.missingTables.join(', ')}
-								</p>
-							{/if}
-						</div>
-					{/if}
-
-					{#if showMMImport}
-						<div class="border-border space-y-4 rounded-xl border bg-[var(--color-bg-surface)] p-4">
-							<p
-								class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				<!-- Import Money Manager -->
+				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+					<div class="border-border flex items-center justify-between border-b px-5 py-3">
+						<div>
+							<h2
+								class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 							>
-								Import options
+								Import from Money Manager
+							</h2>
+							<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+								ASSETS.csv, ZCATEGORY.csv, INOUTCOME.csv, CURRENCY.csv…
 							</p>
-							<div class="space-y-2">
-								{#each [{ key: 'importAccounts', label: 'Accounts' }, { key: 'importCategories', label: 'Categories' }, { key: 'importTransactions', label: 'Transactions' }, { key: 'importCurrencies', label: 'Currencies' }, { key: 'importBudgets', label: 'Budgets (optional)' }] as opt}
-									<label class="flex cursor-pointer items-center gap-2.5">
-										<Checkbox
-											bind:checked={
-												mmImportOptions[opt.key as keyof typeof mmImportOptions] as boolean
-											}
-										/>
-										<span class="text-sm text-[var(--color-text-primary)]">Import {opt.label}</span>
-									</label>
+						</div>
+						<button
+							type="button"
+							onclick={() => (showMMImport = !showMMImport)}
+							class="text-xs font-medium text-[var(--color-amber)]"
+						>
+							{showMMImport ? 'Hide' : 'Options'}
+						</button>
+					</div>
+					<div class="space-y-4 px-5 py-4">
+						<button
+							onclick={pickMMFiles}
+							disabled={isImporting || isImportingMM}
+							class="border-border rounded-xl border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+						>
+							Select CSV files
+						</button>
+
+						{#if mmFiles.length > 0}
+							<div class="space-y-1 rounded-xl bg-[var(--color-bg-surface)] p-3">
+								<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+									{mmFiles.length} file{mmFiles.length > 1 ? 's' : ''} selected
+								</p>
+								{#each mmFiles as file}
+									<p class="text-xs text-[var(--color-text-tertiary)]">• {file.name}</p>
 								{/each}
 							</div>
-							<div class="space-y-1.5">
-								<p class="text-xs font-medium text-[var(--color-text-secondary)]">
-									Conflict resolution
-								</p>
-								<Select.Root type="single" bind:value={mmImportOptions.conflictResolution}>
-									<Select.Trigger class="w-full max-w-xs">
-										{mmImportOptions.conflictResolution === 'skip'
-											? 'Skip duplicates'
-											: mmImportOptions.conflictResolution === 'rename'
-												? 'Rename with suffix'
-												: mmImportOptions.conflictResolution === 'merge'
-													? 'Merge data'
-													: 'Replace existing'}
-									</Select.Trigger>
-									<Select.Content>
-										<Select.Item value="skip">Skip duplicates</Select.Item>
-										<Select.Item value="rename">Rename with suffix</Select.Item>
-										<Select.Item value="merge">Merge data</Select.Item>
-										<Select.Item value="replace">Replace existing</Select.Item>
-									</Select.Content>
-								</Select.Root>
-							</div>
-							{#if mmImportOptions.importTransactions}
-								<div class="grid grid-cols-2 gap-3">
-									<div class="space-y-1.5">
-										<label
-											for="mm-date-start"
-											class="text-xs font-medium text-[var(--color-text-secondary)]"
-											>Date start</label
-										>
-										<input
-											id="mm-date-start"
-											type="date"
-											bind:value={mmImportOptions.transactionDateStart}
-											class="border-border w-full rounded-xl border bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
-										/>
-									</div>
-									<div class="space-y-1.5">
-										<label
-											for="mm-date-end"
-											class="text-xs font-medium text-[var(--color-text-secondary)]">Date end</label
-										>
-										<input
-											id="mm-date-end"
-											type="date"
-											bind:value={mmImportOptions.transactionDateEnd}
-											class="border-border w-full rounded-xl border bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
-										/>
-									</div>
-								</div>
-							{/if}
-						</div>
-					{/if}
+						{/if}
 
-					{#if mmProgress}
-						<div class="space-y-2 rounded-xl bg-[var(--color-bg-surface)] p-4">
-							<div class="flex items-center justify-between">
-								<p class="text-xs font-medium text-[var(--color-text-primary)]">
-									{mmProgress.step}
-								</p>
-								<p class="text-xs text-[var(--color-text-tertiary)]">
-									{formatPercentage(mmProgress.percentage, { maxDecimals: 0 })}
-								</p>
-							</div>
-							<div class="budget-progress">
-								<div class="budget-progress-fill" style="width: {mmProgress.percentage}%"></div>
-							</div>
-							<p class="text-xs text-[var(--color-text-tertiary)]">
-								{mmProgress.itemsProcessed} / {mmProgress.totalItems}
-							</p>
-						</div>
-					{/if}
-
-					{#if mmResult}
-						<div
-							class="rounded-xl border {mmResult.success
-								? 'border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8'
-								: 'border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8'} space-y-3 p-4"
-						>
-							<p
-								class="text-sm font-medium {mmResult.success
-									? 'text-[var(--color-sage-green)]'
-									: 'text-[var(--color-warm-coral)]'}"
+						{#if mmSchema}
+							<div
+								class="rounded-xl p-3 {mmSchema.isValid
+									? 'border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8'
+									: 'border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)]'}"
 							>
-								{mmResult.success ? 'Import complete' : 'Import completed with errors'}
-							</p>
-							<div class="grid grid-cols-2 gap-3 text-xs">
-								<div>
-									<p class="mb-1 font-medium text-[var(--color-text-secondary)]">Imported</p>
-									<p class="text-[var(--color-text-tertiary)]">
-										Accounts: {mmResult.statistics.accountsImported}
+								{#if mmSchema.isValid}
+									<p class="text-xs text-[var(--color-sage-green)]">
+										All required tables found ({mmSchema.tables.length})
 									</p>
-									<p class="text-[var(--color-text-tertiary)]">
-										Categories: {mmResult.statistics.categoriesImported}
+								{:else}
+									<p class="text-xs text-[var(--color-amber)]">
+										Missing: {mmSchema.missingTables.join(', ')}
 									</p>
-									<p class="text-[var(--color-text-tertiary)]">
-										Transactions: {mmResult.statistics.transactionsImported}
-									</p>
-								</div>
-								<div>
-									<p class="mb-1 font-medium text-[var(--color-text-secondary)]">Skipped</p>
-									<p class="text-[var(--color-text-tertiary)]">
-										Accounts: {mmResult.statistics.accountsSkipped}
-									</p>
-									<p class="text-[var(--color-text-tertiary)]">
-										Categories: {mmResult.statistics.categoriesSkipped}
-									</p>
-									<p class="text-[var(--color-text-tertiary)]">
-										Transactions: {mmResult.statistics.transactionsSkipped}
-									</p>
-								</div>
+								{/if}
 							</div>
-							{#if mmResult.errors.length > 0}
-								<div class="max-h-32 space-y-1 overflow-y-auto">
-									{#each mmResult.errors.slice(0, 8) as err}
-										<p class="text-xs text-[var(--color-warm-coral)]">
-											{err.entityType || 'Unknown'}: {err.message}
-										</p>
+						{/if}
+
+						{#if showMMImport}
+							<div
+								class="border-border space-y-4 rounded-xl border bg-[var(--color-bg-surface)] p-4"
+							>
+								<p
+									class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Import options
+								</p>
+								<div class="space-y-2">
+									{#each [{ key: 'importAccounts', label: 'Accounts' }, { key: 'importCategories', label: 'Categories' }, { key: 'importTransactions', label: 'Transactions' }, { key: 'importCurrencies', label: 'Currencies' }, { key: 'importBudgets', label: 'Budgets (optional)' }] as opt}
+										<label class="flex cursor-pointer items-center gap-2.5">
+											<Checkbox
+												bind:checked={
+													mmImportOptions[opt.key as keyof typeof mmImportOptions] as boolean
+												}
+											/>
+											<span class="text-sm text-[var(--color-text-primary)]"
+												>Import {opt.label}</span
+											>
+										</label>
 									{/each}
-									{#if mmResult.errors.length > 8}
-										<p class="text-xs text-[var(--color-text-tertiary)]">
-											…and {mmResult.errors.length - 8} more
-										</p>
-									{/if}
 								</div>
-							{/if}
-							<p class="text-xs text-[var(--color-text-tertiary)]">
-								Completed in {(mmResult.duration / 1000).toFixed(2)}s
-							</p>
-						</div>
-					{/if}
+								<div class="space-y-1.5">
+									<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+										Conflict resolution
+									</p>
+									<Select.Root type="single" bind:value={mmImportOptions.conflictResolution}>
+										<Select.Trigger class="w-full max-w-xs">
+											{mmImportOptions.conflictResolution === 'skip'
+												? 'Skip duplicates'
+												: mmImportOptions.conflictResolution === 'rename'
+													? 'Rename with suffix'
+													: mmImportOptions.conflictResolution === 'merge'
+														? 'Merge data'
+														: 'Replace existing'}
+										</Select.Trigger>
+										<Select.Content>
+											<Select.Item value="skip">Skip duplicates</Select.Item>
+											<Select.Item value="rename">Rename with suffix</Select.Item>
+											<Select.Item value="merge">Merge data</Select.Item>
+											<Select.Item value="replace">Replace existing</Select.Item>
+										</Select.Content>
+									</Select.Root>
+								</div>
+								{#if mmImportOptions.importTransactions}
+									<div class="grid grid-cols-2 gap-3">
+										<div class="space-y-1.5">
+											<label
+												for="mm-date-start"
+												class="text-xs font-medium text-[var(--color-text-secondary)]"
+												>Date start</label
+											>
+											<input
+												id="mm-date-start"
+												type="date"
+												bind:value={mmImportOptions.transactionDateStart}
+												class="border-border w-full rounded-xl border bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+											/>
+										</div>
+										<div class="space-y-1.5">
+											<label
+												for="mm-date-end"
+												class="text-xs font-medium text-[var(--color-text-secondary)]"
+												>Date end</label
+											>
+											<input
+												id="mm-date-end"
+												type="date"
+												bind:value={mmImportOptions.transactionDateEnd}
+												class="border-border w-full rounded-xl border bg-[var(--color-bg-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+											/>
+										</div>
+									</div>
+								{/if}
+							</div>
+						{/if}
 
-					{#if mmResult?.success && mmResult.importBatch?.qualitySummary}
-						{@const qs = mmResult.importBatch.qualitySummary}
-						<div
-							class="space-y-3 rounded-xl border border-[var(--color-amber)]/25 bg-[var(--color-amber-subtle)] p-4"
+						{#if mmProgress}
+							<div class="space-y-2 rounded-xl bg-[var(--color-bg-surface)] p-4">
+								<div class="flex items-center justify-between">
+									<p class="text-xs font-medium text-[var(--color-text-primary)]">
+										{mmProgress.step}
+									</p>
+									<p class="text-xs text-[var(--color-text-tertiary)]">
+										{formatPercentage(mmProgress.percentage, { maxDecimals: 0 })}
+									</p>
+								</div>
+								<div class="budget-progress">
+									<div class="budget-progress-fill" style="width: {mmProgress.percentage}%"></div>
+								</div>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									{mmProgress.itemsProcessed} / {mmProgress.totalItems}
+								</p>
+							</div>
+						{/if}
+
+						{#if mmResult}
+							<div
+								class="rounded-xl border {mmResult.success
+									? 'border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8'
+									: 'border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8'} space-y-3 p-4"
+							>
+								<p
+									class="text-sm font-medium {mmResult.success
+										? 'text-[var(--color-sage-green)]'
+										: 'text-[var(--color-warm-coral)]'}"
+								>
+									{mmResult.success ? 'Import complete' : 'Import completed with errors'}
+								</p>
+								<div class="grid grid-cols-2 gap-3 text-xs">
+									<div>
+										<p class="mb-1 font-medium text-[var(--color-text-secondary)]">Imported</p>
+										<p class="text-[var(--color-text-tertiary)]">
+											Accounts: {mmResult.statistics.accountsImported}
+										</p>
+										<p class="text-[var(--color-text-tertiary)]">
+											Categories: {mmResult.statistics.categoriesImported}
+										</p>
+										<p class="text-[var(--color-text-tertiary)]">
+											Transactions: {mmResult.statistics.transactionsImported}
+										</p>
+									</div>
+									<div>
+										<p class="mb-1 font-medium text-[var(--color-text-secondary)]">Skipped</p>
+										<p class="text-[var(--color-text-tertiary)]">
+											Accounts: {mmResult.statistics.accountsSkipped}
+										</p>
+										<p class="text-[var(--color-text-tertiary)]">
+											Categories: {mmResult.statistics.categoriesSkipped}
+										</p>
+										<p class="text-[var(--color-text-tertiary)]">
+											Transactions: {mmResult.statistics.transactionsSkipped}
+										</p>
+									</div>
+								</div>
+								{#if mmResult.errors.length > 0}
+									<div class="max-h-32 space-y-1 overflow-y-auto">
+										{#each mmResult.errors.slice(0, 8) as err}
+											<p class="text-xs text-[var(--color-warm-coral)]">
+												{err.entityType || 'Unknown'}: {err.message}
+											</p>
+										{/each}
+										{#if mmResult.errors.length > 8}
+											<p class="text-xs text-[var(--color-text-tertiary)]">
+												…and {mmResult.errors.length - 8} more
+											</p>
+										{/if}
+									</div>
+								{/if}
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									Completed in {(mmResult.duration / 1000).toFixed(2)}s
+								</p>
+							</div>
+						{/if}
+
+						{#if mmResult?.success && mmResult.importBatch?.qualitySummary}
+							{@const qs = mmResult.importBatch.qualitySummary}
+							<div
+								class="space-y-3 rounded-xl border border-[var(--color-amber)]/25 bg-[var(--color-amber-subtle)] p-4"
+							>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									Import quality summary
+								</p>
+								<ul class="space-y-1 text-xs text-[var(--color-text-secondary)]">
+									<li>Total imported transactions: {qs.total}</li>
+									<li>Clean (no inferred flags): {qs.clean}</li>
+									<li>Date inferred: {qs.dateInferred}</li>
+									<li>Amount inferred / zero fallback: {qs.amountInferred}</li>
+									<li>Currency fallback: {qs.currencyFallback}</li>
+								</ul>
+								<a
+									href="/data?tab=review"
+									class="inline-flex text-sm font-semibold text-[var(--color-amber)] underline-offset-2 hover:underline"
+									>Review flagged →</a
+								>
+							</div>
+						{/if}
+
+						<button
+							onclick={handleMMImport}
+							disabled={isImporting || isImportingMM || mmFiles.length === 0}
+							class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
 						>
-							<p class="text-sm font-medium text-[var(--color-text-primary)]">Import quality summary</p>
-							<ul class="space-y-1 text-xs text-[var(--color-text-secondary)]">
-								<li>Total imported transactions: {qs.total}</li>
-								<li>Clean (no inferred flags): {qs.clean}</li>
-								<li>Date inferred: {qs.dateInferred}</li>
-								<li>Amount inferred / zero fallback: {qs.amountInferred}</li>
-								<li>Currency fallback: {qs.currencyFallback}</li>
-							</ul>
-							<a
-								href="/data?tab=review"
-								class="inline-flex text-sm font-semibold text-[var(--color-amber)] underline-offset-2 hover:underline"
-								>Review flagged →</a>
-						</div>
-					{/if}
+							{isImportingMM ? 'Importing…' : 'Import from Money Manager'}
+						</button>
+					</div>
+				</div>
 
-					<button
-						onclick={handleMMImport}
-						disabled={isImporting || isImportingMM || mmFiles.length === 0}
-						class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
-					>
-						{isImportingMM ? 'Importing…' : 'Import from Money Manager'}
-					</button>
+				<!-- Danger zone -->
+				<div
+					class="overflow-hidden rounded-2xl border border-[var(--color-warm-coral)]/20 bg-[var(--color-warm-coral)]/5"
+				>
+					<div class="border-b border-[var(--color-warm-coral)]/15 px-5 py-3">
+						<h2
+							class="text-[10px] font-semibold tracking-widest text-[var(--color-warm-coral)] uppercase"
+						>
+							Danger zone
+						</h2>
+					</div>
+					<div class="space-y-2 px-5 py-4">
+						<button
+							onclick={clearAllData}
+							class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-2.5 text-sm font-semibold text-[var(--color-warm-coral)] transition-colors hover:bg-[var(--color-warm-coral)]/12"
+						>
+							Clear all data
+						</button>
+						<p class="text-xs text-[var(--color-text-tertiary)]">
+							Permanently deletes everything. Export first.
+						</p>
+					</div>
 				</div>
-			</div>
-
-			<!-- Danger zone -->
-			<div
-				class="overflow-hidden rounded-2xl border border-[var(--color-warm-coral)]/20 bg-[var(--color-warm-coral)]/5"
-			>
-				<div class="border-b border-[var(--color-warm-coral)]/15 px-5 py-3">
-					<h2
-						class="text-[10px] font-semibold tracking-widest text-[var(--color-warm-coral)] uppercase"
-					>
-						Danger zone
-					</h2>
-				</div>
-				<div class="space-y-2 px-5 py-4">
-					<button
-						onclick={clearAllData}
-						class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-2.5 text-sm font-semibold text-[var(--color-warm-coral)] transition-colors hover:bg-[var(--color-warm-coral)]/12"
-					>
-						Clear all data
-					</button>
-					<p class="text-xs text-[var(--color-text-tertiary)]">
-						Permanently deletes everything. Export first.
-					</p>
-				</div>
-			</div>
 			{:else if dataTab === 'review'}
 				<div class="space-y-4">
 					{#if reviewLoading}
 						<p class="text-sm text-[var(--color-text-tertiary)]">Loading…</p>
 					{:else if reviewQueue.length === 0}
-						<p class="text-sm text-[var(--color-text-tertiary)]">No transactions need import review.</p>
+						<p class="text-sm text-[var(--color-text-tertiary)]">
+							No transactions need import review.
+						</p>
 					{:else}
 						<ul class="space-y-3">
 							{#each reviewQueue as tx (tx.id)}
-								<li
-									class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-3"
-								>
+								<li class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-3">
 									<p class="text-sm font-medium text-[var(--color-text-primary)]">
 										{tx.description || 'No description'}
 									</p>
@@ -868,16 +984,19 @@
 										<Button
 											variant="outline"
 											size="sm"
-											onclick={() => goto(`/transactions/add/${tx.id}`)}>Edit</Button>
+											onclick={() => goto(`/transactions/add/${tx.id}`)}>Edit</Button
+										>
 										<Button variant="secondary" size="sm" onclick={() => confirmReviewItem(tx.id)}
-											>Confirm</Button>
+											>Confirm</Button
+										>
 										<Button
 											variant="ghost"
 											size="sm"
 											onclick={() => {
 												const q = tx.importQuality;
 												if (q) dismissReviewItem(tx.id, q);
-											}}>Dismiss</Button>
+											}}>Dismiss</Button
+										>
 									</div>
 								</li>
 							{/each}
@@ -904,13 +1023,15 @@
 										<a
 											href="/transactions/add/{row.transactionId}"
 											class="text-[var(--color-amber)] underline-offset-2 hover:underline"
-											>Open transaction</a>
+											>Open transaction</a
+										>
 									</p>
 								{/if}
 								{#if row.accountId}
 									<p class="text-[var(--color-text-tertiary)]">Account {row.accountId}</p>
 								{/if}
-								<pre class="mt-1 overflow-x-auto text-[10px] text-[var(--color-text-tertiary)]">{JSON.stringify(
+								<pre
+									class="mt-1 overflow-x-auto text-[10px] text-[var(--color-text-tertiary)]">{JSON.stringify(
 										{ old: row.oldValue, new: row.newValue },
 										null,
 										0
@@ -928,11 +1049,16 @@
 	<ImportWizard
 		open={importWizardOpen}
 		importResult={mmResult}
-		beforeRatio={wizardBeforeRatio}
+		beforeClassifiedExpenseShare={wizardBeforeClassifiedExpenseShare}
+		expenseTxIds={wizardExpenseTxIds}
+		expenseAbsByTxId={wizardExpenseAbsByTxId}
 		categoriesByTransactionId={wizardCategoryTierByTxId}
 		onApplyTier={applyCandidateTier}
 		personAccountCandidates={wizardPersonAccountCandidates}
+		personAccountPanels={wizardPersonAccountPanels}
 		onMigratePersonAccounts={runPersonAccountMigration}
+		onTagPersonTxGift={tagPersonTxAsGift}
+		onTagPersonTxReimbursement={tagPersonTxAsReimbursement}
 		onGoPatterns={() => goto('/insights?tab=patterns')}
 		onClose={() => (importWizardOpen = false)}
 	/>

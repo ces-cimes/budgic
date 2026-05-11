@@ -121,6 +121,17 @@ export interface ImportResult {
 			amountInferred: number;
 			currencyFallback: number;
 		};
+		/** Unclassified expense clusters for wizard “uncertain patterns” step */
+		patternHints?: Array<{
+			hintId: string;
+			representativeDescription: string;
+			transactionIds: string[];
+			totalAbsAmount: number;
+		}>;
+		/** Cleared expense tx ids in this batch (for payoff / tier share math) */
+		wizardExpenseTransactionIds?: string[];
+		/** Absolute expense amount per transaction id (wizard metrics) */
+		wizardExpenseAbsByTransactionId?: Record<string, number>;
 	};
 }
 

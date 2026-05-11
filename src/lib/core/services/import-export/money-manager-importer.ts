@@ -11,6 +11,12 @@ import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { automationDetector } from '../intelligence/automation-detector';
 import { detectEssentials, type ClassificationCandidate } from '../intelligence/essential-detector';
+import { expandEssentialCandidatesWithSimilarity } from '../intelligence/essential-candidate-similarity';
+import { buildUnclassifiedPatternHints } from '../intelligence/import-pattern-hints';
+import {
+	mergeDailyMicroInterestTransactions,
+	recalculateBalancesForAccounts
+} from '../intelligence/interest-daily-merge';
 import { BaseImporter, detectPassiveBalanceImportHints } from './base-importer';
 import type { ImportOptions, ImportResult, CSVFile, IdMapping, TransferPair } from './types';
 import {
@@ -680,8 +686,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		// Get account to check currency
 		const account = accountId ? await db.accounts.get(accountId) : null;
 		const accountCurrency = account?.currency;
-		const finalCurrency =
-			currency?.code || extractedCurrency.code || 'USD';
+		const finalCurrency = currency?.code || extractedCurrency.code || 'USD';
 
 		const zmAmountQ = mapAmountWithQuality(zmoney, doType);
 		// Cached conversion to account currency
@@ -1090,26 +1095,61 @@ export class MoneyManagerImporter extends BaseImporter {
 			}
 		}
 
-		const unclassifiedTransactionIds = detected
+		const { removedIds, touchedAccountIds } = await mergeDailyMicroInterestTransactions(
+			this.importedTransactionIds
+		);
+		if (removedIds.length > 0) {
+			this.importedTransactionIds = this.importedTransactionIds.filter(
+				(id) => !removedIds.includes(id)
+			);
+			await recalculateBalancesForAccounts(touchedAccountIds);
+			this.addWarning(`Merged ${removedIds.length} micro-interest row(s) into daily summaries`);
+		}
+
+		const finalTransactions = (
+			await Promise.all(this.importedTransactionIds.map((id) => db.transactions.get(id)))
+		).filter((tx): tx is Transaction => !!tx && !tx.deletedAt);
+		if (!finalTransactions.length) {
+			return undefined;
+		}
+
+		const unclassifiedTransactionIds = finalTransactions
 			.filter((tx) => tx.type === 'expense' && !tx.categoryId)
 			.map((tx) => tx.id);
 
-		const dateValues = detected
+		const expenseForWizard = finalTransactions.filter(
+			(tx) => tx.type === 'expense' && tx.status === 'cleared' && !tx.deletedAt
+		);
+		const wizardExpenseTransactionIds = expenseForWizard.map((tx) => tx.id);
+		const wizardExpenseAbsByTransactionId = Object.fromEntries(
+			expenseForWizard.map((tx) => [tx.id, Math.abs(tx.amount || 0)])
+		);
+
+		const dateValues = finalTransactions
 			.map((tx) => tx.clearedDate || tx.plannedDate || tx.createdAt)
 			.filter((d): d is string => !!d)
 			.sort();
 
-		const incomeTotal = detected
+		const incomeTotal = finalTransactions
 			.filter((tx) => tx.type === 'income')
 			.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-		this.essentialCandidates = detectEssentials(detected, incomeTotal || 1);
+		this.essentialCandidates = detectEssentials(finalTransactions, incomeTotal || 1);
+		const expandedEssentials = expandEssentialCandidatesWithSimilarity(
+			this.essentialCandidates,
+			finalTransactions
+		).sort((a, b) => b.allowanceImpact - a.allowanceImpact);
+
+		const unclassifiedForHints = finalTransactions.filter(
+			(tx) => tx.type === 'expense' && tx.status === 'cleared' && !tx.categoryId && !tx.deletedAt
+		);
+		const patternHints = buildUnclassifiedPatternHints(unclassifiedForHints);
 
 		const accountRows = (
 			await Promise.all(Array.from(this.importedAccountIds).map((id) => db.accounts.get(id)))
 		).filter((a): a is Account => !!a);
 		const passiveHints = detectPassiveBalanceImportHints(
 			accountRows.map((a) => ({ id: a.id, name: a.name, type: a.type })),
-			detected.map((t) => ({
+			finalTransactions.map((t) => ({
 				accountId: t.accountId,
 				amount: t.amount,
 				description: t.description
@@ -1120,7 +1160,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		let dateInferred = 0;
 		let amountInferred = 0;
 		let currencyFallback = 0;
-		for (const tx of detected) {
+		for (const tx of finalTransactions) {
 			const q = tx.importQuality;
 			if (q?.dateInferred) dateInferred++;
 			if (q?.amountInferred) amountInferred++;
@@ -1128,7 +1168,7 @@ export class MoneyManagerImporter extends BaseImporter {
 			if (!q?.dateInferred && !q?.amountInferred && !q?.currencyFallback) clean++;
 		}
 		const qualitySummary = {
-			total: detected.length,
+			total: finalTransactions.length,
 			clean,
 			dateInferred,
 			amountInferred,
@@ -1136,15 +1176,15 @@ export class MoneyManagerImporter extends BaseImporter {
 		};
 
 		return {
-			transactionIds: detected.map((tx) => tx.id),
+			transactionIds: finalTransactions.map((tx) => tx.id),
 			unclassifiedTransactionIds,
 			accountIdsAffected: Array.from(this.importedAccountIds),
 			dateRange:
 				dateValues.length > 0
 					? { start: dateValues[0], end: dateValues[dateValues.length - 1] }
 					: undefined,
-			automationSummary: automationDetector.summarize(detected),
-			essentialCandidates: this.essentialCandidates.map((candidate) => ({
+			automationSummary: automationDetector.summarize(finalTransactions),
+			essentialCandidates: expandedEssentials.map((candidate) => ({
 				patternKey: candidate.patternKey,
 				suggestedTier: candidate.suggestedTier ?? 'unclassified',
 				matchedTransactionIds: candidate.matchedTransactionIds,
@@ -1154,7 +1194,10 @@ export class MoneyManagerImporter extends BaseImporter {
 				reason: candidate.reason
 			})),
 			passiveBalanceTrackingHints: passiveHints,
-			qualitySummary
+			qualitySummary,
+			patternHints,
+			wizardExpenseTransactionIds,
+			wizardExpenseAbsByTransactionId
 		};
 	}
 
