@@ -12,6 +12,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 
 	const NEGATIVE_ALLOWANCE_LABELS: Record<NegativeAllowanceHandling, string> = {
 		block_with_warning: 'Block with warning – alert and require override',
@@ -429,13 +430,16 @@
 								class="text-sm font-medium text-[var(--color-text-primary)]"
 								>Total borrowing limit (optional)</label
 							>
-							<input
+							<CalcExpressionInput
 								id="envelope-borrow-total-limit"
-								type="number"
-								min="0"
+								stringValue={envelopeBorrowTotalLimit}
+								onStringValueChange={(s) => (envelopeBorrowTotalLimit = s)}
+								decimalPlaces={2}
+								min={0}
+								required={false}
 								placeholder="No limit"
-								bind:value={envelopeBorrowTotalLimit}
-								class="border-border w-36 rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+								class="w-36"
+								inputClass="border-border w-full rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
 							/>
 						</div>
 						<label class="flex cursor-pointer items-center gap-2.5">
@@ -557,14 +561,16 @@
 							class="text-sm font-medium text-[var(--color-text-primary)]"
 							>Minimum surplus to suggest</label
 						>
-						<input
+						<CalcExpressionInput
 							id="savings-opportunity-threshold"
-							type="number"
-							min="0"
-							step="10"
+							stringValue={savingsOpportunityMinSurplus}
+							onStringValueChange={(s) => (savingsOpportunityMinSurplus = s)}
+							decimalPlaces={0}
+							min={0}
+							required={false}
 							placeholder="50"
-							bind:value={savingsOpportunityMinSurplus}
-							class="border-border w-36 rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+							class="w-36"
+							inputClass="border-border w-full rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
 						/>
 					</div>
 				</div>

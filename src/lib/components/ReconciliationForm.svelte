@@ -4,7 +4,7 @@
 	import type { Account, ReconciliationRecord, ReconciliationDiscrepancy } from '$lib/core/db';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card';
-	import { Input } from '$lib/components/ui/input';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import { Label } from '$lib/components/ui/label';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
@@ -321,14 +321,17 @@
 						<!-- Statement Balance Input -->
 						<div class="space-y-2">
 							<Label for="statement-balance">Statement Balance</Label>
-							<Input
+							<CalcExpressionInput
 								id="statement-balance"
-								type="number"
-								step="0.01"
-								bind:value={formData.statementBalance}
+								value={formData.statementBalance}
+								onValueChange={(n) => {
+									formData.statementBalance = n;
+									validateForm();
+								}}
+								decimalPlaces={2}
 								placeholder="Enter balance from your statement"
-								aria-describedby="statement-error"
-								class={validationErrors.statementBalance ? 'border-destructive' : ''}
+								required
+								inputClass={validationErrors.statementBalance ? 'border-destructive' : ''}
 								oninput={() => validateForm()}
 							/>
 							{#if validationErrors.statementBalance}
@@ -380,13 +383,15 @@
 							<!-- Tolerance -->
 							<div class="space-y-2">
 								<Label for="tolerance">Tolerance ({selectedAccount.currency})</Label>
-								<Input
+								<CalcExpressionInput
 									id="tolerance"
-									type="number"
-									step="0.01"
-									min="0"
-									bind:value={formData.tolerance}
 									class="max-w-32"
+									value={formData.tolerance}
+									onValueChange={(n) => {
+										formData.tolerance = n;
+									}}
+									decimalPlaces={2}
+									min={0}
 								/>
 								<p class="text-muted-foreground text-xs">Acceptable difference between balances</p>
 							</div>
@@ -421,13 +426,15 @@
 									<Label for="auto-resolve-threshold"
 										>Auto-resolve Threshold ({selectedAccount.currency})</Label
 									>
-									<Input
+									<CalcExpressionInput
 										id="auto-resolve-threshold"
-										type="number"
-										step="0.01"
-										min="0"
-										bind:value={formData.autoResolveThreshold}
 										class="max-w-32"
+										value={formData.autoResolveThreshold}
+										onValueChange={(n) => {
+											formData.autoResolveThreshold = n;
+										}}
+										decimalPlaces={2}
+										min={0}
 									/>
 								</div>
 							{/if}

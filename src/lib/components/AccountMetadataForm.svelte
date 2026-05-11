@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import { LabelWithTooltip } from '$lib/components/forms';
 	import type { Account, AccountMetadata } from '$lib/core/db';
@@ -220,17 +221,15 @@
 						>
 							{currency === 'USD' ? '$' : currency}
 						</span>
-						{@const fieldValue = metadataState?.[field] ?? ''}
-						<Input
-							id={field}
-							type={getInputType(field)}
-							value={String(fieldValue)}
-							oninput={(e) => updateField(field, e.currentTarget.value)}
-							placeholder={getInputPlaceholder(field)}
-							step={getInputStep(field)}
+						<CalcExpressionInput
+							id={String(field)}
+							stringValue={getFieldValue(field)}
+							onStringValueChange={(s) => updateField(field, s)}
+							decimalPlaces={2}
 							min={getInputMin(field)}
 							max={getInputMax(field)}
-							class="pl-8"
+							placeholder={getInputPlaceholder(field)}
+							inputClass="pl-8"
 						/>
 					{:else if field === 'interestRate' || field === 'apr'}
 						{@const fieldValue = metadataState?.[field] ?? ''}

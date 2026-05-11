@@ -16,7 +16,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { Label } from '$lib/components/ui/label';
-	import { Input } from '$lib/components/ui/input';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 
 	interface Props {
 		accountId?: string;
@@ -224,13 +224,13 @@
 						</div>
 						<div>
 							<Label for="borrow-amount">Amount ({overByAndCategory?.currency})</Label>
-							<Input
+							<CalcExpressionInput
 								id="borrow-amount"
-								type="number"
-								min="0.01"
-								step="0.01"
-								bind:value={borrowAmount}
 								class="mt-1"
+								value={borrowAmount}
+								onValueChange={(n) => (borrowAmount = n)}
+								decimalPlaces={2}
+								min={0.01}
 							/>
 							{#if overByAndCategory}
 								<p class="text-muted-foreground mt-1 text-xs">

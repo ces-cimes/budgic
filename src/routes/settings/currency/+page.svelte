@@ -16,6 +16,7 @@
 	import * as Alert from '$lib/components/ui/alert/index.ts';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.ts';
 	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { formatAmount, sortCurrencies, sortInactiveCurrencies } from '$lib/utils/currency-utils';
 	import type { CurrencyConfiguration, Currency, ExchangeRate } from '$lib/core/db';
@@ -1854,20 +1855,13 @@
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="checking-buffer-drawer">Checking Buffer</Label.Root>
-											<Input.Root
+											<CalcExpressionInput
 												id="checking-buffer-drawer"
-												type="number"
-												min="0"
-												step="0.01"
-												value={getValue(currency.code, 'defaultCheckingBuffer')?.toString() || ''}
-												oninput={(e) => {
-													const target = e.currentTarget as HTMLInputElement;
-													updateValue(
-														currency.code,
-														'defaultCheckingBuffer',
-														parseFloat(target.value) || 0
-													);
-												}}
+												value={Number(getValue(currency.code, 'defaultCheckingBuffer')) || 0}
+												onValueChange={(n) =>
+													updateValue(currency.code, 'defaultCheckingBuffer', n)}
+												decimalPlaces={2}
+												min={0}
 											/>
 											<p class="text-muted-foreground text-xs">
 												Default buffer amount for checking accounts
@@ -1875,20 +1869,13 @@
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="savings-buffer-drawer">Savings Buffer</Label.Root>
-											<Input.Root
+											<CalcExpressionInput
 												id="savings-buffer-drawer"
-												type="number"
-												min="0"
-												step="0.01"
-												value={getValue(currency.code, 'defaultSavingsBuffer')?.toString() || ''}
-												oninput={(e) => {
-													const target = e.currentTarget as HTMLInputElement;
-													updateValue(
-														currency.code,
-														'defaultSavingsBuffer',
-														parseFloat(target.value) || 0
-													);
-												}}
+												value={Number(getValue(currency.code, 'defaultSavingsBuffer')) || 0}
+												onValueChange={(n) =>
+													updateValue(currency.code, 'defaultSavingsBuffer', n)}
+												decimalPlaces={2}
+												min={0}
 											/>
 											<p class="text-muted-foreground text-xs">
 												Default buffer amount for savings accounts
@@ -1896,19 +1883,12 @@
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="min-balance-drawer">Minimum Balance</Label.Root>
-											<Input.Root
+											<CalcExpressionInput
 												id="min-balance-drawer"
-												type="number"
-												step="0.01"
-												value={getValue(currency.code, 'defaultMinimumBalance')?.toString() || ''}
-												oninput={(e) => {
-													const target = e.currentTarget as HTMLInputElement;
-													updateValue(
-														currency.code,
-														'defaultMinimumBalance',
-														parseFloat(target.value) || 0
-													);
-												}}
+												value={Number(getValue(currency.code, 'defaultMinimumBalance')) || 0}
+												onValueChange={(n) =>
+													updateValue(currency.code, 'defaultMinimumBalance', n)}
+												decimalPlaces={2}
 											/>
 											<p class="text-muted-foreground text-xs">
 												Default minimum balance (can be negative for credit accounts)
@@ -1916,20 +1896,12 @@
 										</div>
 										<div class="space-y-2">
 											<Label.Root for="max-amount-drawer">Max Amount Limit</Label.Root>
-											<Input.Root
+											<CalcExpressionInput
 												id="max-amount-drawer"
-												type="number"
-												min="0"
-												step="0.01"
-												value={getValue(currency.code, 'maxAmountLimit')?.toString() || ''}
-												oninput={(e) => {
-													const target = e.currentTarget as HTMLInputElement;
-													updateValue(
-														currency.code,
-														'maxAmountLimit',
-														parseFloat(target.value) || 0
-													);
-												}}
+												value={Number(getValue(currency.code, 'maxAmountLimit')) || 0}
+												onValueChange={(n) => updateValue(currency.code, 'maxAmountLimit', n)}
+												decimalPlaces={2}
+												min={0}
 											/>
 											<p class="text-muted-foreground text-xs">
 												Maximum transaction amount limit (leave empty for unlimited)

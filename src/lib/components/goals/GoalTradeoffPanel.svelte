@@ -5,6 +5,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Scale, TrendingDown, Info } from '@lucide/svelte';
 	import { formatAmount } from '$lib/utils/currency-utils';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import { goalOpportunityService, goalTradeoffService } from '$lib/core/services';
 	import type { Goal } from '$lib/core/db';
 	import type {
@@ -166,12 +167,13 @@
 							{/each}
 						</select>
 						<div class="flex items-center gap-1">
-							<input
-								type="number"
-								min="1"
-								step="10"
-								bind:value={amountIncrease}
-								class="border-input bg-background w-24 rounded-md border px-3 py-2 text-sm"
+							<CalcExpressionInput
+								value={amountIncrease}
+								onValueChange={(n) => (amountIncrease = n)}
+								decimalPlaces={0}
+								min={1}
+								class="w-24"
+								inputClass="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
 							/>
 							<span class="text-muted-foreground text-sm">{userCurrency}/mo</span>
 						</div>

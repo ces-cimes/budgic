@@ -45,6 +45,8 @@
 	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	import CurrencySelectionSheet from '$lib/components/forms/CurrencySelectionSheet.svelte';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
+	import { evaluateExpression } from '$lib/utils/arithmetic-eval';
 	import {
 		FormFieldGrid,
 		FormErrorAlert,
@@ -1139,8 +1141,12 @@
 	async function goalPrecisionOnApplyAmount() {
 		const ctx = goalPrecisionNudge;
 		if (!ctx) return;
-		const raw = goalPrecisionAmountStr.trim().replace(',', '.');
-		const amt = Number.parseFloat(raw);
+		const raw = goalPrecisionAmountStr.trim();
+		const ev = evaluateExpression(raw);
+		const amt =
+			ev.result != null && Number.isFinite(ev.result)
+				? ev.result
+				: Number.parseFloat(raw.replace(',', '.'));
 		if (!Number.isFinite(amt) || amt <= 0 || amt > ctx.totalAbs + 1e-4) {
 			error = `Enter an amount between 0 and ${formatAmount(ctx.totalAbs, ctx.currency)}`;
 			return;
@@ -1557,20 +1563,15 @@
 						>
 						<ChevronDown class="size-3.5 text-[var(--color-text-tertiary)]" />
 					</button>
-					<input
+					<CalcExpressionInput
 						id="amount"
-						type="number"
-						bind:value={amount}
+						variant="hero"
+						value={amount}
+						onValueChange={(n) => {
+							amount = n;
+						}}
+						decimalPlaces={currentCurrencyInfo()?.decimalPlaces ?? 2}
 						placeholder={amountHint ?? '0.00'}
-						step={(() => {
-							const info = currentCurrencyInfo();
-							if (!info) return '0.01';
-							const decimals = info.decimalPlaces;
-							if (decimals === 0) return '1';
-							if (decimals === 1) return '0.1';
-							if (decimals === 2) return '0.01';
-							return `0.${'0'.repeat(decimals - 1)}1`;
-						})()}
 						required
 						onfocus={handleInputFocus}
 						onfocusin={() => {
@@ -1591,7 +1592,7 @@
 						onblur={() => {
 							anomalyDismissed = true;
 						}}
-						class="font-display w-48 border-0 border-b-2 border-[var(--color-amber)] bg-transparent text-center text-4xl text-[var(--color-hero-number)] outline-none placeholder:text-[var(--color-text-disabled)] focus:border-[var(--color-amber)]"
+						inputClass="w-48"
 					/>
 				</div>
 				{#if amountHint && !amountManuallyTouched}
@@ -2055,22 +2056,14 @@
 										class="absolute top-1/2 left-3 -translate-y-1/2 text-sm text-[var(--color-text-tertiary)]"
 										>{currencySymbol()}</span
 									>
-									<Input.Root
+									<CalcExpressionInput
 										id="feeAmount"
-										type="number"
-										bind:value={transferFeeAmount}
+										value={transferFeeAmount}
+										onValueChange={(n) => (transferFeeAmount = n)}
+										decimalPlaces={currentCurrencyInfo()?.decimalPlaces ?? 2}
 										placeholder="0.00"
-										step={(() => {
-											const info = currentCurrencyInfo();
-											if (!info) return '0.01';
-											const d = info.decimalPlaces;
-											if (d === 0) return '1';
-											if (d === 1) return '0.1';
-											if (d === 2) return '0.01';
-											return `0.${'0'.repeat(d - 1)}1`;
-										})()}
-										class="pl-8"
-										min="0"
+										inputClass="pl-8"
+										min={0}
 										onfocus={handleInputFocus}
 									/>
 								</div>
@@ -2222,12 +2215,12 @@
 
 						<div class="space-y-2">
 							<Label.Root for="reimbursement-amount">Amount</Label.Root>
-							<Input.Root
+							<CalcExpressionInput
 								id="reimbursement-amount"
-								type="number"
-								min="0"
-								step="0.01"
-								bind:value={reimbursementAmount}
+								value={reimbursementAmount}
+								onValueChange={(n) => (reimbursementAmount = n)}
+								decimalPlaces={2}
+								min={0}
 								onfocus={handleInputFocus}
 							/>
 						</div>
@@ -2697,11 +2690,12 @@
 					</p>
 					<div class="space-y-2">
 						<Label.Root for="goal-precision-amt">Amount ({goalPrecisionNudge.currency})</Label.Root>
-						<Input.Root
+						<CalcExpressionInput
 							id="goal-precision-amt"
-							type="text"
-							inputmode="decimal"
-							bind:value={goalPrecisionAmountStr}
+							stringValue={goalPrecisionAmountStr}
+							onStringValueChange={(s) => (goalPrecisionAmountStr = s)}
+							decimalPlaces={2}
+							required={false}
 							placeholder={formatAmount(goalPrecisionNudge.totalAbs, goalPrecisionNudge.currency)}
 						/>
 					</div>

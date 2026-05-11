@@ -246,6 +246,16 @@ class NavigationStore {
 					showInDesktop: true
 				},
 				{
+					id: 'calculator',
+					label: 'Calculator',
+					path: '/calculator',
+					icon: 'calculator',
+					group: 'more',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true
+				},
+				{
 					id: 'settings',
 					label: 'Settings',
 					path: '/settings',

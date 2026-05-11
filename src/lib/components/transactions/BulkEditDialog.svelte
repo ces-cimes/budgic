@@ -3,6 +3,7 @@
 	import * as Button from '$lib/components/ui/button/index.ts';
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
 	import * as Input from '$lib/components/ui/input/index.ts';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import * as Label from '$lib/components/ui/label/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import * as Textarea from '$lib/components/ui/textarea/index.ts';
@@ -101,6 +102,8 @@
 	let amountAdjustMode = $state<'fixed' | 'percent' | 'absolute'>('fixed');
 	let amountAdjustInput = $state('');
 	let selectedBulkCurrency = $state('');
+
+	const amountBulkDecimals = $derived(amountAdjustMode === 'percent' ? 4 : 2);
 
 	const dateShiftParsed = $derived(Number.parseInt(String(dateShiftInput ?? '').trim(), 10));
 	const dateShiftFormValid = $derived(
@@ -426,17 +429,17 @@
 								New amount for every row
 							{/if}
 						</Label.Root>
-						<Input.Root
+						<CalcExpressionInput
 							id="bulk-amount-value"
-							type="number"
-							step="any"
+							stringValue={amountAdjustInput}
+							onStringValueChange={(s) => (amountAdjustInput = s)}
+							decimalPlaces={amountBulkDecimals}
 							placeholder={amountAdjustMode === 'fixed'
 								? 'e.g. -5 or 10'
 								: amountAdjustMode === 'percent'
 									? 'e.g. 10 for +10%'
 									: 'e.g. 42.50'}
-							bind:value={amountAdjustInput}
-							autocomplete="off"
+							required={false}
 						/>
 					</div>
 				</div>

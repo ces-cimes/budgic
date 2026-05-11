@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
-	import { Input } from '$lib/components/ui/input/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import type { Account, AutomationTag } from '$lib/core/db';
 	import { accountService, passiveAccountService } from '$lib/core/services';
 	import { formatAmount } from '$lib/utils/currency-utils';
@@ -25,6 +26,18 @@
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
 	let wasOpen = $state(false);
+	/** Mobile `DialogDrawer` uses a drawer; nested keypad avoids vaul conflicts. */
+	let isMobileSheet = $state(false);
+
+	onMount(() => {
+		const mq = window.matchMedia('(max-width: 767px)');
+		isMobileSheet = mq.matches;
+		const fn = () => {
+			isMobileSheet = mq.matches;
+		};
+		mq.addEventListener('change', fn);
+		return () => mq.removeEventListener('change', fn);
+	});
 
 	const projected = $derived(
 		account ? passiveAccountService.projectBalance(account, new Date()) : 0
@@ -128,7 +141,13 @@
 			<div class="space-y-4 py-2">
 				<div class="space-y-2">
 					<Label for="bal-in">Current balance</Label>
-					<Input id="bal-in" type="text" inputmode="decimal" bind:value={enteredStr} />
+					<CalcExpressionInput
+						id="bal-in"
+						stringValue={enteredStr}
+						onStringValueChange={(s) => (enteredStr = s)}
+						decimalPlaces={2}
+						nestedKeypad={isMobileSheet}
+					/>
 				</div>
 
 				<p class="text-muted-foreground text-sm">

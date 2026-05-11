@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Input } from '$lib/components/ui/input';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import { Button } from '$lib/components/ui/button';
 	import type { FilterState } from '../TransactionList.svelte';
 
@@ -49,28 +49,34 @@
 			<label for="filter-min-amount" class="text-muted-foreground text-xs font-medium"
 				>Min Amount</label
 			>
-			<Input
+			<CalcExpressionInput
 				id="filter-min-amount"
-				type="number"
-				step="0.01"
+				stringValue={minAmount}
+				onStringValueChange={(s) => {
+					minAmount = s;
+					updateAmounts();
+				}}
+				decimalPlaces={2}
 				placeholder="0.00"
-				bind:value={minAmount}
-				oninput={updateAmounts}
-				class="text-sm"
+				required={false}
+				inputClass="text-sm"
 			/>
 		</div>
 		<div class="space-y-1">
 			<label for="filter-max-amount" class="text-muted-foreground text-xs font-medium"
 				>Max Amount</label
 			>
-			<Input
+			<CalcExpressionInput
 				id="filter-max-amount"
-				type="number"
-				step="0.01"
+				stringValue={maxAmount}
+				onStringValueChange={(s) => {
+					maxAmount = s;
+					updateAmounts();
+				}}
+				decimalPlaces={2}
 				placeholder="0.00"
-				bind:value={maxAmount}
-				oninput={updateAmounts}
-				class="text-sm"
+				required={false}
+				inputClass="text-sm"
 			/>
 		</div>
 	</div>

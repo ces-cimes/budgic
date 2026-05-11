@@ -21,7 +21,8 @@
 		Settings,
 		CreditCard,
 		Database,
-		Plus
+		Plus,
+		Calculator
 	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import * as Popover from '$lib/components/ui/popover/index.ts';
@@ -39,7 +40,8 @@
 		'credit-card': CreditCard,
 		database: Database,
 		plan: Wallet,
-		reports: TrendingUp
+		reports: TrendingUp,
+		calculator: Calculator
 	};
 
 	// Which section (path) is expanded for tab sub-menus. Chevron toggles; current route auto-expands.

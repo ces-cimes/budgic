@@ -19,7 +19,8 @@
 		CreditCardIcon,
 		DatabaseIcon,
 		MoreHorizontalIcon,
-		ChevronRightIcon
+		ChevronRightIcon,
+		CalculatorIcon
 	} from '@lucide/svelte';
 
 	// Icon mapping (plan/reports use wallet and trending-up)
@@ -35,7 +36,8 @@
 		'credit-card': CreditCardIcon,
 		database: DatabaseIcon,
 		plan: WalletIcon,
-		reports: TrendingUpIcon
+		reports: TrendingUpIcon,
+		calculator: CalculatorIcon
 	};
 
 	let moreDrawerOpen = $state(false);

@@ -9,6 +9,7 @@
 	} from '$lib/core/services';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
@@ -28,6 +29,7 @@
 	} from '$lib/components/ui/dialog/index.ts';
 	import type { Account, Transaction } from '$lib/core/db';
 	import { formatAmount } from '$lib/utils/currency-utils';
+	import { evaluateExpression } from '$lib/utils/arithmetic-eval';
 
 	interface Props {
 		onTransactionAdded?: () => void;
@@ -115,7 +117,11 @@
 			return;
 		}
 
-		const num = parseFloat(amount);
+		const ev = evaluateExpression(amount.trim());
+		const num =
+			ev.result != null && Number.isFinite(ev.result)
+				? ev.result
+				: Number.parseFloat(amount.replace(',', '.'));
 		if (!Number.isFinite(num)) {
 			formError = 'Enter a valid amount.';
 			return;
@@ -198,7 +204,11 @@
 		isLoading || !amount?.trim() || !plannedDate || (transactionType === 'transfer' && !toAccountId)
 	);
 
-	const previewAmountNum = $derived(parseFloat(amount));
+	const previewAmountNum = $derived.by(() => {
+		const ev = evaluateExpression(amount.trim());
+		if (ev.result != null && Number.isFinite(ev.result)) return ev.result;
+		return Number.parseFloat(amount.replace(',', '.'));
+	});
 	const showPreview = $derived(
 		!!amount?.trim() && !!plannedDate && Number.isFinite(previewAmountNum)
 	);
@@ -233,14 +243,14 @@
 				<Label for="amount">Amount</Label>
 				<div class="relative">
 					<DollarSign class="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-					<Input
+					<CalcExpressionInput
 						id="amount"
-						type="number"
-						step="0.01"
+						stringValue={amount}
+						onStringValueChange={(s) => (amount = s)}
+						decimalPlaces={2}
 						placeholder="0.00"
-						bind:value={amount}
-						class="pl-10"
 						required
+						inputClass="pl-10"
 					/>
 				</div>
 			</div>

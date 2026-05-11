@@ -6,7 +6,7 @@
 	import Header from '$lib/components/Header.svelte';
 	import { Switch } from '$lib/components/ui/switch/index.ts';
 	import { Button } from '$lib/components/ui/button/index.ts';
-	import { Input } from '$lib/components/ui/input/index.ts';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import UpdateBalanceSheet from '$lib/components/accounts/UpdateBalanceSheet.svelte';
 
@@ -134,16 +134,17 @@
 					<Label for="auto-resolve-threshold" class="text-sm text-[var(--color-text-primary)]">
 						Auto-resolve within (same currency as the account)
 					</Label>
-					<Input
+					<CalcExpressionInput
 						id="auto-resolve-threshold"
-						type="number"
-						min="0"
-						max="500"
-						step="any"
 						class="max-w-[12rem]"
 						value={balanceUpdateAutoResolveThreshold}
+						onValueChange={(n) => (balanceUpdateAutoResolveThreshold = n)}
+						decimalPlaces={2}
+						min={0}
+						max={500}
 						disabled={isSavingThreshold}
-						onblur={(e) => persistAutoResolveThreshold((e.currentTarget as HTMLInputElement).value)}
+						onblur={() =>
+							persistAutoResolveThreshold(String(balanceUpdateAutoResolveThreshold))}
 					/>
 				</div>
 			</section>

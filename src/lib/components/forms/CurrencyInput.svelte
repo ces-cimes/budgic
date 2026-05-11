@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ChevronDown } from '@lucide/svelte';
-	import * as Input from '$lib/components/ui/input/index.ts';
+	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import CurrencySelectionSheet from './CurrencySelectionSheet.svelte';
 	import { getCurrencyInfo } from '$lib/utils/currency-utils';
 	import { createMobileInputFocusHandler } from '$lib/utils/mobile-input-utils';
@@ -77,15 +77,6 @@
 	// Get currency symbol for display
 	let currencySymbol = $derived(() => currentCurrencyInfo().symbol);
 
-	// Calculate step based on decimal places
-	let step = $derived(() => {
-		const decimals = currentCurrencyInfo().decimalPlaces;
-		if (decimals === 0) return '1';
-		if (decimals === 1) return '0.1';
-		if (decimals === 2) return '0.01';
-		return `0.${'0'.repeat(decimals - 1)}1`;
-	});
-
 	// Measure currency button width and update padding
 	$effect(() => {
 		if (currencyButtonRef) {
@@ -126,8 +117,8 @@
 
 	const handleFocus = createMobileInputFocusHandler();
 
-	// Handle input changes
-	function handleInputChange() {
+	function handleCalcChange(n: number) {
+		inputValue = n;
 		if (inputValue !== lastExternalValue) {
 			onValueChange(inputValue);
 			lastExternalValue = inputValue;
@@ -146,24 +137,22 @@
 		<span class="text-primary text-sm font-medium">{currencySymbol()}</span>
 		<ChevronDown class="text-muted-foreground h-3 w-3" />
 	</button>
-	<Input.Root
+	<CalcExpressionInput
 		{id}
-		type="number"
-		bind:value={inputValue}
-		oninput={handleInputChange}
-		onchange={handleInputChange}
+		value={inputValue}
+		onValueChange={handleCalcChange}
+		decimalPlaces={currentCurrencyInfo().decimalPlaces}
 		placeholder={placeholder ||
 			(() => {
 				const decimalPlaces = currentCurrencyInfo().decimalPlaces;
 				return `0.${'0'.repeat(decimalPlaces)}`;
 			})()}
-		step={step()}
-		style="padding-left: {currencyButtonPadding}px;"
+		inputStyle="padding-left: {currencyButtonPadding}px;"
 		{required}
-		{min}
-		{max}
+		min={min}
+		max={max}
 		onfocus={handleFocus}
-		class={error ? 'border-destructive' : ''}
+		inputClass={error ? 'border-destructive' : ''}
 	/>
 </div>
 
