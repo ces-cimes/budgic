@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
 		RecoverySuggestion

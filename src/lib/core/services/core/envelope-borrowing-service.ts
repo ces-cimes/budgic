@@ -9,7 +9,7 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { EnvelopeBorrowing } from '$lib/core/db';
 import type { UserPreferences } from '$lib/core/db';
-import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 import { userService } from './user-service';
 import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 

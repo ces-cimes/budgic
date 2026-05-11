@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import { planService } from '$lib/core/services';
 	import { transactionService } from '$lib/core/services';
-	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import { formatAmount } from '$lib/utils/currency-utils';
 
 	interface Props {

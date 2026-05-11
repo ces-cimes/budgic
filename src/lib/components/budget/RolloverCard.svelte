@@ -4,7 +4,7 @@
 		PeriodSurplusDeficit,
 		RolloverSuggestion
 	} from '$lib/core/services/core/rollover-service';
-	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { RefreshCw, TrendingUp, TrendingDown, CheckCircle } from '@lucide/svelte';
 	import {

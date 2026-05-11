@@ -189,6 +189,20 @@
 		);
 	}
 
+	type BudgetPeriodValue = NonNullable<Category['budgetPeriod']>;
+
+	async function updateBudgetPeriod(cat: Category, value: BudgetPeriodValue) {
+		try {
+			await budgetService.updateBudgetCategory(cat.id, { budgetPeriod: value });
+			categories = categories.map((c) => (c.id === cat.id ? { ...c, budgetPeriod: value } : c));
+			toast.success('Budget period updated');
+		} catch (err) {
+			error = 'Failed to update budget period';
+			console.error(err);
+			toast.error('Could not update budget period');
+		}
+	}
+
 	async function updateCategoryParent(cat: Category, newParentId: string) {
 		try {
 			const next = newParentId.trim() === '' ? undefined : newParentId;
@@ -460,6 +474,24 @@
 											{/each}
 										</select>
 									</label>
+									{#if category.type === 'expense'}
+										<label class="text-muted-foreground mt-2 block text-xs font-medium">
+											Budget period (spent vs allocation)
+											<select
+												class="border-input bg-background text-foreground mt-1 block w-full max-w-xs rounded-md border px-2 py-1.5 text-sm"
+												value={category.budgetPeriod ?? 'monthly'}
+												onchange={(e) =>
+													updateBudgetPeriod(
+														category,
+														(e.currentTarget as HTMLSelectElement).value as BudgetPeriodValue
+													)}
+											>
+												<option value="monthly">Calendar month</option>
+												<option value="weekly">ISO week (Mon–Sun)</option>
+												<option value="biweekly">1st–15th / 16th–end</option>
+											</select>
+										</label>
+									{/if}
 								</div>
 
 								<div class="flex items-center gap-2">

@@ -8,7 +8,7 @@
 
 import { db, generateUUID } from '$lib/core/db';
 import type { NegativeAllowanceEvent } from '$lib/core/db';
-import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 import { formatAmount } from '$lib/utils/currency-utils';
 
 /** User-configurable handling when allowance goes negative */

@@ -6,7 +6,7 @@
 import { goalService } from '$lib/core/services/core/goal-service';
 import type { Goal } from '$lib/core/db';
 import type { RequiredSavingsResult } from '$lib/core/services/core/goal-service';
-import { calculateGlobalAllowance } from '$lib/utils/allowance-utils';
+import { calculateGlobalAllowance } from '$lib/core/services/core/budget-service';
 import { transactionService } from '$lib/core/services/core/transaction-service';
 import { userService } from '$lib/core/services/core/user-service';
 import { db } from '$lib/core/db';

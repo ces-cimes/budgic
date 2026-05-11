@@ -967,6 +967,8 @@ const CategorySchema = BaseSchema.extend({
 	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle', 'unclassified']).optional(),
 	priority: z.number().min(1), // Within tier
 	budgetAmount: z.number().min(0).optional(), // Optional budget allocation
+	/** Rolling / calendar window for spent vs budget (default monthly in UI) */
+	budgetPeriod: z.enum(['monthly', 'weekly', 'biweekly']).optional(),
 	color: z.string().optional(),
 	description: z.string().optional(),
 	isActive: z.boolean().default(true)
@@ -1692,22 +1694,6 @@ const RolloverAdjustmentSchema = BaseSchema.extend({
 	metadata: z.string().optional()
 });
 
-// Occasion – recurring spending event (detected from history or user-defined) for allowance adjustments
-const OccasionSchema = BaseSchema.extend({
-	accountId: z.string().optional(), // Account (if per-account); empty = global
-	title: z.string().min(1),
-	occasionType: z.enum(['weekly', 'monthly', 'annual']),
-	pattern: z.string(), // JSON: weekly { dayOfWeek: 0-6 }, monthly { weekOfMonth?: 1-5, dayOfWeek?: 0-6 } or { dayOfMonth: 1-31 }, annual { month: 1-12, dayOfMonth?: 1-31 }
-	expectedAmountDelta: z.number(), // Positive = expect to spend more (add to allowance), negative = e.g. tax refund
-	currency: z.string().min(3).max(3),
-	source: z.enum(['detected', 'user_defined']).default('detected'),
-	confidence: z.number().min(0).max(100).default(80), // 0-100 for detected occasions
-	learningPatternId: z.string().optional(), // Link to LearningPattern if derived from it
-	isActive: z.boolean().default(true),
-	lastDetectedAt: z.string().datetime().optional(),
-	metadata: z.string().optional()
-});
-
 /** Phase 9 — learned merchant → category weight distribution */
 const MerchantCategoryProfileWeightSchema = z.object({
 	categoryId: z.string(),
@@ -1756,7 +1742,6 @@ export type OptimizationPreference = z.infer<typeof OptimizationPreferenceSchema
 export type NegativeAllowanceEvent = z.infer<typeof NegativeAllowanceEventSchema>;
 export type EnvelopeBorrowing = z.infer<typeof EnvelopeBorrowingSchema>;
 export type RolloverAdjustment = z.infer<typeof RolloverAdjustmentSchema>;
-export type Occasion = z.infer<typeof OccasionSchema>;
 export type RoundUpRule = z.infer<typeof RoundUpRuleSchema>;
 export type MerchantCategoryProfile = z.infer<typeof MerchantCategoryProfileSchema>;
 
@@ -1766,7 +1751,6 @@ export type MerchantCategoryProfile = z.infer<typeof MerchantCategoryProfileSche
 export interface RecurringPatternsCacheEntry {
 	/** Always 'canonical' — only one row is ever stored. */
 	id: 'canonical';
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	patterns: any[];
 	computedAt: string; // ISO date
 }
@@ -1841,7 +1825,6 @@ export class BudgicDB extends Dexie {
 	negativeAllowanceEvents!: Table<NegativeAllowanceEvent>;
 	envelopeBorrowings!: Table<EnvelopeBorrowing>;
 	rolloverAdjustments!: Table<RolloverAdjustment>;
-	occasions!: Table<Occasion>;
 	roundUpRules!: Table<RoundUpRule>;
 	merchantCategoryProfiles!: Table<MerchantCategoryProfile>;
 	recurringPatternsCache!: Table<RecurringPatternsCacheEntry>;
@@ -2600,6 +2583,54 @@ export class BudgicDB extends Dexie {
 				'id, transactionId, accountId, field, source, timestamp, [transactionId+timestamp], [accountId+timestamp]'
 		});
 
+		// Version 29: drop occasions table; Category.budgetPeriod is schema-only (no index change)
+		this.version(29).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+			tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
+			merchantCategoryProfiles:
+				'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]',
+			recurringPatternsCache: 'id, computedAt',
+			dataCorrections:
+				'id, transactionId, accountId, field, source, timestamp, [transactionId+timestamp], [accountId+timestamp]'
+		});
+
 		// Add validation hooks
 		this.setupValidationHooks();
 
@@ -3173,29 +3204,6 @@ export class BudgicDB extends Dexie {
 			}
 		);
 
-		// Occasion validation
-		this.occasions.hook('creating', (primKey, obj, trans) => {
-			try {
-				const validated = OccasionSchema.parse(obj);
-				Object.assign(obj, validated);
-			} catch (error) {
-				console.error('Occasion validation failed:', error);
-				throw error;
-			}
-		});
-		this.occasions.hook('updating', (modifications: Partial<Occasion>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
-				}
-				const updated = { ...obj, ...modifications };
-				OccasionSchema.parse(updated);
-			} catch (error) {
-				console.error('Occasion update validation failed:', error);
-				throw error;
-			}
-		});
-
 		// Round-up rule validation
 		this.roundUpRules.hook('creating', (primKey, obj, trans) => {
 			try {
@@ -3344,14 +3352,6 @@ export class BudgicDB extends Dexie {
 		this.rolloverAdjustments.hook('reading', (obj) => {
 			if (!obj) {
 				console.warn('[DB Hook] rolloverAdjustments: obj is undefined', new Error().stack);
-				return undefined;
-			}
-			return obj.deletedAt ? undefined : obj;
-		});
-
-		this.occasions.hook('reading', (obj) => {
-			if (!obj) {
-				console.warn('[DB Hook] occasions: obj is undefined', new Error().stack);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;

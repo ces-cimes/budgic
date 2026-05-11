@@ -19,8 +19,10 @@
 	import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
 	import { goto } from '$app/navigation';
 	import { budgetService, transactionService, insightsService } from '$lib/core/services';
+	import type { FxConversionQuality } from '$lib/core/services/core/budget-service';
 	import type { BudgetTabProps, PlanningData } from '../types.js';
 	import type { Category } from '$lib/core/db';
+	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
 	import { effectiveAmountForCategory } from '$lib/utils/category-utils';
 	import CategoriesTabContent from '$lib/components/categories/CategoriesTabContent.svelte';
 	import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
@@ -35,17 +37,25 @@
 	/** Low-tier (success/info) insights for inline badges on category rows. Key = categoryId. */
 	let inlineInsightsByCategory = $state<Map<string, Insight[]>>(new Map());
 
+	function fxSpendTooltip(q: FxConversionQuality): string {
+		if (q === 'stale') return 'Approximate: most recent stored exchange rate used.';
+		if (q === 'raw') return 'No exchange rate — figure may not be in your main currency.';
+		return '';
+	}
+
 	// Load real budget data and inline alerts
 	onMount(async () => {
 		try {
 			isLoading = true;
 			error = null;
 
-			// Get categories with budget information
-			const categories = await budgetService.getBudgetCategories();
-			const transactions = await transactionService.getAllTransactions();
+			const [categories, transactions, summary] = await Promise.all([
+				budgetService.getBudgetCategories(),
+				transactionService.getAllTransactions(),
+				budgetService.getBudgetSummary()
+			]);
+			const allocById = new Map(summary.allocations.map((a) => [a.categoryId, a]));
 
-			// Calculate budget data for each category
 			budgetCategories = categories.map((category) => {
 				const categoryTransactions = transactions.filter(
 					(tx) =>
@@ -54,17 +64,22 @@
 						Math.abs(effectiveAmountForCategory(tx, category.id)) > 1e-9
 				);
 
-				const spent = categoryTransactions.reduce(
+				const allocated = category.budgetAmount || 0;
+				const alloc = allocById.get(category.id);
+				const spentFromSummary = alloc && allocated > 0 ? alloc.spentAmount : null;
+				const spentLocal = categoryTransactions.reduce(
 					(sum, tx) => sum + Math.abs(effectiveAmountForCategory(tx, category.id)),
 					0
 				);
-				const allocated = category.budgetAmount || 0;
+				const spent = spentFromSummary ?? spentLocal;
+				const fxQuality: FxConversionQuality = allocated > 0 && alloc ? alloc.fxQuality : 'ok';
 
 				return {
 					id: category.id,
 					name: category.name,
 					allocated,
 					spent,
+					fxQuality,
 					color: getCategoryColor(category.waterfallTier),
 					bgColor: getCategoryBgColor(category.waterfallTier),
 					borderColor: getCategoryBorderColor(category.waterfallTier),
@@ -186,7 +201,7 @@
 	}
 
 	// Goals impact data - simplified for now
-	let goalsImpact = $state<any[]>([]);
+	const goalsImpact = $state<any[]>([]);
 
 	function formatCurrency(amount: number): string {
 		return formatAmount(amount, userCurrency);
@@ -371,8 +386,29 @@
 								</div>
 								<Progress value={spendingPercentage} class="h-2" />
 								<div class="flex items-center justify-between text-sm">
-									<span class="text-muted-foreground">
-										{formatCurrency(category.spent)} of {formatCurrency(category.allocated)}
+									<span class="text-muted-foreground flex flex-wrap items-center gap-1">
+										{#if category.fxQuality !== 'ok'}
+											<Tooltip.Root>
+												<Tooltip.Trigger class="inline-flex cursor-help items-baseline gap-0.5">
+													<span class="text-muted-foreground">~</span>
+													<span>{formatCurrency(category.spent)}</span>
+												</Tooltip.Trigger>
+												<Tooltip.Content side="top" class="max-w-xs">
+													{fxSpendTooltip(category.fxQuality)}
+												</Tooltip.Content>
+											</Tooltip.Root>
+											{#if category.fxQuality === 'raw'}
+												<Badge
+													variant="outline"
+													class="border-amber-500/60 text-[10px] text-amber-700 dark:text-amber-400"
+												>
+													No FX rate
+												</Badge>
+											{/if}
+										{:else}
+											{formatCurrency(category.spent)}
+										{/if}
+										of {formatCurrency(category.allocated)}
 									</span>
 									<span class="text-success font-medium">
 										{formatCurrency(remainingBudget)} remaining
@@ -388,8 +424,30 @@
 								</div>
 								<div>
 									<div class="text-muted-foreground">Spent</div>
-									<div class="font-medium {getStatusColor(category)}">
-										{formatCurrency(category.spent)}
+									<div
+										class="font-medium {getStatusColor(category)} flex flex-wrap items-center gap-1"
+									>
+										{#if category.fxQuality !== 'ok'}
+											<Tooltip.Root>
+												<Tooltip.Trigger class="inline-flex cursor-help items-baseline gap-0.5">
+													<span class="text-muted-foreground">~</span>
+													<span>{formatCurrency(category.spent)}</span>
+												</Tooltip.Trigger>
+												<Tooltip.Content side="top" class="max-w-xs">
+													{fxSpendTooltip(category.fxQuality)}
+												</Tooltip.Content>
+											</Tooltip.Root>
+											{#if category.fxQuality === 'raw'}
+												<Badge
+													variant="outline"
+													class="border-amber-500/60 text-[10px] text-amber-700 dark:text-amber-400"
+												>
+													No FX rate
+												</Badge>
+											{/if}
+										{:else}
+											{formatCurrency(category.spent)}
+										{/if}
 									</div>
 								</div>
 							</div>

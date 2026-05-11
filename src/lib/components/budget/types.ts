@@ -15,7 +15,7 @@ export type { TabConfig } from '$lib/components/shared/types';
 // Planning-specific component props
 export interface OverviewTabProps {
 	dailyAllowance: DailyAllowance | null;
-	enhancedAllowance?: import('$lib/utils/allowance-utils').EnhancedAllowance | null;
+	enhancedAllowance?: import('$lib/core/services/core/budget-service').EnhancedAllowance | null;
 	/** When spending exceeds allowance (for warnings) */
 	negativeAllowanceStatus?:
 		| import('$lib/core/services/core/negative-allowance-service').NegativeAllowanceStatus

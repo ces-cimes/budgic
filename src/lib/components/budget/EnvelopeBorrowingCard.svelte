@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { envelopeBorrowingService } from '$lib/core/services';
 	import type { PaybackSuggestion } from '$lib/core/services/core/envelope-borrowing-service';
-	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type { NegativeAllowanceStatus } from '$lib/core/services/core/negative-allowance-service';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { ArrowRightLeft, Calendar, AlertCircle } from '@lucide/svelte';

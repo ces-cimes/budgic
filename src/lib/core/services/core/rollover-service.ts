@@ -11,7 +11,7 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { RolloverAdjustment } from '$lib/core/db';
 import type { UserPreferences } from '$lib/core/db';
-import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 import { userService } from './user-service';
 
 export type AllowanceCategoryKey = 'essential' | 'discretionary' | 'buffer';

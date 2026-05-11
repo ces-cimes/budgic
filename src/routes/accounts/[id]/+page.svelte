@@ -35,7 +35,7 @@
 	import NextOutflowPanel from '$lib/components/accounts/NextOutflowPanel.svelte';
 	import AutomationAggregationCard from '$lib/components/accounts/AutomationAggregationCard.svelte';
 	import type { AutomationTag } from '$lib/core/db';
-	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
 		RecoverySuggestion

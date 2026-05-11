@@ -8,10 +8,10 @@
 
 import type { Account, Transaction } from '$lib/core/db';
 import { db, expenseCountsTowardAllowanceAnalytics } from '$lib/core/db';
-import type { AllowanceProjection } from '$lib/core/services/core/budget-service';
-import { getBufferAmount, calculateRecommendedBuffer } from './account-metadata-utils';
-import { transactionService } from '$lib/core/services';
-import { accountService } from '$lib/core/services';
+import type { AllowanceProjection } from './budget-service';
+import { getBufferAmount, calculateRecommendedBuffer } from '$lib/utils/account-metadata-utils';
+import { accountService } from './account-service';
+import { transactionService } from './transaction-service';
 
 /**
  * Allowance calculation result

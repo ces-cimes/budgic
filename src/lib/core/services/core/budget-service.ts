@@ -8,7 +8,8 @@ import {
 import type { Category, Transaction } from '$lib/core/db';
 import type { AnalyticsTier } from '$lib/core/db';
 import type { AllowanceConfidence } from '$lib/core/db';
-import { differenceInCalendarMonths, startOfMonth } from 'date-fns';
+import { differenceInCalendarMonths, startOfISOWeek, startOfMonth } from 'date-fns';
+import type { FxConversionQuality } from './exchange-rate-service';
 import { recurringTransactionIntelligenceService } from '../analytics/recurring-transaction-intelligence-service';
 import { passiveAccountService } from './passive-account-service';
 import {
@@ -16,6 +17,25 @@ import {
 	effectiveAmountForCategory,
 	tierAmounts
 } from '$lib/utils/category-utils';
+
+export type { FxConversionQuality } from './exchange-rate-service';
+
+function worseFxConversion(a: FxConversionQuality, b: FxConversionQuality): FxConversionQuality {
+	const r: Record<FxConversionQuality, number> = { ok: 0, stale: 1, raw: 2 };
+	return r[a] >= r[b] ? a : b;
+}
+
+/** Start of window for spent vs budget (category-level). */
+export function getCategoryBudgetPeriodStart(
+	now: Date,
+	budgetPeriod: Category['budgetPeriod'] | undefined
+): Date {
+	const mode = budgetPeriod ?? 'monthly';
+	if (mode === 'monthly') return new Date(now.getFullYear(), now.getMonth(), 1);
+	if (mode === 'weekly') return startOfISOWeek(now);
+	const monthStart = startOfMonth(now);
+	return now.getDate() <= 15 ? monthStart : new Date(now.getFullYear(), now.getMonth(), 15);
+}
 
 interface BudgetAllocation {
 	categoryId: string;
@@ -26,6 +46,8 @@ interface BudgetAllocation {
 	percentageUsed: number;
 	waterfallTier: Category['waterfallTier'];
 	priority: number;
+	/** FX path used for spent in main currency (UI ~ when not ok). */
+	fxQuality: FxConversionQuality;
 }
 
 export interface BudgetSummary {
@@ -150,7 +172,6 @@ class BudgetService {
 		const creditPaymentTransferIds = this.detectCreditPaymentTransfers(transactions, accounts);
 
 		const nowForBudget = new Date();
-		const budgetPeriodStart = new Date(nowForBudget.getFullYear(), nowForBudget.getMonth(), 1);
 		const mainCurrency = prefs?.currency ?? 'USD';
 
 		const allocations: BudgetAllocation[] = [];
@@ -164,12 +185,14 @@ class BudgetService {
 		// Calculate budget allocations for each category
 		for (const category of categories) {
 			if (category.budgetAmount && category.budgetAmount > 0) {
-				const spentAmount = await this.calculateCategorySpending(
+				const periodStart = getCategoryBudgetPeriodStart(nowForBudget, category.budgetPeriod);
+				const { sum: spentAmount, fxQuality } = await this.calculateCategorySpending(
 					category.id,
 					transactions,
 					creditPaymentTransferIds,
 					mainCurrency,
-					budgetPeriodStart
+					periodStart,
+					reimbursementAllowanceMode
 				);
 				const remainingAmount = category.budgetAmount - spentAmount;
 				const percentageUsed =
@@ -183,7 +206,8 @@ class BudgetService {
 					remainingAmount,
 					percentageUsed,
 					waterfallTier: category.waterfallTier,
-					priority: category.priority
+					priority: category.priority,
+					fxQuality
 				});
 
 				totalAllocated += category.budgetAmount;
@@ -304,14 +328,17 @@ class BudgetService {
 		const transactions = await db.transactions.toArray();
 		const prefs = await db.userPreferences.toCollection().first();
 		const mainCurrency = prefs?.currency ?? 'USD';
+		const reimbursementAllowanceMode =
+			prefs?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
 		const now = new Date();
-		const budgetPeriodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-		const spentAmount = await this.calculateCategorySpending(
+		const periodStart = getCategoryBudgetPeriodStart(now, category.budgetPeriod);
+		const { sum: spentAmount, fxQuality } = await this.calculateCategorySpending(
 			categoryId,
 			transactions,
 			new Set(),
 			mainCurrency,
-			budgetPeriodStart
+			periodStart,
+			reimbursementAllowanceMode
 		);
 		const remainingAmount = category.budgetAmount - spentAmount;
 		const percentageUsed =
@@ -325,7 +352,8 @@ class BudgetService {
 			remainingAmount,
 			percentageUsed,
 			waterfallTier: category.waterfallTier,
-			priority: category.priority
+			priority: category.priority,
+			fxQuality
 		};
 	}
 
@@ -335,9 +363,10 @@ class BudgetService {
 		const accounts = await db.getActiveAccounts();
 		const prefs = await db.userPreferences.toCollection().first();
 		const mainCurrency = prefs?.currency ?? 'USD';
+		const reimbursementAllowanceMode =
+			prefs?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
 		const creditPaymentTransferIds = this.detectCreditPaymentTransfers(transactions, accounts);
 		const now = new Date();
-		const budgetPeriodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
 		const usage = new Map<string, CategoryUsage>();
 		for (const category of categories) {
@@ -345,13 +374,16 @@ class BudgetService {
 				category.budgetAmount && category.budgetAmount > 0 ? category.budgetAmount : null;
 			let spent = 0;
 			if (budget !== null) {
-				spent = await this.calculateCategorySpending(
+				const periodStart = getCategoryBudgetPeriodStart(now, category.budgetPeriod);
+				const { sum } = await this.calculateCategorySpending(
 					category.id,
 					transactions,
 					creditPaymentTransferIds,
 					mainCurrency,
-					budgetPeriodStart
+					periodStart,
+					reimbursementAllowanceMode
 				);
+				spent = sum;
 			}
 
 			const usageRatio = budget !== null && budget > 0 ? spent / budget : null;
@@ -682,7 +714,9 @@ class BudgetService {
 					.filter((e) => e.direction === 'lending' && e.status === 'expecting')
 					.reduce((s, e) => s + e.amount, 0);
 				amount =
-					fullAbs > 0 ? Math.max(0, amount - openExpected * (amount / fullAbs)) : Math.max(0, amount);
+					fullAbs > 0
+						? Math.max(0, amount - openExpected * (amount / fullAbs))
+						: Math.max(0, amount);
 			}
 			committed += await this.convertToMainCurrency(
 				amount,
@@ -900,6 +934,7 @@ class BudgetService {
 		waterfallTier?: Category['waterfallTier'];
 		priority: number;
 		budgetAmount?: number;
+		budgetPeriod?: Category['budgetPeriod'];
 		color?: string;
 		description?: string;
 		isActive?: boolean;
@@ -916,6 +951,7 @@ class BudgetService {
 				: { waterfallTier: 'unclassified' }),
 			priority: categoryData.priority,
 			budgetAmount: categoryData.budgetAmount,
+			...(categoryData.budgetPeriod ? { budgetPeriod: categoryData.budgetPeriod } : {}),
 			color: categoryData.color,
 			description: categoryData.description,
 			isActive: categoryData.isActive ?? true,
@@ -947,44 +983,58 @@ class BudgetService {
 	): Promise<number> {
 		if (!txCurrency || txCurrency === mainCurrency) return amount;
 		const { exchangeRateService } = await import('$lib/core/services');
-		const converted = await exchangeRateService.convertAmount(
+		const { value } = await exchangeRateService.convertAmountWithQuality(
 			amount,
 			txCurrency,
 			mainCurrency,
 			date
 		);
-		return converted ?? amount;
+		return value;
 	}
 
 	/**
-	 * Cleared spend for a category in the current calendar month (periodStart → now), in main currency.
+	 * Cleared spend for a category in [periodStart, now], in main currency, with FX quality for UI.
 	 */
 	private async calculateCategorySpending(
 		categoryId: string,
 		transactions: Transaction[],
 		excludedIds: Set<string>,
 		mainCurrency: string,
-		periodStart: Date
-	): Promise<number> {
+		periodStart: Date,
+		reimbursementMode: 'conservative' | 'optimistic'
+	): Promise<{ sum: number; fxQuality: FxConversionQuality }> {
 		const now = new Date();
 		let sum = 0;
+		let fxQuality: FxConversionQuality = 'ok';
+		const { exchangeRateService } = await import('$lib/core/services');
 		for (const tx of transactions) {
 			if (excludedIds.has(tx.id)) continue;
 			if (tx.type !== 'expense' || tx.status !== 'cleared') continue;
 			if (!transactionAutomationCountsInAnalytics(tx)) continue;
 			if (!tx.clearedDate) continue;
-			const slice = Math.abs(effectiveAmountForCategory(tx, categoryId));
+			let slice = Math.abs(effectiveAmountForCategory(tx, categoryId));
 			if (slice < 1e-9) continue;
 			const cd = new Date(tx.clearedDate);
 			if (cd < periodStart || cd > now) continue;
-			sum += await this.convertToMainCurrency(
+			if (reimbursementMode === 'optimistic' && tx.reimbursements?.length) {
+				const openExpected = tx.reimbursements
+					.filter((r) => r.direction === 'lending' && r.status === 'expecting')
+					.reduce((s, r) => s + r.amount, 0);
+				const fullAbs = Math.abs(tx.amount || 0);
+				if (openExpected > 0 && fullAbs > 0) {
+					slice = Math.max(0, slice - openExpected * (slice / fullAbs));
+				}
+			}
+			const conv = await exchangeRateService.convertAmountWithQuality(
 				slice,
 				tx.currency ?? mainCurrency,
 				mainCurrency,
 				cd
 			);
+			sum += conv.value;
+			fxQuality = worseFxConversion(fxQuality, conv.quality);
 		}
-		return sum;
+		return { sum, fxQuality };
 	}
 
 	private detectCreditPaymentTransfers(
@@ -1034,3 +1084,16 @@ class BudgetService {
 }
 
 export const budgetService = new BudgetService();
+
+export {
+	calculateEnhancedAllowance,
+	calculateGlobalAllowance,
+	getSimpleDailyAllowance
+} from './allowance-calculation';
+export type {
+	AllowanceCalculation,
+	AllowanceCategory,
+	AllowanceRecommendation,
+	EnhancedAllowance,
+	MethodWeights
+} from './allowance-calculation';

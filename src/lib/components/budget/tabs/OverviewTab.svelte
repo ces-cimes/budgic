@@ -18,7 +18,6 @@
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
 	import RolloverCard from '$lib/components/budget/RolloverCard.svelte';
-	import OccasionsCard from '$lib/components/budget/OccasionsCard.svelte';
 
 	const {
 		dailyAllowance,
@@ -90,7 +89,6 @@
 				{onBorrowCreated}
 			/>
 			<RolloverCard {accountId} allowance={enhancedAllowance} {onRolloverApplied} />
-			<OccasionsCard {accountId} allowance={enhancedAllowance} />
 		</div>
 	{:else if dailyAllowance}
 		<!-- Fallback to simple allowance if enhanced not available -->

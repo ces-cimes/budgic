@@ -1,5 +1,8 @@
 <script lang="ts">
-	import type { EnhancedAllowance, AllowanceRecommendation } from '$lib/utils/allowance-utils';
+	import type {
+		AllowanceRecommendation,
+		EnhancedAllowance
+	} from '$lib/core/services/core/budget-service';
 	import type { AllowanceProjection } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,

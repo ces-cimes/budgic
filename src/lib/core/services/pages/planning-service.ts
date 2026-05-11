@@ -5,8 +5,7 @@ import {
 	budgetService,
 	crossRouteSyncService,
 	insightsService,
-	rolloverService,
-	occasionService
+	rolloverService
 } from '$lib/core/services';
 import type { Account } from '$lib/core/db';
 import {
@@ -14,7 +13,7 @@ import {
 	calculateGlobalAllowance,
 	getSimpleDailyAllowance,
 	type EnhancedAllowance
-} from '$lib/utils/allowance-utils';
+} from '$lib/core/services/core/budget-service';
 import { formatAmount } from '$lib/utils/currency-utils';
 
 // Simplified types for planning
@@ -174,26 +173,6 @@ class PlanService {
 			const periodEnd = raw.periodEnd instanceof Date ? raw.periodEnd : new Date(raw.periodEnd);
 			const deltas = await rolloverService.getAdjustmentDeltasByCategory(accountId, periodStart);
 			let allowance = rolloverService.applyDeltasToAllowance(raw, deltas);
-			const occasionAdj = await occasionService.getAllowanceAdjustmentForPeriod(
-				accountId,
-				periodStart,
-				periodEnd,
-				allowance.total.currency
-			);
-			if (occasionAdj.totalDelta !== 0 && occasionAdj.currency === allowance.total.currency) {
-				const delta = occasionAdj.totalDelta;
-				const daysRemaining = allowance.total.daysRemaining;
-				const newRemaining = allowance.total.remaining + delta;
-				allowance = {
-					...allowance,
-					total: {
-						...allowance.total,
-						monthly: allowance.total.monthly + delta,
-						remaining: newRemaining,
-						dailySafe: daysRemaining > 0 ? newRemaining / daysRemaining : allowance.total.dailySafe
-					}
-				};
-			}
 			let projection: import('$lib/core/services/core/budget-service').AllowanceProjection | null =
 				null;
 			try {

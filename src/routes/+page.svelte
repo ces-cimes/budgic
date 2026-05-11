@@ -24,7 +24,7 @@
 		userService as userServiceImport,
 		negativeAllowanceService
 	} from '$lib/core/services';
-	import type { EnhancedAllowance } from '$lib/utils/allowance-utils';
+	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
 		RecoverySuggestion

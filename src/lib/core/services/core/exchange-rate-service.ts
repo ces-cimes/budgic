@@ -10,6 +10,9 @@ import { devLog } from '$lib/utils/dev-log';
 
 const EXCHANGE_RATE_TASK = 'exchange-rate:auto-update';
 
+/** Result of best-effort conversion (budget rows show ~ when not exact). */
+export type FxConversionQuality = 'ok' | 'stale' | 'raw';
+
 interface ExchangeRateAPIResponse {
 	rates: Record<string, number>;
 	base: string;
@@ -158,6 +161,59 @@ class ExchangeRateService {
 			return null;
 		}
 		return amount * rate;
+	}
+
+	/**
+	 * Convert with quality: exact rate first, then any stored pair (stale), then raw amount.
+	 */
+	async convertAmountWithQuality(
+		amount: number,
+		fromCurrency: string,
+		toCurrency: string,
+		date?: Date
+	): Promise<{ value: number; quality: FxConversionQuality }> {
+		const from = (fromCurrency || 'USD').toUpperCase();
+		const to = (toCurrency || 'USD').toUpperCase();
+		if (from === to) {
+			return { value: amount, quality: 'ok' };
+		}
+		const direct = await this.convertAmount(amount, from, to, date);
+		if (direct !== null) {
+			return { value: direct, quality: 'ok' };
+		}
+		const staleRate = await this.getLatestStoredRate(from, to);
+		if (staleRate !== null) {
+			return { value: amount * staleRate, quality: 'stale' };
+		}
+		return { value: amount, quality: 'raw' };
+	}
+
+	/** Most recent non-deleted rate for the pair (any date), or inverted reverse pair. */
+	private async getLatestStoredRate(
+		fromCurrency: string,
+		toCurrency: string
+	): Promise<number | null> {
+		const from = fromCurrency.toUpperCase();
+		const to = toCurrency.toUpperCase();
+		const forward = await db.exchangeRates
+			.where('[fromCurrency+toCurrency]')
+			.equals([from, to])
+			.filter((r) => !r.deletedAt)
+			.toArray();
+		if (forward.length > 0) {
+			forward.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+			return forward[0].rate;
+		}
+		const rev = await db.exchangeRates
+			.where('[fromCurrency+toCurrency]')
+			.equals([to, from])
+			.filter((r) => !r.deletedAt)
+			.toArray();
+		if (rev.length > 0) {
+			rev.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+			return 1 / rev[0].rate;
+		}
+		return null;
 	}
 
 	/**

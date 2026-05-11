@@ -505,7 +505,7 @@ class EmergencyFundService {
 
 		// Rule 2: Amount > 50% of monthly total allowances
 		try {
-			const { calculateGlobalAllowance } = await import('$lib/utils/allowance-utils');
+			const { calculateGlobalAllowance } = await import('$lib/core/services/core/budget-service');
 			const globalAllowance = await calculateGlobalAllowance();
 			const monthlyAllowance = globalAllowance.total.monthly || 0;
 
