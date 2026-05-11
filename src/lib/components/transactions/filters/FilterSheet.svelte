@@ -1,7 +1,6 @@
 <script lang="ts">
-	import * as Sheet from '$lib/components/ui/sheet';
+	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { IsMobile } from '$lib/hooks/is-mobile.svelte';
 	import FilterSection from './FilterSection.svelte';
 	import StatusFilter from './StatusFilter.svelte';
 	import CategoryFilter from './CategoryFilter.svelte';
@@ -37,8 +36,11 @@
 		onApply
 	}: Props = $props();
 
-	const isMobile = new IsMobile();
-	const sheetSide = $derived(isMobile.current ? 'bottom' : 'right');
+	const filterDescription = $derived(
+		activeFilterCount > 0
+			? `${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active`
+			: 'Narrow down your transactions'
+	);
 
 	function handleClearAll() {
 		const cleared = clearAdvancedFilters(filters);
@@ -51,17 +53,14 @@
 	}
 </script>
 
-<Sheet.Root bind:open>
-	<Sheet.Content side={sheetSide} class="w-full sm:max-w-md">
-		<Sheet.Header>
-			<Sheet.Title>Filter Transactions</Sheet.Title>
-			<Sheet.Description>
-				{activeFilterCount > 0
-					? `${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active`
-					: 'Narrow down your transactions'}
-			</Sheet.Description>
-		</Sheet.Header>
-
+<DialogDrawer
+	{open}
+	onOpenChange={(v) => (open = v)}
+	title="Filter Transactions"
+	description={filterDescription}
+	sheetContentClass="w-full sm:max-w-md"
+>
+	{#snippet children()}
 		<div class="max-h-[calc(100vh-200px)] space-y-6 overflow-y-auto py-4">
 			<!-- Filter Presets -->
 			<FilterSection title="Quick Filters">
@@ -214,11 +213,11 @@
 			</details>
 		</div>
 
-		<Sheet.Footer class="flex justify-between border-t pt-4">
+		<div class="flex justify-between border-t pt-4">
 			<Button variant="outline" onclick={handleClearAll} disabled={activeFilterCount === 0}>
 				Clear All
 			</Button>
 			<Button onclick={handleApply}>Apply Filters</Button>
-		</Sheet.Footer>
-	</Sheet.Content>
-</Sheet.Root>
+		</div>
+	{/snippet}
+</DialogDrawer>

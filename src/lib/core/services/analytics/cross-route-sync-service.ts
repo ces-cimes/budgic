@@ -460,7 +460,10 @@ class CrossRouteSyncService {
 
 		// Find goals related to this category
 		const goals = await goalService.getGoals();
-		const relatedGoals = goals.filter((goal) => goal.category === categoryId);
+		if (!categoryId) return;
+		const relatedGoals = goals.filter((goal) =>
+			(goal.linkedCategoryIds ?? []).includes(categoryId)
+		);
 
 		for (const goal of relatedGoals) {
 			await goalService.updateGoalProgress(goal.id);

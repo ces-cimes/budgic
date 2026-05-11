@@ -77,6 +77,7 @@ class GoalService {
 		priority: Goal['priority'];
 		currency?: string;
 		monthlyContribution?: number;
+		linkedCategoryIds?: string[];
 	}): Promise<Goal> {
 		const goal: Goal = {
 			id: generateUUID(),
@@ -93,6 +94,9 @@ class GoalService {
 			monthlyContribution: data.monthlyContribution,
 			isRecurring: false,
 			tags: [],
+			linkedCategoryIds: data.linkedCategoryIds?.length
+				? data.linkedCategoryIds.slice(0, 8)
+				: undefined,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null
@@ -135,7 +139,14 @@ class GoalService {
 		updates: Partial<
 			Pick<
 				Goal,
-				'name' | 'description' | 'targetAmount' | 'targetDate' | 'category' | 'priority' | 'status'
+				| 'name'
+				| 'description'
+				| 'targetAmount'
+				| 'targetDate'
+				| 'category'
+				| 'priority'
+				| 'status'
+				| 'linkedCategoryIds'
 			>
 		>
 	): Promise<Goal> {

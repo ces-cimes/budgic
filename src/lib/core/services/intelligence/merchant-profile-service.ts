@@ -12,7 +12,10 @@ class MerchantProfileService {
 		merchantKey: string,
 		accountId?: string
 	): Promise<MerchantCategoryProfile | null> {
-		const rows = await db.merchantCategoryProfiles.where('merchantKey').equals(merchantKey).toArray();
+		const rows = await db.merchantCategoryProfiles
+			.where('merchantKey')
+			.equals(merchantKey)
+			.toArray();
 		const want = accountId ?? '';
 		const match = rows.find((p) => (p.accountId ?? '') === want);
 		return match ?? null;
@@ -192,6 +195,32 @@ class MerchantProfileService {
 			total += await this.applyRetrospectiveSplits(mk, accountId, ids);
 		}
 		return total;
+	}
+
+	/**
+	 * User dismissed a goal-relative split nudge ("No") — slightly down-weight that category in the profile.
+	 */
+	async applyNegativeCategoryHint(
+		merchantKey: string,
+		accountId: string | undefined,
+		categoryId: string
+	): Promise<void> {
+		const existing = await this.getProfile(merchantKey, accountId);
+		if (!existing) return;
+		const now = new Date().toISOString();
+		const weights = existing.weights.map((w) => {
+			if (w.categoryId !== categoryId) return { ...w };
+			const nextMean = Math.max(0, w.meanWeight - 0.04);
+			return { ...w, meanWeight: nextMean };
+		});
+		const stability = this.recomputeStability(weights);
+		await db.merchantCategoryProfiles.put({
+			...existing,
+			weights,
+			stability,
+			lastUpdated: now,
+			updatedAt: now
+		});
 	}
 }
 

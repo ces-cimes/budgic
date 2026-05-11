@@ -15,7 +15,7 @@
 	import * as Label from '$lib/components/ui/label/index.ts';
 	import * as Alert from '$lib/components/ui/alert/index.ts';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.ts';
-	import * as Sheet from '$lib/components/ui/sheet/index.ts';
+	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { formatAmount, sortCurrencies, sortInactiveCurrencies } from '$lib/utils/currency-utils';
 	import type { CurrencyConfiguration, Currency, ExchangeRate } from '$lib/core/db';
@@ -1101,22 +1101,24 @@
 					<div class="border-t pt-4">
 						<div class="mb-3 flex items-center justify-between">
 							<Label.Root>Active Currencies ({activeCurrencies.length})</Label.Root>
-							<Sheet.Root bind:open={showAddCurrencySheet}>
-								<Sheet.Trigger>
-									<Button.Root variant="outline" size="sm" disabled={isSaving}>
-										<Plus class="mr-2 h-4 w-4" />
-										Add Currency
-									</Button.Root>
-								</Sheet.Trigger>
-								<Sheet.Content class="max-w-2xl sm:max-w-lg">
-									<Sheet.Header>
-										<Sheet.Title>Add Currency</Sheet.Title>
-										<Sheet.Description>
-											Create a custom currency or activate a system currency from the inactive list
-											below.
-										</Sheet.Description>
-									</Sheet.Header>
-
+							<Button.Root
+								variant="outline"
+								size="sm"
+								disabled={isSaving}
+								onclick={() => (showAddCurrencySheet = true)}
+							>
+								<Plus class="mr-2 h-4 w-4" />
+								Add Currency
+							</Button.Root>
+							<DialogDrawer
+								open={showAddCurrencySheet}
+								onOpenChange={(v) => (showAddCurrencySheet = v)}
+								title="Add Currency"
+								description="Create a custom currency or activate a system currency from the inactive list below."
+								sheetSideDesktop="bottom"
+								sheetContentClass="max-w-2xl sm:max-w-lg"
+							>
+								{#snippet children()}
 									<div class="max-h-[calc(100vh-8rem)] space-y-6 overflow-y-auto py-4">
 										<div class="space-y-4">
 											<div class="space-y-2">
@@ -1197,8 +1199,8 @@
 											</Button.Root>
 										</div>
 									</div>
-								</Sheet.Content>
-							</Sheet.Root>
+								{/snippet}
+							</DialogDrawer>
 						</div>
 
 						{#if activeCurrencies.length === 0 && inactiveCurrencies.length === 0}
@@ -1771,16 +1773,15 @@
 
 			<!-- Currency Configuration Drawer -->
 			{#if configCurrency}
-				<Sheet.Root bind:open={showConfigDrawer}>
-					<Sheet.Content class="max-w-2xl">
-						<Sheet.Header>
-							<Sheet.Title>{configCurrency.code} Settings</Sheet.Title>
-							<Sheet.Description>
-								Configure default values and display name for this currency. These values are used
-								when creating accounts and calculating buffers.
-							</Sheet.Description>
-						</Sheet.Header>
-
+				<DialogDrawer
+					open={showConfigDrawer}
+					onOpenChange={(v) => (showConfigDrawer = v)}
+					title={`${configCurrency.code} Settings`}
+					description="Configure default values and display name for this currency. These values are used when creating accounts and calculating buffers."
+					sheetSideDesktop="bottom"
+					sheetContentClass="max-w-2xl"
+				>
+					{#snippet children()}
 						<div class="space-y-6 py-4">
 							{#if configCurrency}
 								{@const currency = configCurrency}
@@ -1981,8 +1982,8 @@
 								{/if}
 							{/if}
 						</div>
-					</Sheet.Content>
-				</Sheet.Root>
+					{/snippet}
+				</DialogDrawer>
 			{/if}
 
 			<!-- Reset Defaults Alert Dialog -->

@@ -173,7 +173,8 @@ export class GoalsService {
 				category: request.category,
 				priority: request.priority,
 				targetDate: request.targetDate,
-				monthlyContribution: request.monthlyContribution
+				monthlyContribution: request.monthlyContribution,
+				linkedCategoryIds: request.linkedCategoryIds
 			});
 		} catch (error) {
 			console.error('Error creating goal:', error);

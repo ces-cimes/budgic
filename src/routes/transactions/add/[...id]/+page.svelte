@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { get } from 'svelte/store';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
@@ -13,7 +13,6 @@
 		merchantProfileService,
 		goalService
 	} from '$lib/core/services';
-	import { toast } from 'svelte-sonner';
 	import { db } from '$lib/core/db';
 	import type { Account, Transaction, Category, ReimbursementEntry } from '$lib/core/db';
 	import {
@@ -21,6 +20,13 @@
 		getOrCreateUncategorizedIncomeCategory
 	} from '$lib/utils/category-utils';
 	import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
+	import { goalRelativePrecisionDismissalKey } from '$lib/utils/goal-precision-utils';
+	import {
+		roundWeightSum,
+		assertNotGroupedWithSoftSplit,
+		assertValidSoftCategoryWeights,
+		assertSoftSplitCategoryIdMatchesPrimary
+	} from '$lib/utils/transaction-category-weights';
 	import { devLog } from '$lib/utils/dev-log';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
@@ -31,13 +37,14 @@
 	import * as Input from '$lib/components/ui/input/index.ts';
 	import * as Switch from '$lib/components/ui/switch/index.ts';
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
-	import * as Sheet from '$lib/components/ui/sheet/index.ts';
+	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
 	import { Trash2, HelpCircle, ChevronDown, Tag } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
+	import CurrencySelectionSheet from '$lib/components/forms/CurrencySelectionSheet.svelte';
 	import {
 		FormFieldGrid,
 		FormErrorAlert,
@@ -79,12 +86,6 @@
 		return id.replace(/^debt:/, '').replace(/-/g, ' ');
 	}
 
-	function roundWeightSum(weights: { categoryId: string; weight: number }[]) {
-		const sum = weights.reduce((a, w) => a + w.weight, 0);
-		if (sum < 1e-9) return weights;
-		return weights.map((w) => ({ ...w, weight: w.weight / sum }));
-	}
-
 	function buildCategoryWeights():
 		| { weights: { categoryId: string; weight: number }[]; primaryId: string }
 		| undefined {
@@ -96,21 +97,7 @@
 		if (extras.length === 0) return undefined;
 		const ids = [selectedCategory, ...extras];
 		const n = ids.length;
-		let wts: number[];
-		if (n === 2) {
-			const presetMap: Record<string, [number, number]> = {
-				'80/20': [0.8, 0.2],
-				'70/30': [0.7, 0.3],
-				'60/40': [0.6, 0.4],
-				'50/50': [0.5, 0.5]
-			};
-			wts =
-				softPreset === 'custom'
-					? [softWPrimary, 1 - softWPrimary]
-					: (presetMap[softPreset] ?? [0.7, 0.3]);
-		} else {
-			wts = Array(n).fill(1 / n);
-		}
+		const wts: number[] = n === 2 ? [softWPrimary, 1 - softWPrimary] : Array(n).fill(1 / n);
 		const weights = roundWeightSum(
 			ids.map((categoryId, i) => ({ categoryId, weight: wts[i] ?? 1 / n }))
 		);
@@ -137,11 +124,12 @@
 			merchantSplitNote = null;
 			return;
 		}
-		const sorted = [...sug.weights].sort((a, b) => b.weight - a.weight);
-		selectedCategory = sorted[0].categoryId;
-		softSecondaryCategory = sorted[1]?.categoryId ?? '';
-		splitSource = 'profile';
-		merchantSplitNote = 'Based on your history at this merchant';
+	const sorted = [...sug.weights].sort((a, b) => b.weight - a.weight);
+	selectedCategory = sorted[0].categoryId;
+	softSecondaryCategory = sorted[1]?.categoryId ?? '';
+	softWPrimary = Math.min(0.95, Math.max(0.05, sorted[0].weight));
+	splitSource = 'profile';
+	merchantSplitNote = 'Based on your history at this merchant';
 	}
 
 	$effect(() => {
@@ -228,8 +216,8 @@
 	let selectedCategory = $state('');
 	/** Phase 9 — second category for two-way soft split (empty = none) */
 	let softSecondaryCategory = $state('');
-	let softPreset = $state<'80/20' | '70/30' | '60/40' | '50/50' | 'custom'>('70/30');
-	let softWPrimary = $state(0.7);
+	let showSecondaryPicker = $state(false);
+	let softWPrimary = $state(0.5);
 	let splitSource = $state<'none' | 'profile' | 'manual'>('none');
 	let merchantSplitNote = $state<string | null>(null);
 	let hasInferredCategoryIndicator = $state(false);
@@ -305,6 +293,22 @@
 	let pendingTransactionId = $state<string | null>(null);
 	type TransactionDraft = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>;
 	let pendingSubmitData = $state<TransactionDraft | null>(null);
+
+	/** Part 5 — post-save goal-relative precision nudge (deferred navigation until resolved) */
+	type GoalPrecisionNudgeCtx = {
+		savedTransactionId: string;
+		merchantKey: string;
+		accountId: string | undefined;
+		primaryCategoryId: string;
+		secondaryCategoryId: string;
+		secondaryLabel: string;
+		currency: string;
+		totalAbs: number;
+	};
+	let goalPrecisionNudge = $state<GoalPrecisionNudgeCtx | null>(null);
+	let goalPrecisionSheetOpen = $state(false);
+	let goalPrecisionAmountStr = $state('');
+	let goalPrecisionDismissTimer: ReturnType<typeof setTimeout> | null = null;
 
 	// Reimbursement tracking (Phase 3.1)
 	let showReimbursementSection = $state(false);
@@ -662,11 +666,12 @@
 					status = transaction.status;
 					selectedCategory = transaction.categoryId || '';
 					if (transaction.categoryWeights && transaction.categoryWeights.length >= 2) {
-						const sorted = [...transaction.categoryWeights].sort((a, b) => b.weight - a.weight);
-						selectedCategory = sorted[0].categoryId;
-						softSecondaryCategory = sorted[1]?.categoryId ?? '';
-						splitSource =
-							transaction.categoryConfidence === 'profile-inferred' ? 'profile' : 'manual';
+					const sorted = [...transaction.categoryWeights].sort((a, b) => b.weight - a.weight);
+					selectedCategory = sorted[0].categoryId;
+					softSecondaryCategory = sorted[1]?.categoryId ?? '';
+					softWPrimary = Math.min(0.95, Math.max(0.05, sorted[0].weight));
+					splitSource =
+						transaction.categoryConfidence === 'profile-inferred' ? 'profile' : 'manual';
 					} else {
 						softSecondaryCategory = '';
 						splitSource = 'none';
@@ -1033,6 +1038,145 @@
 		}
 	});
 
+	function clearGoalPrecisionDismissTimer() {
+		if (goalPrecisionDismissTimer) {
+			clearTimeout(goalPrecisionDismissTimer);
+			goalPrecisionDismissTimer = null;
+		}
+	}
+
+	async function tryOpenGoalPrecisionNudge(saved: Transaction): Promise<boolean> {
+		if (saved.type !== 'expense' || saved.status !== 'cleared') return false;
+		if (saved.groupId) return false;
+		if (saved.categoryWeights && saved.categoryWeights.length >= 2) return false;
+		const primary = saved.categoryId;
+		if (!primary) return false;
+		const totalAbs = Math.abs(saved.amount ?? 0);
+		if (totalAbs < 1e-9) return false;
+		const mk = normaliseMerchantKey(saved.description ?? '');
+		if (!mk) return false;
+		const profile = await merchantProfileService.getProfile(mk, saved.accountId);
+		if (!profile?.weights?.length) return false;
+
+		const goals = await goalService.getGoals();
+		const active = goals.filter((g) => g.status === 'active');
+		let best: { secondaryId: string; mean: number } | null = null;
+		for (const goal of active) {
+			for (const cid of goal.linkedCategoryIds ?? []) {
+				if (!cid || cid === primary) continue;
+				const row = profile.weights.find((w) => w.categoryId === cid);
+				if (!row || row.meanWeight <= 0.1) continue;
+				if (!best || row.meanWeight > best.mean) {
+					best = { secondaryId: cid, mean: row.meanWeight };
+				}
+			}
+		}
+		if (!best) return false;
+
+		const dismissKey = goalRelativePrecisionDismissalKey(mk, best.secondaryId);
+		const prefs = await userService.getUserPreferences();
+		const prev = prefs.goalRelativePrecisionDismissals?.[dismissKey] ?? [];
+		const recent = prev.filter((d) => Date.now() - new Date(d).getTime() < 30 * 86400000).length;
+		if (recent >= 3) return false;
+
+		const secCat = categories.find((c) => c.id === best.secondaryId);
+		goalPrecisionNudge = {
+			savedTransactionId: saved.id,
+			merchantKey: mk,
+			accountId: saved.accountId,
+			primaryCategoryId: primary,
+			secondaryCategoryId: best.secondaryId,
+			secondaryLabel: secCat?.name ?? 'this category',
+			currency: saved.currency || currency || 'USD',
+			totalAbs
+		};
+		goalPrecisionAmountStr = '';
+		goalPrecisionSheetOpen = true;
+		clearGoalPrecisionDismissTimer();
+		goalPrecisionDismissTimer = setTimeout(() => {
+			goalPrecisionDismissTimer = null;
+			void goalPrecisionOnNo();
+		}, 5000);
+		return true;
+	}
+
+	async function goalPrecisionOnNo() {
+		clearGoalPrecisionDismissTimer();
+		const ctx = goalPrecisionNudge;
+		goalPrecisionNudge = null;
+		goalPrecisionSheetOpen = false;
+		goalPrecisionAmountStr = '';
+		if (ctx) {
+			try {
+				await merchantProfileService.applyNegativeCategoryHint(
+					ctx.merchantKey,
+					ctx.accountId,
+					ctx.secondaryCategoryId
+				);
+				const p = await userService.getUserPreferences();
+				const dismissKey = goalRelativePrecisionDismissalKey(
+					ctx.merchantKey,
+					ctx.secondaryCategoryId
+				);
+				const nextArr = [
+					...(p.goalRelativePrecisionDismissals?.[dismissKey] ?? []),
+					new Date().toISOString()
+				];
+				await userService.updateUserPreferences({
+					...p,
+					goalRelativePrecisionDismissals: {
+						...(p.goalRelativePrecisionDismissals ?? {}),
+						[dismissKey]: nextArr
+					}
+				});
+			} catch {
+				// non-blocking
+			}
+		}
+		goto('/transactions');
+	}
+
+	async function goalPrecisionOnApplyAmount() {
+		const ctx = goalPrecisionNudge;
+		if (!ctx) return;
+		const raw = goalPrecisionAmountStr.trim().replace(',', '.');
+		const amt = Number.parseFloat(raw);
+		if (!Number.isFinite(amt) || amt <= 0 || amt > ctx.totalAbs + 1e-4) {
+			error = `Enter an amount between 0 and ${formatAmount(ctx.totalAbs, ctx.currency)}`;
+			return;
+		}
+		clearGoalPrecisionDismissTimer();
+		const w2 = amt / ctx.totalAbs;
+		const w1 = 1 - w2;
+		const weights = roundWeightSum([
+			{ categoryId: ctx.primaryCategoryId, weight: w1 },
+			{ categoryId: ctx.secondaryCategoryId, weight: w2 }
+		]);
+		const primaryId = weights.reduce((a, b) => (b.weight > a.weight ? b : a)).categoryId;
+		isLoading = true;
+		error = '';
+		try {
+			await transactionService.updateTransaction(ctx.savedTransactionId, {
+				categoryWeights: weights,
+				categoryId: primaryId,
+				categoryConfidence: 'weighted'
+			});
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not update split';
+			return;
+		} finally {
+			isLoading = false;
+		}
+		goalPrecisionNudge = null;
+		goalPrecisionSheetOpen = false;
+		goalPrecisionAmountStr = '';
+		goto('/transactions');
+	}
+
+	onDestroy(() => {
+		clearGoalPrecisionDismissTimer();
+	});
+
 	async function doActualSubmit(
 		txData: TransactionDraft,
 		isEdit: boolean,
@@ -1076,52 +1220,10 @@
 				);
 		}
 
-		try {
-			if (
-				txData.type === 'expense' &&
-				txData.status === 'cleared' &&
-				txData.categoryWeights &&
-				txData.categoryWeights.length >= 2
-			) {
-				const goals = await goalService.getGoals();
-				if (goals.length > 0) {
-					const prefs = await userService.getUserPreferences();
-					const mk = normaliseMerchantKey(txData.description ?? '') || '_';
-					const prev = prefs.goalRelativePrecisionDismissals?.[mk] ?? [];
-					const recent = prev.filter(
-						(d) => Date.now() - new Date(d).getTime() < 30 * 86400000
-					).length;
-					if (recent < 3) {
-						toast.message('Goals track more cleanly with exact splits.', {
-							description:
-								'Weighted categories work for budgeting; for stricter goal math, use “Make exact split” when it matters.',
-							duration: 9000,
-							action: {
-								label: 'Dismiss',
-								onClick: async () => {
-									const p = await userService.getUserPreferences();
-									const nextArr = [
-										...(p.goalRelativePrecisionDismissals?.[mk] ?? []),
-										new Date().toISOString()
-									];
-									await userService.updateUserPreferences({
-										...p,
-										goalRelativePrecisionDismissals: {
-											...(p.goalRelativePrecisionDismissals ?? {}),
-											[mk]: nextArr
-										}
-									});
-								}
-							}
-						});
-					}
-				}
-			}
-		} catch {
-			// non-blocking nudge
+		const deferredNav = await tryOpenGoalPrecisionNudge(savedTransaction);
+		if (!deferredNav) {
+			goto('/transactions');
 		}
-
-		goto('/transactions');
 		return savedTransaction;
 	}
 
@@ -1193,9 +1295,7 @@
 		error = '';
 
 		try {
-			if (isGroupTransaction && buildCategoryWeights()) {
-				throw new Error('Turn off "Grouped transaction" before saving a soft category split.');
-			}
+			assertNotGroupedWithSoftSplit(isGroupTransaction, buildCategoryWeights()?.weights);
 			// Validate required fields
 			// Account is required for cleared, pending, and transfers; optional for planned
 			if (
@@ -1258,6 +1358,10 @@
 
 			const splitBuilt = buildCategoryWeights();
 			const categoryIdResolved = splitBuilt?.primaryId ?? (finalCategoryId || undefined);
+			if (splitBuilt) {
+				assertValidSoftCategoryWeights(splitBuilt.weights);
+				assertSoftSplitCategoryIdMatchesPrimary(categoryIdResolved, splitBuilt.weights);
+			}
 
 			const transactionData: TransactionDraft = {
 				accountId: selectedAccount || undefined, // Optional for planned transactions
@@ -1271,9 +1375,7 @@
 					? {
 							categoryWeights: splitBuilt.weights,
 							categoryConfidence:
-								splitSource === 'profile'
-									? ('profile-inferred' as const)
-									: ('weighted' as const)
+								splitSource === 'profile' ? ('profile-inferred' as const) : ('weighted' as const)
 						}
 					: {}),
 				notes: notes || undefined,
@@ -1608,6 +1710,161 @@
 					/>
 				</div>
 
+				<!-- ── Category (after description — less keyboard overlap) ── -->
+				<div class="space-y-4">
+					<h2
+						class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+					>
+						Category
+					</h2>
+
+					<div class="space-y-2">
+						<Label.Root for="category">Category</Label.Root>
+					<SearchableSelect
+						bind:value={selectedCategory}
+						options={categoryOptions}
+						placeholder="Select a category (optional)"
+						allowClear={true}
+						clearLabel="Select a category (optional)"
+						fieldKey="transaction.category"
+						selectionContext={{
+							transactionType,
+							status,
+							accountId: selectedAccount || undefined
+						}}
+					/>
+						{#if hasInferredCategoryIndicator && selectedCategory === inferredCategoryId}
+							<div class="flex items-center gap-2">
+								<span class={suggestedPillClass}>Suggested</span>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									Category inferred from description: {inferredCategoryLabel}
+								</p>
+							</div>
+						{/if}
+					</div>
+
+				{#if transactionType === 'expense' && selectedCategory}
+					{@const primaryLabel = categoryOptions.find((o) => o.value === selectedCategory)?.label ?? ''}
+					{@const secondaryLabel = categoryOptions.find((o) => o.value === softSecondaryCategory)?.label ?? ''}
+					{#if softSecondaryCategory || showSecondaryPicker}
+						<div class="space-y-3 rounded-xl border border-[var(--color-border)] p-3">
+							<div class="flex items-center gap-2">
+								<div class="min-w-0 flex-1">
+									<SearchableSelect
+										bind:value={softSecondaryCategory}
+										options={categoryOptions.filter((o) => o.value !== selectedCategory)}
+										placeholder="Second category…"
+										allowClear={false}
+										fieldKey="transaction.category.split"
+										selectionContext={{
+											transactionType,
+											status,
+											accountId: selectedAccount || undefined
+										}}
+									/>
+								</div>
+								<button
+									type="button"
+									class="text-muted-foreground hover:text-foreground flex size-9 shrink-0 touch-manipulation items-center justify-center rounded-md"
+									aria-label="Remove second category"
+									onclick={() => {
+										softSecondaryCategory = '';
+										showSecondaryPicker = false;
+										softWPrimary = 0.5;
+										merchantSplitNote = null;
+										splitSource = 'none';
+									}}
+								>
+									✕
+								</button>
+							</div>
+
+							{#if softSecondaryCategory}
+								<div class="space-y-1.5">
+									<div class="flex justify-between gap-2 text-xs">
+										<span class="text-foreground min-w-0 truncate font-medium"
+											>{primaryLabel}</span
+										>
+										<span class="text-muted-foreground shrink-0 tabular-nums"
+											>{Math.round(softWPrimary * 100)}% · {Math.round(
+												(1 - softWPrimary) * 100
+											)}%</span
+										>
+										<span class="text-foreground min-w-0 truncate text-right font-medium"
+											>{secondaryLabel}</span
+										>
+									</div>
+									<input
+										type="range"
+										min="5"
+										max="95"
+										step="5"
+										class="w-full accent-[var(--color-amber)]"
+										value={Math.round(softWPrimary * 100)}
+										oninput={(e) => {
+											softWPrimary =
+												parseInt((e.target as HTMLInputElement).value) / 100;
+											splitSource = 'manual';
+										}}
+									/>
+									{#if amount}
+										<p class="text-muted-foreground text-xs tabular-nums">
+											{formatAmount(Math.abs(amount) * softWPrimary, currency || 'USD')}
+											·
+											{formatAmount(
+												Math.abs(amount) * (1 - softWPrimary),
+												currency || 'USD'
+											)}
+										</p>
+									{/if}
+								</div>
+
+								{#if merchantSplitNote}
+									<div class="flex items-center gap-2">
+										<span class={suggestedPillClass}>Suggested</span>
+										<p class="text-muted-foreground text-xs">{merchantSplitNote}</p>
+									</div>
+								{/if}
+							{/if}
+						</div>
+					{:else}
+						<button
+							type="button"
+							class="text-muted-foreground hover:text-foreground min-h-11 touch-manipulation text-sm"
+							onclick={() => {
+								showSecondaryPicker = true;
+								softWPrimary = 0.5;
+							}}
+						>
+							+ add another category
+						</button>
+					{/if}
+				{/if}
+
+					{#if transactionType === 'expense' && !selectedCategory}
+						<div
+							class="flex items-center gap-3 rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3"
+						>
+							<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
+							<p class="text-sm text-[var(--color-text-secondary)]">
+								This expense will be assigned to "Uncategorized". Add a category for better
+								tracking.
+							</p>
+						</div>
+					{/if}
+
+					{#if transactionType === 'income' && !selectedCategory}
+						<div
+							class="flex items-center gap-3 rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3"
+						>
+							<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
+							<p class="text-sm text-[var(--color-text-secondary)]">
+								This income will be assigned to "Uncategorized". Add a category for better tracking.
+							</p>
+						</div>
+					{/if}
+				</div>
+
 				<div class="space-y-2">
 					<Label.Root for="account">
 						Account {status === 'planned' && transactionType !== 'transfer' ? '' : '*'}
@@ -1760,155 +2017,6 @@
 					<p class="text-xs text-[var(--color-text-tertiary)]">
 						Date was estimated from import data. Confirm or edit the date.
 					</p>
-				{/if}
-			</div>
-
-			<!-- ── Category ── -->
-			<div class="space-y-4">
-				<h2
-					class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-				>
-					Category
-				</h2>
-
-				<div class="space-y-2">
-					<Label.Root for="category">Category</Label.Root>
-					<SearchableSelect
-						bind:value={selectedCategory}
-						options={categoryOptions}
-						placeholder="Select a category (optional)"
-						allowClear={true}
-						clearLabel="Select a category (optional)"
-						fieldKey="transaction.category"
-						selectionContext={{ transactionType, status, accountId: selectedAccount || undefined }}
-					/>
-					{#if hasInferredCategoryIndicator && selectedCategory === inferredCategoryId}
-						<div class="flex items-center gap-2">
-							<span class={suggestedPillClass}>Suggested</span>
-							<p class="text-xs text-[var(--color-text-tertiary)]">
-								Category inferred from description: {inferredCategoryLabel}
-							</p>
-						</div>
-					{/if}
-				</div>
-
-				{#if transactionType === 'expense' && selectedCategory}
-					<div class="space-y-2 pt-1">
-						{#if !softSecondaryCategory}
-							<button
-								type="button"
-								class="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]"
-								onclick={() => {
-									const pick = categoryOptions.find((o) => o.value !== selectedCategory)?.value;
-									if (!pick) return;
-									softSecondaryCategory = pick;
-									splitSource = 'manual';
-								}}
-							>
-								+ Split category
-							</button>
-						{:else}
-							<Label.Root>Second category</Label.Root>
-							<SearchableSelect
-								bind:value={softSecondaryCategory}
-								options={categoryOptions.filter((o) => o.value !== selectedCategory)}
-								placeholder="Split category"
-								fieldKey="transaction.category"
-								selectionContext={{
-									transactionType,
-									status,
-									accountId: selectedAccount || undefined
-								}}
-							/>
-							<div class="flex flex-wrap gap-1">
-								{#each ['80/20', '70/30', '60/40', '50/50', 'custom'] as preset}
-									<button
-										type="button"
-										class="rounded-full border border-[var(--color-border)] px-2 py-0.5 text-xs text-[var(--color-text-tertiary)] hover:border-[var(--color-amber)]"
-										onclick={() => {
-											softPreset = preset as typeof softPreset;
-											splitSource = 'manual';
-										}}
-									>
-										{preset}
-									</button>
-								{/each}
-							</div>
-							{#if softPreset === 'custom'}
-								<input
-									type="range"
-									min="0.05"
-									max="0.95"
-									step="0.01"
-									bind:value={softWPrimary}
-									oninput={() => (splitSource = 'manual')}
-									class="w-full"
-									aria-label="Primary share"
-								/>
-							{/if}
-							{#if buildCategoryWeights()}
-								<p class="text-xs text-[var(--color-text-tertiary)]">
-									{formatAmount(
-										Math.abs(amount) * (buildCategoryWeights()?.weights[0]?.weight ?? 0),
-										currency || 'USD'
-									)}
-									·
-									{formatAmount(
-										Math.abs(amount) * (buildCategoryWeights()?.weights[1]?.weight ?? 0),
-										currency || 'USD'
-									)}
-								</p>
-							{/if}
-							<div class="flex flex-wrap gap-2">
-								<button
-									type="button"
-									class="text-xs text-[var(--color-text-tertiary)] hover:underline"
-									onclick={() => {
-										softSecondaryCategory = '';
-										merchantSplitNote = null;
-										splitSource = 'none';
-									}}
-								>
-									Remove split
-								</button>
-								<button
-									type="button"
-									class="text-xs text-[var(--color-amber)] hover:underline"
-									onclick={makeExactSplitAction}
-								>
-									Make exact split
-								</button>
-							</div>
-						{/if}
-						{#if merchantSplitNote}
-							<div class="flex items-center gap-2">
-								<span class={suggestedPillClass}>Suggested</span>
-								<p class="text-xs text-[var(--color-text-tertiary)]">{merchantSplitNote}</p>
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				{#if transactionType === 'expense' && !selectedCategory}
-					<div
-						class="flex items-center gap-3 rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3"
-					>
-						<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
-						<p class="text-sm text-[var(--color-text-secondary)]">
-							This expense will be assigned to "Uncategorized". Add a category for better tracking.
-						</p>
-					</div>
-				{/if}
-
-				{#if transactionType === 'income' && !selectedCategory}
-					<div
-						class="flex items-center gap-3 rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3"
-					>
-						<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
-						<p class="text-sm text-[var(--color-text-secondary)]">
-							This income will be assigned to "Uncategorized". Add a category for better tracking.
-						</p>
-					</div>
 				{/if}
 
 				{#if transactionType === 'transfer'}
@@ -2572,41 +2680,52 @@
 		</Dialog.Content>
 	</Dialog.Root>
 
-	<!-- Currency Selection Sheet -->
-	<Sheet.Root bind:open={showCurrencySheet}>
-		<Sheet.Content side="bottom" class="mx-auto sm:max-w-md">
-			<Sheet.Header>
-				<Sheet.Title>Select Currency</Sheet.Title>
-				<Sheet.Description>Choose the currency for this transaction</Sheet.Description>
-			</Sheet.Header>
-			<div class="max-h-[60vh] overflow-y-auto py-4">
-				<div class="space-y-1">
-					{#each currencies as curr}
-						<button
-							type="button"
-							onclick={() => {
-								currency = curr.code;
-								showCurrencySheet = false;
-							}}
-							class="hover:bg-secondary flex w-full items-center justify-between rounded-md px-4 py-3 text-left transition-colors {currency ===
-							curr.code
-								? 'bg-secondary border-primary border'
-								: ''}"
+	<DialogDrawer
+		open={goalPrecisionSheetOpen}
+		onOpenChange={(open) => {
+			if (!open && goalPrecisionNudge) void goalPrecisionOnNo();
+		}}
+		title="Split for your goals?"
+		description={goalPrecisionNudge ? `Any amount for ${goalPrecisionNudge.secondaryLabel}?` : ''}
+	>
+		{#snippet children()}
+			{#if goalPrecisionNudge}
+				<div class="space-y-4">
+					<p class="text-muted-foreground text-sm">
+						Your merchant history often includes {goalPrecisionNudge.secondaryLabel}. Enter part of
+						the total for that category, or tap No.
+					</p>
+					<div class="space-y-2">
+						<Label.Root for="goal-precision-amt">Amount ({goalPrecisionNudge.currency})</Label.Root>
+						<Input.Root
+							id="goal-precision-amt"
+							type="text"
+							inputmode="decimal"
+							bind:value={goalPrecisionAmountStr}
+							placeholder={formatAmount(goalPrecisionNudge.totalAbs, goalPrecisionNudge.currency)}
+						/>
+					</div>
+					<div class="flex flex-wrap gap-2 pt-2">
+						<Button.Root type="button" variant="outline" onclick={() => goalPrecisionOnNo()}
+							>No</Button.Root
 						>
-							<div class="flex items-center gap-3">
-								<span class="text-lg font-medium">{curr.symbol}</span>
-								<div class="flex flex-col">
-									<span class="text-primary text-sm font-medium">{curr.name}</span>
-									<span class="text-muted-foreground text-xs">{curr.code}</span>
-								</div>
-							</div>
-							{#if currency === curr.code}
-								<div class="bg-primary h-2 w-2 rounded-full"></div>
-							{/if}
-						</button>
-					{/each}
+						<Button.Root type="button" onclick={() => goalPrecisionOnApplyAmount()}>
+							Apply split
+						</Button.Root>
+					</div>
 				</div>
-			</div>
-		</Sheet.Content>
-	</Sheet.Root>
+			{/if}
+		{/snippet}
+	</DialogDrawer>
+
+
+	<CurrencySelectionSheet
+		bind:open={showCurrencySheet}
+		{currencies}
+		selectedCurrency={currency || 'USD'}
+		onCurrencySelect={(code) => {
+			currency = code;
+		}}
+		onClose={() => (showCurrencySheet = false)}
+	/>
 </PageLayout>

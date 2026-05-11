@@ -13,9 +13,27 @@
 		title: string;
 		description?: string;
 		children: import('svelte').Snippet;
+		/** Desktop `Sheet.Content` side. Default `right`; use `bottom` for list pickers. */
+		sheetSideDesktop?: 'right' | 'bottom' | 'left' | 'top';
+		/** Extra classes on desktop `Sheet.Content`. */
+		sheetContentClass?: string;
 	}
 
-	let { open, onOpenChange, title, description = '', children }: Props = $props();
+	let {
+		open,
+		onOpenChange,
+		title,
+		description = '',
+		children,
+		sheetSideDesktop = 'right',
+		sheetContentClass = ''
+	}: Props = $props();
+
+	const desktopSheetInnerClass = $derived(
+		sheetSideDesktop === 'right'
+			? 'flex w-full max-w-lg flex-col sm:max-w-xl'
+			: 'mx-auto flex w-full max-w-md flex-col sm:max-w-lg'
+	);
 
 	let isDesktop = $state(true);
 
@@ -32,7 +50,7 @@
 
 {#if isDesktop}
 	<Sheet.Root {open} {onOpenChange}>
-		<Sheet.Content side="right" class="flex w-full max-w-lg flex-col sm:max-w-xl">
+		<Sheet.Content side={sheetSideDesktop} class={`${desktopSheetInnerClass} ${sheetContentClass}`}>
 			<Sheet.Header>
 				<Sheet.Title>{title}</Sheet.Title>
 				{#if description}

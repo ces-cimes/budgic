@@ -90,6 +90,8 @@ export interface CreateGoalRequest {
 	monthlyContribution?: number;
 	isRecurring?: boolean;
 	tags?: string[];
+	/** Expense category ids for Part 5 split nudges */
+	linkedCategoryIds?: string[];
 }
 
 export interface UpdateGoalRequest {
@@ -104,6 +106,7 @@ export interface UpdateGoalRequest {
 	monthlyContribution?: number;
 	isRecurring?: boolean;
 	tags?: string[];
+	linkedCategoryIds?: string[];
 }
 
 // Goal analytics

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as Sheet from '$lib/components/ui/sheet/index.ts';
+	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 
 	interface Currency {
 		code: string;
@@ -26,13 +26,19 @@
 	}: Props = $props();
 </script>
 
-<Sheet.Root bind:open>
-	<Sheet.Content side="bottom" class="mx-auto sm:max-w-md">
-		<Sheet.Header>
-			<Sheet.Title>Select Currency</Sheet.Title>
-			<Sheet.Description>Choose the currency for this transaction</Sheet.Description>
-		</Sheet.Header>
-		<div class="max-h-[60vh] overflow-y-auto py-4">
+<DialogDrawer
+	{open}
+	onOpenChange={(v) => {
+		open = v;
+		if (!v) onClose();
+	}}
+	title="Select Currency"
+	description="Choose the currency for this transaction"
+	sheetSideDesktop="bottom"
+	sheetContentClass="rounded-t-2xl"
+>
+	{#snippet children()}
+		<div class="max-h-[60vh] overflow-y-auto py-2">
 			<div class="space-y-1">
 				{#each currencies as curr (curr.code)}
 					<button
@@ -61,5 +67,5 @@
 				{/each}
 			</div>
 		</div>
-	</Sheet.Content>
-</Sheet.Root>
+	{/snippet}
+</DialogDrawer>

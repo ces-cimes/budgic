@@ -18,7 +18,7 @@
 		CheckCircle
 	} from '@lucide/svelte';
 	import { formatAmount, formatPercentage } from '$lib/utils/currency-utils';
-	import { goalService, insightsService } from '$lib/core/services';
+	import { goalService, insightsService, budgetService } from '$lib/core/services';
 	import type { Goal } from '../types';
 	import InlineAlertBadge from '$lib/components/InlineAlertBadge.svelte';
 	import type { Insight } from '$lib/core/db';
@@ -34,7 +34,18 @@
 	/** Low-tier (success/info) insights for inline badges on goal cards. Key = goalId. */
 	let inlineInsightsByGoal = $state<Map<string, Insight[]>>(new Map());
 
+	let expenseCategoryOptions = $state<{ value: string; label: string }[]>([]);
+
 	onMount(async () => {
+		try {
+			const cats = await budgetService.getBudgetCategories();
+			expenseCategoryOptions = cats
+				.filter((c) => c.type === 'expense' && c.isActive && c.waterfallTier)
+				.sort((a, b) => a.priority - b.priority)
+				.map((c) => ({ value: c.id, label: c.name }));
+		} catch {
+			expenseCategoryOptions = [];
+		}
 		try {
 			const lowTier = await insightsService.getLowTierInlineInsights();
 			const byGoal = new Map<string, Insight[]>();
@@ -193,6 +204,34 @@
 	function handleDeleteGoal(goalId: string) {
 		onGoalAction('delete', goalId);
 	}
+
+	function categoryLabel(categoryId: string): string {
+		return expenseCategoryOptions.find((o) => o.value === categoryId)?.label ?? categoryId;
+	}
+
+	async function persistLinkedIds(goalId: string, ids: string[]) {
+		const trimmed = ids.slice(0, 8);
+		await goalService.updateGoal(goalId, {
+			linkedCategoryIds: trimmed.length ? trimmed : undefined
+		});
+		onGoalAction('refresh', goalId);
+	}
+
+	async function removeLinkedCategory(goalId: string, categoryId: string) {
+		const goal = activeGoals.find((g) => g.id === goalId);
+		if (!goal) return;
+		const next = (goal.linkedCategoryIds ?? []).filter((id) => id !== categoryId);
+		await persistLinkedIds(goalId, next);
+	}
+
+	async function addLinkedCategory(goalId: string, categoryId: string) {
+		if (!categoryId) return;
+		const goal = activeGoals.find((g) => g.id === goalId);
+		if (!goal) return;
+		const cur = goal.linkedCategoryIds ?? [];
+		if (cur.includes(categoryId) || cur.length >= 8) return;
+		await persistLinkedIds(goalId, [...cur, categoryId]);
+	}
 </script>
 
 <div class="space-y-6 p-6">
@@ -350,6 +389,46 @@
 										</div>
 									</div>
 								</div>
+							</div>
+
+							<div class="space-y-2 border-t pt-4">
+								<p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+									Split nudge categories
+								</p>
+								<p class="text-muted-foreground text-xs">
+									Optional expense categories for post-save split prompts (merchant profile must
+									suggest them).
+								</p>
+								<div class="flex flex-wrap gap-2">
+									{#each goal.linkedCategoryIds ?? [] as cid (cid)}
+										<button
+											type="button"
+											class="bg-secondary text-secondary-foreground hover:bg-secondary/80 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs"
+											onclick={() => removeLinkedCategory(goal.id, cid)}
+										>
+											{categoryLabel(cid)}
+											<span class="opacity-70" aria-hidden="true">×</span>
+										</button>
+									{/each}
+								</div>
+								<select
+									class="border-input bg-background mt-1 max-w-md rounded-md border px-2 py-2 text-sm"
+									aria-label="Add linked expense category"
+									value=""
+									onchange={async (e) => {
+										const el = e.currentTarget;
+										const v = el.value;
+										el.value = '';
+										if (v) await addLinkedCategory(goal.id, v);
+									}}
+								>
+									<option value="">Add category…</option>
+									{#each expenseCategoryOptions as o (o.value)}
+										{#if !(goal.linkedCategoryIds ?? []).includes(o.value)}
+											<option value={o.value}>{o.label}</option>
+										{/if}
+									{/each}
+								</select>
 							</div>
 
 							<!-- Status and Actions -->

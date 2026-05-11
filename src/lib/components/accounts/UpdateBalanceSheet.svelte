@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as Sheet from '$lib/components/ui/sheet/index.ts';
+	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
@@ -115,16 +115,16 @@
 	});
 </script>
 
-<Sheet.Root {open} {onOpenChange}>
-	{#if account}
-		<Sheet.Content side="bottom" class="rounded-t-2xl px-5 pt-4 pb-8 sm:max-w-lg">
-			<Sheet.Header>
-				<Sheet.Title>Update balance</Sheet.Title>
-				<Sheet.Description>
-					{account.name} — enter the balance you see at your institution.
-				</Sheet.Description>
-			</Sheet.Header>
-
+{#if account}
+	<DialogDrawer
+		{open}
+		{onOpenChange}
+		title="Update balance"
+		description={`${account.name} — enter the balance you see at your institution.`}
+		sheetSideDesktop="bottom"
+		sheetContentClass="rounded-t-2xl px-5 pt-4 pb-8 sm:max-w-lg"
+	>
+		{#snippet children()}
 			<div class="space-y-4 py-2">
 				<div class="space-y-2">
 					<Label for="bal-in">Current balance</Label>
@@ -200,6 +200,6 @@
 					{submitting ? 'Saving…' : 'Confirm'}
 				</Button>
 			</div>
-		</Sheet.Content>
-	{/if}
-</Sheet.Root>
+		{/snippet}
+	</DialogDrawer>
+{/if}

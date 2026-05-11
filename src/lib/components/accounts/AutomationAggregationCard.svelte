@@ -2,7 +2,7 @@
 	/**
 	 * Phase 8 — month-to-date automation totals for one account (pre-aggregated by parent).
 	 */
-	import * as Sheet from '$lib/components/ui/sheet';
+	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import type { AutomationTag, Transaction } from '$lib/core/db';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { Button } from '$lib/components/ui/button/index.ts';
@@ -68,23 +68,26 @@
 		</ul>
 	</div>
 
-	<Sheet.Root bind:open={sheetOpen}>
-		<Sheet.Content side="bottom" class="max-h-[70vh] overflow-y-auto">
-			<Sheet.Header>
-				<Sheet.Title>{sheetTitle}</Sheet.Title>
-				<Sheet.Description class="sr-only">Individual entries</Sheet.Description>
-			</Sheet.Header>
-			<ul class="mt-4 space-y-2 px-1 pb-2">
+	<DialogDrawer
+		open={sheetOpen}
+		onOpenChange={(o) => (sheetOpen = o)}
+		title={sheetTitle}
+		description="Individual entries"
+		sheetSideDesktop="bottom"
+		sheetContentClass="max-h-[70vh]"
+	>
+		{#snippet children()}
+			<ul class="space-y-2 px-1 pb-2">
 				{#each sheetEntries as tx (tx.id)}
 					<li class="text-text-secondary border-border border-b pb-2 text-sm last:border-0">
 						{formatRow(tx)}
 					</li>
 				{/each}
 			</ul>
-			<Sheet.Footer class="border-t pt-4">
+			<div class="border-t pt-4">
 				<Button variant="secondary" class="w-full" onclick={() => (sheetOpen = false)}>Close</Button
 				>
-			</Sheet.Footer>
-		</Sheet.Content>
-	</Sheet.Root>
+			</div>
+		{/snippet}
+	</DialogDrawer>
 {/if}

@@ -364,7 +364,33 @@
 		goto(url.toString(), { replaceState: true, noScroll: true });
 	}
 
-	async function handleGoalAction(_action: string, _goalId: string) {
+	async function handleGoalAction(action: string, goalId: string) {
+		try {
+			switch (action) {
+				case 'refresh':
+				case 'add_progress':
+				case 'view_goal':
+					break;
+				case 'pause':
+					await goalService.updateGoal(goalId, { status: 'paused' });
+					break;
+				case 'resume':
+					await goalService.updateGoal(goalId, { status: 'active' });
+					break;
+				case 'complete':
+					await goalService.updateGoal(goalId, { status: 'completed' });
+					break;
+				case 'delete': {
+					const ok = typeof window !== 'undefined' ? window.confirm('Delete this goal?') : true;
+					if (ok) await goalService.deleteGoal(goalId);
+					break;
+				}
+				default:
+					break;
+			}
+		} catch (e) {
+			console.error('Goal action failed:', e);
+		}
 		await loadGoalsData();
 	}
 
