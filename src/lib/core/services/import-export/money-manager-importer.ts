@@ -1116,6 +1116,25 @@ export class MoneyManagerImporter extends BaseImporter {
 			}))
 		);
 
+		let clean = 0;
+		let dateInferred = 0;
+		let amountInferred = 0;
+		let currencyFallback = 0;
+		for (const tx of detected) {
+			const q = tx.importQuality;
+			if (q?.dateInferred) dateInferred++;
+			if (q?.amountInferred) amountInferred++;
+			if (q?.currencyFallback) currencyFallback++;
+			if (!q?.dateInferred && !q?.amountInferred && !q?.currencyFallback) clean++;
+		}
+		const qualitySummary = {
+			total: detected.length,
+			clean,
+			dateInferred,
+			amountInferred,
+			currencyFallback
+		};
+
 		return {
 			transactionIds: detected.map((tx) => tx.id),
 			unclassifiedTransactionIds,
@@ -1134,7 +1153,8 @@ export class MoneyManagerImporter extends BaseImporter {
 				confidence: candidate.confidence,
 				reason: candidate.reason
 			})),
-			passiveBalanceTrackingHints: passiveHints
+			passiveBalanceTrackingHints: passiveHints,
+			qualitySummary
 		};
 	}
 

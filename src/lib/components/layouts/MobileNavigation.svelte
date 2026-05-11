@@ -17,6 +17,7 @@
 		BellIcon,
 		SettingsIcon,
 		CreditCardIcon,
+		DatabaseIcon,
 		MoreHorizontalIcon,
 		ChevronRightIcon
 	} from '@lucide/svelte';
@@ -32,6 +33,7 @@
 		bell: BellIcon,
 		settings: SettingsIcon,
 		'credit-card': CreditCardIcon,
+		database: DatabaseIcon,
 		plan: WalletIcon,
 		reports: TrendingUpIcon
 	};

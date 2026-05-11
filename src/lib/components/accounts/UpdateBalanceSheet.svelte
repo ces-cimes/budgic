@@ -84,7 +84,7 @@
 			if (result === 'reconciliation_required') {
 				onOpenChange(false);
 				await goto(
-					`/accounts/reconciliation?account=${encodeURIComponent(account.id)}&tab=reconcile&statementBalance=${encodeURIComponent(String(enteredNum))}`
+					`/data?tab=reconcile&account=${encodeURIComponent(account.id)}&statementBalance=${encodeURIComponent(String(enteredNum))}`
 				);
 				return;
 			}

@@ -5,6 +5,7 @@ import {
 	notificationsService,
 	userService
 } from '$lib/core/services';
+import { accountNeedsReconciliationAttention } from '$lib/utils/reconciliation-attention';
 import { scheduler } from '$lib/utils/scheduler';
 import { planTabs, insightsNavTabsForMaturity, reportsTabs } from '$lib/config/nav-tabs';
 
@@ -208,10 +209,10 @@ class NavigationStore {
 					}
 				},
 				{
-					id: 'accounts',
-					label: 'Accounts',
-					path: '/accounts',
-					icon: 'credit-card',
+					id: 'data',
+					label: 'Data',
+					path: '/data',
+					icon: 'database',
 					group: 'more',
 					visible: true,
 					showInMobile: true,
@@ -222,6 +223,16 @@ class NavigationStore {
 						color: 'warning',
 						countKey: 'reconciliation'
 					}
+				},
+				{
+					id: 'accounts',
+					label: 'Accounts',
+					path: '/accounts',
+					icon: 'credit-card',
+					group: 'more',
+					visible: true,
+					showInMobile: true,
+					showInDesktop: true
 				},
 				{
 					id: 'reports',
@@ -270,7 +281,7 @@ class NavigationStore {
 				categories: 'plan',
 				analyze: 'reports',
 				optimization: 'insights',
-				reconciliation: 'accounts'
+				reconciliation: 'data'
 			};
 			const validIds = new Set(defaultItems.map((i) => i.id));
 
@@ -341,7 +352,7 @@ class NavigationStore {
 				this._alertsBadgeVariant = null;
 			}
 
-			// Update reconciliation badge - count accounts needing reconciliation
+			// Reconciliation attention badge (Data hub — at most one count per account)
 			try {
 				const accounts = await accountService.getAccounts();
 				let needsReconciliation = 0;
@@ -349,19 +360,10 @@ class NavigationStore {
 				const summaryPromises = accounts.map(async (account) => {
 					try {
 						const summary = await reconciliationService.getReconciliationSummary(account.id);
-						// Count accounts that haven't been reconciled in >30 days or never
-						if (
-							summary.daysSinceLastReconciliation > 30 ||
-							summary.daysSinceLastReconciliation === -1
-						) {
-							needsReconciliation++;
-						}
-						// Also count accounts with unresolved discrepancies
-						if (summary.unresolvedDiscrepancies > 0) {
+						if (accountNeedsReconciliationAttention(account, summary)) {
 							needsReconciliation++;
 						}
 					} catch (err) {
-						// Silently ignore errors for individual accounts
 						console.debug(`Failed to get reconciliation summary for account ${account.name}:`, err);
 					}
 				});

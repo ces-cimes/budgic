@@ -61,6 +61,16 @@ vi.mock('$lib/core/db', async () => {
 					}))
 				}))
 			},
+			dataCorrections: {
+				bulkAdd: vi.fn(() => Promise.resolve()),
+				orderBy: vi.fn(() => ({
+					reverse: vi.fn(() => ({
+						limit: vi.fn(() => ({
+							toArray: vi.fn(() => Promise.resolve([]))
+						}))
+					}))
+				}))
+			},
 			getTransactionsByAccount: vi.fn()
 		}
 	};
@@ -269,6 +279,7 @@ describe('ReconciliationService', () => {
 				result.id,
 				expect.objectContaining({ balanceAdjustmentApplied: expect.any(Number) })
 			);
+			expect(vi.mocked(db.dataCorrections.bulkAdd)).toHaveBeenCalled();
 		});
 
 		it('should throw error for non-existent account', async () => {

@@ -14,6 +14,7 @@ import { exchangeRateService } from './exchange-rate-service';
 import { serviceCache } from './service-cache';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { merchantProfileService } from '../intelligence/merchant-profile-service';
+import { dataCorrectionService, type DataCorrectionAppend } from './data-correction-service';
 
 /** Invalidate all derived caches that depend on the transaction table. */
 async function invalidateTransactionCaches(): Promise<void> {
@@ -42,7 +43,61 @@ export interface BulkOperationResult {
 	errors: Array<{ id: string; reason: string }>;
 }
 
+export type UpdateTransactionOptions = {
+	dataCorrectionSource?: 'user' | 'reconciliation' | 'automation';
+};
+
 class TransactionService {
+	private readonly correctionTrackedKeys = new Set<string>([
+		'amount',
+		'currency',
+		'accountId',
+		'categoryId',
+		'clearedDate',
+		'plannedDate',
+		'description',
+		'status',
+		'type',
+		'importQuality',
+		'automation',
+		'memo',
+		'notes',
+		'accountAmount',
+		'plannedAmount',
+		'transferDetails'
+	]);
+
+	private async maybeRecordDataCorrections(
+		prev: Transaction,
+		updates: Partial<Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>>,
+		next: Transaction,
+		source: NonNullable<UpdateTransactionOptions['dataCorrectionSource']>
+	): Promise<void> {
+		const rows: DataCorrectionAppend[] = [];
+		for (const key of Object.keys(updates)) {
+			if (!this.correctionTrackedKeys.has(key)) continue;
+			const k = key as keyof Transaction;
+			const oldVal = prev[k];
+			const newVal = next[k];
+			let same = false;
+			try {
+				same = JSON.stringify(oldVal ?? null) === JSON.stringify(newVal ?? null);
+			} catch {
+				same = false;
+			}
+			if (same) continue;
+			rows.push({
+				transactionId: prev.id,
+				field: key,
+				oldValue: oldVal ?? null,
+				newValue: newVal ?? null,
+				source
+			});
+		}
+		if (rows.length > 0) {
+			await dataCorrectionService.append(rows);
+		}
+	}
 	private async upsertInsight(payload: {
 		type: 'overdraft_overdue' | 'repayment_overdue';
 		title: string;
@@ -518,7 +573,8 @@ class TransactionService {
 	 */
 	async updateTransaction(
 		id: string,
-		updates: Partial<Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>>
+		updates: Partial<Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>>,
+		options?: UpdateTransactionOptions
 	): Promise<Transaction> {
 		const transaction = await db.transactions.get(id);
 		if (!transaction) {
@@ -578,6 +634,21 @@ class TransactionService {
 			updates.categoryConfidence === undefined
 		) {
 			delete (updatedTransaction as Record<string, unknown>).categoryConfidence;
+		}
+		if (
+			Object.prototype.hasOwnProperty.call(updates, 'importQuality') &&
+			updates.importQuality === undefined
+		) {
+			delete (updatedTransaction as Record<string, unknown>).importQuality;
+		}
+
+		if (options?.dataCorrectionSource) {
+			await this.maybeRecordDataCorrections(
+				transaction,
+				updates,
+				updatedTransaction,
+				options.dataCorrectionSource
+			);
 		}
 
 		await db.transactions.update(id, updatedTransaction);

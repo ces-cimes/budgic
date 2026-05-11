@@ -113,6 +113,14 @@ export interface ImportResult {
 			accountName: string;
 			message: string;
 		}>;
+		/** Counts for post-import quality summary (MM import batch) */
+		qualitySummary?: {
+			total: number;
+			clean: number;
+			dateInferred: number;
+			amountInferred: number;
+			currencyFallback: number;
+		};
 	};
 }
 

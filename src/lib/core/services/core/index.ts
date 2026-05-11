@@ -13,9 +13,11 @@
 
 export { accountService } from './account-service';
 export { passiveAccountService } from './passive-account-service';
-export { transactionService } from './transaction-service';
+export { transactionService, type UpdateTransactionOptions } from './transaction-service';
 export { dependencyTrackingService } from './dependency-tracking-service';
 export { reconciliationService } from './reconciliation-service';
+export { dataCorrectionService } from './data-correction-service';
+export { dataQualityService } from './data-quality-service';
 export { budgetService } from './budget-service';
 export { goalService } from './goal-service';
 export { loanAmortizationService } from './loan-amortization-service';

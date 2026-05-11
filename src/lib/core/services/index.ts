@@ -28,6 +28,7 @@ export type {
 	Currency,
 	Category,
 	Transaction,
+	DataCorrection,
 	UserPreferences,
 	UserAction,
 	Goal,

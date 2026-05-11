@@ -518,7 +518,7 @@
 							{needsAttention
 							? 'border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 hover:bg-[var(--color-warm-coral)]/12'
 							: 'border-border bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-bg-surface)]'}"
-						onclick={() => goto(`/accounts/reconciliation?account=${account?.id ?? ''}`)}
+						onclick={() => goto(`/data?tab=reconcile&account=${account?.id ?? ''}`)}
 					>
 						<div class="flex items-center gap-3">
 							<Scale

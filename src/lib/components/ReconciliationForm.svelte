@@ -19,7 +19,7 @@
 	// Props interface
 	interface Props {
 		selectedAccountId?: string;
-		/** Phase 10.8 — pre-fill from `/accounts/reconciliation?statementBalance=` (e.g. Update balance deep link) */
+		/** Phase 10.8 — pre-fill from `/data?tab=reconcile&statementBalance=` (e.g. Update balance deep link) */
 		initialStatementBalance?: number | null;
 		onReconciliationComplete?: (result: ReconciliationRecord) => void;
 		onCancel?: () => void;

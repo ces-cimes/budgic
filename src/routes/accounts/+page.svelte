@@ -10,9 +10,8 @@
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import { getBufferStatus, getBufferAmount } from '$lib/utils/account-metadata-utils';
-	import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp, Scale } from '@lucide/svelte';
+	import { AlertCircle, CheckCircle2, AlertTriangle, TrendingUp } from '@lucide/svelte';
 	import type { Account } from '$lib/core/db';
-	import { reconciliationService } from '$lib/core/services';
 	import CountUpHero from '$lib/components/CountUpHero.svelte';
 	import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
 	import InterestOptimizationVisualization from '$lib/components/accounts/InterestOptimizationVisualization.svelte';
@@ -30,7 +29,6 @@
 	let accounts = $state<AccountWithBalance[]>([]);
 	let totalBalance = $state(0);
 	let userCurrency = $state<string | null>(null);
-	let needsReconciliationCount = $state(0);
 	let updateBalanceOpen = $state(false);
 	let updateBalanceAccount = $state<Account | null>(null);
 	/** Dense grid layout for many accounts (persisted locally). */
@@ -76,8 +74,6 @@
 		return rows;
 	});
 
-	const NEW_ACCOUNT_RECON_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
-
 	function toggleCompactAccountsView() {
 		compactAccountsView = !compactAccountsView;
 		if (typeof localStorage !== 'undefined') {
@@ -113,24 +109,6 @@
 				balance: account.currentBalance ?? 0
 			}));
 			totalBalance = totalBalanceValue;
-			let needs = 0;
-			const now = Date.now();
-			for (const account of accountsData) {
-				try {
-					const created = account.createdAt ? new Date(account.createdAt).getTime() : 0;
-					if (created && now - created < NEW_ACCOUNT_RECON_GRACE_MS) continue;
-					const summary = await reconciliationService.getReconciliationSummary(account.id);
-					if (
-						summary.daysSinceLastReconciliation > 30 ||
-						summary.daysSinceLastReconciliation === -1 ||
-						summary.unresolvedDiscrepancies > 0
-					)
-						needs++;
-				} catch {
-					/* ignore */
-				}
-			}
-			needsReconciliationCount = needs;
 		} catch (error) {
 			console.error('Error loading accounts:', error);
 		}
@@ -217,25 +195,12 @@
 	{/snippet}
 
 	<div class="mx-auto max-w-4xl space-y-8 px-5 py-6 sm:px-6">
-		<!-- Reconciliation banner (coral strip, attention-needed) -->
-		{#if needsReconciliationCount > 0}
+		<p class="mb-2 text-center">
 			<a
-				href="/accounts/reconciliation"
-				class="squircle-2xl squircle-border mb-6 block flex items-center justify-between px-5 py-3.5 transition-colors hover:opacity-90"
-				style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);"
-			>
-				<div class="flex items-center gap-3">
-					<Scale class="size-4 shrink-0 text-[var(--color-warm-coral)]" />
-					<div>
-						<p class="text-sm font-medium text-[var(--color-text-primary)]">Reconcile accounts</p>
-						<p class="text-xs text-[var(--color-text-tertiary)]">
-							{needsReconciliationCount} account{needsReconciliationCount === 1 ? '' : 's'} need attention
-						</p>
-					</div>
-				</div>
-				<span class="text-xs font-medium text-[var(--color-warm-coral)]">Review →</span>
-			</a>
-		{/if}
+				href="/data?tab=reconcile"
+				class="text-xs font-medium text-[var(--color-text-tertiary)] underline-offset-2 hover:text-[var(--color-text-secondary)] hover:underline"
+				>Import, review & reconcile in Data</a>
+		</p>
 
 		<!-- Total balance hero -->
 		<section class="text-center">

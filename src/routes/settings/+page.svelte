@@ -209,7 +209,7 @@
 					name: 'Export & import',
 					description: 'Backup, restore, or migrate data',
 					Icon: Database,
-					href: '/settings/data'
+					href: '/data'
 				}
 			]
 		}

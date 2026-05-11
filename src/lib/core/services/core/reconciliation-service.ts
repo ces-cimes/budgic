@@ -6,6 +6,7 @@ import type {
 	ReconciliationDiscrepancy
 } from '$lib/core/db';
 import { canonicalDuplicateKey } from '$lib/utils/data-quality-utils';
+import { dataCorrectionService } from './data-correction-service';
 import { accountService } from './account-service';
 import { z } from 'zod';
 
@@ -559,9 +560,22 @@ class ReconciliationService {
 			return;
 		}
 
+		const oldBalance = account.currentBalance ?? 0;
+		const newBalance = oldBalance + reconciliation.discrepancy;
+
 		await accountService.updateAccount(reconciliation.accountId, {
-			currentBalance: (account.currentBalance ?? 0) + reconciliation.discrepancy
+			currentBalance: newBalance
 		});
+
+		await dataCorrectionService.append([
+			{
+				accountId: reconciliation.accountId,
+				field: 'account.currentBalance',
+				oldValue: oldBalance,
+				newValue: newBalance,
+				source: 'reconciliation'
+			}
+		]);
 
 		await db.reconciliationRecords.update(reconciliation.id, {
 			balanceAdjustmentApplied: reconciliation.discrepancy,

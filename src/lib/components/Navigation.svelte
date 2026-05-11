@@ -20,6 +20,7 @@
 		Bell,
 		Settings,
 		CreditCard,
+		Database,
 		Plus
 	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
@@ -36,6 +37,7 @@
 		bell: Bell,
 		settings: Settings,
 		'credit-card': CreditCard,
+		database: Database,
 		plan: Wallet,
 		reports: TrendingUp
 	};

@@ -1140,8 +1140,26 @@ export function expenseCountsTowardAllowanceAnalytics(
 const ImportQualitySchema = z.object({
 	amountInferred: z.boolean().optional(),
 	dateInferred: z.boolean().optional(),
-	currencyFallback: z.boolean().optional()
+	currencyFallback: z.boolean().optional(),
+	/** User dismissed row from import review queue without clearing flags */
+	reviewDismissed: z.boolean().optional()
 });
+
+/** Append-only audit trail for programmatic or explicit user corrections (Milestone E) */
+const DataCorrectionSchema = z
+	.object({
+		id: z.string().min(1),
+		transactionId: z.string().optional(),
+		accountId: z.string().optional(),
+		field: z.string().min(1),
+		oldValue: z.unknown().optional(),
+		newValue: z.unknown().optional(),
+		source: z.enum(['reconciliation', 'user', 'automation']),
+		timestamp: z.string().datetime()
+	})
+	.refine((d) => Boolean(d.transactionId?.length || d.accountId?.length), {
+		message: 'DataCorrection requires transactionId or accountId'
+	});
 
 const TransactionSchema = BaseSchema.extend({
 	type: TransactionType,
@@ -1715,6 +1733,7 @@ export type Currency = z.infer<typeof CurrencySchema>;
 export type Category = z.infer<typeof CategorySchema>;
 export type Transaction = z.infer<typeof TransactionSchema>;
 export type ImportQuality = z.infer<typeof ImportQualitySchema>;
+export type DataCorrection = z.infer<typeof DataCorrectionSchema>;
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 export type UserAction = z.infer<typeof UserActionSchema>;
 export type AutocompleteUsage = z.infer<typeof AutocompleteUsageSchema>;
@@ -1822,6 +1841,7 @@ export class BudgicDB extends Dexie {
 	roundUpRules!: Table<RoundUpRule>;
 	merchantCategoryProfiles!: Table<MerchantCategoryProfile>;
 	recurringPatternsCache!: Table<RecurringPatternsCacheEntry>;
+	dataCorrections!: Table<DataCorrection>;
 
 	constructor() {
 		super('BudgicDB');
@@ -2476,6 +2496,55 @@ export class BudgicDB extends Dexie {
 			recurringPatternsCache: 'id, computedAt'
 		});
 
+		// Version 27: dataCorrections audit table (ImportQuality.reviewDismissed is schema-only on Transaction)
+		this.version(27).stores({
+			accounts: 'id, type, currency, isActive, deletedAt, createdAt, updatedAt',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+			tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			occasions:
+				'id, accountId, occasionType, isActive, deletedAt, createdAt, updatedAt, [accountId+occasionType]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
+			merchantCategoryProfiles:
+				'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]',
+			recurringPatternsCache: 'id, computedAt',
+			dataCorrections: 'id, transactionId, accountId, field, source, timestamp, [transactionId+timestamp], [accountId+timestamp]'
+		});
+
 		// Add validation hooks
 		this.setupValidationHooks();
 
@@ -3122,6 +3191,16 @@ export class BudgicDB extends Dexie {
 				}
 			}
 		);
+
+		this.dataCorrections.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = DataCorrectionSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Data correction validation failed:', error);
+				throw error;
+			}
+		});
 	}
 
 	private setupSoftDeleteHooks() {
