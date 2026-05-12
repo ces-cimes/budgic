@@ -14,7 +14,7 @@
 	} from '$lib/core/services';
 	import { invalidateAll } from '$app/navigation';
 	import type { RecurringPattern } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
-	import type { Category } from '$lib/core/db';
+	import type { Category, Insight } from '$lib/core/db';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { isAnomalyDismissed, dismissAnomaly } from '$lib/stores/dismissed-anomalies.svelte';
 	import { db } from '$lib/core/db';
@@ -28,7 +28,7 @@
 	import { ChevronRight } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Progress } from '$lib/components/ui/progress';
-	import type { Insight } from '$lib/core/db';
+	import { tierChipDefs, tierActiveClasses } from '$lib/insights/recurring-tier-presets';
 	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
 
 	type Phase8Surface = {
@@ -306,60 +306,12 @@
 		return rows;
 	}
 
-	/** Stable sort used in both buildRecurringRows and the optimistic patch after applyPatternTier */
+	/** Stable sort used in buildRecurringRows and after recurring list refresh */
 	function recurringRowComparator(a: RecurringRow, b: RecurringRow): number {
 		const tierOrder = (t: RecurringRow['waterfallTier']) =>
 			t === undefined ? 0 : t === 'unclassified' ? 1 : 2;
 		const ord = tierOrder(a.waterfallTier) - tierOrder(b.waterfallTier);
 		return ord !== 0 ? ord : b.allowanceImpact - a.allowanceImpact;
-	}
-
-	async function applyPatternTier(patternId: string, tier: NonNullable<Category['waterfallTier']>) {
-		const p = await recurringTransactionIntelligenceService.getPattern(patternId);
-		if (!p) return;
-
-		// Always prefer p.learnedCategoryId — it is the SAME category ID that buildRecurringRows
-		// reads back from the DB on every load.  Writing to any other category would cause the
-		// tier to show up in other parts of the app but revert to "Unassigned" here on refresh,
-		// because buildRecurringRows would read the un-tiered learnedCategoryId category instead.
-		let targetCategoryId: string | null = p.learnedCategoryId ?? null;
-
-		if (!targetCategoryId) {
-			// Fallback for patterns where category learning hasn't run yet: compute from transactions.
-			if (!p.matchingTransactionIds?.length) return;
-			const txs = (await db.transactions.bulkGet(p.matchingTransactionIds)).filter(
-				(t): t is import('$lib/core/db').Transaction => t != null && !t.deletedAt
-			);
-			const counts = new Map<string, number>();
-			for (const t of txs) {
-				if (!t.categoryId) continue;
-				counts.set(t.categoryId, (counts.get(t.categoryId) ?? 0) + 1);
-			}
-			if (counts.size === 0) return;
-			let bestId: string | null = null;
-			let bestN = 0;
-			for (const [id, n] of counts) {
-				if (n > bestN) { bestId = id; bestN = n; }
-			}
-			if (!bestId) return;
-			const tied = [...counts.values()].filter((n) => n === bestN).length;
-			if (tied > 1) return;
-			targetCategoryId = bestId;
-		}
-
-		await budgetService.updateBudgetCategory(targetCategoryId, { waterfallTier: tier });
-
-		// Patch learnedCategoryId across all cache layers (in-memory + IndexedDB) so that
-		// the next page refresh correctly reads the tier without re-running detection.
-		await recurringTransactionIntelligenceService.patchPatternCategory(patternId, targetCategoryId);
-
-		// Optimistic patch: immediately highlight the chip and re-sort without waiting for rebuild.
-		recurringList = [...recurringList
-			.map((r) => (r.patternId === patternId ? { ...r, waterfallTier: tier } : r))]
-			.sort(recurringRowComparator);
-
-		// Full rebuild for eventual consistency (amounts, dates, etc.)
-		await refreshRecurringFromServices(userCurrency);
 	}
 
 	function handleDataQualityBarClick() {
@@ -388,27 +340,6 @@
 			retrospectiveApplying = false;
 		}
 	}
-
-	const tierChipDefs: {
-		tier: NonNullable<Category['waterfallTier']>;
-		label: string;
-		hint: string;
-	}[] = [
-		{ tier: 'survival', label: 'Survival', hint: 'Non-negotiable — rent, food, utilities' },
-		{ tier: 'security', label: 'Security', hint: 'Buffer, savings, debt repayment' },
-		{ tier: 'growth', label: 'Growth', hint: 'Investment, learning, building' },
-		{ tier: 'lifestyle', label: 'Lifestyle', hint: 'Wants and quality-of-life' },
-		{ tier: 'unclassified', label: 'Unclassified', hint: 'Not yet categorised' }
-	];
-
-	/** Tailwind classes for an active (selected) tier chip */
-	const tierActiveClasses: Record<NonNullable<Category['waterfallTier']>, string> = {
-		survival: 'bg-rose-500/15 text-rose-600 border-rose-500/50 dark:text-rose-400',
-		security: 'bg-amber-500/15 text-amber-600 border-amber-500/50 dark:text-amber-400',
-		growth: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/50 dark:text-emerald-400',
-		lifestyle: 'bg-blue-500/15 text-blue-600 border-blue-500/50 dark:text-blue-400',
-		unclassified: 'bg-muted text-muted-foreground border-border'
-	};
 
 	async function refreshRecurringFromServices(currency: string) {
 		const [summary, recurringPatterns, allTx] = await Promise.all([
@@ -829,11 +760,20 @@
 										>
 											<!-- direction badge: ↑ income (green), ↓ expense (muted-red), ⇄ transfer (info) -->
 											{#if item.type === 'income'}
-												<span class="shrink-0 text-[var(--color-sage-green)] text-xs" aria-label="Income">↑</span>
+												<span class="inline-flex shrink-0 items-center gap-0">
+													<span class="text-[var(--color-sage-green)] text-xs" aria-hidden="true">↑</span>
+													<span class="sr-only">Income</span>
+												</span>
 											{:else if item.type === 'transfer'}
-												<span class="shrink-0 text-[var(--color-info)] text-xs" aria-label="Transfer">⇄</span>
+												<span class="inline-flex shrink-0 items-center gap-0">
+													<span class="text-[var(--color-info)] text-xs" aria-hidden="true">⇄</span>
+													<span class="sr-only">Transfer</span>
+												</span>
 											{:else}
-												<span class="shrink-0 text-[var(--color-expense)] text-xs" aria-label="Expense">↓</span>
+												<span class="inline-flex shrink-0 items-center gap-0">
+													<span class="text-[var(--color-expense)] text-xs" aria-hidden="true">↓</span>
+													<span class="sr-only">Expense</span>
+												</span>
 											{/if}
 											<span class="truncate">{item.description}</span>
 											{#if isUnassigned}
@@ -875,26 +815,6 @@
 										<ChevronRight class="text-muted-foreground h-4 w-4" />
 									</div>
 								</button>
-							<div class="border-border border-t px-3 py-2">
-								<p class="text-muted-foreground mb-1.5 text-[10px] font-medium tracking-wide uppercase">
-									{isUnassigned ? 'Assign budget tier' : 'Budget tier'}
-								</p>
-								<div class="flex flex-wrap gap-1">
-									{#each tierChipDefs as chip (chip.tier)}
-										{@const isActive = chip.tier === item.waterfallTier}
-										<button
-											type="button"
-											title={chip.hint}
-											class="rounded border px-2 py-0.5 text-[10px] font-semibold transition-colors {isActive
-												? tierActiveClasses[chip.tier]
-												: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground'}"
-											onclick={() => applyPatternTier(item.patternId, chip.tier)}
-										>
-											{chip.label}
-										</button>
-									{/each}
-								</div>
-							</div>
 							</li>
 						{/each}
 					</ul>
@@ -1085,5 +1005,6 @@
 			recurringSheetOpen = false;
 			selectedPatternId = null;
 		}}
+		onPatternBudgetTierApplied={() => void refreshRecurringFromServices(userCurrency)}
 	/>
 </div>

@@ -1,34 +1,50 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { ResponsivePanel } from '$lib/components/ui/responsive-panel';
-	import { recurringTransactionIntelligenceService } from '$lib/core/services';
-	import { transactionService } from '$lib/core/services';
+	import { recurringTransactionIntelligenceService, transactionService } from '$lib/core/services';
+	import { applyRecurringPatternWaterfallTier } from '$lib/core/services/analytics/apply-recurring-pattern-waterfall-tier';
 	import { formatAmount } from '$lib/utils/currency-utils';
 	import type { RecurringPattern } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
-	import type { Transaction } from '$lib/core/db';
+	import type { Category, Transaction } from '$lib/core/db';
+	import { db } from '$lib/core/db';
+	import {
+		tierChipDefs,
+		tierActiveClasses,
+		tierChipIdleClasses
+	} from '$lib/insights/recurring-tier-presets';
+	import { Button } from '$lib/components/ui/button';
 	import { ExternalLink, Calendar, Banknote } from '@lucide/svelte';
+	import { toast } from 'svelte-sonner';
+	import { cn } from '$lib/utils.js';
 
 	interface Props {
 		patternId: string | null;
 		userCurrency: string;
 		open?: boolean;
 		onClose?: () => void;
+		/** After a budget tier change succeeds (DB + cache); parent should refresh recurring list. */
+		onPatternBudgetTierApplied?: () => void;
 	}
 
-	const { patternId, userCurrency, open = false, onClose }: Props = $props();
+	const { patternId, userCurrency, open = false, onClose, onPatternBudgetTierApplied }: Props =
+		$props();
 
 	let pattern = $state<RecurringPattern | null>(null);
 	let transactions = $state<Transaction[]>([]);
 	let loading = $state(false);
 	let prediction = $state<{ nextDate: string; amount: number } | null>(null);
+	/** Tier on the category tied to `pattern.learnedCategoryId` (same source as Patterns list). */
+	let patternWaterfallTier = $state<Category['waterfallTier'] | undefined>(undefined);
+	let tierApplying = $state(false);
 
 	$effect(() => {
 		if (open && patternId) {
-			loadPattern();
+			void loadPattern();
 		} else if (!open) {
 			pattern = null;
 			transactions = [];
 			prediction = null;
+			patternWaterfallTier = undefined;
 		}
 	});
 
@@ -41,6 +57,10 @@
 				loading = false;
 				return;
 			}
+			patternWaterfallTier = pattern.learnedCategoryId
+				? (await db.categories.get(pattern.learnedCategoryId))?.waterfallTier
+				: undefined;
+
 			const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(patternId);
 			if (pred) {
 				prediction = {
@@ -62,6 +82,41 @@
 			console.error('RecurringPatternSheet load error:', e);
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function refreshPatternAndTierFromDb() {
+		if (!patternId) return;
+		const p = await recurringTransactionIntelligenceService.getPattern(patternId);
+		if (!p) return;
+		pattern = p;
+		patternWaterfallTier = p.learnedCategoryId
+			? (await db.categories.get(p.learnedCategoryId))?.waterfallTier
+			: undefined;
+	}
+
+	async function applyTierFromSheet(tier: NonNullable<Category['waterfallTier']>) {
+		if (!patternId || tierApplying) return;
+		tierApplying = true;
+		try {
+			const res = await applyRecurringPatternWaterfallTier(patternId, tier);
+			if (!res.ok) {
+				if (res.reason === 'no_pattern') {
+					toast.error('Pattern not found');
+				} else {
+					toast.message('Could not set budget tier', {
+						description:
+							'This pattern needs a single clear category on its matching transactions, or wait until category learning picks one.'
+					});
+				}
+				return;
+			}
+			await refreshPatternAndTierFromDb();
+			onPatternBudgetTierApplied?.();
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : 'Failed to update tier');
+		} finally {
+			tierApplying = false;
 		}
 	}
 
@@ -141,6 +196,33 @@
 			<p class="text-muted-foreground text-xs">
 				Confidence: {pattern.confidence}% · {pattern.occurrences} occurrences · {pattern.frequency}
 			</p>
+
+			<div>
+				<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
+					Budget tier
+				</h4>
+				<div class="flex flex-wrap gap-1.5">
+					{#each tierChipDefs as chip (chip.tier)}
+						{@const isActive = chip.tier === patternWaterfallTier}
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							title={chip.hint}
+							disabled={tierApplying}
+							aria-pressed={isActive}
+							aria-label={`${chip.label}. ${chip.hint}`}
+							class={cn(
+								'h-7 min-h-7 shrink-0 gap-0 rounded-md px-2.5 py-0 text-[11px] font-semibold shadow-none',
+								isActive ? tierActiveClasses[chip.tier] : tierChipIdleClasses[chip.tier]
+							)}
+							onclick={() => void applyTierFromSheet(chip.tier)}
+						>
+							{chip.label}
+						</Button>
+					{/each}
+				</div>
+			</div>
 
 			<div>
 				<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
