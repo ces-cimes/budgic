@@ -1,4 +1,5 @@
 import { db } from './db';
+import { clearFullDatabaseReset } from './data-reset-presets';
 import { accountService } from './services/core/account-service';
 import { transactionService } from './services/core/transaction-service';
 import { budgetService } from './services/core/budget-service';
@@ -350,18 +351,12 @@ async function createSampleUserPreferences() {
 }
 
 export async function clearAllData() {
-	console.debug('[SampleData] Clearing existing data...');
+	console.debug('[SampleData] Clearing existing data (full database reset)...');
 
 	try {
-		// Clear all tables in the correct order to avoid foreign key issues
-		await db.transactions.clear();
-		await db.categories.clear();
-		await db.goals.clear();
-		await db.insights.clear();
-		await db.userActions.clear();
-		await db.userPreferences.clear();
-		await db.accounts.clear();
-
+		await clearFullDatabaseReset();
+		// Same-session wipe clears currencies; constructor init already ran once on this singleton.
+		await db.reseedSystemCurrencyData();
 		console.debug('[SampleData] Cleared all existing data');
 	} catch (error) {
 		console.error('[SampleData] Error clearing data:', error);

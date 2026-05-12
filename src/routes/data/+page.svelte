@@ -8,6 +8,13 @@
 	import { Checkbox } from '$lib/components/ui/checkbox/index.ts';
 	import { db } from '$lib/core/db';
 	import {
+		clearTransactionDataPreset,
+		clearFullDatabaseReset,
+		TRANSACTION_DATA_PRESET_REMOVES_BULLETS,
+		TRANSACTION_DATA_PRESET_KEEPS_BULLETS,
+		FULL_DATABASE_RESET_REMOVES_BULLETS
+	} from '$lib/core/data-reset-presets';
+	import {
 		MoneyManagerImporter,
 		readMultipleCSVFiles,
 		inspectSchema,
@@ -92,6 +99,7 @@
 	let isImportingMM = $state(false);
 	let error = $state<string | null>(null);
 	let success = $state<string | null>(null);
+	let dangerBusy = $state<null | 'transactions' | 'full'>(null);
 
 	// Data settings - simplified for current schema
 	let exportFormat = $state<'json' | 'csv' | 'pdf'>('json');
@@ -545,33 +553,54 @@
 		}
 	}
 
-	// Clear all data
-	async function clearAllData() {
-		if (!confirm('Are you sure you want to delete all data? This action cannot be undone.')) {
+	async function handleClearTransactionData() {
+		if (dangerBusy) return;
+		if (
+			!confirm(
+				'Permanently delete all transactions and related data listed below? Accounts, categories, and preferences stay. This cannot be undone.'
+			)
+		) {
 			return;
 		}
-
+		dangerBusy = 'transactions';
+		error = null;
+		success = null;
 		try {
-			// Clear all tables
-			await Promise.all([
-				db.accounts.clear(),
-				db.transactions.clear(),
-				db.categories.clear(),
-				db.goals.clear(),
-				db.insights.clear(),
-				db.userActions.clear(),
-				db.userPreferences.clear(),
-				db.dataCorrections.clear()
-			]);
-
-			success = 'Cleared';
-			// Redirect to onboarding
-			setTimeout(() => {
-				goto('/onboarding');
-			}, 2000);
+			await clearTransactionDataPreset();
+			success = 'Transaction data cleared. Account balances were recalculated from opening balances.';
+			void navigationStore.updateBadges();
+			if (dataTab === 'review') void refreshReviewQueue();
+			if (dataTab === 'corrections') void refreshCorrections();
 		} catch (err) {
-			error = 'Failed to clear data';
-			console.error('Error clearing data:', err);
+			error = 'Failed to clear transaction data';
+			console.error('Error clearing transaction data:', err);
+		} finally {
+			dangerBusy = null;
+		}
+	}
+
+	async function handleFullDatabaseReset() {
+		if (dangerBusy) return;
+		if (
+			!confirm(
+				'Permanently delete ALL locally stored Budgic data (every table: accounts, categories, settings, currencies, everything). Export first if you need a backup. This cannot be undone. Continue?'
+			)
+		) {
+			return;
+		}
+		dangerBusy = 'full';
+		error = null;
+		success = null;
+		try {
+			await clearFullDatabaseReset();
+			success = 'All data cleared. Reloading…';
+			setTimeout(() => {
+				window.location.assign('/onboarding');
+			}, 600);
+		} catch (err) {
+			error = 'Failed to clear all data';
+			console.error('Error clearing all data:', err);
+			dangerBusy = null;
 		}
 	}
 </script>
@@ -942,16 +971,49 @@
 							Danger zone
 						</h2>
 					</div>
-					<div class="space-y-2 px-5 py-4">
-						<button
-							onclick={clearAllData}
-							class="rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-2.5 text-sm font-semibold text-[var(--color-warm-coral)] transition-colors hover:bg-[var(--color-warm-coral)]/12"
-						>
-							Clear all data
-						</button>
-						<p class="text-xs text-[var(--color-text-tertiary)]">
-							Permanently deletes everything. Export first.
-						</p>
+					<div class="space-y-5 px-5 py-4">
+						<div class="space-y-2">
+							<button
+								type="button"
+								onclick={handleClearTransactionData}
+								disabled={dangerBusy !== null}
+								class="w-full rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-2.5 text-sm font-semibold text-[var(--color-warm-coral)] transition-colors hover:bg-[var(--color-warm-coral)]/12 disabled:opacity-50"
+							>
+								{dangerBusy === 'transactions' ? 'Working…' : 'Clear transaction data'}
+							</button>
+							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Removes</p>
+							<ul class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]">
+								{#each TRANSACTION_DATA_PRESET_REMOVES_BULLETS as line}
+									<li>{line}</li>
+								{/each}
+							</ul>
+							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Keeps</p>
+							<ul class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]">
+								{#each TRANSACTION_DATA_PRESET_KEEPS_BULLETS as line}
+									<li>{line}</li>
+								{/each}
+							</ul>
+						</div>
+						<div class="border-t border-[var(--color-warm-coral)]/15 pt-4 space-y-2">
+							<button
+								type="button"
+								onclick={handleFullDatabaseReset}
+								disabled={dangerBusy !== null}
+								class="w-full rounded-xl border border-[var(--color-warm-coral)]/40 bg-[var(--color-warm-coral)]/12 px-5 py-2.5 text-sm font-semibold text-[var(--color-warm-coral)] transition-colors hover:bg-[var(--color-warm-coral)]/18 disabled:opacity-50"
+							>
+								{dangerBusy === 'full' ? 'Working…' : 'Full reset (all local data)'}
+							</button>
+							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Removes</p>
+							<ul class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]">
+								{#each FULL_DATABASE_RESET_REMOVES_BULLETS as line}
+									<li>{line}</li>
+								{/each}
+							</ul>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								Reloads the app and sends you to onboarding so system data can re-initialize. Export
+								first.
+							</p>
+						</div>
 					</div>
 				</div>
 			{:else if dataTab === 'review'}

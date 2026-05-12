@@ -4340,6 +4340,14 @@ export class BudgicDB extends Dexie {
 		});
 		return balance;
 	}
+
+	/**
+	 * Re-run system currency + configuration seeding after a full table wipe in the same browser session.
+	 * Constructor only runs `initializeSystemCurrencies` once; the Dexie singleton persists.
+	 */
+	async reseedSystemCurrencyData(): Promise<void> {
+		await this.initializeSystemCurrencies();
+	}
 }
 
 // Export the database instance
