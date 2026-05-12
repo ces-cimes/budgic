@@ -179,6 +179,11 @@ export interface ImportOptions {
 	mmTransactionUidConflict?: MmTransactionUidConflict;
 	/** If true, populate `importBatch.mmUidConflicts` for merge/replace actions (can be large) */
 	includeMmUidConflictReport?: boolean;
+	/**
+	 * Optional MM `currencyUid` (from CURRENCY.csv / INOUTCOME) → existing Budgic `currencies` row id.
+	 * Set by the pre-import currency review UI; seeds the importer before `importCurrencies()`.
+	 */
+	mmCurrencyUidToBudgicCurrencyId?: Record<string, string>;
 	/** Whether to skip validation (not recommended) */
 	skipValidation?: boolean;
 	/** Callback for progress updates */

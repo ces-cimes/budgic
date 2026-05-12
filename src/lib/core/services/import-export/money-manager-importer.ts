@@ -129,6 +129,14 @@ export class MoneyManagerImporter extends BaseImporter {
 		}
 
 		try {
+			for (const [mmUid, budgicCurrencyId] of Object.entries(
+				this.options.mmCurrencyUidToBudgicCurrencyId ?? {}
+			)) {
+				if (mmUid && budgicCurrencyId) {
+					this.currencyMappings.set(mmUid, budgicCurrencyId);
+				}
+			}
+
 			const totalSteps = this.calculateTotalSteps();
 			let currentStep = 0;
 
@@ -225,6 +233,11 @@ export class MoneyManagerImporter extends BaseImporter {
 
 				const currencyUid = row.uid || row.ID;
 				if (!currencyUid || currencyUid === 'null') {
+					this.statistics.currenciesSkipped++;
+					continue;
+				}
+
+				if (this.currencyMappings.has(currencyUid)) {
 					this.statistics.currenciesSkipped++;
 					continue;
 				}

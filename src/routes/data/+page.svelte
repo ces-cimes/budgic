@@ -18,12 +18,16 @@
 		MoneyManagerImporter,
 		readMultipleCSVFiles,
 		inspectSchema,
+		detectMmCurrencyReviewNeeded,
 		type ImportResult,
 		type ImportProgress,
 		type DetectedSchema,
-		type MmTransactionUidConflict
+		type MmTransactionUidConflict,
+		type CSVFile,
+		type MmCurrencyReviewRow
 	} from '$lib/core/services/import-export';
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
+	import ImportCurrencyReviewDialog from '$lib/components/import/ImportCurrencyReviewDialog.svelte';
 	import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
 	import { formatPercentage } from '$lib/utils/currency-utils';
 	import {
@@ -36,7 +40,7 @@
 		shouldOpenImportWizard,
 		classifiedExpenseShare
 	} from '$lib/utils/import-wizard-batch-metrics';
-	import type { Transaction, Account, DataCorrection } from '$lib/core/db';
+	import type { Transaction, Account, DataCorrection, Currency } from '$lib/core/db';
 	import { devLog } from '$lib/utils/dev-log';
 	import { page } from '$app/stores';
 	import { dataQualityService, dataCorrectionService } from '$lib/core/services';
@@ -124,6 +128,11 @@
 	let mmResult = $state<ImportResult | null>(null);
 	let showMMImport = $state(false);
 	let importWizardOpen = $state(false);
+	let mmCurrencyReviewOpen = $state(false);
+	let pendingMmCsvFiles = $state<Map<string, CSVFile> | null>(null);
+	let mmCurrencyReviewRows = $state<MmCurrencyReviewRow[]>([]);
+	let mmCurrencyReviewCurrencies = $state<Currency[]>([]);
+	let mmCurrencyUidMap = $state<Record<string, string>>({});
 	let wizardBeforeClassifiedExpenseShare = $state(0);
 	let wizardExpenseTxIds = $state<string[]>([]);
 	let wizardExpenseAbsByTxId = $state<Record<string, number>>({});
@@ -292,7 +301,55 @@
 		}
 	}
 
-	// Handle Money Manager import
+	// Handle Money Manager import (CSV read → optional currency review → importer)
+	async function finishMmImportAfterRead(
+		csvFiles: Map<string, CSVFile>,
+		currencyOverride?: Record<string, string>
+	): Promise<void> {
+		const trimmedOverride =
+			currencyOverride && Object.keys(currencyOverride).length > 0
+				? Object.fromEntries(
+						Object.entries(currencyOverride).filter(
+							([uid, id]) => uid && id && id.trim() !== ''
+						)
+					)
+				: undefined;
+
+		const importer = new MoneyManagerImporter({
+			...mmImportOptions,
+			...(trimmedOverride && Object.keys(trimmedOverride).length > 0
+				? { mmCurrencyUidToBudgicCurrencyId: trimmedOverride }
+				: {}),
+			onProgress: (progress) => {
+				mmProgress = progress;
+			}
+		});
+
+		const result = await importer.import(csvFiles);
+		mmResult = result;
+
+		if (result.success) {
+			const s = result.statistics;
+			const tm = s.transactionsMerged ?? 0;
+			const tr = s.transactionsReplaced ?? 0;
+			const txBits = [
+				s.transactionsImported > 0 ? `${s.transactionsImported} new` : null,
+				tm > 0 ? `${tm} merged (same MM UID)` : null,
+				tr > 0 ? `${tr} replaced` : null
+			].filter(Boolean);
+			const txLabel = txBits.length > 0 ? txBits.join(', ') : '0 transactions';
+			success = `Successfully imported ${s.accountsImported} accounts, ${s.categoriesImported} categories (${txLabel})`;
+
+			mmFiles = [];
+			mmSchema = null;
+
+			await prepareImportWizardState(result);
+			void navigationStore.updateBadges();
+		} else {
+			error = `Import completed with ${result.errors.length} error(s). Check details below.`;
+		}
+	}
+
 	async function handleMMImport() {
 		if (mmFiles.length === 0) {
 			error = 'Please select CSV files to import';
@@ -311,42 +368,27 @@
 		mmProgress = null;
 
 		try {
-			// Read CSV files
 			const csvFiles = await readMultipleCSVFiles(mmFiles);
+			const detection = detectMmCurrencyReviewNeeded(csvFiles);
 
-			// Create importer
-			const importer = new MoneyManagerImporter({
-				...mmImportOptions,
-				onProgress: (progress) => {
-					mmProgress = progress;
+			if (detection.needsReview) {
+				const currencies = await db.getActiveCurrencies();
+				const selection: Record<string, string> = {};
+				for (const r of detection.rows) {
+					const match = currencies.find((c) => c.code === r.suggestedCode);
+					const first = currencies[0];
+					if (match) selection[r.mmUid] = match.id;
+					else if (first) selection[r.mmUid] = first.id;
 				}
-			});
-
-			// Execute import
-			const result = await importer.import(csvFiles);
-			mmResult = result;
-
-			if (result.success) {
-				const s = result.statistics;
-				const tm = s.transactionsMerged ?? 0;
-				const tr = s.transactionsReplaced ?? 0;
-				const txBits = [
-					s.transactionsImported > 0 ? `${s.transactionsImported} new` : null,
-					tm > 0 ? `${tm} merged (same MM UID)` : null,
-					tr > 0 ? `${tr} replaced` : null
-				].filter(Boolean);
-				const txLabel = txBits.length > 0 ? txBits.join(', ') : '0 transactions';
-				success = `Successfully imported ${s.accountsImported} accounts, ${s.categoriesImported} categories (${txLabel})`;
-
-				// Clear files after successful import
-				mmFiles = [];
-				mmSchema = null;
-
-				await prepareImportWizardState(result);
-				void navigationStore.updateBadges();
-			} else {
-				error = `Import completed with ${result.errors.length} error(s). Check details below.`;
+				mmCurrencyReviewRows = detection.rows;
+				mmCurrencyReviewCurrencies = currencies;
+				mmCurrencyUidMap = selection;
+				pendingMmCsvFiles = csvFiles;
+				mmCurrencyReviewOpen = true;
+				return;
 			}
+
+			await finishMmImportAfterRead(csvFiles);
 		} catch (err) {
 			error = `Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			console.error('Money Manager import error:', err);
@@ -354,6 +396,42 @@
 			isImportingMM = false;
 			mmProgress = null;
 		}
+	}
+
+	async function confirmMmCurrencyReview() {
+		const files = pendingMmCsvFiles;
+		if (!files) return;
+
+		mmCurrencyReviewOpen = false;
+		isImportingMM = true;
+		error = null;
+		mmProgress = null;
+
+		try {
+			await finishMmImportAfterRead(files, mmCurrencyUidMap);
+			pendingMmCsvFiles = null;
+			mmCurrencyReviewRows = [];
+			mmCurrencyReviewCurrencies = [];
+			mmCurrencyUidMap = {};
+		} catch (err) {
+			error = `Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
+			console.error('Money Manager import error:', err);
+		} finally {
+			isImportingMM = false;
+			mmProgress = null;
+		}
+	}
+
+	function cancelMmCurrencyReview() {
+		mmCurrencyReviewOpen = false;
+		pendingMmCsvFiles = null;
+		mmCurrencyReviewRows = [];
+		mmCurrencyReviewCurrencies = [];
+		mmCurrencyUidMap = {};
+	}
+
+	function updateMmCurrencySelection(mmUid: string, budgicCurrencyId: string) {
+		mmCurrencyUidMap = { ...mmCurrencyUidMap, [mmUid]: budgicCurrencyId };
 	}
 
 	async function prepareImportWizardState(result: ImportResult): Promise<void> {
@@ -1176,6 +1254,16 @@
 		{/if}
 	</div>
 </PageLayout>
+
+<ImportCurrencyReviewDialog
+	open={mmCurrencyReviewOpen}
+	rows={mmCurrencyReviewRows}
+	currencies={mmCurrencyReviewCurrencies}
+	selection={mmCurrencyUidMap}
+	onSelectionChange={updateMmCurrencySelection}
+	onConfirm={() => void confirmMmCurrencyReview()}
+	onCancel={cancelMmCurrencyReview}
+/>
 
 {#if mmResult?.importBatch}
 	<ImportWizard

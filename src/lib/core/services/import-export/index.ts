@@ -39,6 +39,12 @@ export { BaseImporter, detectPassiveBalanceImportHints } from './base-importer';
 // Money Manager importer
 export { MoneyManagerImporter } from './money-manager-importer';
 
+export {
+	detectMmCurrencyReviewNeeded,
+	type MmCurrencyReviewDetection,
+	type MmCurrencyReviewRow
+} from './mm-currency-review-detect';
+
 // Money Manager mapper utilities
 export {
 	mapAccountType,
