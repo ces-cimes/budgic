@@ -6,7 +6,11 @@
 	import { History } from '@lucide/svelte';
 	import type { ReconciliationRecord } from '$lib/core/db';
 	import { reconciliationService, accountService } from '$lib/core/services';
-	import { isAccountWithinReconciliationGrace } from '$lib/utils/reconciliation-attention';
+	import { navigationStore } from '$lib/stores/navigation-store.svelte';
+	import {
+		accountNeedsReconciliationAttention,
+		isAccountWithinReconciliationGrace
+	} from '$lib/utils/reconciliation-attention';
 	import { onMount } from 'svelte';
 
 	let historyOpen = $state(false);
@@ -76,10 +80,7 @@
 				const { account, summary } = row;
 				const skipAttention = isAccountWithinReconciliationGrace(account);
 				if (!skipAttention) {
-					if (
-						summary.daysSinceLastReconciliation > 30 ||
-						summary.daysSinceLastReconciliation === -1
-					) {
+					if (accountNeedsReconciliationAttention(account, summary)) {
 						needsReconciliation++;
 					}
 					if (summary.unresolvedDiscrepancies > 0) {
@@ -110,6 +111,7 @@
 	}
 
 	function handleReconciliationComplete(result: ReconciliationRecord) {
+		void navigationStore.updateBadges();
 		loadReconciliationStats();
 		historyOpen = true;
 		const url = new URL($page.url);

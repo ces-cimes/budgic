@@ -505,27 +505,16 @@
 				{/if}
 			</section>
 
-			<!-- Reconciliation status row -->
+			<!-- Reconciliation — neutral row; urgency lives on Data nav badge -->
 			{#if reconciliationSummary}
-				{@const needsAttention =
-					reconciliationSummary.daysSinceLastReconciliation > 30 ||
-					reconciliationSummary.daysSinceLastReconciliation === -1 ||
-					reconciliationSummary.unresolvedDiscrepancies > 0}
 				<section class="mb-6">
 					<button
 						type="button"
-						class="flex w-full items-center justify-between rounded-xl border px-5 py-3.5 text-left transition-colors
-							{needsAttention
-							? 'border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 hover:bg-[var(--color-warm-coral)]/12'
-							: 'border-border bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-bg-surface)]'}"
+						class="flex w-full items-center justify-between rounded-xl border border-border bg-[var(--color-bg-tertiary)] px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)]"
 						onclick={() => goto(`/data?tab=reconcile&account=${account?.id ?? ''}`)}
 					>
 						<div class="flex items-center gap-3">
-							<Scale
-								class="size-4 shrink-0 {needsAttention
-									? 'text-[var(--color-warm-coral)]'
-									: 'text-[var(--color-text-tertiary)]'}"
-							/>
+							<Scale class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
 							<div>
 								<p class="text-sm font-medium text-[var(--color-text-primary)]">Reconciliation</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
@@ -540,13 +529,7 @@
 								</p>
 							</div>
 						</div>
-						<span
-							class="text-xs font-medium {needsAttention
-								? 'text-[var(--color-warm-coral)]'
-								: 'text-[var(--color-text-tertiary)]'}"
-						>
-							{needsAttention ? 'Reconcile →' : 'View →'}
-						</span>
+						<span class="text-xs font-medium text-[var(--color-text-tertiary)]">Open in Data →</span>
 					</button>
 				</section>
 			{/if}

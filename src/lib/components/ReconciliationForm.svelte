@@ -91,8 +91,7 @@
 	let isFormValid = $derived(() => {
 		return (
 			formData.accountId &&
-			!isNaN(formData.statementBalance) &&
-			formData.statementBalance !== 0 &&
+			Number.isFinite(formData.statementBalance) &&
 			Object.keys(validationErrors).length === 0
 		);
 	});
@@ -136,26 +135,37 @@
 		}
 	}
 
-	// Load calculated balance for selected account
+	function getReconciliationOptions() {
+		return {
+			tolerance: formData.tolerance,
+			includePendingTransactions: formData.includePendingTransactions,
+			autoResolveSmallDiscrepancies: formData.autoResolveSmallDiscrepancies,
+			autoResolveThreshold: formData.autoResolveThreshold
+		};
+	}
+
+	// Load calculated balance for selected account (same basis as performReconciliation)
 	async function loadCalculatedBalance(accountId: string) {
 		isLoadingBalance = true;
 		try {
-			if (formData.includePendingTransactions) {
-				calculatedBalance = await accountService.recalculateAccountBalance(accountId);
-			} else {
-				// Calculate balance with only cleared transactions
-				const account = await accountService.getAccount(accountId);
-				if (!account) return;
-
-				const transactions = await accountService.getAccount(accountId);
-				// This would need a more specific method in the service, but for now use recalculate
-				calculatedBalance = await accountService.recalculateAccountBalance(accountId);
-			}
+			calculatedBalance = await reconciliationService.getLedgerBalance(accountId, {
+				includePendingTransactions: formData.includePendingTransactions
+			});
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to calculate balance';
 		} finally {
 			isLoadingBalance = false;
 		}
+	}
+
+	async function applySuccessfulReconciliation(result: ReconciliationRecord) {
+		reconciliationResult = result;
+		if (Math.abs(result.discrepancy) > formData.tolerance) {
+			discrepancies = await reconciliationService.getAccountDiscrepancies(result.accountId);
+		} else {
+			discrepancies = [];
+		}
+		onReconciliationComplete(result);
 	}
 
 	// Form validation
@@ -185,12 +195,7 @@
 		error = null;
 
 		try {
-			const options = {
-				tolerance: formData.tolerance,
-				includePendingTransactions: formData.includePendingTransactions,
-				autoResolveSmallDiscrepancies: formData.autoResolveSmallDiscrepancies,
-				autoResolveThreshold: formData.autoResolveThreshold
-			};
+			const options = getReconciliationOptions();
 
 			const result = await reconciliationService.performReconciliation(
 				formData.accountId,
@@ -198,14 +203,26 @@
 				options
 			);
 
-			reconciliationResult = result;
+			await applySuccessfulReconciliation(result);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Reconciliation failed';
+		} finally {
+			isLoading = false;
+		}
+	}
 
-			// Load discrepancies if any
-			if (Math.abs(result.discrepancy) > formData.tolerance) {
-				discrepancies = await reconciliationService.getAccountDiscrepancies(formData.accountId);
-			}
+	async function handleMarkReconciled() {
+		if (!formData.accountId || isLoading || isLoadingBalance) return;
 
-			onReconciliationComplete(result);
+		isLoading = true;
+		error = null;
+
+		try {
+			const result = await reconciliationService.performAutomaticReconciliation(
+				formData.accountId,
+				getReconciliationOptions()
+			);
+			await applySuccessfulReconciliation(result);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Reconciliation failed';
 		} finally {
@@ -316,6 +333,22 @@
 									)}
 								</span>
 							</div>
+						</div>
+
+						<div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+							<Button
+								type="button"
+								variant="secondary"
+								class="w-full sm:w-auto"
+								disabled={!formData.accountId || isLoading || isLoadingBalance}
+								onclick={() => void handleMarkReconciled()}
+							>
+								Balance matches ledger — mark reconciled
+							</Button>
+							<p class="text-muted-foreground text-xs">
+								Uses the same ledger basis as “Calculated Balance” above (cleared-only unless you
+								enable pending).
+							</p>
 						</div>
 
 						<!-- Statement Balance Input -->
