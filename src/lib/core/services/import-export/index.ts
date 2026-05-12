@@ -12,6 +12,8 @@ export type {
 	ImportError,
 	ImportProgress,
 	ImportOptions,
+	MmTransactionUidConflict,
+	MmUidConflictReportEntry,
 	CSVFile,
 	DetectedSchema,
 	TableSchema,

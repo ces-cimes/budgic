@@ -5,6 +5,17 @@
  * import results, progress tracking, and error handling.
  */
 
+/** When INOUTCOME row mmUid already exists in DB */
+export type MmTransactionUidConflict = 'skip' | 'replace' | 'merge';
+
+/** One row in optional post-import MM UID conflict report */
+export interface MmUidConflictReportEntry {
+	mmUid: string;
+	transactionId: string;
+	action: 'skipped' | 'merged' | 'replaced';
+	diffs?: Array<{ field: string; before: unknown; after: unknown }>;
+}
+
 /**
  * Import result statistics
  */
@@ -21,6 +32,10 @@ export interface ImportStatistics {
 	transactionsImported: number;
 	/** Number of transactions skipped */
 	transactionsSkipped: number;
+	/** Re-import: existing mmUid updated with merge policy */
+	transactionsMerged: number;
+	/** Re-import: existing mmUid fully replaced from MM row */
+	transactionsReplaced: number;
 	/** Number of currencies imported */
 	currenciesImported: number;
 	/** Number of currencies skipped */
@@ -132,6 +147,8 @@ export interface ImportResult {
 		wizardExpenseTransactionIds?: string[];
 		/** Absolute expense amount per transaction id (wizard metrics) */
 		wizardExpenseAbsByTransactionId?: Record<string, number>;
+		/** When `includeMmUidConflictReport` — merge/replace UID matches with import-owned field diffs */
+		mmUidConflicts?: MmUidConflictReportEntry[];
 	};
 }
 
@@ -155,6 +172,13 @@ export interface ImportOptions {
 	transactionDateEnd?: string;
 	/** Conflict resolution strategy */
 	conflictResolution?: 'skip' | 'rename' | 'merge' | 'replace';
+	/**
+	 * When a transaction row’s mmUid already exists (re-import).
+	 * Separate from account/category `conflictResolution`.
+	 */
+	mmTransactionUidConflict?: MmTransactionUidConflict;
+	/** If true, populate `importBatch.mmUidConflicts` for merge/replace actions (can be large) */
+	includeMmUidConflictReport?: boolean;
 	/** Whether to skip validation (not recommended) */
 	skipValidation?: boolean;
 	/** Callback for progress updates */

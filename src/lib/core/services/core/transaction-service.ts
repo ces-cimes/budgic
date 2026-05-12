@@ -45,6 +45,8 @@ export interface BulkOperationResult {
 
 export type UpdateTransactionOptions = {
 	dataCorrectionSource?: 'user' | 'reconciliation' | 'automation';
+	/** MM CSV re-import full replace: normally `updateTransaction` omits timestamp fields */
+	importReplaceTimestamps?: { createdAt: string; updatedAt: string };
 };
 
 class TransactionService {
@@ -616,30 +618,28 @@ class TransactionService {
 
 		const automationFromFee = automationFromTransferFeeType(updatedData.transferDetails?.feeType);
 
-		const updatedTransaction: Transaction = {
+		let updatedTransaction: Transaction = {
 			...updatedData,
 			automation: automationFromFee ?? updatedData.automation,
 			updatedAt: new Date().toISOString()
 		};
 
-		// Dexie shallow merge does not remove optional keys; explicit clears must delete properties.
-		if (
-			Object.prototype.hasOwnProperty.call(updates, 'categoryWeights') &&
-			updates.categoryWeights === undefined
-		) {
-			delete (updatedTransaction as Record<string, unknown>).categoryWeights;
+		if (options?.importReplaceTimestamps) {
+			updatedTransaction = {
+				...updatedTransaction,
+				createdAt: options.importReplaceTimestamps.createdAt,
+				updatedAt: options.importReplaceTimestamps.updatedAt
+			};
 		}
-		if (
-			Object.prototype.hasOwnProperty.call(updates, 'categoryConfidence') &&
-			updates.categoryConfidence === undefined
-		) {
-			delete (updatedTransaction as Record<string, unknown>).categoryConfidence;
-		}
-		if (
-			Object.prototype.hasOwnProperty.call(updates, 'importQuality') &&
-			updates.importQuality === undefined
-		) {
-			delete (updatedTransaction as Record<string, unknown>).importQuality;
+
+		// Explicit undefined in `updates` means remove optional field (Dexie merge does not drop keys)
+		for (const key of Object.keys(updates)) {
+			if (
+				Object.prototype.hasOwnProperty.call(updates, key) &&
+				(updates as Record<string, unknown>)[key] === undefined
+			) {
+				delete (updatedTransaction as Record<string, unknown>)[key];
+			}
 		}
 
 		if (options?.dataCorrectionSource) {

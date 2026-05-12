@@ -28,6 +28,8 @@ export abstract class BaseImporter {
 		categoriesSkipped: 0,
 		transactionsImported: 0,
 		transactionsSkipped: 0,
+		transactionsMerged: 0,
+		transactionsReplaced: 0,
 		currenciesImported: 0,
 		currenciesSkipped: 0
 	};
@@ -45,6 +47,8 @@ export abstract class BaseImporter {
 			importCurrencies: true,
 			importBudgets: false,
 			conflictResolution: 'skip',
+			mmTransactionUidConflict: 'skip',
+			includeMmUidConflictReport: false,
 			skipValidation: false,
 			...options
 		};

@@ -18,7 +18,22 @@ import {
 	recalculateBalancesForAccounts
 } from '../intelligence/interest-daily-merge';
 import { BaseImporter, detectPassiveBalanceImportHints } from './base-importer';
-import type { ImportOptions, ImportResult, CSVFile, IdMapping, TransferPair } from './types';
+import {
+	buildMmMergeUpdates,
+	buildMmReplaceUpdates,
+	diffMmMergeImportOwned,
+	diffMmReplace,
+	simulateMmMerge,
+	simulateMmReplace
+} from './mm-transaction-uid-merge';
+import type {
+	ImportOptions,
+	ImportResult,
+	CSVFile,
+	IdMapping,
+	TransferPair,
+	MmUidConflictReportEntry
+} from './types';
 import {
 	mapAccountType,
 	mapCategoryType,
@@ -85,6 +100,7 @@ export class MoneyManagerImporter extends BaseImporter {
 	private importedTransactionIds: string[] = [];
 	private importedAccountIds = new Set<string>();
 	private essentialCandidates: ClassificationCandidate[] = [];
+	private mmUidConflictReport: MmUidConflictReportEntry[] = [];
 
 	/**
 	 * Execute the import process
@@ -98,6 +114,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		this.importedTransactionIds = [];
 		this.importedAccountIds = new Set<string>();
 		this.essentialCandidates = [];
+		this.mmUidConflictReport = [];
 
 		// Validate options
 		const validation = this.validateOptions();
@@ -629,6 +646,14 @@ export class MoneyManagerImporter extends BaseImporter {
 		const ctgUid = row.ctgUid;
 		const doType = parseInt(row.DO_TYPE || '0', 10);
 		const mmUid = row.uid || row.ID; // MM transaction UID
+		const uidMode = this.options.mmTransactionUidConflict ?? 'skip';
+		const existingByMmUid =
+			mmUid && mmUid !== 'null' && mmUid !== ''
+				? this.findTransactionByMMUid(mmUid)
+				: null;
+		if (existingByMmUid && uidMode === 'skip') {
+			return false;
+		}
 
 		// Get account
 		const accountId = assetUid ? this.accountMappings.get(assetUid) : undefined;
@@ -700,18 +725,6 @@ export class MoneyManagerImporter extends BaseImporter {
 		const clearedDateQ = mapDateWithQuality(row.ZDATE, row.UTIME, row.WDATE);
 		const clearedDate = clearedDateQ.iso;
 		const description = row.ZCONTENT || '';
-
-		// Check for duplicate by MM UID only (using preloaded map - O(1) lookup)
-		// This ensures 1-to-1 import - we only skip if the exact same transaction was already imported
-		// IMPORTANT: Only check against transactions that were imported in PREVIOUS import runs,
-		// not transactions being imported in the current run. The preload happens before import starts.
-		if (mmUid && mmUid !== 'null' && mmUid !== '') {
-			const existingByUid = this.findTransactionByMMUid(mmUid);
-			if (existingByUid) {
-				// This transaction was already imported in a previous import run
-				return false; // Skip exact duplicate (same MM UID)
-			}
-		}
 
 		// Calculate exchange rate if currencies differ (for metadata)
 		let exchangeRate: number | undefined;
@@ -802,6 +815,13 @@ export class MoneyManagerImporter extends BaseImporter {
 			deletedAt: null
 		};
 
+		if (existingByMmUid && uidMode === 'merge') {
+			return await this.finishMmUidReimportMerge(existingByMmUid, transaction, mmUid as string);
+		}
+		if (existingByMmUid && uidMode === 'replace') {
+			return await this.finishMmUidReimportReplace(existingByMmUid, transaction, mmUid as string);
+		}
+
 		// Skip balance recalculation during import - will be done at the end
 		// accountAmount is already set from MM data, so transaction service will preserve it
 		await transactionService.createTransaction(transaction, true);
@@ -884,6 +904,14 @@ export class MoneyManagerImporter extends BaseImporter {
 		const outRow = pair.transferOut;
 		const inRow = pair.transferIn;
 		const mmUid = pair.txUidTrans; // Use transfer pair UID as identifier
+		const uidMode = this.options.mmTransactionUidConflict ?? 'skip';
+		const existingByMmUid =
+			mmUid && mmUid !== 'null' && mmUid !== ''
+				? this.findTransactionByMMUid(mmUid)
+				: null;
+		if (existingByMmUid && uidMode === 'skip') {
+			return false;
+		}
 
 		// Get accounts
 		// For transfers:
@@ -955,15 +983,6 @@ export class MoneyManagerImporter extends BaseImporter {
 		const toAccount = toAccountId ? await db.accounts.get(toAccountId) : null;
 		const fromAccountCurrency = fromAccount?.currency;
 		const toAccountCurrency = toAccount?.currency;
-
-		// Check for duplicate by MM transfer UID only (using preloaded map - O(1) lookup)
-		// This ensures 1-to-1 import - we only skip if the exact same transfer was already imported
-		if (mmUid && mmUid !== 'null' && mmUid !== '') {
-			const existingByUid = this.findTransactionByMMUid(mmUid);
-			if (existingByUid) {
-				return false; // Skip exact duplicate (same MM UID)
-			}
-		}
 
 		// Create import metadata with MM transfer UID
 		const importMetadata =
@@ -1043,10 +1062,20 @@ export class MoneyManagerImporter extends BaseImporter {
 			deletedAt: null
 		};
 
+		if (existingByMmUid && uidMode === 'merge') {
+			return await this.finishMmUidReimportMerge(existingByMmUid, transaction, mmUid as string);
+		}
+		if (existingByMmUid && uidMode === 'replace') {
+			return await this.finishMmUidReimportReplace(existingByMmUid, transaction, mmUid as string);
+		}
+
 		// Skip balance recalculation during import - will be done at the end
 		await transactionService.createTransaction(transaction, true);
 		this.importedTransactionIds.push(transaction.id);
 		if (transaction.accountId) this.importedAccountIds.add(transaction.accountId);
+		if (transaction.transferDetails?.toAccountId) {
+			this.importedAccountIds.add(transaction.transferDetails.toAccountId);
+		}
 
 		// Add to existing transactions map to prevent duplicates within the same import run
 		if (mmUid && mmUid !== 'null' && mmUid !== '') {
@@ -1197,8 +1226,70 @@ export class MoneyManagerImporter extends BaseImporter {
 			qualitySummary,
 			patternHints,
 			wizardExpenseTransactionIds,
-			wizardExpenseAbsByTransactionId
+			wizardExpenseAbsByTransactionId,
+			...(this.mmUidConflictReport.length > 0 ? { mmUidConflicts: this.mmUidConflictReport } : {})
 		};
+	}
+
+	private maybeRecordMmUidConflict(
+		mmUid: string,
+		transactionId: string,
+		action: 'merged' | 'replaced',
+		diffs: Array<{ field: string; before: unknown; after: unknown }>
+	): void {
+		if (!this.options.includeMmUidConflictReport) return;
+		this.mmUidConflictReport.push({
+			mmUid,
+			transactionId,
+			action,
+			diffs: diffs.length > 0 ? diffs : undefined
+		});
+	}
+
+	private async finishMmUidReimportMerge(
+		existing: Transaction,
+		fresh: Transaction,
+		mmUid: string
+	): Promise<boolean> {
+		const preview = simulateMmMerge(existing, fresh);
+		const diffs = diffMmMergeImportOwned(existing, preview);
+		const updates = buildMmMergeUpdates(fresh);
+		await transactionService.updateTransaction(existing.id, updates);
+		const updated = await db.transactions.get(existing.id);
+		if (!updated) return false;
+		this.existingMMTransactions.set(mmUid, updated);
+		this.importedTransactionIds.push(existing.id);
+		if (updated.accountId) this.importedAccountIds.add(updated.accountId);
+		if (updated.type === 'transfer' && updated.transferDetails?.toAccountId) {
+			this.importedAccountIds.add(updated.transferDetails.toAccountId);
+		}
+		this.statistics.transactionsMerged++;
+		this.maybeRecordMmUidConflict(mmUid, existing.id, 'merged', diffs);
+		return true;
+	}
+
+	private async finishMmUidReimportReplace(
+		existing: Transaction,
+		fresh: Transaction,
+		mmUid: string
+	): Promise<boolean> {
+		const preview = simulateMmReplace(existing, fresh);
+		const diffs = diffMmReplace(existing, preview);
+		const updates = buildMmReplaceUpdates(fresh);
+		await transactionService.updateTransaction(existing.id, updates, {
+			importReplaceTimestamps: { createdAt: fresh.createdAt, updatedAt: fresh.updatedAt }
+		});
+		const updated = await db.transactions.get(existing.id);
+		if (!updated) return false;
+		this.existingMMTransactions.set(mmUid, updated);
+		this.importedTransactionIds.push(existing.id);
+		if (updated.accountId) this.importedAccountIds.add(updated.accountId);
+		if (updated.type === 'transfer' && updated.transferDetails?.toAccountId) {
+			this.importedAccountIds.add(updated.transferDetails.toAccountId);
+		}
+		this.statistics.transactionsReplaced++;
+		this.maybeRecordMmUidConflict(mmUid, existing.id, 'replaced', diffs);
+		return true;
 	}
 
 	/**

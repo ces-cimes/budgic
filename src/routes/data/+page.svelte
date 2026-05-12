@@ -20,7 +20,8 @@
 		inspectSchema,
 		type ImportResult,
 		type ImportProgress,
-		type DetectedSchema
+		type DetectedSchema,
+		type MmTransactionUidConflict
 	} from '$lib/core/services/import-export';
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
@@ -114,6 +115,8 @@
 		importCurrencies: true,
 		importBudgets: false,
 		conflictResolution: 'skip' as 'skip' | 'rename' | 'merge' | 'replace',
+		mmTransactionUidConflict: 'skip' as MmTransactionUidConflict,
+		includeMmUidConflictReport: false,
 		transactionDateStart: '',
 		transactionDateEnd: ''
 	});
@@ -324,7 +327,16 @@
 			mmResult = result;
 
 			if (result.success) {
-				success = `Successfully imported ${result.statistics.accountsImported} accounts, ${result.statistics.categoriesImported} categories, and ${result.statistics.transactionsImported} transactions`;
+				const s = result.statistics;
+				const tm = s.transactionsMerged ?? 0;
+				const tr = s.transactionsReplaced ?? 0;
+				const txBits = [
+					s.transactionsImported > 0 ? `${s.transactionsImported} new` : null,
+					tm > 0 ? `${tm} merged (same MM UID)` : null,
+					tr > 0 ? `${tr} replaced` : null
+				].filter(Boolean);
+				const txLabel = txBits.length > 0 ? txBits.join(', ') : '0 transactions';
+				success = `Successfully imported ${s.accountsImported} accounts, ${s.categoriesImported} categories (${txLabel})`;
 
 				// Clear files after successful import
 				mmFiles = [];
@@ -817,6 +829,37 @@
 									</Select.Root>
 								</div>
 								{#if mmImportOptions.importTransactions}
+									<div class="space-y-1.5">
+										<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+											Re-import: same MM transaction UID
+										</p>
+										<Select.Root type="single" bind:value={mmImportOptions.mmTransactionUidConflict}>
+											<Select.Trigger class="w-full max-w-xs">
+												{mmImportOptions.mmTransactionUidConflict === 'skip'
+													? 'Skip (keep existing row)'
+													: mmImportOptions.mmTransactionUidConflict === 'merge'
+														? 'Merge — refresh amounts/dates/FX from MM'
+														: 'Replace — full row from MM'}
+											</Select.Trigger>
+											<Select.Content>
+												<Select.Item value="skip">Skip (keep existing row)</Select.Item>
+												<Select.Item value="merge"
+													>Merge — refresh amounts/dates/FX from MM</Select.Item
+												>
+												<Select.Item value="replace">Replace — full row from MM</Select.Item>
+											</Select.Content>
+										</Select.Root>
+										<p class="text-[11px] leading-snug text-[var(--color-text-tertiary)]">
+											Merge keeps your category, notes, and description; replace overwrites them
+											with the CSV.
+										</p>
+										<label class="flex cursor-pointer items-center gap-2.5">
+											<Checkbox bind:checked={mmImportOptions.includeMmUidConflictReport} />
+											<span class="text-sm text-[var(--color-text-primary)]"
+												>Include UID conflict details in result (can be large)</span
+											>
+										</label>
+									</div>
 									<div class="grid grid-cols-2 gap-3">
 										<div class="space-y-1.5">
 											<label
@@ -893,6 +936,11 @@
 										<p class="text-[var(--color-text-tertiary)]">
 											Transactions: {mmResult.statistics.transactionsImported}
 										</p>
+										{#if (mmResult.statistics.transactionsMerged ?? 0) > 0 || (mmResult.statistics.transactionsReplaced ?? 0) > 0}
+											<p class="text-[var(--color-text-tertiary)]">
+												Re-import: {(mmResult.statistics.transactionsMerged ?? 0)} merged, {(mmResult.statistics.transactionsReplaced ?? 0)} replaced
+											</p>
+										{/if}
 									</div>
 									<div>
 										<p class="mb-1 font-medium text-[var(--color-text-secondary)]">Skipped</p>
@@ -907,6 +955,28 @@
 										</p>
 									</div>
 								</div>
+								{#if mmResult.importBatch?.mmUidConflicts?.length}
+									<details class="text-xs text-[var(--color-text-secondary)]">
+										<summary class="cursor-pointer font-medium text-[var(--color-text-primary)]">
+											MM UID conflict details ({mmResult.importBatch.mmUidConflicts.length})
+										</summary>
+										<ul class="mt-2 max-h-40 space-y-2 overflow-y-auto text-[var(--color-text-tertiary)]">
+											{#each mmResult.importBatch.mmUidConflicts as row}
+												<li>
+													<span class="font-mono">{row.mmUid}</span>
+													— {row.action}
+													{#if row.diffs?.length}
+														<ul class="ml-2 mt-0.5 list-disc pl-4">
+															{#each row.diffs as d}
+																<li>{d.field}</li>
+															{/each}
+														</ul>
+													{/if}
+												</li>
+											{/each}
+										</ul>
+									</details>
+								{/if}
 								{#if mmResult.errors.length > 0}
 									<div class="max-h-32 space-y-1 overflow-y-auto">
 										{#each mmResult.errors.slice(0, 8) as err}
