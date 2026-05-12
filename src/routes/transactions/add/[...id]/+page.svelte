@@ -27,6 +27,17 @@
 		assertValidSoftCategoryWeights,
 		assertSoftSplitCategoryIdMatchesPrimary
 	} from '$lib/utils/transaction-category-weights';
+	import {
+		buildSplitResultFromForm,
+		hydrateSplitExtrasFromCategoryWeights,
+		splitFormStateFromSuggestedWeights,
+		validSplitExtras,
+		normalizeAndClampSplitExtras,
+		SPLIT_MAX_EXTRAS,
+		SPLIT_MIN_SLICE,
+		SPLIT_WEIGHT_STEP,
+		type SplitExtra
+	} from '$lib/utils/soft-split-extras';
 	import { devLog } from '$lib/utils/dev-log';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
@@ -39,7 +50,8 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.ts';
 	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
-	import { Trash2, HelpCircle, ChevronDown, Tag } from '@lucide/svelte';
+	import { Separator } from '$lib/components/ui/separator/index.ts';
+	import { Trash2, HelpCircle, ChevronDown, Tag, Plus, Minus, X } from '@lucide/svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import DescriptionAutocomplete from '$lib/components/ui/DescriptionAutocomplete.svelte';
@@ -88,25 +100,6 @@
 		return id.replace(/^debt:/, '').replace(/-/g, ' ');
 	}
 
-	function buildCategoryWeights():
-		| { weights: { categoryId: string; weight: number }[]; primaryId: string }
-		| undefined {
-		if (transactionType !== 'expense' || !selectedCategory) return undefined;
-		const extras =
-			softSecondaryCategory && softSecondaryCategory !== selectedCategory
-				? [softSecondaryCategory]
-				: [];
-		if (extras.length === 0) return undefined;
-		const ids = [selectedCategory, ...extras];
-		const n = ids.length;
-		const wts: number[] = n === 2 ? [softWPrimary, 1 - softWPrimary] : Array(n).fill(1 / n);
-		const weights = roundWeightSum(
-			ids.map((categoryId, i) => ({ categoryId, weight: wts[i] ?? 1 / n }))
-		);
-		const primaryId = weights.reduce((a, b) => (b.weight > a.weight ? b : a)).categoryId;
-		return { weights, primaryId };
-	}
-
 	let merchantSuggestTimer: ReturnType<typeof setTimeout> | null = null;
 	let lastSuggestedMerchantKey = $state('');
 
@@ -120,18 +113,22 @@
 			merchantSplitNote = null;
 			return;
 		}
-		if (softSecondaryCategory) return;
+		if (validSplitExtras(splitExtras).length > 0) return;
 		const sug = await merchantProfileService.suggestWeights(mk, selectedAccount || undefined);
 		if (!sug || sug.weights.length < 2) {
 			merchantSplitNote = null;
 			return;
 		}
-	const sorted = [...sug.weights].sort((a, b) => b.weight - a.weight);
-	selectedCategory = sorted[0].categoryId;
-	softSecondaryCategory = sorted[1]?.categoryId ?? '';
-	softWPrimary = Math.min(0.95, Math.max(0.05, sorted[0].weight));
-	splitSource = 'profile';
-	merchantSplitNote = 'Based on your history at this merchant';
+		const formed = splitFormStateFromSuggestedWeights(sug.weights);
+		if (!formed) {
+			merchantSplitNote = null;
+			return;
+		}
+		selectedCategory = formed.primaryCategoryId;
+		splitExtras = formed.splitExtras;
+		showSplitExtrasSection = true;
+		splitSource = 'profile';
+		merchantSplitNote = 'Based on your history at this merchant';
 	}
 
 	$effect(() => {
@@ -216,12 +213,13 @@
 		reimbursementStatus = reimbursementDirection === 'lending' ? 'expecting' : 'owed';
 	});
 	let selectedCategory = $state('');
-	/** Phase 9 — second category for two-way soft split (empty = none) */
-	let softSecondaryCategory = $state('');
-	let showSecondaryPicker = $state(false);
-	let softWPrimary = $state(0.5);
+	/** Phase 9 — additional categories for soft split (weights); primary is residual */
+	let splitExtras = $state<SplitExtra[]>([]);
+	let showSplitExtrasSection = $state(false);
 	let splitSource = $state<'none' | 'profile' | 'manual'>('none');
 	let merchantSplitNote = $state<string | null>(null);
+	/** Incremented when a new split row should auto-open its category picker */
+	let splitSelectOpenNonce = $state(0);
 	let hasInferredCategoryIndicator = $state(false);
 	let inferredCategoryId = $state<string | null>(null);
 	let inferredCategoryLabel = $state('');
@@ -568,6 +566,139 @@
 			}));
 	});
 
+	function splitExtrasEqual(a: SplitExtra[], b: SplitExtra[]): boolean {
+		if (a.length !== b.length) return false;
+		return a.every(
+			(x, i) =>
+				x.categoryId === b[i]?.categoryId &&
+				Math.abs(x.weight - (b[i]?.weight ?? 0)) < 1e-9
+		);
+	}
+
+	function syncSplitExtrasClamp(): void {
+		const p = selectedCategory;
+		const ve = validSplitExtras(splitExtras);
+		if (ve.length === 0) return;
+		const clamped = normalizeAndClampSplitExtras(p, ve);
+		const map = new Map(clamped.map((c) => [c.categoryId, c.weight]));
+		const next = splitExtras.map((row) => {
+			const id = row.categoryId?.trim() ?? '';
+			if (!id) return row;
+			const w = map.get(id);
+			return w !== undefined ? { categoryId: id, weight: w } : row;
+		});
+		if (!splitExtrasEqual(next, splitExtras)) splitExtras = next;
+	}
+
+	function buildCategoryWeights():
+		| { weights: { categoryId: string; weight: number }[]; primaryId: string }
+		| undefined {
+		if (transactionType !== 'expense' || !selectedCategory) return undefined;
+		return buildSplitResultFromForm(selectedCategory, splitExtras);
+	}
+
+	function clearSoftSplit(): void {
+		splitExtras = [];
+		showSplitExtrasSection = false;
+		splitSource = 'none';
+		merchantSplitNote = null;
+		splitSelectOpenNonce = 0;
+	}
+
+	function openSoftSplitSection(): void {
+		showSplitExtrasSection = true;
+		splitExtras = [{ categoryId: '', weight: 0.5 }];
+		splitSelectOpenNonce++;
+	}
+
+	function addSplitExtraRow(): void {
+		if (splitExtras.length >= SPLIT_MAX_EXTRAS) return;
+		if (validSplitExtras(splitExtras).length >= SPLIT_MAX_EXTRAS) return;
+		splitExtras = [...splitExtras, { categoryId: '', weight: SPLIT_WEIGHT_STEP }];
+		splitSelectOpenNonce++;
+	}
+
+	function removeSplitRow(index: number): void {
+		splitExtras = splitExtras.filter((_, j) => j !== index);
+		if (splitExtras.length === 0) clearSoftSplit();
+	}
+
+	function splitCategoryOptionsForRow(rowIndex: number) {
+		const other = new Set(
+			splitExtras
+				.map((e, j) => (j !== rowIndex ? e.categoryId?.trim() : ''))
+				.filter((id): id is string => Boolean(id))
+		);
+		return categoryOptions.filter((o) => o.value !== selectedCategory && !other.has(o.value));
+	}
+
+	function onSoftSplitSliderInput(percentPrimary: number): void {
+		const v = validSplitExtras(splitExtras);
+		if (v.length !== 1) return;
+		const idx = splitExtras.findIndex((e) => (e.categoryId?.trim() ?? '').length > 0);
+		if (idx < 0) return;
+		const primaryShare = Math.min(0.95, Math.max(0.05, percentPrimary / 100));
+		splitExtras = splitExtras.map((e, i) =>
+			i === idx ? { ...e, weight: 1 - primaryShare } : e
+		);
+		splitSource = 'manual';
+		syncSplitExtrasClamp();
+	}
+
+	function nudgeSplitExtraWeight(rowIndex: number, delta: number): void {
+		const row = splitExtras[rowIndex];
+		if (!row?.categoryId?.trim()) return;
+		const w = Math.min(0.95, Math.max(SPLIT_WEIGHT_STEP, row.weight + delta));
+		splitExtras = splitExtras.map((e, i) => (i === rowIndex ? { ...e, weight: w } : e));
+		splitSource = 'manual';
+		syncSplitExtrasClamp();
+	}
+
+	function splitRowWeightAfterClamp(rowIndex: number, delta: number): number | null {
+		const row = splitExtras[rowIndex];
+		if (!row?.categoryId?.trim()) return null;
+		const trial = splitExtras.map((e, idx) =>
+			idx === rowIndex ? { ...e, weight: e.weight + delta } : { ...e }
+		);
+		const ve = validSplitExtras(trial);
+		const clamped = normalizeAndClampSplitExtras(selectedCategory, ve);
+		const out = clamped.find((c) => c.categoryId === row.categoryId);
+		return out?.weight ?? null;
+	}
+
+	function splitRowCanDecrease(rowIndex: number): boolean {
+		const row = splitExtras[rowIndex];
+		if (!row?.categoryId?.trim()) return false;
+		const next = splitRowWeightAfterClamp(rowIndex, -SPLIT_WEIGHT_STEP);
+		return next != null && next < row.weight - 1e-9;
+	}
+
+	function splitRowCanIncrease(rowIndex: number): boolean {
+		const row = splitExtras[rowIndex];
+		if (!row?.categoryId?.trim()) return false;
+		const next = splitRowWeightAfterClamp(rowIndex, SPLIT_WEIGHT_STEP);
+		return next != null && next > row.weight + 1e-9;
+	}
+
+	const useSplitSlider = $derived(validSplitExtras(splitExtras).length === 1);
+	const useSplitSteppers = $derived(validSplitExtras(splitExtras).length >= 2);
+	const validSplitExtrasList = $derived(validSplitExtras(splitExtras));
+	const splitCategoryWeightsBuilt = $derived.by(() => buildCategoryWeights());
+
+	$effect(() => {
+		const filtered = splitExtras.filter(
+			(e) => !e.categoryId?.trim() || e.categoryId !== selectedCategory
+		);
+		if (!splitExtrasEqual(filtered, splitExtras)) splitExtras = filtered;
+	});
+
+	$effect(() => {
+		const _wt = splitExtras.map((r) => `${r.categoryId}:${r.weight}`).join('|');
+		void selectedCategory;
+		void _wt;
+		syncSplitExtrasClamp();
+	});
+
 	let transferAccountOptions = $derived.by(() => {
 		const defaultOrderMap = new Map(accounts.map((account, index) => [account.id, index]));
 		return [...accounts]
@@ -668,14 +799,17 @@
 					status = transaction.status;
 					selectedCategory = transaction.categoryId || '';
 					if (transaction.categoryWeights && transaction.categoryWeights.length >= 2) {
-					const sorted = [...transaction.categoryWeights].sort((a, b) => b.weight - a.weight);
-					selectedCategory = sorted[0].categoryId;
-					softSecondaryCategory = sorted[1]?.categoryId ?? '';
-					softWPrimary = Math.min(0.95, Math.max(0.05, sorted[0].weight));
-					splitSource =
-						transaction.categoryConfidence === 'profile-inferred' ? 'profile' : 'manual';
+						const hydrated = hydrateSplitExtrasFromCategoryWeights(transaction.categoryWeights);
+						if (hydrated) {
+							selectedCategory = hydrated.primaryCategoryId;
+							splitExtras = hydrated.splitExtras;
+							showSplitExtrasSection = true;
+							splitSource =
+								transaction.categoryConfidence === 'profile-inferred' ? 'profile' : 'manual';
+						}
 					} else {
-						softSecondaryCategory = '';
+						splitExtras = [];
+						showSplitExtrasSection = false;
 						splitSource = 'none';
 					}
 					notes = transaction.notes || '';
@@ -1236,7 +1370,7 @@
 	async function makeExactSplitAction() {
 		const cw = buildCategoryWeights();
 		if (!cw || cw.weights.length < 2) {
-			error = 'Add a second category and choose a split ratio first.';
+			error = 'Add at least one additional category and set split weights first.';
 			return;
 		}
 		if (!selectedAccount || !currency) {
@@ -1746,79 +1880,163 @@
 
 				{#if transactionType === 'expense' && selectedCategory}
 					{@const primaryLabel = categoryOptions.find((o) => o.value === selectedCategory)?.label ?? ''}
-					{@const secondaryLabel = categoryOptions.find((o) => o.value === softSecondaryCategory)?.label ?? ''}
-					{#if softSecondaryCategory || showSecondaryPicker}
-						<div class="space-y-3 rounded-xl border border-[var(--color-border)] p-3">
-							<div class="flex items-center gap-2">
-								<div class="min-w-0 flex-1">
-									<SearchableSelect
-										bind:value={softSecondaryCategory}
-										options={categoryOptions.filter((o) => o.value !== selectedCategory)}
-										placeholder="Second category…"
-										allowClear={false}
-										fieldKey="transaction.category.split"
-										selectionContext={{
-											transactionType,
-											status,
-											accountId: selectedAccount || undefined
-										}}
-									/>
-								</div>
-								<button
+					<div class="mt-3 space-y-3">
+						{#snippet splitCategoryAddDividerButton(handleClick: () => void)}
+							<div class="flex w-full items-center gap-3 py-0.5">
+								<div class="bg-border h-px min-h-px flex-1" aria-hidden="true"></div>
+								<Button.Root
 									type="button"
-									class="text-muted-foreground hover:text-foreground flex size-9 shrink-0 touch-manipulation items-center justify-center rounded-md"
-									aria-label="Remove second category"
-									onclick={() => {
-										softSecondaryCategory = '';
-										showSecondaryPicker = false;
-										softWPrimary = 0.5;
-										merchantSplitNote = null;
-										splitSource = 'none';
-									}}
+									variant="ghost"
+									class="text-muted-foreground hover:text-foreground h-9 max-w-full shrink-0 px-2 text-sm font-normal whitespace-nowrap"
+									onclick={handleClick}
 								>
-									✕
-								</button>
+									+ Add split category
+								</Button.Root>
+								<div class="bg-border h-px min-h-px flex-1" aria-hidden="true"></div>
 							</div>
+						{/snippet}
 
-							{#if softSecondaryCategory}
-								<div class="space-y-1.5">
-									<div class="flex justify-between gap-2 text-xs">
-										<span class="text-foreground min-w-0 truncate font-medium"
-											>{primaryLabel}</span
+						{#if !showSplitExtrasSection && validSplitExtrasList.length === 0}
+							{@render splitCategoryAddDividerButton(openSoftSplitSection)}
+						{:else}
+							<p class="text-muted-foreground text-sm font-medium">Additional split categories</p>
+							<Separator />
+							<div class="space-y-4 pt-0.5">
+								{#each splitExtras as row, i (i)}
+									<div
+										class="max-sm:grid max-sm:w-full max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-2 sm:flex sm:w-full sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+									>
+										<div
+											class="max-sm:col-start-1 max-sm:row-start-1 min-w-0 sm:order-1 sm:min-w-0 sm:flex-1 sm:basis-0"
 										>
-										<span class="text-muted-foreground shrink-0 tabular-nums"
-											>{Math.round(softWPrimary * 100)}% · {Math.round(
-												(1 - softWPrimary) * 100
-											)}%</span
+											<SearchableSelect
+												bind:value={splitExtras[i].categoryId}
+												options={splitCategoryOptionsForRow(i)}
+												placeholder="Additional category…"
+												allowClear={false}
+												fieldKey="transaction.category.split"
+												selectionContext={{
+													transactionType,
+													status,
+													accountId: selectedAccount || undefined
+												}}
+												autoOpenNonce={i === splitExtras.length - 1 &&
+												!(splitExtras[i]?.categoryId?.trim())
+													? splitSelectOpenNonce
+													: 0}
+												onValueChange={() => {
+													splitExtras = splitExtras.map((e) => ({ ...e }));
+												}}
+											/>
+										</div>
+										<Button.Root
+											type="button"
+											variant="destructive"
+											size="icon"
+											class="max-sm:col-start-2 max-sm:row-start-1 shrink-0 sm:order-3"
+											aria-label="Remove this category from split"
+											onclick={() => removeSplitRow(i)}
 										>
-										<span class="text-foreground min-w-0 truncate text-right font-medium"
-											>{secondaryLabel}</span
-										>
+											<X class="size-4" aria-hidden="true" />
+										</Button.Root>
+										{#if useSplitSteppers && (row.categoryId?.trim() ?? '').length > 0}
+											<div
+												class="max-sm:col-span-2 max-sm:row-start-2 flex w-full max-w-full items-center justify-between gap-3 sm:order-2 sm:flex sm:h-9 sm:w-[7rem] sm:shrink-0 sm:items-center sm:justify-center sm:gap-1"
+											>
+												<Button.Root
+													type="button"
+													variant="outline"
+													size="icon"
+													class="shrink-0"
+													disabled={!splitRowCanDecrease(i)}
+													aria-label="Decrease category share by 5%"
+													onclick={() => nudgeSplitExtraWeight(i, -SPLIT_WEIGHT_STEP)}
+												>
+													<Minus class="size-4" aria-hidden="true" />
+												</Button.Root>
+												<span
+													class="text-muted-foreground min-w-[2.75rem] flex-1 text-center text-xs font-medium tabular-nums sm:w-10 sm:flex-none sm:min-w-0"
+													>{Math.round(row.weight * 100)}%</span
+												>
+												<Button.Root
+													type="button"
+													variant="outline"
+													size="icon"
+													class="shrink-0"
+													disabled={!splitRowCanIncrease(i)}
+													aria-label="Increase category share by 5%"
+													onclick={() => nudgeSplitExtraWeight(i, SPLIT_WEIGHT_STEP)}
+												>
+													<Plus class="size-4" aria-hidden="true" />
+												</Button.Root>
+											</div>
+										{/if}
 									</div>
-									<input
-										type="range"
-										min="5"
-										max="95"
-										step="5"
-										class="w-full accent-[var(--color-amber)]"
-										value={Math.round(softWPrimary * 100)}
-										oninput={(e) => {
-											softWPrimary =
-												parseInt((e.target as HTMLInputElement).value) / 100;
-											splitSource = 'manual';
-										}}
-									/>
-									{#if amount}
-										<p class="text-muted-foreground text-xs tabular-nums">
-											{formatAmount(Math.abs(amount) * softWPrimary, currency || 'USD')}
-											·
-											{formatAmount(
-												Math.abs(amount) * (1 - softWPrimary),
-												currency || 'USD'
-											)}
-										</p>
+								{/each}
+
+								{#if useSplitSlider && validSplitExtrasList.length === 1}
+									{@const lone = validSplitExtrasList[0]}
+									{@const extraLabel =
+										categoryOptions.find((o) => o.value === lone?.categoryId)?.label ?? ''}
+									{#if lone?.categoryId}
+										<div class="space-y-1.5">
+											<div class="flex justify-between gap-2 text-xs">
+												<span class="text-foreground min-w-0 truncate font-medium">{primaryLabel}</span>
+												<span class="text-muted-foreground shrink-0 tabular-nums"
+													>{Math.round((1 - lone.weight) * 100)}% · {Math.round(
+														lone.weight * 100
+													)}%</span
+												>
+												<span class="text-foreground min-w-0 truncate text-right font-medium"
+													>{extraLabel}</span
+												>
+											</div>
+											<input
+												type="range"
+												min="5"
+												max="95"
+												step="5"
+												class="w-full accent-[var(--color-amber)]"
+												value={Math.round((1 - lone.weight) * 100)}
+												oninput={(e) => {
+													onSoftSplitSliderInput(
+														parseInt((e.target as HTMLInputElement).value, 10)
+													);
+												}}
+											/>
+											{#if amount}
+												<p class="text-muted-foreground text-xs tabular-nums">
+													{formatAmount(Math.abs(amount) * (1 - lone.weight), currency || 'USD')}
+													·
+													{formatAmount(Math.abs(amount) * lone.weight, currency || 'USD')}
+												</p>
+											{/if}
+										</div>
 									{/if}
-								</div>
+								{/if}
+
+								{#if useSplitSteppers && splitCategoryWeightsBuilt?.weights && amount}
+									<ul class="text-muted-foreground space-y-0.5 text-xs tabular-nums">
+										{#each splitCategoryWeightsBuilt.weights as w}
+											<li class="flex justify-between gap-2">
+												<span class="min-w-0 truncate"
+													>{categoryOptions.find((o) => o.value === w.categoryId)?.label ??
+														w.categoryId}</span
+												>
+												<span class="shrink-0"
+													>{Math.round(w.weight * 100)}% · {formatAmount(
+														Math.abs(amount) * w.weight,
+														currency || 'USD'
+													)}</span
+												>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+
+								{#if splitExtras.length < SPLIT_MAX_EXTRAS}
+									{@render splitCategoryAddDividerButton(addSplitExtraRow)}
+								{/if}
 
 								{#if merchantSplitNote}
 									<div class="flex items-center gap-2">
@@ -1826,20 +2044,9 @@
 										<p class="text-muted-foreground text-xs">{merchantSplitNote}</p>
 									</div>
 								{/if}
-							{/if}
-						</div>
-					{:else}
-						<button
-							type="button"
-							class="text-muted-foreground hover:text-foreground min-h-11 touch-manipulation text-sm"
-							onclick={() => {
-								showSecondaryPicker = true;
-								softWPrimary = 0.5;
-							}}
-						>
-							+ add another category
-						</button>
-					{/if}
+							</div>
+						{/if}
+					</div>
 				{/if}
 
 					{#if transactionType === 'expense' && !selectedCategory}

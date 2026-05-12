@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { autocompleteService } from '$lib/core/services/autocomplete-service';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -24,6 +25,10 @@
 		disabled?: boolean;
 		fieldKey?: string;
 		selectionContext?: Record<string, unknown>;
+		/** Parent increments when this row should open once (e.g. new split category row). */
+		autoOpenNonce?: number;
+		/** Fires after the user picks or clears a value (helps parents that store rows in `$state` arrays). */
+		onValueChange?: (next: string) => void;
 	}
 
 	let {
@@ -35,7 +40,9 @@
 		clearLabel = 'Clear selection',
 		disabled = false,
 		fieldKey,
-		selectionContext
+		selectionContext,
+		autoOpenNonce = 0,
+		onValueChange
 	}: Props = $props();
 
 	let isOpen = $state(false);
@@ -43,6 +50,17 @@
 	let highlightedIndex = $state(0);
 	let containerRef: HTMLDivElement | null = $state(null);
 	let filterInputRef: HTMLInputElement | null = $state(null);
+	let lastProcessedAutoOpenNonce = 0;
+
+	$effect(() => {
+		const n = autoOpenNonce ?? 0;
+		if (n <= lastProcessedAutoOpenNonce) return;
+		lastProcessedAutoOpenNonce = n;
+		if (disabled) return;
+		void tick().then(() => {
+			openPanel();
+		});
+	});
 
 	let selectedOption = $derived(options.find((option) => option.value === value));
 	let filteredOptions = $derived.by(() => {
@@ -152,6 +170,7 @@
 	function selectOption(nextValue: string) {
 		value = nextValue;
 		closePanel();
+		onValueChange?.(nextValue);
 
 		if (fieldKey) {
 			autocompleteService
@@ -163,6 +182,7 @@
 	function clearSelection() {
 		value = '';
 		closePanel();
+		onValueChange?.('');
 	}
 
 	function handleWindowMouseDown(event: MouseEvent) {
