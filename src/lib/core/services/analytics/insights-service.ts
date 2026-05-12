@@ -1,3 +1,4 @@
+import Dexie from 'dexie';
 import { db, generateUUID } from '$lib/core/db';
 import { scheduler } from '$lib/utils/scheduler';
 import { serviceCache } from '../core/service-cache';
@@ -11,7 +12,10 @@ import { transactionService } from '../core/transaction-service';
 import { userService } from '../core/user-service';
 import { merchantProfileService } from '../intelligence/merchant-profile-service';
 import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
-import { recurringTransactionIntelligenceService } from './recurring-transaction-intelligence-service';
+import {
+	recurringTransactionIntelligenceService,
+	type RecurringPattern
+} from './recurring-transaction-intelligence-service';
 import { balanceProjectionService } from './balance-projection-service';
 import { creditUtilizationService } from './credit-utilization-service';
 import { emergencyFundService } from './emergency-fund-service';
@@ -2013,9 +2017,12 @@ class InsightsService {
 	}> {
 		const cutoffDate = new Date();
 		cutoffDate.setDate(cutoffDate.getDate() - days);
+		const lowerIso = cutoffDate.toISOString();
 
 		const transactions = await db.transactions
-			.filter(
+			.where('clearedDate')
+			.between(lowerIso, Dexie.maxKey, true, true)
+			.and(
 				(tx) =>
 					tx.type === 'expense' &&
 					tx.status === 'cleared' &&
@@ -2437,7 +2444,10 @@ class InsightsService {
 	/**
 	 * Phase 8 — Patterns / Insights surface: rolling comparison and fee drift hint.
 	 */
-	async getPhase8PatternsSurfaceMetrics(mainCurrency: string): Promise<{
+	async getPhase8PatternsSurfaceMetrics(
+		mainCurrency: string,
+		precomputedFeeDriftPatterns?: RecurringPattern[]
+	): Promise<{
 		spendComparativeLine: string | null;
 		incomeComparativeLine: string | null;
 		savingsTrendSymbol: string | null;
@@ -2448,11 +2458,14 @@ class InsightsService {
 		return performanceMonitor.monitor(
 			'InsightsService',
 			'getPhase8PatternsSurfaceMetrics',
-			() => this._getPhase8PatternsSurfaceMetrics(mainCurrency)
+			() => this._getPhase8PatternsSurfaceMetrics(mainCurrency, precomputedFeeDriftPatterns)
 		);
 	}
 
-	private async _getPhase8PatternsSurfaceMetrics(mainCurrency: string): Promise<{
+	private async _getPhase8PatternsSurfaceMetrics(
+		mainCurrency: string,
+		precomputedFeeDriftPatterns?: RecurringPattern[]
+	): Promise<{
 		spendComparativeLine: string | null;
 		incomeComparativeLine: string | null;
 		savingsTrendSymbol: string | null;
@@ -2460,14 +2473,15 @@ class InsightsService {
 		shadowCategoryViewEnabled: boolean;
 		shadowEstimatedNote: string | null;
 	}> {
-		const allTxs = await serviceCache.getOrSet(
-			'transactions:snapshot',
-			() => db.transactions.toArray(),
-			SNAPSHOT_TTL
-		);
-		const txs = allTxs.filter(
-			(t) => Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string'
-		);
+		const now = new Date();
+		const windowStart = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+		const lowerIso = windowStart.toISOString();
+
+		const txs = await db.transactions
+			.where('clearedDate')
+			.between(lowerIso, Dexie.maxKey, true, true)
+			.and((t) => Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string')
+			.toArray();
 
 		const savingsIds = new Set(
 			(await db.accounts.filter((a) => !a.deletedAt && a.type === 'savings').toArray()).map(
@@ -2475,7 +2489,6 @@ class InsightsService {
 			)
 		);
 
-		const now = new Date();
 		const buckets = [0, 1, 2, 3].map((i) => {
 			const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
 			return { y: d.getFullYear(), m: d.getMonth(), expense: 0, income: 0, savingsTransfer: 0 };
@@ -2522,7 +2535,10 @@ class InsightsService {
 
 		let feeDriftLine: string | null = null;
 		try {
-			const patterns = await recurringTransactionIntelligenceService.detectPatterns(120, 3);
+			const patterns =
+				precomputedFeeDriftPatterns !== undefined
+					? precomputedFeeDriftPatterns
+					: await recurringTransactionIntelligenceService.detectPatterns(120, 3);
 			for (const p of patterns) {
 				if (p.metadata?.type !== 'expense') continue;
 				const amts = [...p.historicalAmounts].slice(-3).map((x) => Math.abs(x));

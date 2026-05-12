@@ -57,9 +57,15 @@
 	import { addDays, startOfWeek } from 'date-fns';
 	import { resolveSmartLabel, type SmartPatternForLabel } from '$lib/utils/smart-date-labels';
 	import {
-		getCachedWeekAnnotations,
+		getCachedWeekAnnotationsLookup,
 		setCachedWeekAnnotations
 	} from '$lib/utils/plan-week-annotations-cache';
+	import {
+		recordPlanAllowanceCacheHit,
+		recordPlanAllowanceCacheMiss,
+		recordWeekAnnotationLookup,
+		recordWeekAnnDetectPatternsMs
+	} from '$lib/utils/plan-perf-debug';
 	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
 
 	type PlanAllowanceSnapshot = {
@@ -179,6 +185,11 @@
 		const rev = crossRouteSyncService.getSurfaceDataRevision();
 		const cacheKey = `${rev}:${userCurrency}:${selectedAccountId}:${dayKey}`;
 		if (!options?.force && planAllowanceCache?.cacheKey === cacheKey) {
+			recordPlanAllowanceCacheHit({
+				rev,
+				dayKey,
+				selectedAccountId
+			});
 			enhancedAllowance = planAllowanceCache.enhancedAllowance;
 			dailyAllowance = planAllowanceCache.dailyAllowance;
 			allowanceConfidence = planAllowanceCache.allowanceConfidence;
@@ -194,6 +205,11 @@
 			return;
 		}
 
+		recordPlanAllowanceCacheMiss({
+			rev,
+			dayKey,
+			selectedAccountId
+		});
 		isPlanDataLoading = true;
 		try {
 			enhancedAllowance = await planService.getEnhancedAllowance();
@@ -244,11 +260,16 @@
 
 			try {
 				const annCacheKey = selectedAccountId || 'default';
-				const cachedAnn = getCachedWeekAnnotations(annCacheKey);
-				if (cachedAnn) {
-					weekDayAnnotations = cachedAnn;
+				const annLookup = getCachedWeekAnnotationsLookup(annCacheKey);
+				recordWeekAnnotationLookup(annLookup.reason);
+				if (annLookup.reason === 'hit') {
+					weekDayAnnotations = annLookup.ann;
 				} else {
+					const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
 					const patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
+					if (typeof performance !== 'undefined') {
+						recordWeekAnnDetectPatternsMs(performance.now() - t0);
+					}
 					const slices: SmartPatternForLabel[] = patterns.map((p) => ({
 						frequency: p.frequency,
 						confidence: p.confidence,

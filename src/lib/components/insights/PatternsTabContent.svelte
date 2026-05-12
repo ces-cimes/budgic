@@ -342,14 +342,18 @@
 	}
 
 	async function refreshRecurringFromServices(currency: string) {
-		const [summary, recurringPatterns, allTx] = await Promise.all([
+		const cutoff90 = new Date();
+		cutoff90.setDate(cutoff90.getDate() - 90);
+		const rangeStart = cutoff90.toISOString();
+		const rangeEnd = new Date().toISOString();
+		const [summary, recurringPatterns, rangeTxs] = await Promise.all([
 			budgetService.getBudgetSummary(),
 			recurringTransactionIntelligenceService.detectPatterns(90, 2),
-			transactionService.getAllTransactions()
+			transactionService.getTransactionsByDateRange(rangeStart, rangeEnd)
 		]);
 		dataQualityRatio = summary?.confidence?.ratio ?? null;
 		unclassifiedTxCount = summary?.unclassifiedTransactionCount ?? 0;
-		const cleared = (allTx || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
+		const cleared = (rangeTxs || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
 		const expenseSum = cleared
 			.filter((t) => t.type === 'expense')
 			.reduce((s, t) => s + Math.abs(t.amount || 0), 0);
@@ -424,21 +428,34 @@
 
 			// === Tier 2: heavy data — fill in while UI is already showing ===
 			const days = 90;
-			const [patternsResult, allTx, surface] = await Promise.all([
+			const cutoff90 = new Date();
+			cutoff90.setDate(cutoff90.getDate() - days);
+			const rangeStart = cutoff90.toISOString();
+			const rangeEnd = new Date().toISOString();
+
+			const [patternsResult, patterns120, firstCleared, rangeTxs] = await Promise.all([
 				insightsService.analyzeSpendingPatternsAsync(days),
-				transactionService.getAllTransactions(),
-				insightsService.getPhase8PatternsSurfaceMetrics(userCurrency)
+				recurringTransactionIntelligenceService.detectPatterns(120, 3),
+				db.transactions
+					.orderBy('clearedDate')
+					.filter(
+						(t) =>
+							Boolean(t) &&
+							!t.deletedAt &&
+							t.status === 'cleared' &&
+							typeof t.clearedDate === 'string'
+					)
+					.first(),
+				transactionService.getTransactionsByDateRange(rangeStart, rangeEnd)
 			]);
+			const surface = await insightsService.getPhase8PatternsSurfaceMetrics(
+				userCurrency,
+				patterns120
+			);
 			phase8Surface = surface;
 
-			const cleared = (allTx || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
-			const firstTx = cleared.length
-				? cleared.reduce((a, b) => {
-						const da = a.clearedDate || a.createdAt || '';
-						const db = b.clearedDate || b.createdAt || '';
-						return da < db ? a : b;
-					}, cleared[0])
-				: null;
+			const cleared = (rangeTxs || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
+			const firstTx = firstCleared ?? null;
 			const firstDate = firstTx
 				? new Date(firstTx.clearedDate || firstTx.createdAt || 0)
 				: new Date();

@@ -16,6 +16,7 @@ import { transactionService } from '../core/transaction-service';
 import { performanceMonitor } from '../core/performance-monitor';
 import { serviceCache } from '../core/service-cache';
 import { devLog } from '$lib/utils/dev-log';
+import { recordRecurringCanonicalTier } from '$lib/utils/plan-perf-debug';
 import { canonicalDuplicateKey, iqrFilter } from '$lib/utils/data-quality-utils';
 import {
 	RECURRING_DETECTION_CONFIG,
@@ -351,7 +352,10 @@ class RecurringTransactionIntelligenceService {
 	private async _getCanonical(): Promise<RecurringPattern[]> {
 		// Tier 1: in-memory cache
 		const cached = serviceCache.get<RecurringPattern[]>('recurring:patterns:canonical');
-		if (cached !== null) return cached;
+		if (cached !== null) {
+			recordRecurringCanonicalTier('memory');
+			return cached;
+		}
 
 		// Tier 2: IndexedDB — survives page refresh
 		try {
@@ -364,6 +368,7 @@ class RecurringTransactionIntelligenceService {
 				serviceCache.set('recurring:patterns:canonical', patterns, PATTERN_CACHE_TTL);
 				for (const p of patterns) this.patternCache.set(p.id, p);
 				devLog(`[Recurring] loaded ${patterns.length} patterns from IndexedDB cache`);
+				recordRecurringCanonicalTier('indexeddb');
 				return patterns;
 			}
 		} catch {
@@ -372,6 +377,7 @@ class RecurringTransactionIntelligenceService {
 
 		// Tier 3: full detection (coalesced so only one worker runs at a time)
 		if (!this._canonicalInFlight) {
+			recordRecurringCanonicalTier('cold_start');
 			this._canonicalInFlight = this._runDetection(365, 2)
 				.then(async (result) => {
 					serviceCache.set('recurring:patterns:canonical', result, PATTERN_CACHE_TTL);
@@ -391,6 +397,8 @@ class RecurringTransactionIntelligenceService {
 					this._canonicalInFlight = null;
 					throw err;
 				});
+		} else {
+			recordRecurringCanonicalTier('cold_coalesced_wait');
 		}
 
 		return this._canonicalInFlight;

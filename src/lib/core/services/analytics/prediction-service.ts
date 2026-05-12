@@ -7,6 +7,7 @@ import { serviceCache } from '../core/service-cache';
 import { performanceMonitor } from '../core/performance-monitor';
 import type { Transaction, Category, Goal, Account } from '$lib/core/db';
 import { devLog, devWarn } from '$lib/utils/dev-log';
+import { recordTxSnapshotCacheHit, recordTxSnapshotCacheMiss } from '$lib/utils/plan-perf-debug';
 
 const SNAPSHOT_TTL = 5 * 60 * 1000;
 const PREDICTION_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours — predictions don't meaningfully change intra-day
@@ -135,11 +136,14 @@ class PredictionService {
 		months: number = 1
 	): Promise<SpendingForecast[]> {
 		return performanceMonitor.monitor('PredictionService', 'predictSpending', async () => {
+		const snapshotHad = serviceCache.has('transactions:snapshot');
 		const transactions = await serviceCache.getOrSet(
 			'transactions:snapshot',
 			() => db.transactions.toArray(),
 			SNAPSHOT_TTL
 		);
+		if (snapshotHad) recordTxSnapshotCacheHit();
+		else recordTxSnapshotCacheMiss();
 		const categories = await db.getActiveCategories();
 		const preferences = await userService.getUserPreferences();
 		const mainCurrency = preferences?.currency || 'USD';

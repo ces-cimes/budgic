@@ -3,6 +3,7 @@ import type { AutocompleteUsage, Transaction } from '$lib/core/db';
 import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
 import { serviceCache } from './core/service-cache';
 import { recurringTransactionIntelligenceService } from './analytics/recurring-transaction-intelligence-service';
+import { recordTxSnapshotCacheHit, recordTxSnapshotCacheMiss } from '$lib/utils/plan-perf-debug';
 
 const SNAPSHOT_TTL = 5 * 60 * 1000;
 
@@ -554,11 +555,15 @@ class AutocompleteService {
 	}
 
 	private async getTransactionsSnapshot(): Promise<Transaction[]> {
-		return serviceCache.getOrSet(
+		const snapshotHad = serviceCache.has('transactions:snapshot');
+		const data = await serviceCache.getOrSet(
 			'transactions:snapshot',
 			() => db.transactions.toArray(),
 			SNAPSHOT_TTL
 		);
+		if (snapshotHad) recordTxSnapshotCacheHit();
+		else recordTxSnapshotCacheMiss();
+		return data;
 	}
 
 	private normalizeFrequency(value: number): number {
