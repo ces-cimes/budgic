@@ -62,6 +62,17 @@ interface BudgetRiskAnalysis {
 	recommendedAction?: string;
 }
 
+/** One category worth scoring for savings-from-variability hints (aligned with `analyzeBudgetRisk`). */
+export interface SavingsVariabilityCategoryRow {
+	categoryId: string;
+	categoryName: string;
+	waterfallTier: Category['waterfallTier'];
+	budgetAmount: number;
+	predictedMonthlySpend: number;
+	/** Calendar months YYYY-MM, ascending; amounts in main currency. */
+	monthlySpendByMonth: { monthKey: string; amount: number }[];
+}
+
 interface SeasonalPattern {
 	type: 'monthly' | 'quarterly' | 'annual';
 	categoryId?: string;
@@ -765,6 +776,67 @@ class PredictionService {
 		}
 
 		return analyses.sort((a, b) => b.riskProbability - a.riskProbability);
+	}
+
+	/**
+	 * Category-level rows for savings-from-variability: historical monthly spend (pre–current month),
+	 * same prediction and budget amounts as {@link analyzeBudgetRisk}. Excludes survival tier and
+	 * categories already in strong overspend (divergence coordination).
+	 */
+	async getSavingsVariabilityCategoryRows(): Promise<SavingsVariabilityCategoryRow[]> {
+		const analyses = await this.analyzeBudgetRisk();
+		const transactions = await db.transactions.toArray();
+		const categories = await db.getActiveCategories();
+		const categoryById = new Map(categories.map((c) => [c.id, c]));
+		const preferences = await userService.getUserPreferences();
+		const mainCurrency = preferences?.currency || 'USD';
+
+		const now = new Date();
+		const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+		const historicalCandidates = transactions.filter(
+			(tx) =>
+				tx.type === 'expense' &&
+				tx.status === 'cleared' &&
+				tx.clearedDate &&
+				new Date(tx.clearedDate) < currentMonthStart
+		);
+
+		const convertedHistorical = await this.convertTransactionsToMainCurrency(
+			historicalCandidates,
+			mainCurrency
+		);
+
+		const rows: SavingsVariabilityCategoryRow[] = [];
+
+		for (const analysis of analyses) {
+			const category = categoryById.get(analysis.categoryId);
+			if (!category) continue;
+			if (category.waterfallTier === 'survival') continue;
+			if (analysis.predictedSpending > analysis.budgetAmount * 1.15) continue;
+
+			const attributed = this.transactionsAttributedToCategory(
+				convertedHistorical,
+				analysis.categoryId,
+				categoryById
+			);
+			const monthlyData = this.groupTransactionsByMonth(attributed);
+			const monthsSorted = Array.from(monthlyData.values()).sort((a, b) =>
+				a.month.localeCompare(b.month)
+			);
+			if (monthsSorted.length < this.MIN_MONTHS_FOR_PREDICTION) continue;
+
+			rows.push({
+				categoryId: analysis.categoryId,
+				categoryName: analysis.categoryName,
+				waterfallTier: category.waterfallTier ?? 'lifestyle',
+				budgetAmount: analysis.budgetAmount,
+				predictedMonthlySpend: analysis.predictedSpending,
+				monthlySpendByMonth: monthsSorted.map((m) => ({ monthKey: m.month, amount: m.amount }))
+			});
+		}
+
+		return rows;
 	}
 
 	// ============================================================================

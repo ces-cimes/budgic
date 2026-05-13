@@ -362,7 +362,6 @@
 									<InlineAlertBadge
 										insights={inlineInsightsByCategory.get(category.id)!}
 										onDismiss={dismissInlineAlert}
-										label="rising"
 									/>
 								{/if}
 							</div>

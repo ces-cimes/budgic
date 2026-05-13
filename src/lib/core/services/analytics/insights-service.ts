@@ -34,6 +34,11 @@ import { iqrFilter, iqrOutlierScore } from '$lib/utils/data-quality-utils';
 import type { Insight, Goal, Transaction, Category, Account } from '$lib/core/db';
 import { categoryIdsWithSpendShare, effectiveAmountForCategory } from '$lib/utils/category-utils';
 import { devLog } from '$lib/utils/dev-log';
+import {
+	computeSavingsVariabilityHint,
+	type SavingsVariabilityHintResult
+} from '$lib/utils/category-savings-variability';
+import type { SavingsVariabilityCategoryRow } from './prediction-service';
 
 interface CrossRouteInsightData {
 	goals: Goal[];
@@ -413,6 +418,9 @@ class InsightsService {
 					crossRouteData.accounts
 				);
 				newInsights.push(...projectionInsights);
+
+				const savingsVariabilityInsights = await this.generateSavingsVariabilityInsights();
+				newInsights.push(...savingsVariabilityInsights);
 			}
 
 			// Save new insights to database
@@ -1113,6 +1121,154 @@ class InsightsService {
 	}
 
 	// ============================================================================
+	// SAVINGS VARIABILITY (CV + headroom) — CHECKLIST ~108
+	// ============================================================================
+
+	private async pruneStaleSavingsOpportunityInsights(
+		keepCategoryIds: Set<string>,
+		keepOverview: boolean
+	): Promise<void> {
+		const iso = new Date().toISOString();
+		const existing = await db.insights
+			.where('type')
+			.equals('savings_opportunity')
+			.filter((i) => i.isActive && !i.dismissedAt)
+			.toArray();
+
+		for (const ex of existing) {
+			const isOverview = ex.title === 'Savings headroom — overview';
+			if (isOverview) {
+				if (!keepOverview) {
+					await db.insights.update(ex.id, {
+						isActive: false,
+						dismissedAt: iso,
+						deletedAt: iso,
+						updatedAt: iso
+					});
+				}
+				continue;
+			}
+			if (ex.categoryId && !keepCategoryIds.has(ex.categoryId)) {
+				await db.insights.update(ex.id, {
+					isActive: false,
+					dismissedAt: iso,
+					deletedAt: iso,
+					updatedAt: iso
+				});
+			}
+		}
+	}
+
+	private tierRankForSavingsHint(tier: string): number {
+		switch (tier) {
+			case 'lifestyle':
+				return 0;
+			case 'growth':
+				return 1;
+			case 'security':
+				return 2;
+			default:
+				return 3;
+		}
+	}
+
+	private async generateSavingsVariabilityInsights(): Promise<Insight[]> {
+		const rows: SavingsVariabilityCategoryRow[] =
+			await predictionService.getSavingsVariabilityCategoryRows();
+		const prefs = await userService.getUserPreferences();
+		const minSurplus = prefs?.savingsOpportunityMinSurplus;
+		const mainCurrency = await getUserMainCurrency();
+
+		type Scored = { row: SavingsVariabilityCategoryRow; hint: SavingsVariabilityHintResult };
+		const scored: Scored[] = [];
+
+		for (const row of rows) {
+			const hint = computeSavingsVariabilityHint({
+				months: row.monthlySpendByMonth,
+				budgetAmount: row.budgetAmount,
+				predictedMonthlySpend: row.predictedMonthlySpend,
+				minSurplusFromPreferences: minSurplus ?? undefined
+			});
+			if (hint) scored.push({ row, hint });
+		}
+
+		scored.sort((a, b) => {
+			const td =
+				this.tierRankForSavingsHint(String(a.row.waterfallTier)) -
+				this.tierRankForSavingsHint(String(b.row.waterfallTier));
+			if (td !== 0) return td;
+			return b.hint.rankingScore - a.hint.rankingScore;
+		});
+
+		const top = scored.slice(0, 5);
+		const keepIds = new Set(top.map((t) => t.row.categoryId));
+		await this.pruneStaleSavingsOpportunityInsights(keepIds, top.length > 0);
+
+		const nowIso = new Date().toISOString();
+		const insights: Insight[] = [];
+
+		for (const { row, hint } of top) {
+			const cvPct = Math.round(hint.coefficientOfVariation * 100);
+			const headroomLabel = formatAmount(hint.headroom, mainCurrency);
+			insights.push({
+				id: generateUUID(),
+				type: 'savings_opportunity',
+				severity: hint.coefficientOfVariation < 0.35 ? 'success' : 'info',
+				title: `Savings headroom: ${row.categoryName}`,
+				message: `Typical spend is under budget with about ${headroomLabel} headroom (vs rolling average and predicted pace). Variability ~${cvPct}% CV over ${hint.monthCount} months — surplus could go to goals.`,
+				categoryId: row.categoryId,
+				confidence: Math.min(100, Math.round(55 + hint.monthCount * 8)),
+				actionable: true,
+				actionText: 'Review budget',
+				actionUrl: '/plan?tab=budget',
+				metadata: JSON.stringify({
+					algorithm: 'Savings variability',
+					cv: hint.coefficientOfVariation,
+					headroom: hint.headroom,
+					rollingAverage: hint.rollingAverage,
+					predictedSpend: row.predictedMonthlySpend,
+					budgetAmount: row.budgetAmount,
+					monthCount: hint.monthCount,
+					waterfallTier: row.waterfallTier
+				}),
+				isActive: true,
+				createdAt: nowIso,
+				updatedAt: nowIso,
+				deletedAt: null
+			});
+		}
+
+		if (top.length > 0) {
+			const names = top
+				.slice(0, 3)
+				.map((s) => s.row.categoryName)
+				.join(', ');
+			const suffix = top.length > 3 ? ', …' : '';
+			insights.push({
+				id: generateUUID(),
+				type: 'savings_opportunity',
+				severity: 'info',
+				title: 'Savings headroom — overview',
+				message: `Recurring slack may be available in: ${names}${suffix}. See Plan → Budget for per-category badges.`,
+				confidence: 70,
+				actionable: true,
+				actionText: 'Open budget',
+				actionUrl: '/plan?tab=budget',
+				metadata: JSON.stringify({
+					algorithm: 'Savings variability summary',
+					categoryIds: top.map((t) => t.row.categoryId)
+				}),
+				isActive: true,
+				createdAt: nowIso,
+				updatedAt: nowIso,
+				deletedAt: null
+			});
+		}
+
+		return insights;
+	}
+
+	// ============================================================================
 	// PREDICTION INSIGHTS GENERATION
 	// ============================================================================
 
@@ -1697,6 +1853,20 @@ class InsightsService {
 
 		devLog(
 			`[InsightsService] Successfully invalidated ${allPredictionInsights.length} prediction insights (marked as deleted)`
+		);
+
+		const allSavings = await db.insights.where('type').equals('savings_opportunity').toArray();
+		for (const insight of allSavings) {
+			await db.insights.update(insight.id, {
+				dismissedAt: new Date().toISOString(),
+				isActive: false,
+				deletedAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			});
+		}
+
+		devLog(
+			`[InsightsService] Successfully invalidated ${allSavings.length} savings_opportunity insights (marked as deleted)`
 		);
 	}
 
