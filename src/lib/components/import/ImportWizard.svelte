@@ -25,6 +25,7 @@
 		categoriesByTransactionId: Record<string, string | undefined>;
 		onApplyTier: (transactionIds: string[], tier: TierChoice) => Promise<void>;
 		personAccountCandidates?: string[];
+		personAccountPreFlagged?: string[];
 		personAccountPanels?: PersonTxPanel[];
 		onMigratePersonAccounts?: () => Promise<void> | void;
 		onTagPersonTxGift?: (transactionId: string) => Promise<void> | void;
@@ -45,6 +46,7 @@
 		categoriesByTransactionId,
 		onApplyTier,
 		personAccountCandidates = [],
+		personAccountPreFlagged = [],
 		personAccountPanels = [],
 		onMigratePersonAccounts,
 		onTagPersonTxGift,
@@ -115,6 +117,7 @@
 					interestCount={batch.automationSummary?.interestCount ?? 0}
 					passiveBalanceHints={batch.passiveBalanceTrackingHints ?? []}
 					{personAccountCandidates}
+					{personAccountPreFlagged}
 					{personAccountPanels}
 					{onMigratePersonAccounts}
 					{onTagPersonTxGift}

@@ -5,6 +5,8 @@
  * import results, progress tracking, and error handling.
  */
 
+import type { Account } from '$lib/core/db';
+
 /** When INOUTCOME row mmUid already exists in DB */
 export type MmTransactionUidConflict = 'skip' | 'replace' | 'merge';
 
@@ -152,6 +154,8 @@ export interface ImportResult {
 		/** Post-import split candidate groups (same account, ~10 min, similar desc/cat) */
 		splitCandidateSummary?: { groupCount: number; transactionCount: number };
 		splitCandidateGroups?: Array<{ groupId: string; transactionIds: string[] }>;
+		/** Account names marked as person tracking at pre-import review */
+		personAccountPreFlaggedNames?: string[];
 	};
 }
 
@@ -187,6 +191,10 @@ export interface ImportOptions {
 	 * Set by the pre-import currency review UI; seeds the importer before `importCurrencies()`.
 	 */
 	mmCurrencyUidToBudgicCurrencyId?: Record<string, string>;
+	/** MM ASSETS uid → Budgic account type (pre-import accounts review) */
+	mmAccountUidToBudgicType?: Record<string, Account['type']>;
+	/** MM ASSETS uid → user marked person account at pre-import review */
+	mmAccountUidMarkedAsPerson?: Record<string, boolean>;
 	/** Whether to skip validation (not recommended) */
 	skipValidation?: boolean;
 	/** Callback for progress updates */

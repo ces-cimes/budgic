@@ -17,6 +17,8 @@
 	import {
 		MoneyManagerImporter,
 		detectMmCurrencyReviewNeeded,
+		buildMmAccountReviewRows,
+		normalizeMmCsvFileKeys,
 		detectImportSource,
 		releaseImportSourceDetection,
 		extractMoneyManagerCsvFiles,
@@ -28,10 +30,13 @@
 		type MmTransactionUidConflict,
 		type CSVFile,
 		type MmCurrencyReviewRow,
+		type MmAccountReviewRow,
 		type ImportSourceDetection
 	} from '$lib/core/services/import-export';
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import ImportCurrencyReviewDialog from '$lib/components/import/ImportCurrencyReviewDialog.svelte';
+	import ImportAccountsReviewDialog from '$lib/components/import/ImportAccountsReviewDialog.svelte';
+	import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
 	import { pickFiles } from '$lib/utils/file-picker-utils';
 	import { formatPercentage } from '$lib/utils/currency-utils';
 	import {
@@ -232,6 +237,11 @@
 	let mmCurrencyReviewRows = $state<MmCurrencyReviewRow[]>([]);
 	let mmCurrencyReviewCurrencies = $state<Currency[]>([]);
 	let mmCurrencyUidMap = $state<Record<string, string>>({});
+	let mmAccountReviewOpen = $state(false);
+	let mmAccountReviewRows = $state<MmAccountReviewRow[]>([]);
+	let mmAccountTypeMap = $state<Record<string, Account['type']>>({});
+	let mmAccountPersonMap = $state<Record<string, boolean>>({});
+	let wizardPersonAccountPreFlagged = $state<string[]>([]);
 	let wizardBeforeClassifiedExpenseShare = $state(0);
 	let wizardExpenseTxIds = $state<string[]>([]);
 	let wizardExpenseAbsByTxId = $state<Record<string, number>>({});
@@ -331,7 +341,7 @@
 			case 'budgic-json':
 				break;
 			case 'money-manager-csv':
-				mmCsvFilesReady = detection.csvFiles;
+				mmCsvFilesReady = normalizeMmCsvFileKeys(detection.csvFiles);
 				mmSchema = detection.schema;
 				break;
 			case 'money-manager-sqlite': {
@@ -427,7 +437,9 @@
 	// Handle Money Manager import (CSV read → optional currency review → importer)
 	async function finishMmImportAfterRead(
 		csvFiles: Map<string, CSVFile>,
-		currencyOverride?: Record<string, string>
+		currencyOverride?: Record<string, string>,
+		accountTypeOverride?: Record<string, Account['type']>,
+		accountPersonOverride?: Record<string, boolean>
 	): Promise<void> {
 		const trimmedOverride =
 			currencyOverride && Object.keys(currencyOverride).length > 0
@@ -438,10 +450,26 @@
 					)
 				: undefined;
 
+		const trimmedTypeOverride =
+			accountTypeOverride && Object.keys(accountTypeOverride).length > 0
+				? accountTypeOverride
+				: undefined;
+
+		const trimmedPersonOverride =
+			accountPersonOverride && Object.keys(accountPersonOverride).length > 0
+				? Object.fromEntries(
+						Object.entries(accountPersonOverride).filter(([, flagged]) => flagged)
+					)
+				: undefined;
+
 		const importer = new MoneyManagerImporter({
 			...mmImportOptions,
 			...(trimmedOverride && Object.keys(trimmedOverride).length > 0
 				? { mmCurrencyUidToBudgicCurrencyId: trimmedOverride }
+				: {}),
+			...(trimmedTypeOverride ? { mmAccountUidToBudgicType: trimmedTypeOverride } : {}),
+			...(trimmedPersonOverride && Object.keys(trimmedPersonOverride).length > 0
+				? { mmAccountUidMarkedAsPerson: trimmedPersonOverride }
 				: {}),
 			onProgress: (progress) => {
 				mmProgress = progress;
@@ -510,7 +538,8 @@
 				return;
 			}
 
-			await finishMmImportAfterRead(csvFiles);
+			const deferred = await openAccountsReviewIfNeeded(csvFiles);
+			if (deferred) return;
 		} catch (err) {
 			error = `Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			console.error('Money Manager import error:', err);
@@ -518,6 +547,56 @@
 			isImportingMM = false;
 			mmProgress = null;
 		}
+	}
+
+	function seedAccountReviewMaps(rows: MmAccountReviewRow[]) {
+		const types: Record<string, Account['type']> = {};
+		const persons: Record<string, boolean> = {};
+		for (const r of rows) {
+			types[r.mmUid] = r.suggestedType;
+			persons[r.mmUid] = r.personNameCandidate;
+		}
+		mmAccountTypeMap = types;
+		mmAccountPersonMap = persons;
+	}
+
+	function clearAccountReviewState() {
+		mmAccountReviewOpen = false;
+		mmAccountReviewRows = [];
+		mmAccountTypeMap = {};
+		mmAccountPersonMap = {};
+	}
+
+	/** @returns true when account review dialog is shown (import deferred) */
+	async function openAccountsReviewIfNeeded(
+		csvFiles: Map<string, CSVFile>,
+		currencyOverride?: Record<string, string>
+	): Promise<boolean> {
+		const normalized = normalizeMmCsvFileKeys(csvFiles);
+		pendingMmCsvFiles = normalized;
+
+		if (!mmImportOptions.importAccounts) {
+			pendingMmCsvFiles = null;
+			await finishMmImportAfterRead(normalized, currencyOverride);
+			return false;
+		}
+
+		const existing = await accountService.getAccounts();
+		const rows = buildMmAccountReviewRows(normalized, {
+			existingAccountNames: existing.map((a) => a.name),
+			conflictResolution: mmImportOptions.conflictResolution
+		});
+
+		if (rows.length === 0) {
+			pendingMmCsvFiles = null;
+			await finishMmImportAfterRead(normalized, currencyOverride);
+			return false;
+		}
+
+		mmAccountReviewRows = rows;
+		seedAccountReviewMaps(rows);
+		mmAccountReviewOpen = true;
+		return true;
 	}
 
 	async function confirmMmCurrencyReview() {
@@ -530,8 +609,42 @@
 		mmProgress = null;
 
 		try {
-			await finishMmImportAfterRead(files, mmCurrencyUidMap);
-			pendingMmCsvFiles = null;
+			const deferred = await openAccountsReviewIfNeeded(files, mmCurrencyUidMap);
+			if (!deferred) {
+				mmCurrencyReviewRows = [];
+				mmCurrencyReviewCurrencies = [];
+				mmCurrencyUidMap = {};
+			}
+		} catch (err) {
+			error = `Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`;
+			console.error('Money Manager import error:', err);
+		} finally {
+			isImportingMM = false;
+			mmProgress = null;
+		}
+	}
+
+	async function confirmMmAccountReview() {
+		const files = pendingMmCsvFiles;
+		if (!files) return;
+
+		const currencyMap = { ...mmCurrencyUidMap };
+		const typeMap = { ...mmAccountTypeMap };
+		const personMap = { ...mmAccountPersonMap };
+
+		clearAccountReviewState();
+		pendingMmCsvFiles = null;
+		isImportingMM = true;
+		error = null;
+		mmProgress = null;
+
+		try {
+			await finishMmImportAfterRead(
+				files,
+				Object.keys(currencyMap).length > 0 ? currencyMap : undefined,
+				typeMap,
+				personMap
+			);
 			mmCurrencyReviewRows = [];
 			mmCurrencyReviewCurrencies = [];
 			mmCurrencyUidMap = {};
@@ -550,6 +663,20 @@
 		mmCurrencyReviewRows = [];
 		mmCurrencyReviewCurrencies = [];
 		mmCurrencyUidMap = {};
+		clearAccountReviewState();
+	}
+
+	function cancelMmAccountReview() {
+		clearAccountReviewState();
+		pendingMmCsvFiles = null;
+	}
+
+	function updateMmAccountType(mmUid: string, type: Account['type']) {
+		mmAccountTypeMap = { ...mmAccountTypeMap, [mmUid]: type };
+	}
+
+	function updateMmAccountPerson(mmUid: string, checked: boolean) {
+		mmAccountPersonMap = { ...mmAccountPersonMap, [mmUid]: checked };
 	}
 
 	function updateMmCurrencySelection(mmUid: string, budgicCurrencyId: string) {
@@ -587,7 +714,10 @@
 			])
 		);
 
-		wizardPersonAccountCandidates = await detectPersonAccountCandidates(batch.accountIdsAffected);
+		const preFlagged = batch.personAccountPreFlaggedNames ?? [];
+		wizardPersonAccountPreFlagged = preFlagged;
+		const detected = await detectPersonAccountCandidates(batch.accountIdsAffected, preFlagged);
+		wizardPersonAccountCandidates = [...new Set([...preFlagged, ...detected])];
 		wizardPersonAccountPanels = await loadPersonAccountTransactionPanels(
 			batch.accountIdsAffected,
 			wizardPersonAccountCandidates
@@ -668,16 +798,20 @@
 		void navigationStore.updateBadges();
 	}
 
-	async function detectPersonAccountCandidates(accountIds: string[]): Promise<string[]> {
+	async function detectPersonAccountCandidates(
+		accountIds: string[],
+		preFlaggedNames: string[] = []
+	): Promise<string[]> {
+		const preFlaggedSet = new Set(preFlaggedNames);
 		const accounts = (
 			await Promise.all(accountIds.map((id) => accountService.getAccount(id)))
 		).filter((a): a is Account => !!a);
-		const firstNameLike = /^[A-ZА-Я][a-zа-я]{2,20}$/;
 		const recentCutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
 		const candidates: string[] = [];
 
 		for (const account of accounts) {
-			if (!firstNameLike.test(account.name.trim())) continue;
+			if (preFlaggedSet.has(account.name)) continue;
+			if (!isPersonAccountNameCandidate(account.name)) continue;
 			const txs = await transactionService.getTransactionsByAccount(account.id);
 			const recent = txs.filter((tx) => {
 				const ts = Date.parse(tx.clearedDate || tx.plannedDate || tx.createdAt);
@@ -1428,6 +1562,17 @@
 	onCancel={cancelMmCurrencyReview}
 />
 
+<ImportAccountsReviewDialog
+	open={mmAccountReviewOpen}
+	rows={mmAccountReviewRows}
+	typeSelection={mmAccountTypeMap}
+	personSelection={mmAccountPersonMap}
+	onTypeChange={updateMmAccountType}
+	onPersonChange={updateMmAccountPerson}
+	onConfirm={() => void confirmMmAccountReview()}
+	onCancel={cancelMmAccountReview}
+/>
+
 {#if mmResult?.importBatch}
 	<ImportWizard
 		open={importWizardOpen}
@@ -1438,6 +1583,7 @@
 		categoriesByTransactionId={wizardCategoryTierByTxId}
 		onApplyTier={applyCandidateTier}
 		personAccountCandidates={wizardPersonAccountCandidates}
+		personAccountPreFlagged={wizardPersonAccountPreFlagged}
 		personAccountPanels={wizardPersonAccountPanels}
 		onMigratePersonAccounts={runPersonAccountMigration}
 		onTagPersonTxGift={tagPersonTxAsGift}

@@ -16,6 +16,7 @@
 		interestCount: number;
 		passiveBalanceHints?: Array<{ accountId: string; accountName: string; message: string }>;
 		personAccountCandidates?: string[];
+		personAccountPreFlagged?: string[];
 		personAccountPanels?: PersonAccountTxPanel[];
 		onMigratePersonAccounts?: () => void;
 		onTagPersonTxGift?: (transactionId: string) => void;
@@ -33,6 +34,7 @@
 		interestCount,
 		passiveBalanceHints = [],
 		personAccountCandidates = [],
+		personAccountPreFlagged = [],
 		personAccountPanels = [],
 		onMigratePersonAccounts,
 		onTagPersonTxGift,
@@ -82,12 +84,22 @@
 		</div>
 	{/if}
 	{#if personAccountCandidates.length > 0}
+		{@const detectedOnly = personAccountCandidates.filter(
+			(n) => !personAccountPreFlagged.includes(n)
+		)}
 		<div
 			class="space-y-2 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] p-4"
 		>
 			<p class="text-sm font-medium text-[var(--color-text-primary)]">Possible person accounts</p>
 			<p class="text-xs text-[var(--color-text-secondary)]">
-				Detected: {personAccountCandidates.join(', ')}.
+				{#if personAccountPreFlagged.length > 0}
+					Marked at import: {personAccountPreFlagged.join(', ')}.
+				{/if}
+				{#if detectedOnly.length > 0}
+					{personAccountPreFlagged.length > 0 ? ' ' : ''}Detected from activity: {detectedOnly.join(
+						', '
+					)}.
+				{/if}
 			</p>
 			<p class="text-xs text-[var(--color-text-tertiary)]">
 				Tag recent activity as gift (lifestyle) or reimbursement, or run balance migration to close
@@ -97,7 +109,18 @@
 				<div
 					class="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] p-2"
 				>
-					<p class="text-xs font-medium text-[var(--color-text-primary)]">{panel.name}</p>
+					<p class="text-xs font-medium text-[var(--color-text-primary)]">
+						{panel.name}
+						{#if personAccountPreFlagged.includes(panel.name)}
+							<span class="ml-1 font-normal text-[var(--color-text-tertiary)]"
+								>(marked at import)</span
+							>
+						{:else}
+							<span class="ml-1 font-normal text-[var(--color-text-tertiary)]"
+								>(detected from activity)</span
+							>
+						{/if}
+					</p>
 					<ul
 						class="mt-1 max-h-32 space-y-1 overflow-y-auto text-[10px] text-[var(--color-text-tertiary)]"
 					>

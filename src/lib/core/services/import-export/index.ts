@@ -22,7 +22,14 @@ export type {
 } from './types';
 
 // CSV parsing utilities
-export { parseCSV, readCSVFile, readMultipleCSVFiles, validateCSVStructure } from './csv-parser';
+export {
+	parseCSV,
+	readCSVFile,
+	readMultipleCSVFiles,
+	validateCSVStructure,
+	normalizeMmCsvFileKeys,
+	getMmCsvTable
+} from './csv-parser';
 
 // Schema inspection
 export {
@@ -71,6 +78,16 @@ export {
 	type MmCurrencyReviewDetection,
 	type MmCurrencyReviewRow
 } from './mm-currency-review-detect';
+
+export {
+	buildMmAccountReviewRows,
+	inferMmAccountType,
+	MM_ACCOUNT_REVIEW_TYPE_LABELS,
+	REVIEW_ACCOUNT_TYPES,
+	type MmAccountReviewRow,
+	type MmAccountTypeSource,
+	type BuildMmAccountReviewRowsOptions
+} from './mm-account-type-inference';
 
 export {
 	detectImportSplitCandidates,

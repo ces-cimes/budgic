@@ -18,6 +18,7 @@ import {
 	mergeDailyMicroInterestTransactions,
 	recalculateBalancesForAccounts
 } from '../intelligence/interest-daily-merge';
+import { normalizeMmCsvFileKeys } from './csv-parser';
 import { BaseImporter, detectPassiveBalanceImportHints } from './base-importer';
 import {
 	buildMmMergeUpdates,
@@ -35,6 +36,7 @@ import type {
 	TransferPair,
 	MmUidConflictReportEntry
 } from './types';
+import { inferMmAccountType } from './mm-account-type-inference';
 import {
 	mapAccountType,
 	mapCategoryType,
@@ -102,6 +104,7 @@ export class MoneyManagerImporter extends BaseImporter {
 	private importedAccountIds = new Set<string>();
 	private essentialCandidates: ClassificationCandidate[] = [];
 	private mmUidConflictReport: MmUidConflictReportEntry[] = [];
+	private personAccountPreFlaggedNames: string[] = [];
 
 	/**
 	 * Execute the import process
@@ -110,12 +113,13 @@ export class MoneyManagerImporter extends BaseImporter {
 	 * @returns Import result with statistics and errors
 	 */
 	async import(csvFiles: Map<string, CSVFile>): Promise<ImportResult> {
-		this.csvFiles = csvFiles;
+		this.csvFiles = normalizeMmCsvFileKeys(csvFiles);
 		this.startTiming();
 		this.importedTransactionIds = [];
 		this.importedAccountIds = new Set<string>();
 		this.essentialCandidates = [];
 		this.mmUidConflictReport = [];
+		this.personAccountPreFlaggedNames = [];
 
 		// Validate options
 		const validation = this.validateOptions();
@@ -354,11 +358,19 @@ export class MoneyManagerImporter extends BaseImporter {
 					continue;
 				}
 
+				const accountTypeOverride = this.options.mmAccountUidToBudgicType?.[accountUid];
+				const resolvedType =
+					accountTypeOverride ?? inferMmAccountType(row).type;
+
+				if (this.options.mmAccountUidMarkedAsPerson?.[accountUid]) {
+					this.personAccountPreFlaggedNames.push(accountName);
+				}
+
 				// Create account
 				const account: Account = {
 					id: generateUUID(),
 					name: accountName,
-					type: mapAccountType(row.ZDATA || '1'),
+					type: resolvedType,
 					currency: currency.code,
 					initialBalance: 0, // Will be calculated from transactions
 					currentBalance: 0, // Will be calculated from transactions
@@ -1274,7 +1286,12 @@ export class MoneyManagerImporter extends BaseImporter {
 			wizardExpenseTransactionIds,
 			wizardExpenseAbsByTransactionId,
 			...(splitCandidateSummary ? { splitCandidateSummary, splitCandidateGroups } : {}),
-			...(this.mmUidConflictReport.length > 0 ? { mmUidConflicts: this.mmUidConflictReport } : {})
+			...(this.mmUidConflictReport.length > 0 ? { mmUidConflicts: this.mmUidConflictReport } : {}),
+			...(this.personAccountPreFlaggedNames.length > 0
+				? {
+						personAccountPreFlaggedNames: [...new Set(this.personAccountPreFlaggedNames)]
+					}
+				: {})
 		};
 	}
 

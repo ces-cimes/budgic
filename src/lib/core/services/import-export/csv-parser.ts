@@ -57,8 +57,10 @@ export function parseCSV(csvContent: string, fileName: string): CSVFile {
 			}
 		}
 
+		const tableName = fileName.replace(/\.csv$/i, '').toUpperCase();
+
 		return {
-			name: fileName.replace('.csv', ''),
+			name: tableName,
 			headers,
 			rows,
 			rowCount: rows.length
@@ -176,6 +178,29 @@ function parseCSVLine(line: string): string[] {
  * const csvData = await readCSVFile(file);
  * ```
  */
+/**
+ * Normalize CSV map keys to uppercase MM table names (ASSETS, INOUTCOME, …).
+ */
+export function normalizeMmCsvFileKeys(csvFiles: Map<string, CSVFile>): Map<string, CSVFile> {
+	const normalized = new Map<string, CSVFile>();
+	for (const [key, file] of csvFiles) {
+		const tableName = key.toUpperCase();
+		normalized.set(tableName, { ...file, name: tableName });
+	}
+	return normalized;
+}
+
+/**
+ * Case-insensitive lookup for a Money Manager export table.
+ */
+export function getMmCsvTable(
+	csvFiles: Map<string, CSVFile>,
+	tableName: string
+): CSVFile | undefined {
+	const upper = tableName.toUpperCase();
+	return csvFiles.get(upper) ?? [...csvFiles.entries()].find(([k]) => k.toUpperCase() === upper)?.[1];
+}
+
 export async function readCSVFile(file: File): Promise<CSVFile> {
 	try {
 		const content = await file.text();

@@ -3,7 +3,10 @@ import type { CSVFile } from './types';
 import type { Currency, Transaction } from '$lib/core/db';
 
 const hoisted = vi.hoisted(() => {
-	const accountsById = new Map<string, { id: string; currency: string }>();
+	const accountsById = new Map<
+		string,
+		{ id: string; currency: string; type?: string; name?: string }
+	>();
 	let uuidN = 0;
 	return { accountsById, uuidN };
 });
@@ -59,7 +62,7 @@ vi.mock('$lib/core/db', () => ({
 			add: vi.fn(async () => {})
 		},
 		accounts: {
-			add: vi.fn(async (acc: { id: string; currency: string }) => {
+			add: vi.fn(async (acc: { id: string; currency: string; type?: string; name?: string }) => {
 				hoisted.accountsById.set(acc.id, acc);
 			}),
 			get: vi.fn(async (id: string) => hoisted.accountsById.get(id) ?? undefined)
@@ -244,5 +247,49 @@ describe('MoneyManagerImporter mmCurrencyUidToBudgicCurrencyId', () => {
 		const arg = createTransaction.mock.calls[0]?.[0];
 		expect(arg?.currency).toBe('EUR');
 		expect(arg?.importQuality?.currencyFallback).toBeFalsy();
+	});
+});
+
+describe('MoneyManagerImporter mmAccountUidToBudgicType', () => {
+	beforeEach(() => {
+		storedTransactions.clear();
+		hoisted.accountsById.clear();
+		hoisted.uuidN = 0;
+		vi.clearAllMocks();
+	});
+
+	it('uses pre-import type override despite ZDATA checking code', async () => {
+		const files = new Map<string, CSVFile>([
+			['CURRENCY', csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [])],
+			[
+				'ASSETS',
+				csv('ASSETS', ['uid', 'ID', 'NIC_NAME', 'currencyUid', 'ZDATA', 'A_UTIME', 'IS_DEL'], [
+					{
+						uid: 'acc-mm-1',
+						ID: 'acc-mm-1',
+						NIC_NAME: 'Main',
+						currencyUid: 'USD_USD',
+						ZDATA: '1',
+						A_UTIME: '1609459200000',
+						IS_DEL: '0'
+					}
+				])
+			],
+			['ZCATEGORY', csv('ZCATEGORY', ['uid', 'NAME', 'TYPE', 'C_IS_DEL'], [])],
+			['INOUTCOME', csv('INOUTCOME', ['uid', 'IS_DEL'], [])]
+		]);
+
+		const importer = new MoneyManagerImporter({
+			importCurrencies: true,
+			importAccounts: true,
+			importCategories: false,
+			importTransactions: false,
+			mmAccountUidToBudgicType: { 'acc-mm-1': 'savings' }
+		});
+
+		const result = await importer.import(files);
+		expect(result.success).toBe(true);
+		const account = [...hoisted.accountsById.values()][0];
+		expect(account?.type).toBe('savings');
 	});
 });
