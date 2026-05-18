@@ -1,91 +1,97 @@
 /**
  * Schema Inspector Service
  *
- * Detects and validates schema structure from CSV files,
+ * Detects and validates schema structure from CSV files or SQLite table names,
  * identifying table names, columns, and data types.
  */
 
 import type { CSVFile, DetectedSchema, TableSchema } from './types';
 
-/**
- * Required tables for Money Manager import
- */
-const MONEY_MANAGER_REQUIRED_TABLES = ['ASSETS', 'ZCATEGORY', 'INOUTCOME', 'CURRENCY'];
-const MONEY_MANAGER_OPTIONAL_TABLES = ['BUDGET', 'BUDGET_AMOUNT', 'TAG', 'TX_TAG', 'ASSETGROUP'];
+/** Required tables for Money Manager import */
+export const MONEY_MANAGER_REQUIRED_TABLES = ['ASSETS', 'ZCATEGORY', 'INOUTCOME', 'CURRENCY'] as const;
+
+/** Optional tables for Money Manager import */
+export const MONEY_MANAGER_OPTIONAL_TABLES = [
+	'BUDGET',
+	'BUDGET_AMOUNT',
+	'TAG',
+	'TX_TAG',
+	'ASSETGROUP'
+] as const;
+
+export type MoneyManagerImportFormat = 'money-manager-csv' | 'money-manager-sqlite';
+
+const ALL_MM_TABLES = [...MONEY_MANAGER_REQUIRED_TABLES, ...MONEY_MANAGER_OPTIONAL_TABLES];
+
+function requiredTablesForFormat(format: MoneyManagerImportFormat): readonly string[] {
+	return format === 'money-manager-csv' || format === 'money-manager-sqlite'
+		? MONEY_MANAGER_REQUIRED_TABLES
+		: [];
+}
 
 /**
- * Inspect schema from CSV files
- *
- * @param csvFiles - Map of CSV file names to parsed data
- * @param format - Expected format (e.g., 'money-manager-csv')
- * @returns Detected schema information
- *
- * @example
- * ```typescript
- * const csvFiles = await readMultipleCSVFiles(files);
- * const schema = inspectSchema(csvFiles, 'money-manager-csv');
- * if (schema.isValid) {
- *   console.log('All required tables found');
- * }
- * ```
+ * Inspect schema from table names (CSV map keys or SQLite sqlite_master).
  */
-export function inspectSchema(
-	csvFiles: Map<string, CSVFile>,
-	format: string = 'money-manager-csv'
+export function inspectSchemaFromTableNames(
+	tableNames: string[],
+	format: MoneyManagerImportFormat
 ): DetectedSchema {
-	const tables: TableSchema[] = [];
+	const normalized = tableNames.map((n) => n.toUpperCase());
+	const requiredTables = requiredTablesForFormat(format);
 	const missingTables: string[] = [];
 
-	// Determine required tables based on format
-	const requiredTables = format === 'money-manager-csv' ? MONEY_MANAGER_REQUIRED_TABLES : [];
-
-	// Check all CSV files
-	for (const [fileName, csvFile] of csvFiles.entries()) {
-		const tableName = fileName.toUpperCase();
-
-		tables.push({
-			name: tableName,
-			columns: csvFile.headers,
-			sampleRow: csvFile.rows.length > 0 ? csvFile.rows[0] : undefined,
-			required: requiredTables.includes(tableName)
-		});
-	}
-
-	// Check for missing required tables
 	for (const requiredTable of requiredTables) {
-		if (!tables.some((t) => t.name === requiredTable)) {
+		if (!normalized.includes(requiredTable)) {
 			missingTables.push(requiredTable);
 		}
 	}
 
+	const tables: TableSchema[] = normalized.map((name) => ({
+		name,
+		columns: [],
+		required: requiredTables.includes(name)
+	}));
+
 	return {
 		tables,
 		format,
-		version: detectVersion(csvFiles, format),
+		version: undefined,
 		isValid: missingTables.length === 0,
 		missingTables
 	};
 }
 
 /**
- * Detect schema version (if possible)
- *
- * @param csvFiles - Map of CSV files
- * @param format - Format name
- * @returns Version string or undefined
+ * Inspect schema from CSV files
  */
-function detectVersion(csvFiles: Map<string, CSVFile>, format: string): string | undefined {
-	// For Money Manager, version might be in ZETC table or other metadata
-	// For now, return undefined as version detection is not critical
-	return undefined;
+export function inspectSchema(
+	csvFiles: Map<string, CSVFile>,
+	format: MoneyManagerImportFormat = 'money-manager-csv'
+): DetectedSchema {
+	const tableNames = [...csvFiles.keys()];
+	const base = inspectSchemaFromTableNames(tableNames, format);
+
+	const tables: TableSchema[] = [];
+	for (const [fileName, csvFile] of csvFiles.entries()) {
+		const tableName = fileName.toUpperCase();
+		tables.push({
+			name: tableName,
+			columns: csvFile.headers,
+			sampleRow: csvFile.rows.length > 0 ? csvFile.rows[0] : undefined,
+			required: MONEY_MANAGER_REQUIRED_TABLES.includes(
+				tableName as (typeof MONEY_MANAGER_REQUIRED_TABLES)[number]
+			)
+		});
+	}
+
+	return {
+		...base,
+		tables
+	};
 }
 
 /**
  * Get table schema by name
- *
- * @param schema - Detected schema
- * @param tableName - Name of table to find
- * @returns Table schema or undefined
  */
 export function getTableSchema(schema: DetectedSchema, tableName: string): TableSchema | undefined {
 	return schema.tables.find((t) => t.name.toUpperCase() === tableName.toUpperCase());
@@ -93,11 +99,6 @@ export function getTableSchema(schema: DetectedSchema, tableName: string): Table
 
 /**
  * Check if a column exists in a table
- *
- * @param schema - Detected schema
- * @param tableName - Table name
- * @param columnName - Column name
- * @returns Whether column exists
  */
 export function hasColumn(schema: DetectedSchema, tableName: string, columnName: string): boolean {
 	const table = getTableSchema(schema, tableName);
@@ -106,11 +107,6 @@ export function hasColumn(schema: DetectedSchema, tableName: string, columnName:
 
 /**
  * Get sample data from a table
- *
- * @param csvFiles - Map of CSV files
- * @param tableName - Table name
- * @param limit - Maximum number of sample rows
- * @returns Array of sample rows
  */
 export function getSampleData(
 	csvFiles: Map<string, CSVFile>,
@@ -127,11 +123,6 @@ export function getSampleData(
 
 /**
  * Validate that all required columns exist in a table
- *
- * @param schema - Detected schema
- * @param tableName - Table name
- * @param requiredColumns - Array of required column names
- * @returns Validation result
  */
 export function validateTableColumns(
 	schema: DetectedSchema,
@@ -153,4 +144,9 @@ export function validateTableColumns(
 		isValid: missingColumns.length === 0,
 		missingColumns
 	};
+}
+
+/** All MM table names we may read from SQLite (required + optional). */
+export function getMoneyManagerTableNames(): readonly string[] {
+	return ALL_MM_TABLES;
 }

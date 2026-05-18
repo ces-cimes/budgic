@@ -60,6 +60,7 @@
 		"@capawesome/capacitor-file-picker": "^7.2.0",
 		"@inlang/paraglide-js": "^2.0.0",
 		"@neoconfetti/svelte": "^2.2.2",
+		"@sqlite.org/sqlite-wasm": "^3.48.0-build4",
 		"dexie": "^4.0.11",
 		"layerchart": "^1.0.10",
 		"melt": "^0.30.1",

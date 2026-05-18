@@ -5,6 +5,10 @@ import { defineConfig } from 'vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 
 export default defineConfig({
+	assetsInclude: ['**/*.wasm'],
+	optimizeDeps: {
+		exclude: ['@sqlite.org/sqlite-wasm']
+	},
 	plugins: [
 		tailwindcss(),
 		sveltekit(),

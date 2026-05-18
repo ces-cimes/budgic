@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { userService, transactionService, accountService } from '$lib/core/services';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
@@ -16,19 +16,23 @@
 	} from '$lib/core/data-reset-presets';
 	import {
 		MoneyManagerImporter,
-		readMultipleCSVFiles,
-		inspectSchema,
 		detectMmCurrencyReviewNeeded,
+		detectImportSource,
+		releaseImportSourceDetection,
+		extractMoneyManagerCsvFiles,
+		getLargeImportWarnings,
+		closeSqlite,
 		type ImportResult,
 		type ImportProgress,
 		type DetectedSchema,
 		type MmTransactionUidConflict,
 		type CSVFile,
-		type MmCurrencyReviewRow
+		type MmCurrencyReviewRow,
+		type ImportSourceDetection
 	} from '$lib/core/services/import-export';
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import ImportCurrencyReviewDialog from '$lib/components/import/ImportCurrencyReviewDialog.svelte';
-	import { pickFile, pickMultipleFiles } from '$lib/utils/file-picker-utils';
+	import { pickFiles } from '$lib/utils/file-picker-utils';
 	import { formatPercentage } from '$lib/utils/currency-utils';
 	import {
 		getOrCreateUncategorizedCategory,
@@ -109,9 +113,32 @@
 	// Data settings - simplified for current schema
 	let exportFormat = $state<'json' | 'csv' | 'pdf'>('json');
 
-	// Money Manager import state
-	let mmFiles = $state<File[]>([]);
+	// Unified import state
+	let importSelectedFiles = $state<File[]>([]);
+	let importDetection = $state<ImportSourceDetection | null>(null);
+	let mmCsvFilesReady = $state<Map<string, CSVFile> | null>(null);
+	let importWarnings = $state<string[]>([]);
 	let mmSchema = $state<DetectedSchema | null>(null);
+	const isMmImportSource = $derived(
+		importDetection?.kind === 'money-manager-csv' ||
+			importDetection?.kind === 'money-manager-sqlite' ||
+			(mmCsvFilesReady !== null && mmSchema?.isValid === true)
+	);
+	const importFormatLabel = $derived.by(() => {
+		if (!importDetection) return null;
+		switch (importDetection.kind) {
+			case 'budgic-json':
+				return 'Budgic backup';
+			case 'money-manager-csv':
+				return 'Money Manager (CSV export)';
+			case 'money-manager-sqlite':
+				return 'Money Manager (database file)';
+			case 'unknown-sqlite':
+				return 'Unrecognized SQLite database';
+			default:
+				return null;
+		}
+	});
 	const mmImportOptions = $state({
 		importAccounts: true,
 		importCategories: true,
@@ -148,6 +175,10 @@
 		{ value: 'csv', label: 'CSV', description: 'Spreadsheet format' },
 		{ value: 'pdf', label: 'PDF', description: 'Printable report' }
 	];
+
+	onDestroy(() => {
+		releaseImportSourceDetection(importDetection);
+	});
 
 	// Load user preferences on mount
 	onMount(async () => {
@@ -206,99 +237,119 @@
 		}
 	}
 
-	// Import data
-	async function importData() {
+	function resetImportSelection() {
+		releaseImportSourceDetection(importDetection);
+		importDetection = null;
+		importSelectedFiles = [];
+		mmCsvFilesReady = null;
+		mmSchema = null;
+		importWarnings = [];
+	}
+
+	async function applyImportDetection(detection: ImportSourceDetection) {
+		releaseImportSourceDetection(importDetection);
+		importDetection = detection;
+		mmCsvFilesReady = null;
+		mmSchema = null;
+		importWarnings = [];
+		error = null;
+		success = null;
+
+		switch (detection.kind) {
+			case 'budgic-json':
+				break;
+			case 'money-manager-csv':
+				mmCsvFilesReady = detection.csvFiles;
+				mmSchema = detection.schema;
+				break;
+			case 'money-manager-sqlite': {
+				importWarnings = getLargeImportWarnings(detection.file, detection.db);
+				mmCsvFilesReady = extractMoneyManagerCsvFiles(detection.db);
+				mmSchema = detection.schema;
+				closeSqlite(detection.db);
+				break;
+			}
+			case 'unknown-sqlite':
+				error = detection.message;
+				closeSqlite(detection.db);
+				break;
+			case 'unsupported':
+				error = detection.message;
+				break;
+		}
+	}
+
+	async function pickAndDetectImportFiles() {
+		try {
+			const result = await pickFiles({
+				multiple: true,
+				types: [
+					'application/json',
+					'text/csv',
+					'application/x-sqlite3',
+					'application/vnd.sqlite3',
+					'application/octet-stream'
+				],
+				extensions: ['.json', '.csv', '.sqlite', '.db', '.sqlite3']
+			});
+
+			if (result.cancelled || result.files.length === 0) {
+				return;
+			}
+
+			importSelectedFiles = result.files;
+			devLog(
+				'Import files picked:',
+				result.files.map((f) => ({ name: f.name, size: f.size }))
+			);
+
+			const detection = await detectImportSource(result.files);
+			await applyImportDetection(detection);
+		} catch (err) {
+			error = `Failed to analyze files: ${err instanceof Error ? err.message : 'Unknown error'}`;
+			console.error('Import file detection error:', err);
+		}
+	}
+
+	async function importBudgicJson(file: File) {
 		isImporting = true;
 		error = null;
 		success = null;
 
 		try {
-			const file = await pickFile({
-				types: ['application/json'],
-				extensions: ['.json']
-			});
-
-			if (!file) {
-				// User cancelled
-				isImporting = false;
-				return;
-			}
-
 			const text = await file.text();
-			const data = JSON.parse(text);
+			const data = JSON.parse(text) as {
+				version?: unknown;
+				exportDate?: string;
+				userPreferences?: unknown[];
+			};
 
-			// Validate import data structure
 			if (!data.version || !data.exportDate) {
 				throw new Error('Invalid export file format');
 			}
 
-			// Import user preferences if present
-			if (data.userPreferences && data.userPreferences.length > 0) {
-				await userService.updateUserPreferences(data.userPreferences[0]);
+			if (data.userPreferences && Array.isArray(data.userPreferences) && data.userPreferences.length > 0) {
+				await userService.updateUserPreferences(
+					data.userPreferences[0] as Awaited<ReturnType<typeof userService.getUserPreferences>>
+				);
 			}
 
 			success = 'Saved';
+			resetImportSelection();
 		} catch (err) {
 			error = 'Failed to import data: ' + (err instanceof Error ? err.message : 'Unknown error');
-			console.error('Error importing data:', err);
+			console.error('Error importing Budgic JSON:', err);
 		} finally {
 			isImporting = false;
 		}
 	}
 
-	// Handle Money Manager file selection
-	async function handleMMFileSelection() {
-		if (mmFiles.length === 0) {
-			mmSchema = null;
+	async function runUnifiedImport() {
+		if (importDetection?.kind === 'budgic-json') {
+			await importBudgicJson(importDetection.file);
 			return;
 		}
-
-		try {
-			const csvFiles = await readMultipleCSVFiles(mmFiles);
-			const schema = inspectSchema(csvFiles, 'money-manager-csv');
-			mmSchema = schema;
-
-			if (!schema.isValid) {
-				error = `Missing required tables: ${schema.missingTables.join(', ')}`;
-			} else {
-				error = null;
-			}
-		} catch (err) {
-			error = `Failed to analyze CSV files: ${err instanceof Error ? err.message : 'Unknown error'}`;
-			mmSchema = null;
-		}
-	}
-
-	// Pick Money Manager CSV files
-	async function pickMMFiles() {
-		try {
-			devLog('Picking CSV files...');
-			const files = await pickMultipleFiles({
-				types: ['text/csv'],
-				extensions: ['.csv']
-			});
-
-			devLog(
-				'Picked files:',
-				files.length,
-				files.map((f) => ({ name: f.name, size: f.size }))
-			);
-
-			if (files.length > 0) {
-				mmFiles = files;
-				devLog(
-					'mmFiles updated:',
-					mmFiles.length,
-					mmFiles.map((f) => ({ name: f.name, size: f.size }))
-				);
-				await handleMMFileSelection();
-			} else {
-				devLog('No files selected or user cancelled');
-			}
-		} catch (err) {
-			error = `Failed to pick files: ${err instanceof Error ? err.message : 'Unknown error'}`;
-			console.error('Error picking files:', err);
-		}
+		await handleMMImport();
 	}
 
 	// Handle Money Manager import (CSV read → optional currency review → importer)
@@ -340,8 +391,7 @@
 			const txLabel = txBits.length > 0 ? txBits.join(', ') : '0 transactions';
 			success = `Successfully imported ${s.accountsImported} accounts, ${s.categoriesImported} categories (${txLabel})`;
 
-			mmFiles = [];
-			mmSchema = null;
+			resetImportSelection();
 
 			await prepareImportWizardState(result);
 			void navigationStore.updateBadges();
@@ -351,8 +401,8 @@
 	}
 
 	async function handleMMImport() {
-		if (mmFiles.length === 0) {
-			error = 'Please select CSV files to import';
+		if (!mmCsvFilesReady || mmCsvFilesReady.size === 0) {
+			error = 'Please select a valid Money Manager export to import';
 			return;
 		}
 
@@ -368,7 +418,7 @@
 		mmProgress = null;
 
 		try {
-			const csvFiles = await readMultipleCSVFiles(mmFiles);
+			const csvFiles = mmCsvFilesReady;
 			const detection = detectMmCurrencyReviewNeeded(csvFiles);
 
 			if (detection.needsReview) {
@@ -779,66 +829,64 @@
 					</div>
 				</div>
 			{:else if dataTab === 'import'}
-				<!-- Import Budgic backup -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
-					<div class="border-border border-b px-5 py-3">
-						<h2
-							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-						>
-							Import from Budgic backup
-						</h2>
-					</div>
-					<div class="space-y-2 px-5 py-4">
-						<button
-							onclick={importData}
-							disabled={isImporting || isImportingMM}
-							class="border-border rounded-xl border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
-						>
-							Select JSON file
-						</button>
-						<p class="text-xs text-[var(--color-text-tertiary)]">
-							Restore from a previous Budgic JSON export
-						</p>
-					</div>
-				</div>
-
-				<!-- Import Money Manager -->
+				<!-- Unified import -->
 				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
 					<div class="border-border flex items-center justify-between border-b px-5 py-3">
 						<div>
 							<h2
 								class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 							>
-								Import from Money Manager
+								Import data
 							</h2>
-							<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-								ASSETS.csv, ZCATEGORY.csv, INOUTCOME.csv, CURRENCY.csv…
+							<p class="mt-1 text-xs leading-relaxed text-[var(--color-text-tertiary)]">
+								Supported: Budgic JSON backup · Money Manager CSV export (ASSETS, ZCATEGORY,
+								INOUTCOME, CURRENCY) · Money Manager database (.sqlite, .db). Other SQLite formats
+								are not supported yet.
 							</p>
 						</div>
-						<button
-							type="button"
-							onclick={() => (showMMImport = !showMMImport)}
-							class="text-xs font-medium text-[var(--color-amber)]"
-						>
-							{showMMImport ? 'Hide' : 'Options'}
-						</button>
+						{#if isMmImportSource}
+							<button
+								type="button"
+								onclick={() => (showMMImport = !showMMImport)}
+								class="shrink-0 text-xs font-medium text-[var(--color-amber)]"
+							>
+								{showMMImport ? 'Hide' : 'Options'}
+							</button>
+						{/if}
 					</div>
 					<div class="space-y-4 px-5 py-4">
 						<button
-							onclick={pickMMFiles}
+							type="button"
+							onclick={pickAndDetectImportFiles}
 							disabled={isImporting || isImportingMM}
 							class="border-border rounded-xl border px-5 py-2.5 text-sm font-medium text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
 						>
-							Select CSV files
+							Select file(s)
 						</button>
 
-						{#if mmFiles.length > 0}
+						{#if importSelectedFiles.length > 0}
 							<div class="space-y-1 rounded-xl bg-[var(--color-bg-surface)] p-3">
-								<p class="text-xs font-medium text-[var(--color-text-secondary)]">
-									{mmFiles.length} file{mmFiles.length > 1 ? 's' : ''} selected
+								{#if importFormatLabel}
+									<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+										Detected: {importFormatLabel}
+									</p>
+								{/if}
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									{importSelectedFiles.length} file{importSelectedFiles.length > 1 ? 's' : ''}
+									selected
 								</p>
-								{#each mmFiles as file}
+								{#each importSelectedFiles as file}
 									<p class="text-xs text-[var(--color-text-tertiary)]">• {file.name}</p>
+								{/each}
+							</div>
+						{/if}
+
+						{#if importWarnings.length > 0}
+							<div
+								class="space-y-1 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] p-3"
+							>
+								{#each importWarnings as warning}
+									<p class="text-xs text-[var(--color-amber)]">{warning}</p>
 								{/each}
 							</div>
 						{/if}
@@ -1098,13 +1146,24 @@
 							</div>
 						{/if}
 
-						<button
-							onclick={handleMMImport}
-							disabled={isImporting || isImportingMM || mmFiles.length === 0}
-							class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
-						>
-							{isImportingMM ? 'Importing…' : 'Import from Money Manager'}
-						</button>
+						{#if importDetection?.kind === 'budgic-json' || isMmImportSource}
+							<button
+								type="button"
+								onclick={runUnifiedImport}
+								disabled={isImporting ||
+									isImportingMM ||
+									(importDetection?.kind === 'budgic-json'
+										? false
+										: !mmCsvFilesReady)}
+								class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+							>
+								{isImporting || isImportingMM
+									? 'Importing…'
+									: importDetection?.kind === 'budgic-json'
+										? 'Import Budgic backup'
+										: 'Import from Money Manager'}
+							</button>
+						{/if}
 					</div>
 				</div>
 

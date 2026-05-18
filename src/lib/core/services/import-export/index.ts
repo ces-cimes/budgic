@@ -27,11 +27,38 @@ export { parseCSV, readCSVFile, readMultipleCSVFiles, validateCSVStructure } fro
 // Schema inspection
 export {
 	inspectSchema,
+	inspectSchemaFromTableNames,
 	getTableSchema,
 	hasColumn,
 	getSampleData,
-	validateTableColumns
+	validateTableColumns,
+	MONEY_MANAGER_REQUIRED_TABLES,
+	MONEY_MANAGER_OPTIONAL_TABLES,
+	getMoneyManagerTableNames,
+	type MoneyManagerImportFormat
 } from './schema-inspector';
+
+// Money Manager SQLite reader
+export {
+	openMoneyManagerSqlite,
+	closeSqlite,
+	fingerprintMoneyManagerSqlite,
+	extractMoneyManagerCsvFiles,
+	getLargeImportWarnings,
+	readMoneyManagerSqliteFile,
+	isSqliteDatabaseFile,
+	MM_SQLITE_FILE_SIZE_WARN_BYTES,
+	MM_SQLITE_INOUTCOME_ROW_WARN,
+	type SqliteDb
+} from './mm-sqlite-reader';
+
+// Import source detection
+export {
+	detectImportSource,
+	releaseImportSourceDetection,
+	type ImportSourceDetection,
+	type ImportSourceKind
+} from './import-source-detector';
 
 // Base importer
 export { BaseImporter, detectPassiveBalanceImportHints } from './base-importer';
