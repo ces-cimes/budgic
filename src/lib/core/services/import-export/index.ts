@@ -72,6 +72,20 @@ export {
 	type MmCurrencyReviewRow
 } from './mm-currency-review-detect';
 
+export {
+	detectImportSplitCandidates,
+	getSplitPickerCandidateIds,
+	isEligibleForSplitDetection,
+	SPLIT_PROXIMITY_MS
+} from './import-split-detect';
+
+export {
+	linkTransactionsAsSplitGroup,
+	dismissSplitCandidateGroup,
+	type LinkSplitGroupResult,
+	type DismissSplitCandidateResult
+} from './import-split-link-service';
+
 // Money Manager mapper utilities
 export {
 	mapAccountType,

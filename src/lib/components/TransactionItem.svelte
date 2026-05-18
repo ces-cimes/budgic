@@ -242,22 +242,36 @@
 	// State for loaded categories in grouped transactions
 	let groupTransactionCategories = $state<Map<string, Category | null>>(new Map());
 
-	// Load categories for grouped transactions
+	// Load categories for grouped transactions (reassign Map so Svelte tracks updates)
 	$effect(() => {
-		if (isGroup && isExpanded && groupTransactions.length > 0) {
-			groupTransactions.forEach(async (tx) => {
-				if (tx.categoryId && !groupTransactionCategories.has(tx.id)) {
+		if (!isGroup || !isExpanded || groupTransactions.length === 0) return;
+
+		const members = groupTransactions.filter((tx): tx is Transaction => !!tx?.id);
+		if (members.length === 0) return;
+
+		let cancelled = false;
+		void (async () => {
+			const next = new Map<string, Category | null>();
+			await Promise.all(
+				members.map(async (tx) => {
+					if (!tx.categoryId) {
+						next.set(tx.id, null);
+						return;
+					}
 					try {
 						const cat = await db.categories.get(tx.categoryId);
-						groupTransactionCategories.set(tx.id, cat || null);
+						next.set(tx.id, cat ?? null);
 					} catch {
-						groupTransactionCategories.set(tx.id, null);
+						next.set(tx.id, null);
 					}
-				} else if (!tx.categoryId) {
-					groupTransactionCategories.set(tx.id, null);
-				}
-			});
-		}
+				})
+			);
+			if (!cancelled) groupTransactionCategories = next;
+		})();
+
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	// Toggle expansion for grouped transactions

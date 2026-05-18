@@ -13,6 +13,7 @@ import { automationDetector } from '../intelligence/automation-detector';
 import { detectEssentials, type ClassificationCandidate } from '../intelligence/essential-detector';
 import { expandEssentialCandidatesWithSimilarity } from '../intelligence/essential-candidate-similarity';
 import { buildUnclassifiedPatternHints } from '../intelligence/import-pattern-hints';
+import { detectImportSplitCandidates } from './import-split-detect';
 import {
 	mergeDailyMicroInterestTransactions,
 	recalculateBalancesForAccounts
@@ -1155,11 +1156,43 @@ export class MoneyManagerImporter extends BaseImporter {
 			return undefined;
 		}
 
-		const unclassifiedTransactionIds = finalTransactions
+		const splitCandidateMap = detectImportSplitCandidates(finalTransactions);
+		const splitCandidateGroups: Array<{ groupId: string; transactionIds: string[] }> = [];
+		for (const [groupId, memberIds] of splitCandidateMap) {
+			splitCandidateGroups.push({ groupId, transactionIds: memberIds });
+			for (const id of memberIds) {
+				const existing = await db.transactions.get(id);
+				if (!existing) continue;
+				const importQuality: ImportQuality = {
+					...existing.importQuality,
+					splitCandidateGroupId: groupId
+				};
+				await db.transactions.update(id, {
+					importQuality,
+					updatedAt: new Date().toISOString()
+				});
+			}
+		}
+		const splitCandidateSummary =
+			splitCandidateGroups.length > 0
+				? {
+						groupCount: splitCandidateGroups.length,
+						transactionCount: splitCandidateGroups.reduce(
+							(n, g) => n + g.transactionIds.length,
+							0
+						)
+					}
+				: undefined;
+
+		const taggedFinalTransactions = (
+			await Promise.all(this.importedTransactionIds.map((id) => db.transactions.get(id)))
+		).filter((tx): tx is Transaction => !!tx && !tx.deletedAt);
+
+		const unclassifiedTransactionIds = taggedFinalTransactions
 			.filter((tx) => tx.type === 'expense' && !tx.categoryId)
 			.map((tx) => tx.id);
 
-		const expenseForWizard = finalTransactions.filter(
+		const expenseForWizard = taggedFinalTransactions.filter(
 			(tx) => tx.type === 'expense' && tx.status === 'cleared' && !tx.deletedAt
 		);
 		const wizardExpenseTransactionIds = expenseForWizard.map((tx) => tx.id);
@@ -1167,21 +1200,21 @@ export class MoneyManagerImporter extends BaseImporter {
 			expenseForWizard.map((tx) => [tx.id, Math.abs(tx.amount || 0)])
 		);
 
-		const dateValues = finalTransactions
+		const dateValues = taggedFinalTransactions
 			.map((tx) => tx.clearedDate || tx.plannedDate || tx.createdAt)
 			.filter((d): d is string => !!d)
 			.sort();
 
-		const incomeTotal = finalTransactions
+		const incomeTotal = taggedFinalTransactions
 			.filter((tx) => tx.type === 'income')
 			.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-		this.essentialCandidates = detectEssentials(finalTransactions, incomeTotal || 1);
+		this.essentialCandidates = detectEssentials(taggedFinalTransactions, incomeTotal || 1);
 		const expandedEssentials = expandEssentialCandidatesWithSimilarity(
 			this.essentialCandidates,
-			finalTransactions
+			taggedFinalTransactions
 		).sort((a, b) => b.allowanceImpact - a.allowanceImpact);
 
-		const unclassifiedForHints = finalTransactions.filter(
+		const unclassifiedForHints = taggedFinalTransactions.filter(
 			(tx) => tx.type === 'expense' && tx.status === 'cleared' && !tx.categoryId && !tx.deletedAt
 		);
 		const patternHints = buildUnclassifiedPatternHints(unclassifiedForHints);
@@ -1191,7 +1224,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		).filter((a): a is Account => !!a);
 		const passiveHints = detectPassiveBalanceImportHints(
 			accountRows.map((a) => ({ id: a.id, name: a.name, type: a.type })),
-			finalTransactions.map((t) => ({
+			taggedFinalTransactions.map((t) => ({
 				accountId: t.accountId,
 				amount: t.amount,
 				description: t.description
@@ -1202,7 +1235,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		let dateInferred = 0;
 		let amountInferred = 0;
 		let currencyFallback = 0;
-		for (const tx of finalTransactions) {
+		for (const tx of taggedFinalTransactions) {
 			const q = tx.importQuality;
 			if (q?.dateInferred) dateInferred++;
 			if (q?.amountInferred) amountInferred++;
@@ -1210,7 +1243,7 @@ export class MoneyManagerImporter extends BaseImporter {
 			if (!q?.dateInferred && !q?.amountInferred && !q?.currencyFallback) clean++;
 		}
 		const qualitySummary = {
-			total: finalTransactions.length,
+			total: taggedFinalTransactions.length,
 			clean,
 			dateInferred,
 			amountInferred,
@@ -1218,14 +1251,14 @@ export class MoneyManagerImporter extends BaseImporter {
 		};
 
 		return {
-			transactionIds: finalTransactions.map((tx) => tx.id),
+			transactionIds: taggedFinalTransactions.map((tx) => tx.id),
 			unclassifiedTransactionIds,
 			accountIdsAffected: Array.from(this.importedAccountIds),
 			dateRange:
 				dateValues.length > 0
 					? { start: dateValues[0], end: dateValues[dateValues.length - 1] }
 					: undefined,
-			automationSummary: automationDetector.summarize(finalTransactions),
+			automationSummary: automationDetector.summarize(taggedFinalTransactions),
 			essentialCandidates: expandedEssentials.map((candidate) => ({
 				patternKey: candidate.patternKey,
 				suggestedTier: candidate.suggestedTier ?? 'unclassified',
@@ -1240,6 +1273,7 @@ export class MoneyManagerImporter extends BaseImporter {
 			patternHints,
 			wizardExpenseTransactionIds,
 			wizardExpenseAbsByTransactionId,
+			...(splitCandidateSummary ? { splitCandidateSummary, splitCandidateGroups } : {}),
 			...(this.mmUidConflictReport.length > 0 ? { mmUidConflicts: this.mmUidConflictReport } : {})
 		};
 	}

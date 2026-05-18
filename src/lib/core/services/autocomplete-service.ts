@@ -102,6 +102,7 @@ class AutocompleteService {
 		const selectionAggregates = await this.getSelectionAggregates();
 
 		for (const tx of transactions) {
+			if (!tx) continue;
 			if (tx.type === 'transfer') continue;
 			const description = this.normalizeDescription(tx.description);
 			if (!description) continue;
@@ -324,6 +325,7 @@ class AutocompleteService {
 		const amountsByDestination = new Map<string, number[]>();
 
 		for (const tx of transactions) {
+			if (!tx) continue;
 			if (tx.type !== 'transfer') continue;
 			if (tx.accountId !== fromAccountId) continue;
 			const destinationId = tx.transferDetails?.toAccountId ?? tx.toAccountId;
@@ -411,6 +413,7 @@ class AutocompleteService {
 		const dbAggregates = new Map<string, DbAggregate>();
 
 		for (const tx of transactions) {
+			if (!tx) continue;
 			const rawId =
 				fieldKey === 'transaction.account'
 					? tx.accountId
@@ -558,12 +561,15 @@ class AutocompleteService {
 		const snapshotHad = serviceCache.has('transactions:snapshot');
 		const data = await serviceCache.getOrSet(
 			'transactions:snapshot',
-			() => db.transactions.toArray(),
+			async () => {
+				const rows = await db.getActiveTransactions();
+				return rows.filter((tx): tx is Transaction => tx != null && typeof tx.type === 'string');
+			},
 			SNAPSHOT_TTL
 		);
 		if (snapshotHad) recordTxSnapshotCacheHit();
 		else recordTxSnapshotCacheMiss();
-		return data;
+		return data.filter((tx): tx is Transaction => tx != null && typeof tx.type === 'string');
 	}
 
 	private normalizeFrequency(value: number): number {
@@ -665,6 +671,7 @@ class AutocompleteService {
 		const transactions = await this.getTransactionsSnapshot();
 		const amounts: number[] = [];
 		for (const tx of transactions) {
+			if (!tx) continue;
 			if (tx.type === 'transfer') continue;
 			if (tx.status !== 'cleared') continue;
 			const normalized = this.normalizeDescription(tx.description);
@@ -714,6 +721,7 @@ class AutocompleteService {
 		const transactions = await this.getTransactionsSnapshot();
 		const dates: Date[] = [];
 		for (const tx of transactions) {
+			if (!tx) continue;
 			if (tx.type === 'transfer') continue;
 			const normalized = this.normalizeDescription(tx.description);
 			if (!normalized) continue;

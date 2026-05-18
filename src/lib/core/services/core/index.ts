@@ -17,7 +17,11 @@ export { transactionService, type UpdateTransactionOptions } from './transaction
 export { dependencyTrackingService } from './dependency-tracking-service';
 export { reconciliationService } from './reconciliation-service';
 export { dataCorrectionService } from './data-correction-service';
-export { dataQualityService } from './data-quality-service';
+export {
+	dataQualityService,
+	type ImportSplitReviewGroup,
+	type ImportReviewSnapshot
+} from './data-quality-service';
 export { budgetService } from './budget-service';
 export { goalService } from './goal-service';
 export { loanAmortizationService } from './loan-amortization-service';

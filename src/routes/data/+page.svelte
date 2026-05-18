@@ -48,7 +48,13 @@
 	import { devLog } from '$lib/utils/dev-log';
 	import { page } from '$app/stores';
 	import { dataQualityService, dataCorrectionService } from '$lib/core/services';
+	import type { ImportSplitReviewGroup } from '$lib/core/services/core/data-quality-service';
+	import {
+		linkTransactionsAsSplitGroup,
+		dismissSplitCandidateGroup
+	} from '$lib/core/services/import-export';
 	import DataReconciliationTab from '$lib/components/data/DataReconciliationTab.svelte';
+	import ImportSplitReviewCard from '$lib/components/import/ImportSplitReviewCard.svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
 
@@ -59,15 +65,71 @@
 	});
 
 	let reviewQueue = $state<Transaction[]>([]);
+	let splitReviewGroups = $state<ImportSplitReviewGroup[]>([]);
+	let accountNameById = $state<Record<string, string>>({});
 	let correctionsLog = $state<DataCorrection[]>([]);
 	let reviewLoading = $state(false);
+	let splitReviewBusyGroupId = $state<string | null>(null);
+	let reviewRefreshSeq = 0;
 
 	async function refreshReviewQueue() {
+		const seq = ++reviewRefreshSeq;
 		reviewLoading = true;
 		try {
-			reviewQueue = await dataQualityService.getImportReviewQueue();
+			const snapshot = await dataQualityService.getImportReviewSnapshot();
+			if (seq !== reviewRefreshSeq) return;
+
+			reviewQueue = snapshot.qualityQueue;
+			splitReviewGroups = snapshot.splitGroups;
+
+			if (snapshot.splitGroups.length > 0) {
+				const accounts = await accountService.getAccounts();
+				if (seq !== reviewRefreshSeq) return;
+				accountNameById = Object.fromEntries(accounts.map((a) => [a.id, a.name]));
+			} else {
+				accountNameById = {};
+			}
 		} finally {
-			reviewLoading = false;
+			if (seq === reviewRefreshSeq) reviewLoading = false;
+		}
+	}
+
+	function removeSplitGroup(candidateGroupId: string) {
+		splitReviewGroups = splitReviewGroups.filter((g) => g.groupId !== candidateGroupId);
+		if (splitReviewGroups.length === 0) {
+			accountNameById = {};
+		}
+	}
+
+	function removeQualityItem(transactionId: string) {
+		reviewQueue = reviewQueue.filter((t) => t.id !== transactionId);
+	}
+
+	async function confirmSplitGroup(candidateGroupId: string, selectedIds: string[]) {
+		splitReviewBusyGroupId = candidateGroupId;
+		try {
+			await linkTransactionsAsSplitGroup(selectedIds);
+			removeSplitGroup(candidateGroupId);
+			void navigationStore.updateBadges();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not create split';
+			await refreshReviewQueue();
+		} finally {
+			splitReviewBusyGroupId = null;
+		}
+	}
+
+	async function dismissSplitGroup(groupId: string) {
+		splitReviewBusyGroupId = groupId;
+		try {
+			await dismissSplitCandidateGroup(groupId);
+			removeSplitGroup(groupId);
+			void navigationStore.updateBadges();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not dismiss split suggestion';
+			await refreshReviewQueue();
+		} finally {
+			splitReviewBusyGroupId = null;
 		}
 	}
 
@@ -82,23 +144,33 @@
 	});
 
 	async function confirmReviewItem(id: string) {
-		await transactionService.updateTransaction(
-			id,
-			{ importQuality: undefined },
-			{ dataCorrectionSource: 'user' }
-		);
-		await refreshReviewQueue();
-		void navigationStore.updateBadges();
+		try {
+			await transactionService.updateTransaction(
+				id,
+				{ importQuality: undefined },
+				{ dataCorrectionSource: 'user' }
+			);
+			removeQualityItem(id);
+			void navigationStore.updateBadges();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not confirm review item';
+			await refreshReviewQueue();
+		}
 	}
 
 	async function dismissReviewItem(id: string, q: NonNullable<Transaction['importQuality']>) {
-		await transactionService.updateTransaction(
-			id,
-			{ importQuality: { ...q, reviewDismissed: true } },
-			{ dataCorrectionSource: 'user' }
-		);
-		await refreshReviewQueue();
-		void navigationStore.updateBadges();
+		try {
+			await transactionService.updateTransaction(
+				id,
+				{ importQuality: { ...q, reviewDismissed: true } },
+				{ dataCorrectionSource: 'user' }
+			);
+			removeQualityItem(id);
+			void navigationStore.updateBadges();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Could not dismiss review item';
+			await refreshReviewQueue();
+		}
 	}
 
 	// State
@@ -1137,6 +1209,12 @@
 									<li>Date inferred: {qs.dateInferred}</li>
 									<li>Amount inferred / zero fallback: {qs.amountInferred}</li>
 									<li>Currency fallback: {qs.currencyFallback}</li>
+									{#if mmResult.importBatch?.splitCandidateSummary}
+										<li>
+											Possible splits: {mmResult.importBatch.splitCandidateSummary.groupCount} group(s),
+											{mmResult.importBatch.splitCandidateSummary.transactionCount} transaction(s)
+										</li>
+									{/if}
 								</ul>
 								<a
 									href="/data?tab=review"
@@ -1224,15 +1302,39 @@
 					</div>
 				</div>
 			{:else if dataTab === 'review'}
-				<div class="space-y-4">
+				<div class="space-y-6">
 					{#if reviewLoading}
 						<p class="text-sm text-[var(--color-text-tertiary)]">Loading…</p>
-					{:else if reviewQueue.length === 0}
+					{:else if splitReviewGroups.length === 0 && reviewQueue.length === 0}
 						<p class="text-sm text-[var(--color-text-tertiary)]">
 							No transactions need import review.
 						</p>
 					{:else}
-						<ul class="space-y-3">
+						{#if splitReviewGroups.length > 0}
+							<section class="space-y-3">
+								<h3 class="text-sm font-semibold text-[var(--color-text-primary)]">
+									Possible splits ({splitReviewGroups.length})
+								</h3>
+								<ul class="space-y-3">
+									{#each splitReviewGroups as group (group.groupId)}
+										<ImportSplitReviewCard
+											{group}
+											accountName={accountNameById[group.transactions[0]?.accountId ?? '']}
+											busy={splitReviewBusyGroupId !== null}
+											onconfirm={(ids) => confirmSplitGroup(group.groupId, ids)}
+											ondismiss={() => dismissSplitGroup(group.groupId)}
+										/>
+									{/each}
+								</ul>
+							</section>
+						{/if}
+
+						{#if reviewQueue.length > 0}
+							<section class="space-y-3">
+								<h3 class="text-sm font-semibold text-[var(--color-text-primary)]">
+									Import quality flags ({reviewQueue.length})
+								</h3>
+								<ul class="space-y-3">
 							{#each reviewQueue as tx (tx.id)}
 								<li class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-3">
 									<p class="text-sm font-medium text-[var(--color-text-primary)]">
@@ -1269,7 +1371,9 @@
 									</div>
 								</li>
 							{/each}
-						</ul>
+								</ul>
+							</section>
+						{/if}
 					{/if}
 				</div>
 			{:else if dataTab === 'reconcile'}

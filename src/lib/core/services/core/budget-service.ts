@@ -25,6 +25,13 @@ function worseFxConversion(a: FxConversionQuality, b: FxConversionQuality): FxCo
 	return r[a] >= r[b] ? a : b;
 }
 
+/** Dexie tables can occasionally yield sparse/invalid rows; never pass those into analytics loops. */
+function compactTransactions(transactions: (Transaction | null | undefined)[]): Transaction[] {
+	return transactions.filter(
+		(tx): tx is Transaction => tx != null && typeof tx.type === 'string'
+	);
+}
+
 /** Start of window for spent vs budget (category-level). */
 export function getCategoryBudgetPeriodStart(
 	now: Date,
@@ -164,7 +171,7 @@ class BudgetService {
 	 */
 	async getBudgetSummary(): Promise<BudgetSummary> {
 		const categories = await db.getActiveCategories();
-		const transactions = await db.transactions.toArray();
+		const transactions = compactTransactions(await db.getActiveTransactions());
 		const accounts = await db.getActiveAccounts();
 		const prefs = await db.userPreferences.toCollection().first();
 		const reimbursementAllowanceMode =
@@ -325,7 +332,7 @@ class BudgetService {
 			return null;
 		}
 
-		const transactions = await db.transactions.toArray();
+		const transactions = compactTransactions(await db.getActiveTransactions());
 		const prefs = await db.userPreferences.toCollection().first();
 		const mainCurrency = prefs?.currency ?? 'USD';
 		const reimbursementAllowanceMode =
@@ -359,7 +366,7 @@ class BudgetService {
 
 	async getCategoryUsage(): Promise<Map<string, CategoryUsage>> {
 		const categories = await db.getActiveCategories();
-		const transactions = await db.transactions.toArray();
+		const transactions = compactTransactions(await db.getActiveTransactions());
 		const accounts = await db.getActiveAccounts();
 		const prefs = await db.userPreferences.toCollection().first();
 		const mainCurrency = prefs?.currency ?? 'USD';
@@ -418,7 +425,7 @@ class BudgetService {
 		}[]
 	> {
 		const categories = await db.getActiveCategories();
-		const transactions = await db.transactions.toArray();
+		const transactions = compactTransactions(await db.getActiveTransactions());
 		const recommendations: {
 			categoryId: string;
 			categoryName: string;
@@ -591,7 +598,7 @@ class BudgetService {
 		const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
 		const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 		const categories = await db.getActiveCategories();
-		const transactions = await db.transactions.toArray();
+		const transactions = compactTransactions(await db.getActiveTransactions());
 		const accounts = await db.getActiveAccounts();
 		const prefs = await db.userPreferences.toCollection().first();
 		const reimbursementAllowanceMode =
@@ -874,9 +881,9 @@ class BudgetService {
 			updatedAt: new Date().toISOString()
 		});
 
-		const txs = await db.transactions.toArray();
+		const txs = compactTransactions(await db.getActiveTransactions());
 		for (const tx of txs) {
-			if (tx.debtGroupId === debtGroupId && tx.status === 'planned' && !tx.deletedAt) {
+			if (tx.debtGroupId === debtGroupId && tx.status === 'planned') {
 				await db.transactions.update(tx.id, {
 					acknowledgedDebtPeriod: true,
 					updatedAt: new Date().toISOString()
@@ -1041,12 +1048,15 @@ class BudgetService {
 		transactions: Transaction[],
 		accounts: Array<{ id: string; type: string }>
 	): Set<string> {
-		const creditIds = new Set(accounts.filter((a) => a.type === 'credit').map((a) => a.id));
+		const creditIds = new Set(
+			accounts.filter((a) => a?.type === 'credit').map((a) => a.id)
+		);
 		const result = new Set<string>();
 		if (creditIds.size === 0) return result;
 
+		const txs = compactTransactions(transactions);
 		const expensesByCredit = new Map<string, Transaction[]>();
-		for (const tx of transactions) {
+		for (const tx of txs) {
 			if (
 				tx.type === 'expense' &&
 				tx.status === 'cleared' &&
@@ -1059,7 +1069,7 @@ class BudgetService {
 			}
 		}
 
-		for (const tx of transactions) {
+		for (const tx of txs) {
 			if (tx.type !== 'transfer' || tx.status !== 'cleared') continue;
 			const targetId = tx.transferDetails?.toAccountId ?? tx.toAccountId;
 			if (!targetId || !creditIds.has(targetId)) continue;

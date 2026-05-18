@@ -14,8 +14,8 @@ vi.mock('$lib/core/db', async () => {
 		db: {
 			getActiveCategories: vi.fn(),
 			getActiveAccounts: vi.fn(),
+			getActiveTransactions: vi.fn(),
 			transactions: {
-				toArray: vi.fn(),
 				update: vi.fn()
 			},
 			userPreferences: {
@@ -29,6 +29,39 @@ vi.mock('$lib/core/db', async () => {
 });
 
 import { db } from '$lib/core/db';
+
+describe('budgetService detectCreditPaymentTransfers', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.mocked(db.getActiveCategories).mockResolvedValue([]);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([
+			{ id: 'credit-1', type: 'credit' }
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi.fn().mockResolvedValue({ currency: 'USD' })
+		} as any);
+	});
+
+	it('ignores null/undefined entries in transaction list', async () => {
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([
+			undefined,
+			{
+				id: 'tx-1',
+				type: 'expense',
+				status: 'cleared',
+				amount: -50,
+				accountId: 'credit-1',
+				clearedDate: '2026-04-01T00:00:00.000Z',
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString(),
+				deletedAt: null
+			},
+			null
+		] as any);
+
+		await expect(budgetService.getBudgetSummary()).resolves.toBeDefined();
+	});
+});
 
 describe('budgetService reimbursement allowance mode', () => {
 	beforeEach(() => {
@@ -48,7 +81,7 @@ describe('budgetService reimbursement allowance mode', () => {
 	});
 
 	it('uses full expense in conservative mode', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([
 			{
 				id: 'tx-1',
 				type: 'expense',
@@ -88,7 +121,7 @@ describe('budgetService reimbursement allowance mode', () => {
 	});
 
 	it('nets open lending reimbursements in optimistic mode', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([
 			{
 				id: 'tx-1',
 				type: 'expense',
@@ -128,7 +161,7 @@ describe('budgetService reimbursement allowance mode', () => {
 	});
 
 	it('does not double count matched transfer to credit account', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([
 			{
 				id: 'exp-1',
 				type: 'expense',
@@ -214,7 +247,7 @@ describe('budgetService.getAllowanceProjection', () => {
 	});
 
 	it('counts planned expenses in planned layer but not committed', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([
 			{
 				id: 'inc-1',
 				type: 'income',
@@ -269,7 +302,7 @@ describe('budgetService.getAllowanceProjection', () => {
 	});
 
 	it('applies recovery deduction when debt recovery is active', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([
 			{
 				id: 'inc-1',
 				type: 'income',
@@ -310,7 +343,7 @@ describe('budgetService.getAllowanceProjection', () => {
 	});
 
 	it('adds passive savings accrual to periodIncome when includeAccruedInNetWorth is on', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([] as any);
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([] as any);
 		vi.mocked(db.getActiveAccounts).mockResolvedValue([
 			{ id: 'checking-1', type: 'checking' },
 			{
@@ -345,7 +378,7 @@ describe('budgetService.getAllowanceProjection', () => {
 	});
 
 	it('does not add passive accrual when includeAccruedInNetWorth is off', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([] as any);
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([] as any);
 		vi.mocked(db.getActiveAccounts).mockResolvedValue([
 			{ id: 'checking-1', type: 'checking' },
 			{
@@ -380,7 +413,7 @@ describe('budgetService.getAllowanceProjection', () => {
 	});
 
 	it('subtracts booked interest-income from passive accrual for the same savings account', async () => {
-		vi.mocked(db.transactions.toArray).mockResolvedValue([
+		vi.mocked(db.getActiveTransactions).mockResolvedValue([
 			{
 				id: 'int-1',
 				type: 'income',

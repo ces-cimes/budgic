@@ -39,6 +39,7 @@
 		type SplitExtra
 	} from '$lib/utils/soft-split-extras';
 	import { devLog } from '$lib/utils/dev-log';
+	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import * as Form from '$lib/components/ui/form/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
@@ -237,6 +238,9 @@
 	let recurrenceRule = $state('');
 	let isGroupTransaction = $state(false);
 	let groupName = $state('');
+	/** Hard-split siblings when editing one member of a group */
+	let linkedGroupMembers = $state<Transaction[]>([]);
+	let linkedGroupId = $state<string | null>(null);
 	let isLoading = $state(false);
 	let error = $state('');
 
@@ -823,8 +827,16 @@
 						: '';
 					isRecurring = !!transaction.recurrenceRule;
 					recurrenceRule = transaction.recurrenceRule || '';
-					isGroupTransaction = !!transaction.groupName;
+					isGroupTransaction = Boolean(transaction.groupId || transaction.groupName);
 					groupName = transaction.groupName || '';
+					linkedGroupId = transaction.groupId ?? null;
+					if (transaction.groupId) {
+						linkedGroupMembers = (await transactionService.getGroupTransactions(transaction.groupId))
+							.filter((t) => !t.deletedAt)
+							.sort((a, b) => Math.abs(b.amount ?? 0) - Math.abs(a.amount ?? 0));
+					} else {
+						linkedGroupMembers = [];
+					}
 					priority = transaction.priority;
 					priorityString = transaction.priority?.toString() || '';
 					directionalConstraint = transaction.directionalConstraint || undefined;
@@ -885,6 +897,7 @@
 			let settledByThisIncome: SettlementTarget | null = null;
 
 			for (const tx of allTransactions) {
+				if (!tx) continue;
 				for (const reimbursement of tx.reimbursements || []) {
 					const person = reimbursement.person?.trim();
 					if (person) personValues.add(person);
@@ -2543,12 +2556,60 @@
 				{/if}
 			</div>
 
+			{#if linkedGroupMembers.length > 1}
+				<div
+					class="border-border space-y-3 rounded-xl border bg-[var(--color-bg-tertiary)] p-4 md:col-span-2"
+				>
+					<p class="text-sm font-medium text-[var(--color-text-primary)]">
+						Split group ({linkedGroupMembers.length} parts)
+					</p>
+					<p class="text-xs text-[var(--color-text-tertiary)]">
+						This row is one part of a linked split. Edit each part below or change the shared group name
+						in Advanced.
+					</p>
+					<ul class="space-y-2">
+						{#each linkedGroupMembers as member (member.id)}
+							{@const memberCategory = categories.find((c) => c.id === member.categoryId)}
+							{@const isCurrent = member.id === transaction?.id}
+							<li
+								class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2"
+							>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm text-[var(--color-text-primary)]">
+										{member.description || 'No description'}
+										{#if isCurrent}
+											<span class="ml-1 text-xs text-[var(--color-amber)]">(this row)</span>
+										{/if}
+									</p>
+									<p class="text-xs text-[var(--color-text-tertiary)]">
+										{memberCategory?.name ?? 'Uncategorized'}
+									</p>
+								</div>
+								<div class="flex items-center gap-2">
+									<span class="text-sm font-medium tabular-nums">
+										{formatTransactionAmount(member.amount, member.currency, true)}
+									</span>
+									{#if !isCurrent}
+										<a
+											href="/transactions/add/{member.id}"
+											class="text-xs font-medium text-[var(--color-amber)] underline-offset-2 hover:underline"
+										>
+											Edit part
+										</a>
+									{/if}
+								</div>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+
 			<!-- ── Advanced ── -->
 			<AdvancedOptionsSection>
 				<Label.Root for="group" class="text-right md:flex-shrink-0">Group</Label.Root>
 				<div class="flex-1 space-y-2">
 					<div class="flex items-center space-x-2">
-						<Switch.Root bind:checked={isGroupTransaction} />
+						<Switch.Root bind:checked={isGroupTransaction} disabled={linkedGroupMembers.length > 1} />
 						<Label.Root for="group" class="font-normal">Grouped transaction</Label.Root>
 					</div>
 					{#if isGroupTransaction}

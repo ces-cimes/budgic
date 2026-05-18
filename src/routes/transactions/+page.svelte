@@ -532,7 +532,18 @@
 
 	// Handle transaction click (single tx or grouped row)
 	function handleTransactionClick(transaction: Transaction | any) {
-		const transactionId = transaction.id || transaction.groupId;
+		if (transaction?.isGroup && Array.isArray(transaction.transactions) && transaction.transactions.length > 0) {
+			const members = transaction.transactions.filter(
+				(t: Transaction | undefined): t is Transaction => !!t?.id
+			);
+			if (members.length === 0) return;
+			const master = members.reduce((best, t) =>
+				Math.abs(t.amount ?? 0) >= Math.abs(best.amount ?? 0) ? t : best
+			);
+			goto(`/transactions/add/${master.id}`);
+			return;
+		}
+		const transactionId = transaction?.id;
 		if (!transactionId) return;
 		goto(`/transactions/add/${transactionId}`);
 	}

@@ -149,6 +149,9 @@ export interface ImportResult {
 		wizardExpenseAbsByTransactionId?: Record<string, number>;
 		/** When `includeMmUidConflictReport` — merge/replace UID matches with import-owned field diffs */
 		mmUidConflicts?: MmUidConflictReportEntry[];
+		/** Post-import split candidate groups (same account, ~10 min, similar desc/cat) */
+		splitCandidateSummary?: { groupCount: number; transactionCount: number };
+		splitCandidateGroups?: Array<{ groupId: string; transactionIds: string[] }>;
 	};
 }
 

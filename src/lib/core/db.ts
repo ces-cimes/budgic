@@ -1146,7 +1146,9 @@ const ImportQualitySchema = z.object({
 	dateInferred: z.boolean().optional(),
 	currencyFallback: z.boolean().optional(),
 	/** User dismissed row from import review queue without clearing flags */
-	reviewDismissed: z.boolean().optional()
+	reviewDismissed: z.boolean().optional(),
+	/** Shared id linking import-time split candidates for post-import review */
+	splitCandidateGroupId: z.string().optional()
 });
 
 /** Append-only audit trail for programmatic or explicit user corrections (Milestone E) */
@@ -3696,7 +3698,10 @@ export class BudgicDB extends Dexie {
 
 	// Transaction queries
 	async getActiveTransactions(): Promise<Transaction[]> {
-		return await this.transactions.filter((transaction) => !transaction.deletedAt).toArray();
+		const rows = await this.transactions
+			.filter((transaction) => transaction && !transaction.deletedAt)
+			.toArray();
+		return rows.filter((transaction): transaction is Transaction => transaction != null);
 	}
 
 	async getTransactionsByStatus(status: Transaction['status']): Promise<Transaction[]> {
