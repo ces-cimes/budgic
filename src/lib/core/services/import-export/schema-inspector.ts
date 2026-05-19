@@ -8,7 +8,12 @@
 import type { CSVFile, DetectedSchema, TableSchema } from './types';
 
 /** Required tables for Money Manager import */
-export const MONEY_MANAGER_REQUIRED_TABLES = ['ASSETS', 'ZCATEGORY', 'INOUTCOME', 'CURRENCY'] as const;
+export const MONEY_MANAGER_REQUIRED_TABLES = [
+	'ASSETS',
+	'ZCATEGORY',
+	'INOUTCOME',
+	'CURRENCY'
+] as const;
 
 /** Optional tables for Money Manager import */
 export const MONEY_MANAGER_OPTIONAL_TABLES = [

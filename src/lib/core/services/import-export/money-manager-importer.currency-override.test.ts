@@ -117,7 +117,10 @@ vi.mock('../intelligence/automation-detector', () => ({
 }));
 
 vi.mock('../intelligence/interest-daily-merge', () => ({
-	mergeDailyMicroInterestTransactions: vi.fn(async () => ({ removedIds: [], touchedAccountIds: [] })),
+	mergeDailyMicroInterestTransactions: vi.fn(async () => ({
+		removedIds: [],
+		touchedAccountIds: []
+	})),
 	recalculateBalancesForAccounts: vi.fn(async () => {})
 }));
 
@@ -143,7 +146,10 @@ vi.mock('./base-importer', async (importOriginal) => {
 
 vi.mock('$lib/utils/category-utils', () => ({
 	getOrCreateUncategorizedCategory: vi.fn(async () => ({ id: 'uncat-exp', name: 'Uncategorized' })),
-	getOrCreateUncategorizedIncomeCategory: vi.fn(async () => ({ id: 'uncat-inc', name: 'Uncategorized income' }))
+	getOrCreateUncategorizedIncomeCategory: vi.fn(async () => ({
+		id: 'uncat-inc',
+		name: 'Uncategorized income'
+	}))
 }));
 
 import { MoneyManagerImporter } from './money-manager-importer';
@@ -165,32 +171,40 @@ describe('MoneyManagerImporter mmCurrencyUidToBudgicCurrencyId', () => {
 			['CURRENCY', csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [])],
 			[
 				'ASSETS',
-				csv('ASSETS', ['uid', 'ID', 'NIC_NAME', 'currencyUid', 'ZDATA', 'A_UTIME', 'IS_DEL'], [
-					{
-						uid: 'acc-mm-1',
-						ID: 'acc-mm-1',
-						NIC_NAME: 'Cash',
-						currencyUid: 'WEIRD_MM_UID',
-						ZDATA: '1',
-						A_UTIME: '1609459200000',
-						IS_DEL: '0'
-					}
-				])
+				csv(
+					'ASSETS',
+					['uid', 'ID', 'NIC_NAME', 'currencyUid', 'ZDATA', 'A_UTIME', 'IS_DEL'],
+					[
+						{
+							uid: 'acc-mm-1',
+							ID: 'acc-mm-1',
+							NIC_NAME: 'Cash',
+							currencyUid: 'WEIRD_MM_UID',
+							ZDATA: '1',
+							A_UTIME: '1609459200000',
+							IS_DEL: '0'
+						}
+					]
+				)
 			],
 			[
 				'ZCATEGORY',
-				csv('ZCATEGORY', ['uid', 'ID', 'NAME', 'TYPE', 'STATUS', 'C_UTIME', 'C_IS_DEL', 'ORDERSEQ'], [
-					{
-						uid: 'ctg-mm-1',
-						ID: 'ctg-mm-1',
-						NAME: 'Food',
-						TYPE: '1',
-						STATUS: '0',
-						C_UTIME: '1609459200000',
-						C_IS_DEL: '0',
-						ORDERSEQ: '1'
-					}
-				])
+				csv(
+					'ZCATEGORY',
+					['uid', 'ID', 'NAME', 'TYPE', 'STATUS', 'C_UTIME', 'C_IS_DEL', 'ORDERSEQ'],
+					[
+						{
+							uid: 'ctg-mm-1',
+							ID: 'ctg-mm-1',
+							NAME: 'Food',
+							TYPE: '1',
+							STATUS: '0',
+							C_UTIME: '1609459200000',
+							C_IS_DEL: '0',
+							ORDERSEQ: '1'
+						}
+					]
+				)
 			],
 			[
 				'INOUTCOME',
@@ -263,17 +277,21 @@ describe('MoneyManagerImporter mmAccountUidToBudgicType', () => {
 			['CURRENCY', csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [])],
 			[
 				'ASSETS',
-				csv('ASSETS', ['uid', 'ID', 'NIC_NAME', 'currencyUid', 'ZDATA', 'A_UTIME', 'IS_DEL'], [
-					{
-						uid: 'acc-mm-1',
-						ID: 'acc-mm-1',
-						NIC_NAME: 'Main',
-						currencyUid: 'USD_USD',
-						ZDATA: '1',
-						A_UTIME: '1609459200000',
-						IS_DEL: '0'
-					}
-				])
+				csv(
+					'ASSETS',
+					['uid', 'ID', 'NIC_NAME', 'currencyUid', 'ZDATA', 'A_UTIME', 'IS_DEL'],
+					[
+						{
+							uid: 'acc-mm-1',
+							ID: 'acc-mm-1',
+							NIC_NAME: 'Main',
+							currencyUid: 'USD_USD',
+							ZDATA: '1',
+							A_UTIME: '1609459200000',
+							IS_DEL: '0'
+						}
+					]
+				)
 			],
 			['ZCATEGORY', csv('ZCATEGORY', ['uid', 'NAME', 'TYPE', 'C_IS_DEL'], [])],
 			['INOUTCOME', csv('INOUTCOME', ['uid', 'IS_DEL'], [])]

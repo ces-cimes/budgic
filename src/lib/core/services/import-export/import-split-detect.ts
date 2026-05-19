@@ -63,9 +63,7 @@ function bucketKey(tx: Transaction): string {
  * Detect groups of transactions likely to be splits from the same receipt.
  * Returns groupId → member transaction ids (each tx in at most one group).
  */
-export function detectImportSplitCandidates(
-	transactions: Transaction[]
-): Map<string, string[]> {
+export function detectImportSplitCandidates(transactions: Transaction[]): Map<string, string[]> {
 	const eligible = transactions.filter(isEligibleForSplitDetection);
 	const buckets = new Map<string, Transaction[]>();
 
@@ -123,12 +121,8 @@ export function detectImportSplitCandidates(
 		const componentList = [...components.values()]
 			.filter((ids) => ids.length >= 2)
 			.sort((a, b) => {
-				const ta = getRelevantTimestampMs(
-					sorted.find((t) => t.id === a[0])!
-				)!;
-				const tb = getRelevantTimestampMs(
-					sorted.find((t) => t.id === b[0])!
-				)!;
+				const ta = getRelevantTimestampMs(sorted.find((t) => t.id === a[0])!)!;
+				const tb = getRelevantTimestampMs(sorted.find((t) => t.id === b[0])!)!;
 				return ta - tb;
 			});
 

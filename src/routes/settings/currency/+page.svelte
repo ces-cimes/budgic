@@ -1872,8 +1872,7 @@
 											<CalcExpressionInput
 												id="savings-buffer-drawer"
 												value={Number(getValue(currency.code, 'defaultSavingsBuffer')) || 0}
-												onValueChange={(n) =>
-													updateValue(currency.code, 'defaultSavingsBuffer', n)}
+												onValueChange={(n) => updateValue(currency.code, 'defaultSavingsBuffer', n)}
 												decimalPlaces={2}
 												min={0}
 											/>

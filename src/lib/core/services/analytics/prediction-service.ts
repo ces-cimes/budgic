@@ -147,139 +147,139 @@ class PredictionService {
 		months: number = 1
 	): Promise<SpendingForecast[]> {
 		return performanceMonitor.monitor('PredictionService', 'predictSpending', async () => {
-		const snapshotHad = serviceCache.has('transactions:snapshot');
-		const transactions = await serviceCache.getOrSet(
-			'transactions:snapshot',
-			() => db.transactions.toArray(),
-			SNAPSHOT_TTL
-		);
-		if (snapshotHad) recordTxSnapshotCacheHit();
-		else recordTxSnapshotCacheMiss();
-		const categories = await db.getActiveCategories();
-		const preferences = await userService.getUserPreferences();
-		const mainCurrency = preferences?.currency || 'USD';
+			const snapshotHad = serviceCache.has('transactions:snapshot');
+			const transactions = await serviceCache.getOrSet(
+				'transactions:snapshot',
+				() => db.transactions.toArray(),
+				SNAPSHOT_TTL
+			);
+			if (snapshotHad) recordTxSnapshotCacheHit();
+			else recordTxSnapshotCacheMiss();
+			const categories = await db.getActiveCategories();
+			const preferences = await userService.getUserPreferences();
+			const mainCurrency = preferences?.currency || 'USD';
 
-		// Filter transactions
-		const cutoffDate = new Date();
-		cutoffDate.setMonth(cutoffDate.getMonth() - 12); // Use last 12 months
+			// Filter transactions
+			const cutoffDate = new Date();
+			cutoffDate.setMonth(cutoffDate.getMonth() - 12); // Use last 12 months
 
-		let relevantTransactions = transactions.filter(
-			(tx) =>
-				tx.type === 'expense' &&
-				tx.status === 'cleared' &&
-				tx.clearedDate &&
-				new Date(tx.clearedDate) >= cutoffDate &&
-				(!categoryId || tx.categoryId === categoryId) &&
-				// Ensure transaction has a valid amount
-				tx.amount !== null &&
-				tx.amount !== undefined &&
-				!isNaN(tx.amount) &&
-				Math.abs(tx.amount) > 0
-		);
+			let relevantTransactions = transactions.filter(
+				(tx) =>
+					tx.type === 'expense' &&
+					tx.status === 'cleared' &&
+					tx.clearedDate &&
+					new Date(tx.clearedDate) >= cutoffDate &&
+					(!categoryId || tx.categoryId === categoryId) &&
+					// Ensure transaction has a valid amount
+					tx.amount !== null &&
+					tx.amount !== undefined &&
+					!isNaN(tx.amount) &&
+					Math.abs(tx.amount) > 0
+			);
 
-		// Handle split transactions: if we have grouped transactions, we should use the total
-		// For now, we'll include all transactions (split parts are fine as they represent actual spending)
-		// But we'll log if we detect potential double-counting
-		const groupIds = new Set<string>();
-		const transactionsByGroup = new Map<string, Transaction[]>();
-		for (const tx of relevantTransactions) {
-			if (tx.groupId) {
-				if (!transactionsByGroup.has(tx.groupId)) {
-					transactionsByGroup.set(tx.groupId, []);
+			// Handle split transactions: if we have grouped transactions, we should use the total
+			// For now, we'll include all transactions (split parts are fine as they represent actual spending)
+			// But we'll log if we detect potential double-counting
+			const groupIds = new Set<string>();
+			const transactionsByGroup = new Map<string, Transaction[]>();
+			for (const tx of relevantTransactions) {
+				if (tx.groupId) {
+					if (!transactionsByGroup.has(tx.groupId)) {
+						transactionsByGroup.set(tx.groupId, []);
+					}
+					transactionsByGroup.get(tx.groupId)!.push(tx);
 				}
-				transactionsByGroup.get(tx.groupId)!.push(tx);
 			}
-		}
 
-		// Log if we find split transactions (for debugging)
-		if (transactionsByGroup.size > 0) {
+			// Log if we find split transactions (for debugging)
+			if (transactionsByGroup.size > 0) {
+				devLog(
+					`[PredictionService] Found ${transactionsByGroup.size} transaction groups ` +
+						`with ${relevantTransactions.filter((tx) => tx.groupId).length} split transactions`
+				);
+			}
+
+			// Debug: Log filtering results
+			const totalBeforeConversion = relevantTransactions.reduce(
+				(sum, tx) => sum + Math.abs(tx.amount || 0),
+				0
+			);
 			devLog(
-				`[PredictionService] Found ${transactionsByGroup.size} transaction groups ` +
-					`with ${relevantTransactions.filter((tx) => tx.groupId).length} split transactions`
+				`[PredictionService] Filtered ${relevantTransactions.length} transactions ` +
+					`(total: ${totalBeforeConversion.toFixed(2)}) for prediction${categoryId ? ` (category: ${categoryId})` : ''}`
 			);
-		}
 
-		// Debug: Log filtering results
-		const totalBeforeConversion = relevantTransactions.reduce(
-			(sum, tx) => sum + Math.abs(tx.amount || 0),
-			0
-		);
-		devLog(
-			`[PredictionService] Filtered ${relevantTransactions.length} transactions ` +
-				`(total: ${totalBeforeConversion.toFixed(2)}) for prediction${categoryId ? ` (category: ${categoryId})` : ''}`
-		);
-
-		// Convert to main currency
-		relevantTransactions = await this.convertTransactionsToMainCurrency(
-			relevantTransactions,
-			mainCurrency
-		);
-
-		// Debug: Log after conversion
-		const totalAfterConversion = relevantTransactions.reduce(
-			(sum, tx) => sum + Math.abs(tx.amount || 0),
-			0
-		);
-		if (
-			Math.abs(totalBeforeConversion - totalAfterConversion) > 0.01 &&
-			totalBeforeConversion > 0
-		) {
-			devWarn(
-				`[PredictionService] Currency conversion changed total: ` +
-					`${totalBeforeConversion.toFixed(2)} -> ${totalAfterConversion.toFixed(2)}. ` +
-					`This is expected if transactions are in different currencies.`
-			);
-		}
-
-		if (relevantTransactions.length < 10) {
-			// Not enough data
-			devLog(
-				`[PredictionService] Not enough transactions (${relevantTransactions.length} < 10) for prediction`
-			);
-			return [];
-		}
-
-		const forecasts: SpendingForecast[] = [];
-
-		if (categoryId) {
-			// Single category prediction
-			const category = categories.find((c) => c.id === categoryId);
-			const forecast = await this.predictCategorySpending(
+			// Convert to main currency
+			relevantTransactions = await this.convertTransactionsToMainCurrency(
 				relevantTransactions,
-				category?.name || 'Category',
-				months,
 				mainCurrency
 			);
-			if (forecast) forecasts.push(forecast);
-		} else {
-			// Predict for all categories
-			const categorySpending = new Map<string, Transaction[]>();
-			for (const tx of relevantTransactions) {
-				if (tx.categoryId) {
-					const existing = categorySpending.get(tx.categoryId) || [];
-					existing.push(tx);
-					categorySpending.set(tx.categoryId, existing);
-				}
+
+			// Debug: Log after conversion
+			const totalAfterConversion = relevantTransactions.reduce(
+				(sum, tx) => sum + Math.abs(tx.amount || 0),
+				0
+			);
+			if (
+				Math.abs(totalBeforeConversion - totalAfterConversion) > 0.01 &&
+				totalBeforeConversion > 0
+			) {
+				devWarn(
+					`[PredictionService] Currency conversion changed total: ` +
+						`${totalBeforeConversion.toFixed(2)} -> ${totalAfterConversion.toFixed(2)}. ` +
+						`This is expected if transactions are in different currencies.`
+				);
 			}
 
-			for (const [catId, catTransactions] of categorySpending.entries()) {
-				if (catTransactions.length >= 5) {
-					const category = categories.find((c) => c.id === catId);
-					const forecast = await this.predictCategorySpending(
-						catTransactions,
-						category?.name || 'Category',
-						months,
-						mainCurrency
-					);
-					if (forecast) {
-						forecast.categoryId = catId;
-						forecasts.push(forecast);
+			if (relevantTransactions.length < 10) {
+				// Not enough data
+				devLog(
+					`[PredictionService] Not enough transactions (${relevantTransactions.length} < 10) for prediction`
+				);
+				return [];
+			}
+
+			const forecasts: SpendingForecast[] = [];
+
+			if (categoryId) {
+				// Single category prediction
+				const category = categories.find((c) => c.id === categoryId);
+				const forecast = await this.predictCategorySpending(
+					relevantTransactions,
+					category?.name || 'Category',
+					months,
+					mainCurrency
+				);
+				if (forecast) forecasts.push(forecast);
+			} else {
+				// Predict for all categories
+				const categorySpending = new Map<string, Transaction[]>();
+				for (const tx of relevantTransactions) {
+					if (tx.categoryId) {
+						const existing = categorySpending.get(tx.categoryId) || [];
+						existing.push(tx);
+						categorySpending.set(tx.categoryId, existing);
+					}
+				}
+
+				for (const [catId, catTransactions] of categorySpending.entries()) {
+					if (catTransactions.length >= 5) {
+						const category = categories.find((c) => c.id === catId);
+						const forecast = await this.predictCategorySpending(
+							catTransactions,
+							category?.name || 'Category',
+							months,
+							mainCurrency
+						);
+						if (forecast) {
+							forecast.categoryId = catId;
+							forecasts.push(forecast);
+						}
 					}
 				}
 			}
-		}
 
-		return forecasts;
+			return forecasts;
 		}); // end performanceMonitor.monitor
 	}
 

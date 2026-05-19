@@ -34,9 +34,7 @@ describe('budgetService detectCreditPaymentTransfers', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.mocked(db.getActiveCategories).mockResolvedValue([]);
-		vi.mocked(db.getActiveAccounts).mockResolvedValue([
-			{ id: 'credit-1', type: 'credit' }
-		] as any);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([{ id: 'credit-1', type: 'credit' }] as any);
 		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
 			first: vi.fn().mockResolvedValue({ currency: 'USD' })
 		} as any);

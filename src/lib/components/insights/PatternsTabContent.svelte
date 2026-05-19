@@ -278,7 +278,8 @@
 				rawType === 'expense' || rawType === 'income' || rawType === 'transfer'
 					? rawType
 					: undefined;
-			const approxPrefix = p.patternType === 'approximate' || p.patternType === 'seasonal' ? '~' : '';
+			const approxPrefix =
+				p.patternType === 'approximate' || p.patternType === 'seasonal' ? '~' : '';
 			rows.push({
 				patternId: p.id,
 				description: p.metadata?.notes || p.descriptionPattern || 'Recurring',
@@ -532,10 +533,7 @@
 				let context: string | undefined;
 				if (matchingPattern && matchingPattern.averageAmount > 0) {
 					const ratio = Math.abs(rawAmount) / matchingPattern.averageAmount;
-					const typical = formatAmount(
-						matchingPattern.averageAmount,
-						tx?.currency ?? userCurrency
-					);
+					const typical = formatAmount(matchingPattern.averageAmount, tx?.currency ?? userCurrency);
 					context = `${ratio.toFixed(1)}× your typical ${typical}`;
 				}
 
@@ -746,23 +744,27 @@
 				</section>
 			{/if}
 
-		<!-- 2. Recurring (transaction-like cards) -->
-		<section>
-			<h2
-				class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-			>
-				Recurring
-			</h2>
-			{#if loadingPatterns && recurringList.length === 0}
-				<div class="h-10 animate-pulse rounded-lg bg-[var(--color-bg-tertiary)]"></div>
-			{:else if recurringList.length === 0}
-				<p class="text-muted-foreground text-sm">No recurring transactions detected yet.</p>
+			<!-- 2. Recurring (transaction-like cards) -->
+			<section>
+				<h2
+					class="mb-2 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+				>
+					Recurring
+				</h2>
+				{#if loadingPatterns && recurringList.length === 0}
+					<div class="h-10 animate-pulse rounded-lg bg-[var(--color-bg-tertiary)]"></div>
+				{:else if recurringList.length === 0}
+					<p class="text-muted-foreground text-sm">No recurring transactions detected yet.</p>
 				{:else}
 					<ul class="space-y-2">
 						{#each recurringList as item}
 							{@const isUnassigned = item.waterfallTier === undefined}
 							{@const dotN = recurringConfidenceDotCount(item)}
-							<li class="bg-card rounded-xl border-2 {isUnassigned ? 'border-amber-400/40 dark:border-amber-500/30' : 'border-border'}">
+							<li
+								class="bg-card rounded-xl border-2 {isUnassigned
+									? 'border-amber-400/40 dark:border-amber-500/30'
+									: 'border-border'}"
+							>
 								<button
 									type="button"
 									class="hover:bg-muted/30 focus-visible:ring-ring flex w-full items-center gap-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
@@ -778,27 +780,37 @@
 											<!-- direction badge: ↑ income (green), ↓ expense (muted-red), ⇄ transfer (info) -->
 											{#if item.type === 'income'}
 												<span class="inline-flex shrink-0 items-center gap-0">
-													<span class="text-[var(--color-sage-green)] text-xs" aria-hidden="true">↑</span>
+													<span class="text-xs text-[var(--color-sage-green)]" aria-hidden="true"
+														>↑</span
+													>
 													<span class="sr-only">Income</span>
 												</span>
 											{:else if item.type === 'transfer'}
 												<span class="inline-flex shrink-0 items-center gap-0">
-													<span class="text-[var(--color-info)] text-xs" aria-hidden="true">⇄</span>
+													<span class="text-xs text-[var(--color-info)]" aria-hidden="true">⇄</span>
 													<span class="sr-only">Transfer</span>
 												</span>
 											{:else}
 												<span class="inline-flex shrink-0 items-center gap-0">
-													<span class="text-[var(--color-expense)] text-xs" aria-hidden="true">↓</span>
+													<span class="text-xs text-[var(--color-expense)]" aria-hidden="true"
+														>↓</span
+													>
 													<span class="sr-only">Expense</span>
 												</span>
 											{/if}
 											<span class="truncate">{item.description}</span>
 											{#if isUnassigned}
-												<span class="shrink-0 rounded border border-amber-400/50 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+												<span
+													class="shrink-0 rounded border border-amber-400/50 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+												>
 													Unassigned
 												</span>
 											{:else if item.waterfallTier !== 'unclassified'}
-												<span class="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium {tierActiveClasses[item.waterfallTier!]}">
+												<span
+													class="shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium {tierActiveClasses[
+														item.waterfallTier!
+													]}"
+												>
 													{tierChipDefs.find((c) => c.tier === item.waterfallTier)?.label}
 												</span>
 											{/if}
@@ -814,16 +826,22 @@
 										</p>
 									</div>
 									<div class="flex shrink-0 items-center gap-2">
-										<span class="text-amount {item.type === 'income'
-											? 'text-[var(--color-sage-green)]'
-											: item.type === 'transfer'
-												? 'text-[var(--color-info)]'
-												: 'text-[var(--color-expense)]'}">
-											{item.type === 'income' ? '+' : item.type === 'expense' ? '−' : ''}{item.amount}
+										<span
+											class="text-amount {item.type === 'income'
+												? 'text-[var(--color-sage-green)]'
+												: item.type === 'transfer'
+													? 'text-[var(--color-info)]'
+													: 'text-[var(--color-expense)]'}"
+										>
+											{item.type === 'income'
+												? '+'
+												: item.type === 'expense'
+													? '−'
+													: ''}{item.amount}
 										</span>
 										{#if dotN > 0}
 											<span
-												class="text-muted-foreground shrink-0 tracking-tight text-[10px] select-none"
+												class="text-muted-foreground shrink-0 text-[10px] tracking-tight select-none"
 												aria-label={recurringConfidenceAria(dotN)}
 											>
 												{'●'.repeat(dotN)}
@@ -848,7 +866,7 @@
 						>
 							Unusual Activity
 						</h2>
-						<p class="text-muted-foreground text-xs mt-0.5">
+						<p class="text-muted-foreground mt-0.5 text-xs">
 							Transactions that look out of the ordinary for your spending history.
 						</p>
 					</div>
@@ -862,10 +880,14 @@
 												{a.description ?? 'Transaction'}
 											</p>
 											{#if a.categoryName}
-												<p class="text-muted-foreground mt-0.5 truncate text-sm">{a.categoryName}</p>
+												<p class="text-muted-foreground mt-0.5 truncate text-sm">
+													{a.categoryName}
+												</p>
 											{/if}
 											{#if a.context}
-												<p class="text-[var(--color-warning)] mt-1 text-xs font-medium">{a.context}</p>
+												<p class="mt-1 text-xs font-medium text-[var(--color-warning)]">
+													{a.context}
+												</p>
 											{/if}
 										</div>
 										<div class="flex shrink-0 flex-col items-end gap-1">

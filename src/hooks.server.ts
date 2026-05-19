@@ -14,11 +14,17 @@ export const handle: Handle = async ({ event, resolve }) => {
 		const deviceId = event.request.headers.get('x-device-id');
 
 		if (!isValidDeviceId(deviceId)) {
-			return json({ error: 'device_not_allowed', message: 'Missing or invalid X-Device-Id' }, { status: 401 });
+			return json(
+				{ error: 'device_not_allowed', message: 'Missing or invalid X-Device-Id' },
+				{ status: 401 }
+			);
 		}
 
 		if (!isDeviceAllowed(deviceId)) {
-			return json({ error: 'device_not_allowed', message: 'Device not in allowlist' }, { status: 401 });
+			return json(
+				{ error: 'device_not_allowed', message: 'Device not in allowlist' },
+				{ status: 401 }
+			);
 		}
 
 		event.locals.deviceId = deviceId;

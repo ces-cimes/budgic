@@ -200,8 +200,6 @@
 				Daily reference: {formatAmount(dailyBudget, currency)}
 			</p>
 		{/if}
-		<p class="text-[10px] text-[var(--color-text-tertiary)]">
-			Solid = actual, dashed = projected
-		</p>
+		<p class="text-[10px] text-[var(--color-text-tertiary)]">Solid = actual, dashed = projected</p>
 	{/if}
 </div>

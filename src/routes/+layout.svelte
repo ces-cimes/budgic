@@ -75,7 +75,10 @@
 			performanceMonitor.addListener((report) => {
 				const slow = report.services.filter((s) => s.maxExecutionTime > 500);
 				if (slow.length > 0) {
-					devLog('[perf] slow operations:', slow.map((s) => `${s.serviceName} ${s.maxExecutionTime.toFixed(0)}ms`));
+					devLog(
+						'[perf] slow operations:',
+						slow.map((s) => `${s.serviceName} ${s.maxExecutionTime.toFixed(0)}ms`)
+					);
 				}
 			});
 		}

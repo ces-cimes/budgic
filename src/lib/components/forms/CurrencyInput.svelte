@@ -149,8 +149,8 @@
 			})()}
 		inputStyle="padding-left: {currencyButtonPadding}px;"
 		{required}
-		min={min}
-		max={max}
+		{min}
+		{max}
 		onfocus={handleFocus}
 		inputClass={error ? 'border-destructive' : ''}
 	/>

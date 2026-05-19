@@ -6,8 +6,7 @@ import type { SqliteDb } from './mm-sqlite-reader';
 
 async function initSqliteForTests() {
 	const init = (await import('@sqlite.org/sqlite-wasm')).default;
-	const isNode =
-		typeof process !== 'undefined' && typeof process.versions?.node === 'string';
+	const isNode = typeof process !== 'undefined' && typeof process.versions?.node === 'string';
 
 	if (isNode) {
 		const { readFileSync } = await import('node:fs');

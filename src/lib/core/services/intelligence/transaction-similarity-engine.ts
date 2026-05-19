@@ -256,10 +256,10 @@ export class TransactionSimilarityEngine {
 export const RECURRING_DETECTION_CONFIG: SimilarityConfig = {
 	threshold: 0.65,
 	dimensions: [
-		TransactionSimilarityEngine.descriptionDimension(0.40),
+		TransactionSimilarityEngine.descriptionDimension(0.4),
 		TransactionSimilarityEngine.amountDimension(0.25, 0.1),
-		TransactionSimilarityEngine.directionDimension(0.20),
-		TransactionSimilarityEngine.accountDimension(0.10),
+		TransactionSimilarityEngine.directionDimension(0.2),
+		TransactionSimilarityEngine.accountDimension(0.1),
 		TransactionSimilarityEngine.temporalDimension(0.05)
 	]
 };

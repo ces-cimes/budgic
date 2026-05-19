@@ -43,7 +43,11 @@
 		return Math.abs(tx.amount || 0) / totalAbs;
 	}
 
-	function formatTime(tx: { clearedDate?: string; plannedDate?: string; createdAt?: string }): string {
+	function formatTime(tx: {
+		clearedDate?: string;
+		plannedDate?: string;
+		createdAt?: string;
+	}): string {
 		const raw = tx.clearedDate ?? tx.plannedDate ?? tx.createdAt;
 		if (!raw) return '—';
 		return new Date(raw).toLocaleString(undefined, {
@@ -89,7 +93,7 @@
 				class="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2"
 			>
 				<Checkbox
-					checked={checked}
+					{checked}
 					onCheckedChange={(v) => toggleId(tx.id, v === true)}
 					disabled={busy}
 					aria-label="Include {tx.description || 'transaction'}"

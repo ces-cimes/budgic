@@ -2099,7 +2099,9 @@ class InsightsService {
 	 * Phase 9.8 — aggregate-only: derive virtual per-category slices from stable merchant profiles
 	 * for pattern stats. Does not persist; only used for category pattern aggregation.
 	 */
-	private async applyShadowCategoryRedistribution(transactions: Transaction[]): Promise<Transaction[]> {
+	private async applyShadowCategoryRedistribution(
+		transactions: Transaction[]
+	): Promise<Transaction[]> {
 		const prefs = await userService.getUserPreferences();
 		if (!prefs.insightsShadowCategoryBreakdown) return transactions;
 
@@ -2479,7 +2481,10 @@ class InsightsService {
 					type: 'unusual_amount',
 					description: `Unusually large transaction: ${formatAmount(amount, tx.currency || 'USD')} in ${category?.name || 'Unknown'}`,
 					transactionId: tx.id,
-					confidence: Math.min(100, Math.round((0.55 + Math.max(categoryScore, globalScore) * 0.45) * 100))
+					confidence: Math.min(
+						100,
+						Math.round((0.55 + Math.max(categoryScore, globalScore) * 0.45) * 100)
+					)
 				});
 			});
 		}
@@ -2625,10 +2630,8 @@ class InsightsService {
 		shadowCategoryViewEnabled: boolean;
 		shadowEstimatedNote: string | null;
 	}> {
-		return performanceMonitor.monitor(
-			'InsightsService',
-			'getPhase8PatternsSurfaceMetrics',
-			() => this._getPhase8PatternsSurfaceMetrics(mainCurrency, precomputedFeeDriftPatterns)
+		return performanceMonitor.monitor('InsightsService', 'getPhase8PatternsSurfaceMetrics', () =>
+			this._getPhase8PatternsSurfaceMetrics(mainCurrency, precomputedFeeDriftPatterns)
 		);
 	}
 
@@ -2650,7 +2653,10 @@ class InsightsService {
 		const txs = await db.transactions
 			.where('clearedDate')
 			.between(lowerIso, Dexie.maxKey, true, true)
-			.and((t) => Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string')
+			.and(
+				(t) =>
+					Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string'
+			)
 			.toArray();
 
 		const savingsIds = new Set(

@@ -6,7 +6,10 @@ import {
 	snapSplitWeight,
 	splitFormStateFromSuggestedWeights
 } from './soft-split-extras';
-import { assertValidSoftCategoryWeights, assertSoftSplitCategoryIdMatchesPrimary } from './transaction-category-weights';
+import {
+	assertValidSoftCategoryWeights,
+	assertSoftSplitCategoryIdMatchesPrimary
+} from './transaction-category-weights';
 
 describe('snapSplitWeight', () => {
 	it('snaps to 5% grid', () => {

@@ -26,8 +26,13 @@
 		onPatternBudgetTierApplied?: () => void;
 	}
 
-	const { patternId, userCurrency, open = false, onClose, onPatternBudgetTierApplied }: Props =
-		$props();
+	const {
+		patternId,
+		userCurrency,
+		open = false,
+		onClose,
+		onPatternBudgetTierApplied
+	}: Props = $props();
 
 	let pattern = $state<RecurringPattern | null>(null);
 	let transactions = $state<Transaction[]>([]);

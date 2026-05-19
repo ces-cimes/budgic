@@ -215,8 +215,7 @@ export class AnalyzeService {
 				const percentage = totalSpending > 0 ? (data.amount / totalSpending) * 100 : 0;
 				const readableName = categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
-				const trendReliable =
-					data.previousPeriod > 0 && data.currentPeriod > 0 && data.count >= 3;
+				const trendReliable = data.previousPeriod > 0 && data.currentPeriod > 0 && data.count >= 3;
 
 				const base: CategoryData = {
 					name: readableName,
@@ -229,8 +228,7 @@ export class AnalyzeService {
 					return base;
 				}
 
-				const trendValue =
-					((data.currentPeriod - data.previousPeriod) / data.previousPeriod) * 100;
+				const trendValue = ((data.currentPeriod - data.previousPeriod) / data.previousPeriod) * 100;
 				const isPositive = trendValue >= 0;
 
 				return {

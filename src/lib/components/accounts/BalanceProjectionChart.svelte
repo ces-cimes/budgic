@@ -209,10 +209,14 @@
 		);
 
 		const actualPolylinePoints = actualIndices
-			.map((index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`)
+			.map(
+				(index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`
+			)
 			.join(' ');
 		const forecastPolylinePoints = forecastIndices
-			.map((index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`)
+			.map(
+				(index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`
+			)
 			.join(' ');
 
 		return {
@@ -457,7 +461,9 @@
 									<span class="text-muted-foreground">Projected balance</span>
 								</div>
 								<div class="flex items-center gap-2">
-									<div class="h-3 w-0 border-r-2 border-dashed border-[var(--color-text-tertiary)]"></div>
+									<div
+										class="h-3 w-0 border-r-2 border-dashed border-[var(--color-text-tertiary)]"
+									></div>
 									<span class="text-muted-foreground">Today boundary</span>
 								</div>
 							{:else}

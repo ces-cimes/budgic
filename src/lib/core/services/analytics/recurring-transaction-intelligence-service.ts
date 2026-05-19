@@ -176,8 +176,7 @@ function groupSameEventTransactions(txs: Transaction[]): Transaction[] {
 				// first (base) transaction is a transfer leg with no category assigned.
 				const catCounts = new Map<string, number>();
 				for (const tx of eventTxs) {
-					if (tx.categoryId)
-						catCounts.set(tx.categoryId, (catCounts.get(tx.categoryId) ?? 0) + 1);
+					if (tx.categoryId) catCounts.set(tx.categoryId, (catCounts.get(tx.categoryId) ?? 0) + 1);
 				}
 				const bestCatId = [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 				const synthetic: Transaction = {
@@ -330,10 +329,7 @@ class RecurringTransactionIntelligenceService {
 		);
 	}
 
-	private async _detectPatterns(
-		days: number,
-		minOccurrences: number
-	): Promise<RecurringPattern[]> {
+	private async _detectPatterns(days: number, minOccurrences: number): Promise<RecurringPattern[]> {
 		const canonical = await this._getCanonical();
 		return this._deriveFromCanonical(canonical, days, minOccurrences);
 	}
@@ -360,10 +356,7 @@ class RecurringTransactionIntelligenceService {
 		// Tier 2: IndexedDB — survives page refresh
 		try {
 			const dbRow = await db.recurringPatternsCache.get('canonical');
-			if (
-				dbRow &&
-				Date.now() - new Date(dbRow.computedAt).getTime() < 24 * 60 * 60 * 1000
-			) {
+			if (dbRow && Date.now() - new Date(dbRow.computedAt).getTime() < 24 * 60 * 60 * 1000) {
 				const patterns = dbRow.patterns as RecurringPattern[];
 				serviceCache.set('recurring:patterns:canonical', patterns, PATTERN_CACHE_TTL);
 				for (const p of patterns) this.patternCache.set(p.id, p);
@@ -797,7 +790,6 @@ class RecurringTransactionIntelligenceService {
 		try {
 			const dbRow = await db.recurringPatternsCache.get('canonical');
 			if (dbRow) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
 				const patched = dbRow.patterns.map((p: any) =>
 					p.id === patternId ? { ...p, learnedCategoryId: categoryId } : p
 				);
@@ -947,9 +939,7 @@ class RecurringTransactionIntelligenceService {
 			// callers (e.g. applyPatternTier) can reliably bulkGet from IndexedDB.
 			// Synthetic transactions encode their originals in `notes` as a comma list.
 			matchingTransactionIds: group.flatMap((tx) =>
-				tx.id.startsWith('synthetic:')
-					? (tx.notes ?? '').split(',').filter(Boolean)
-					: [tx.id]
+				tx.id.startsWith('synthetic:') ? (tx.notes ?? '').split(',').filter(Boolean) : [tx.id]
 			),
 			descriptionPattern: this.extractDescriptionPattern(group),
 			categoryConfidence: 0,
@@ -1576,8 +1566,9 @@ class RecurringTransactionIntelligenceService {
 		const sortedAmounts = combined.map((c) => c.amount);
 
 		// Strip zeros before IQR+EMA (same rationale as analyzeGroupForPattern)
-		const nonZeroAmounts =
-			sortedAmounts.some((a) => a > 0) ? sortedAmounts.filter((a) => a > 0) : sortedAmounts;
+		const nonZeroAmounts = sortedAmounts.some((a) => a > 0)
+			? sortedAmounts.filter((a) => a > 0)
+			: sortedAmounts;
 		const { core: coreAmounts } = iqrFilter(nonZeroAmounts, 1.5);
 		const averageAmount = ema(coreAmounts);
 
@@ -1707,7 +1698,6 @@ class RecurringTransactionIntelligenceService {
 		// This gives some leeway for irregular patterns
 		return daysSinceLast <= expectedInterval * 2;
 	}
-
 }
 
 // Export singleton instance

@@ -317,7 +317,9 @@
 		if (transaction.isGroup && Array.isArray(transaction.transactions)) {
 			const members = transaction.transactions.filter((t: Transaction) => !!t?.id);
 			const categoryIds = new Set(
-				members.map((t: Transaction) => t.categoryId).filter((id: string | undefined): id is string => !!id)
+				members
+					.map((t: Transaction) => t.categoryId)
+					.filter((id: string | undefined): id is string => !!id)
 			);
 			if (categoryIds.size === 0) return 'Uncategorized';
 			if (categoryIds.size === 1) {

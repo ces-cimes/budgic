@@ -62,11 +62,7 @@ class Scheduler {
 	 * @param targetIntervalMs - Minimum time between runs. Actual timing is
 	 *   at least this long because idle scheduling adds additional delay.
 	 */
-	scheduleIdle(
-		id: TaskId,
-		callback: () => void | Promise<void>,
-		targetIntervalMs: number
-	): void {
+	scheduleIdle(id: TaskId, callback: () => void | Promise<void>, targetIntervalMs: number): void {
 		this.cancel(id);
 		const task: Task = {
 			id,
@@ -172,9 +168,7 @@ class Scheduler {
 		try {
 			const result = task.callback();
 			if (result instanceof Promise) {
-				result.catch((err) =>
-					console.error(`[scheduler] Task "${task.id}" failed:`, err)
-				);
+				result.catch((err) => console.error(`[scheduler] Task "${task.id}" failed:`, err));
 			}
 		} catch (err) {
 			console.error(`[scheduler] Task "${task.id}" failed:`, err);

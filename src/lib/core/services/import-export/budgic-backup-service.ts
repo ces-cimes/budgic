@@ -55,7 +55,9 @@ type BudgicBackupV1 = {
 export type BudgicBackup = BudgicBackupV2 | BudgicBackupV1;
 
 function isV2Backup(data: BudgicBackup): data is BudgicBackupV2 {
-	return data.version === BUDGIC_BACKUP_VERSION && typeof (data as BudgicBackupV2).tables === 'object';
+	return (
+		data.version === BUDGIC_BACKUP_VERSION && typeof (data as BudgicBackupV2).tables === 'object'
+	);
 }
 
 function backupTableNamesSet(): Set<string> {
@@ -100,21 +102,24 @@ export async function importFullBackup(data: BudgicBackup): Promise<void> {
 
 	const names = backupTableNamesSet();
 
-	await db.transaction('rw', db.tables.map((t) => t), async () => {
-		for (const table of db.tables) {
-			if (!names.has(table.name)) {
-				continue;
-			}
-			const rows = isV2Backup(data)
-				? (data.tables[table.name as BudgicBackupTableName] ?? [])
-				: (v1TableRows(data as BudgicBackupV1, table.name) ?? []);
-			await table.clear();
-			if (rows.length > 0) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				await table.bulkPut(rows as any);
+	await db.transaction(
+		'rw',
+		db.tables.map((t) => t),
+		async () => {
+			for (const table of db.tables) {
+				if (!names.has(table.name)) {
+					continue;
+				}
+				const rows = isV2Backup(data)
+					? (data.tables[table.name as BudgicBackupTableName] ?? [])
+					: (v1TableRows(data as BudgicBackupV1, table.name) ?? []);
+				await table.clear();
+				if (rows.length > 0) {
+					await table.bulkPut(rows as any);
+				}
 			}
 		}
-	});
+	);
 
 	await db.reseedSystemCurrencyData();
 }

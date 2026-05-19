@@ -143,8 +143,7 @@
 						min={0}
 						max={500}
 						disabled={isSavingThreshold}
-						onblur={() =>
-							persistAutoResolveThreshold(String(balanceUpdateAutoResolveThreshold))}
+						onblur={() => persistAutoResolveThreshold(String(balanceUpdateAutoResolveThreshold))}
 					/>
 				</div>
 			</section>

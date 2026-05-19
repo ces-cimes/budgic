@@ -40,9 +40,7 @@ async function loadEligibleAccountPool(
 	const pool = await db.transactions
 		.where('accountId')
 		.equals(accountId)
-		.filter(
-			(t) => !t.deletedAt && t.type === type && isEligibleForSplitDetection(t)
-		)
+		.filter((t) => !t.deletedAt && t.type === type && isEligibleForSplitDetection(t))
 		.toArray();
 
 	cache.set(key, pool);

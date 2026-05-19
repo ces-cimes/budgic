@@ -182,9 +182,16 @@
 				</div>
 				<div class="mt-4 space-y-2">
 					<p class="text-muted-foreground text-xs">Or choose a category</p>
-					<SearchableSelect bind:value={pickCategory} options={categoryOptions} placeholder="Category" />
-					<Button type="button" class="w-full" disabled={saving || !pickCategory} onclick={applyPick}
-						>Apply</Button
+					<SearchableSelect
+						bind:value={pickCategory}
+						options={categoryOptions}
+						placeholder="Category"
+					/>
+					<Button
+						type="button"
+						class="w-full"
+						disabled={saving || !pickCategory}
+						onclick={applyPick}>Apply</Button
 					>
 				</div>
 			{:else}

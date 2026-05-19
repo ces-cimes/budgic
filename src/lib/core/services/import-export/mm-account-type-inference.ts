@@ -54,17 +54,15 @@ const REVIEW_ACCOUNT_TYPES = [
 	'crypto'
 ] as const satisfies readonly Account['type'][];
 
-export const MM_ACCOUNT_REVIEW_TYPE_LABELS: Record<
-	(typeof REVIEW_ACCOUNT_TYPES)[number],
-	string
-> = {
-	checking: 'Checking',
-	savings: 'Savings',
-	credit: 'Credit Card',
-	cash: 'Cash',
-	investment: 'Investment',
-	crypto: 'Cryptocurrency'
-};
+export const MM_ACCOUNT_REVIEW_TYPE_LABELS: Record<(typeof REVIEW_ACCOUNT_TYPES)[number], string> =
+	{
+		checking: 'Checking',
+		savings: 'Savings',
+		credit: 'Credit Card',
+		cash: 'Cash',
+		investment: 'Investment',
+		crypto: 'Cryptocurrency'
+	};
 
 export { REVIEW_ACCOUNT_TYPES };
 

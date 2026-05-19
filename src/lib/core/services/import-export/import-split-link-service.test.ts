@@ -35,7 +35,10 @@ vi.mock('../core/account-service', () => ({
 	}
 }));
 
-import { dismissSplitCandidateGroup, linkTransactionsAsSplitGroup } from './import-split-link-service';
+import {
+	dismissSplitCandidateGroup,
+	linkTransactionsAsSplitGroup
+} from './import-split-link-service';
 
 function baseTx(id: string, overrides: Partial<Transaction> = {}): Transaction {
 	return {

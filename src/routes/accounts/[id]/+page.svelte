@@ -510,7 +510,7 @@
 				<section class="mb-6">
 					<button
 						type="button"
-						class="flex w-full items-center justify-between rounded-xl border border-border bg-[var(--color-bg-tertiary)] px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)]"
+						class="border-border flex w-full items-center justify-between rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5 text-left transition-colors hover:bg-[var(--color-bg-surface)]"
 						onclick={() => goto(`/data?tab=reconcile&account=${account?.id ?? ''}`)}
 					>
 						<div class="flex items-center gap-3">
@@ -529,7 +529,8 @@
 								</p>
 							</div>
 						</div>
-						<span class="text-xs font-medium text-[var(--color-text-tertiary)]">Open in Data →</span>
+						<span class="text-xs font-medium text-[var(--color-text-tertiary)]">Open in Data →</span
+						>
 					</button>
 				</section>
 			{/if}

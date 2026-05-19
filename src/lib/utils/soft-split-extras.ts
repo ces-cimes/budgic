@@ -1,4 +1,7 @@
-import { roundWeightSum, primaryCategoryIdFromWeights } from '$lib/utils/transaction-category-weights';
+import {
+	roundWeightSum,
+	primaryCategoryIdFromWeights
+} from '$lib/utils/transaction-category-weights';
 
 /** 5% grid for soft-split UI */
 export const SPLIT_WEIGHT_STEP = 0.05;
@@ -30,9 +33,7 @@ export function normalizeAndClampSplitExtras(
 		const id = row.categoryId?.trim() ?? '';
 		if (!id || id === primaryCategoryId || seen.has(id)) continue;
 		seen.add(id);
-		const snapped = snapSplitWeight(
-			Math.min(0.95, Math.max(SPLIT_MIN_SLICE, row.weight))
-		);
+		const snapped = snapSplitWeight(Math.min(0.95, Math.max(SPLIT_MIN_SLICE, row.weight)));
 		cleaned.push({ categoryId: id, weight: snapped });
 		if (cleaned.length >= SPLIT_MAX_EXTRAS) break;
 	}
@@ -66,9 +67,7 @@ export function validSplitExtras(extras: SplitExtra[]): SplitExtra[] {
 export function buildSplitResultFromForm(
 	primaryCategoryId: string,
 	extras: SplitExtra[]
-):
-	| { weights: { categoryId: string; weight: number }[]; primaryId: string }
-	| undefined {
+): { weights: { categoryId: string; weight: number }[]; primaryId: string } | undefined {
 	if (!primaryCategoryId) return undefined;
 	const ve = validSplitExtras(extras);
 	if (ve.length === 0) return undefined;
@@ -77,10 +76,7 @@ export function buildSplitResultFromForm(
 	const sumE = clamped.reduce((a, x) => a + x.weight, 0);
 	let primaryW = 1 - sumE;
 	if (primaryW < SPLIT_MIN_SLICE - 1e-12) return undefined;
-	const weights = roundWeightSum([
-		{ categoryId: primaryCategoryId, weight: primaryW },
-		...clamped
-	]);
+	const weights = roundWeightSum([{ categoryId: primaryCategoryId, weight: primaryW }, ...clamped]);
 	const primaryId = primaryCategoryIdFromWeights(weights);
 	return { weights, primaryId };
 }

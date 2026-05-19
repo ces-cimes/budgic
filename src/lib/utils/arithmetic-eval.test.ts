@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	evaluateExpression,
-	formatEvaluatedNumber,
-	looksLikeExpression
-} from './arithmetic-eval';
+import { evaluateExpression, formatEvaluatedNumber, looksLikeExpression } from './arithmetic-eval';
 
 describe('looksLikeExpression', () => {
 	it('detects operators between digits', () => {

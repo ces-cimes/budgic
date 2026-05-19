@@ -3,12 +3,7 @@ import { getMmCsvTable, normalizeMmCsvFileKeys, parseCSV } from './csv-parser';
 
 describe('normalizeMmCsvFileKeys', () => {
 	it('uppercases table keys from mixed-case CSV filenames', () => {
-		const raw = new Map([
-			[
-				'assets',
-				parseCSV('uid,NIC_NAME\na1,Test', 'assets.csv')
-			]
-		]);
+		const raw = new Map([['assets', parseCSV('uid,NIC_NAME\na1,Test', 'assets.csv')]]);
 		const normalized = normalizeMmCsvFileKeys(raw);
 		expect(normalized.has('ASSETS')).toBe(true);
 		expect(getMmCsvTable(normalized, 'ASSETS')?.rows).toHaveLength(1);

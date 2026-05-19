@@ -199,7 +199,8 @@
 			<a
 				href="/data?tab=reconcile"
 				class="text-xs font-medium text-[var(--color-text-tertiary)] underline-offset-2 hover:text-[var(--color-text-secondary)] hover:underline"
-				>Import, review & reconcile in Data</a>
+				>Import, review & reconcile in Data</a
+			>
 		</p>
 
 		<!-- Total balance hero -->

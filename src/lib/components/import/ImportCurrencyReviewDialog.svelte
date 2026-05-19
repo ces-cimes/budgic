@@ -12,7 +12,8 @@
 		onCancel: () => void;
 	}
 
-	let { open, rows, currencies, selection, onSelectionChange, onConfirm, onCancel }: Props = $props();
+	let { open, rows, currencies, selection, onSelectionChange, onConfirm, onCancel }: Props =
+		$props();
 
 	const canConfirm = $derived(currencies.length > 0 && rows.length > 0);
 </script>
@@ -47,13 +48,17 @@
 			</p>
 
 			{#if currencies.length === 0}
-				<p class="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-text-primary)]">
+				<p
+					class="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-text-primary)]"
+				>
 					No active currencies in Budgic. Add at least one currency in Settings, then try again.
 				</p>
 			{:else}
 				<div class="overflow-x-auto rounded-xl border border-[var(--color-border)]">
 					<table class="w-full min-w-[28rem] text-left text-sm">
-						<thead class="bg-[var(--color-bg-surface)] text-xs uppercase text-[var(--color-text-tertiary)]">
+						<thead
+							class="bg-[var(--color-bg-surface)] text-xs text-[var(--color-text-tertiary)] uppercase"
+						>
 							<tr>
 								<th class="px-3 py-2 font-semibold">MM currency UID</th>
 								<th class="px-3 py-2 font-semibold">Tx count</th>

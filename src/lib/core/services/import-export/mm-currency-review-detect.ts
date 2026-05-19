@@ -49,7 +49,9 @@ function buildTransferGroups(incomeFile: CSVFile): Map<string, TransferPair> {
  * complete transfer pairs use transfer-out `currencyUid`; reconciliation DO_TYPE 7/8 skipped;
  * other rows use their own `currencyUid` (default `RUB_RUB` when missing, matching importer).
  */
-export function detectMmCurrencyReviewNeeded(csvFiles: Map<string, CSVFile>): MmCurrencyReviewDetection {
+export function detectMmCurrencyReviewNeeded(
+	csvFiles: Map<string, CSVFile>
+): MmCurrencyReviewDetection {
 	const incomeFile = csvFiles.get('INOUTCOME');
 	const currencyFile = csvFiles.get('CURRENCY');
 	if (!incomeFile) {

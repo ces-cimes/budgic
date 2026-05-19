@@ -404,12 +404,7 @@
 			const text = await file.text();
 			const data = JSON.parse(text);
 
-			if (
-				!data ||
-				typeof data !== 'object' ||
-				!('version' in data) ||
-				!('exportDate' in data)
-			) {
+			if (!data || typeof data !== 'object' || !('version' in data) || !('exportDate' in data)) {
 				throw new Error('Invalid export file format');
 			}
 
@@ -444,9 +439,7 @@
 		const trimmedOverride =
 			currencyOverride && Object.keys(currencyOverride).length > 0
 				? Object.fromEntries(
-						Object.entries(currencyOverride).filter(
-							([uid, id]) => uid && id && id.trim() !== ''
-						)
+						Object.entries(currencyOverride).filter(([uid, id]) => uid && id && id.trim() !== '')
 					)
 				: undefined;
 
@@ -457,9 +450,7 @@
 
 		const trimmedPersonOverride =
 			accountPersonOverride && Object.keys(accountPersonOverride).length > 0
-				? Object.fromEntries(
-						Object.entries(accountPersonOverride).filter(([, flagged]) => flagged)
-					)
+				? Object.fromEntries(Object.entries(accountPersonOverride).filter(([, flagged]) => flagged))
 				: undefined;
 
 		const importer = new MoneyManagerImporter({
@@ -913,7 +904,8 @@
 		success = null;
 		try {
 			await clearTransactionDataPreset();
-			success = 'Transaction data cleared. Account balances were recalculated from opening balances.';
+			success =
+				'Transaction data cleared. Account balances were recalculated from opening balances.';
 			void navigationStore.updateBadges();
 			if (dataTab === 'review') void refreshReviewQueue();
 			if (dataTab === 'corrections') void refreshCorrections();
@@ -1170,7 +1162,10 @@
 										<p class="text-xs font-medium text-[var(--color-text-secondary)]">
 											Re-import: same MM transaction UID
 										</p>
-										<Select.Root type="single" bind:value={mmImportOptions.mmTransactionUidConflict}>
+										<Select.Root
+											type="single"
+											bind:value={mmImportOptions.mmTransactionUidConflict}
+										>
 											<Select.Trigger class="w-full max-w-xs">
 												{mmImportOptions.mmTransactionUidConflict === 'skip'
 													? 'Skip (keep existing row)'
@@ -1275,7 +1270,8 @@
 										</p>
 										{#if (mmResult.statistics.transactionsMerged ?? 0) > 0 || (mmResult.statistics.transactionsReplaced ?? 0) > 0}
 											<p class="text-[var(--color-text-tertiary)]">
-												Re-import: {(mmResult.statistics.transactionsMerged ?? 0)} merged, {(mmResult.statistics.transactionsReplaced ?? 0)} replaced
+												Re-import: {mmResult.statistics.transactionsMerged ?? 0} merged, {mmResult
+													.statistics.transactionsReplaced ?? 0} replaced
 											</p>
 										{/if}
 									</div>
@@ -1297,13 +1293,15 @@
 										<summary class="cursor-pointer font-medium text-[var(--color-text-primary)]">
 											MM UID conflict details ({mmResult.importBatch.mmUidConflicts.length})
 										</summary>
-										<ul class="mt-2 max-h-40 space-y-2 overflow-y-auto text-[var(--color-text-tertiary)]">
+										<ul
+											class="mt-2 max-h-40 space-y-2 overflow-y-auto text-[var(--color-text-tertiary)]"
+										>
 											{#each mmResult.importBatch.mmUidConflicts as row}
 												<li>
 													<span class="font-mono">{row.mmUid}</span>
 													— {row.action}
 													{#if row.diffs?.length}
-														<ul class="ml-2 mt-0.5 list-disc pl-4">
+														<ul class="mt-0.5 ml-2 list-disc pl-4">
 															{#each row.diffs as d}
 																<li>{d.field}</li>
 															{/each}
@@ -1369,9 +1367,7 @@
 								onclick={runUnifiedImport}
 								disabled={isImporting ||
 									isImportingMM ||
-									(importDetection?.kind === 'budgic-json'
-										? false
-										: !mmCsvFilesReady)}
+									(importDetection?.kind === 'budgic-json' ? false : !mmCsvFilesReady)}
 								class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
 							>
 								{isImporting || isImportingMM
@@ -1406,19 +1402,23 @@
 								{dangerBusy === 'transactions' ? 'Working…' : 'Clear transaction data'}
 							</button>
 							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Removes</p>
-							<ul class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]">
+							<ul
+								class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]"
+							>
 								{#each TRANSACTION_DATA_PRESET_REMOVES_BULLETS as line}
 									<li>{line}</li>
 								{/each}
 							</ul>
 							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Keeps</p>
-							<ul class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]">
+							<ul
+								class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]"
+							>
 								{#each TRANSACTION_DATA_PRESET_KEEPS_BULLETS as line}
 									<li>{line}</li>
 								{/each}
 							</ul>
 						</div>
-						<div class="border-t border-[var(--color-warm-coral)]/15 pt-4 space-y-2">
+						<div class="space-y-2 border-t border-[var(--color-warm-coral)]/15 pt-4">
 							<button
 								type="button"
 								onclick={handleFullDatabaseReset}
@@ -1428,7 +1428,9 @@
 								{dangerBusy === 'full' ? 'Working…' : 'Full reset (all local data)'}
 							</button>
 							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Removes</p>
-							<ul class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]">
+							<ul
+								class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]"
+							>
 								{#each FULL_DATABASE_RESET_REMOVES_BULLETS as line}
 									<li>{line}</li>
 								{/each}
@@ -1474,42 +1476,50 @@
 									Import quality flags ({reviewQueue.length})
 								</h3>
 								<ul class="space-y-3">
-							{#each reviewQueue as tx (tx.id)}
-								<li class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-3">
-									<p class="text-sm font-medium text-[var(--color-text-primary)]">
-										{tx.description || 'No description'}
-									</p>
-									<p class="mt-1 flex flex-wrap gap-2 text-xs text-[var(--color-text-tertiary)]">
-										{#if tx.importQuality?.amountInferred}
-											<span class="rounded bg-amber-500/15 px-1.5 py-0.5">Amount inferred</span>
-										{/if}
-										{#if tx.importQuality?.dateInferred}
-											<span class="rounded bg-amber-500/15 px-1.5 py-0.5">Date inferred</span>
-										{/if}
-										{#if tx.importQuality?.currencyFallback}
-											<span class="rounded bg-amber-500/15 px-1.5 py-0.5">Currency fallback</span>
-										{/if}
-									</p>
-									<div class="mt-3 flex flex-wrap gap-2">
-										<Button
-											variant="outline"
-											size="sm"
-											onclick={() => goto(`/transactions/add/${tx.id}`)}>Edit</Button
+									{#each reviewQueue as tx (tx.id)}
+										<li
+											class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-3"
 										>
-										<Button variant="secondary" size="sm" onclick={() => confirmReviewItem(tx.id)}
-											>Confirm</Button
-										>
-										<Button
-											variant="ghost"
-											size="sm"
-											onclick={() => {
-												const q = tx.importQuality;
-												if (q) dismissReviewItem(tx.id, q);
-											}}>Dismiss</Button
-										>
-									</div>
-								</li>
-							{/each}
+											<p class="text-sm font-medium text-[var(--color-text-primary)]">
+												{tx.description || 'No description'}
+											</p>
+											<p
+												class="mt-1 flex flex-wrap gap-2 text-xs text-[var(--color-text-tertiary)]"
+											>
+												{#if tx.importQuality?.amountInferred}
+													<span class="rounded bg-amber-500/15 px-1.5 py-0.5">Amount inferred</span>
+												{/if}
+												{#if tx.importQuality?.dateInferred}
+													<span class="rounded bg-amber-500/15 px-1.5 py-0.5">Date inferred</span>
+												{/if}
+												{#if tx.importQuality?.currencyFallback}
+													<span class="rounded bg-amber-500/15 px-1.5 py-0.5"
+														>Currency fallback</span
+													>
+												{/if}
+											</p>
+											<div class="mt-3 flex flex-wrap gap-2">
+												<Button
+													variant="outline"
+													size="sm"
+													onclick={() => goto(`/transactions/add/${tx.id}`)}>Edit</Button
+												>
+												<Button
+													variant="secondary"
+													size="sm"
+													onclick={() => confirmReviewItem(tx.id)}>Confirm</Button
+												>
+												<Button
+													variant="ghost"
+													size="sm"
+													onclick={() => {
+														const q = tx.importQuality;
+														if (q) dismissReviewItem(tx.id, q);
+													}}>Dismiss</Button
+												>
+											</div>
+										</li>
+									{/each}
 								</ul>
 							</section>
 						{/if}

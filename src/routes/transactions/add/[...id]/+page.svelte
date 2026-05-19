@@ -573,9 +573,7 @@
 	function splitExtrasEqual(a: SplitExtra[], b: SplitExtra[]): boolean {
 		if (a.length !== b.length) return false;
 		return a.every(
-			(x, i) =>
-				x.categoryId === b[i]?.categoryId &&
-				Math.abs(x.weight - (b[i]?.weight ?? 0)) < 1e-9
+			(x, i) => x.categoryId === b[i]?.categoryId && Math.abs(x.weight - (b[i]?.weight ?? 0)) < 1e-9
 		);
 	}
 
@@ -642,9 +640,7 @@
 		const idx = splitExtras.findIndex((e) => (e.categoryId?.trim() ?? '').length > 0);
 		if (idx < 0) return;
 		const primaryShare = Math.min(0.95, Math.max(0.05, percentPrimary / 100));
-		splitExtras = splitExtras.map((e, i) =>
-			i === idx ? { ...e, weight: 1 - primaryShare } : e
-		);
+		splitExtras = splitExtras.map((e, i) => (i === idx ? { ...e, weight: 1 - primaryShare } : e));
 		splitSource = 'manual';
 		syncSplitExtrasClamp();
 	}
@@ -831,7 +827,9 @@
 					groupName = transaction.groupName || '';
 					linkedGroupId = transaction.groupId ?? null;
 					if (transaction.groupId) {
-						linkedGroupMembers = (await transactionService.getGroupTransactions(transaction.groupId))
+						linkedGroupMembers = (
+							await transactionService.getGroupTransactions(transaction.groupId)
+						)
 							.filter((t) => !t.deletedAt)
 							.sort((a, b) => Math.abs(b.amount ?? 0) - Math.abs(a.amount ?? 0));
 					} else {
@@ -1868,19 +1866,19 @@
 
 					<div class="space-y-2">
 						<Label.Root for="category">Category</Label.Root>
-					<SearchableSelect
-						bind:value={selectedCategory}
-						options={categoryOptions}
-						placeholder="Select a category (optional)"
-						allowClear={true}
-						clearLabel="Select a category (optional)"
-						fieldKey="transaction.category"
-						selectionContext={{
-							transactionType,
-							status,
-							accountId: selectedAccount || undefined
-						}}
-					/>
+						<SearchableSelect
+							bind:value={selectedCategory}
+							options={categoryOptions}
+							placeholder="Select a category (optional)"
+							allowClear={true}
+							clearLabel="Select a category (optional)"
+							fieldKey="transaction.category"
+							selectionContext={{
+								transactionType,
+								status,
+								accountId: selectedAccount || undefined
+							}}
+						/>
 						{#if hasInferredCategoryIndicator && selectedCategory === inferredCategoryId}
 							<div class="flex items-center gap-2">
 								<span class={suggestedPillClass}>Suggested</span>
@@ -1891,176 +1889,179 @@
 						{/if}
 					</div>
 
-				{#if transactionType === 'expense' && selectedCategory}
-					{@const primaryLabel = categoryOptions.find((o) => o.value === selectedCategory)?.label ?? ''}
-					<div class="mt-3 space-y-3">
-						{#snippet splitCategoryAddDividerButton(handleClick: () => void)}
-							<div class="flex w-full items-center gap-3 py-0.5">
-								<div class="bg-border h-px min-h-px flex-1" aria-hidden="true"></div>
-								<Button.Root
-									type="button"
-									variant="ghost"
-									class="text-muted-foreground hover:text-foreground h-9 max-w-full shrink-0 px-2 text-sm font-normal whitespace-nowrap"
-									onclick={handleClick}
-								>
-									+ Add split category
-								</Button.Root>
-								<div class="bg-border h-px min-h-px flex-1" aria-hidden="true"></div>
-							</div>
-						{/snippet}
-
-						{#if !showSplitExtrasSection && validSplitExtrasList.length === 0}
-							{@render splitCategoryAddDividerButton(openSoftSplitSection)}
-						{:else}
-							<p class="text-muted-foreground text-sm font-medium">Additional split categories</p>
-							<Separator />
-							<div class="space-y-4 pt-0.5">
-								{#each splitExtras as row, i (i)}
-									<div
-										class="max-sm:grid max-sm:w-full max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-2 sm:flex sm:w-full sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+					{#if transactionType === 'expense' && selectedCategory}
+						{@const primaryLabel =
+							categoryOptions.find((o) => o.value === selectedCategory)?.label ?? ''}
+						<div class="mt-3 space-y-3">
+							{#snippet splitCategoryAddDividerButton(handleClick: () => void)}
+								<div class="flex w-full items-center gap-3 py-0.5">
+									<div class="bg-border h-px min-h-px flex-1" aria-hidden="true"></div>
+									<Button.Root
+										type="button"
+										variant="ghost"
+										class="text-muted-foreground hover:text-foreground h-9 max-w-full shrink-0 px-2 text-sm font-normal whitespace-nowrap"
+										onclick={handleClick}
 									>
-										<div
-											class="max-sm:col-start-1 max-sm:row-start-1 min-w-0 sm:order-1 sm:min-w-0 sm:flex-1 sm:basis-0"
-										>
-											<SearchableSelect
-												bind:value={splitExtras[i].categoryId}
-												options={splitCategoryOptionsForRow(i)}
-												placeholder="Additional category…"
-												allowClear={false}
-												fieldKey="transaction.category.split"
-												selectionContext={{
-													transactionType,
-													status,
-													accountId: selectedAccount || undefined
-												}}
-												autoOpenNonce={i === splitExtras.length - 1 &&
-												!(splitExtras[i]?.categoryId?.trim())
-													? splitSelectOpenNonce
-													: 0}
-												onValueChange={() => {
-													splitExtras = splitExtras.map((e) => ({ ...e }));
-												}}
-											/>
-										</div>
-										<Button.Root
-											type="button"
-											variant="destructive"
-											size="icon"
-											class="max-sm:col-start-2 max-sm:row-start-1 shrink-0 sm:order-3"
-											aria-label="Remove this category from split"
-											onclick={() => removeSplitRow(i)}
-										>
-											<X class="size-4" aria-hidden="true" />
-										</Button.Root>
-										{#if useSplitSteppers && (row.categoryId?.trim() ?? '').length > 0}
-											<div
-												class="max-sm:col-span-2 max-sm:row-start-2 flex w-full max-w-full items-center justify-between gap-3 sm:order-2 sm:flex sm:h-9 sm:w-[7rem] sm:shrink-0 sm:items-center sm:justify-center sm:gap-1"
-											>
-												<Button.Root
-													type="button"
-													variant="outline"
-													size="icon"
-													class="shrink-0"
-													disabled={!splitRowCanDecrease(i)}
-													aria-label="Decrease category share by 5%"
-													onclick={() => nudgeSplitExtraWeight(i, -SPLIT_WEIGHT_STEP)}
-												>
-													<Minus class="size-4" aria-hidden="true" />
-												</Button.Root>
-												<span
-													class="text-muted-foreground min-w-[2.75rem] flex-1 text-center text-xs font-medium tabular-nums sm:w-10 sm:flex-none sm:min-w-0"
-													>{Math.round(row.weight * 100)}%</span
-												>
-												<Button.Root
-													type="button"
-													variant="outline"
-													size="icon"
-													class="shrink-0"
-													disabled={!splitRowCanIncrease(i)}
-													aria-label="Increase category share by 5%"
-													onclick={() => nudgeSplitExtraWeight(i, SPLIT_WEIGHT_STEP)}
-												>
-													<Plus class="size-4" aria-hidden="true" />
-												</Button.Root>
-											</div>
-										{/if}
-									</div>
-								{/each}
+										+ Add split category
+									</Button.Root>
+									<div class="bg-border h-px min-h-px flex-1" aria-hidden="true"></div>
+								</div>
+							{/snippet}
 
-								{#if useSplitSlider && validSplitExtrasList.length === 1}
-									{@const lone = validSplitExtrasList[0]}
-									{@const extraLabel =
-										categoryOptions.find((o) => o.value === lone?.categoryId)?.label ?? ''}
-									{#if lone?.categoryId}
-										<div class="space-y-1.5">
-											<div class="flex justify-between gap-2 text-xs">
-												<span class="text-foreground min-w-0 truncate font-medium">{primaryLabel}</span>
-												<span class="text-muted-foreground shrink-0 tabular-nums"
-													>{Math.round((1 - lone.weight) * 100)}% · {Math.round(
-														lone.weight * 100
-													)}%</span
-												>
-												<span class="text-foreground min-w-0 truncate text-right font-medium"
-													>{extraLabel}</span
-												>
+							{#if !showSplitExtrasSection && validSplitExtrasList.length === 0}
+								{@render splitCategoryAddDividerButton(openSoftSplitSection)}
+							{:else}
+								<p class="text-muted-foreground text-sm font-medium">Additional split categories</p>
+								<Separator />
+								<div class="space-y-4 pt-0.5">
+									{#each splitExtras as row, i (i)}
+										<div
+											class="max-sm:grid max-sm:w-full max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:items-center max-sm:gap-x-2 max-sm:gap-y-2 sm:flex sm:w-full sm:flex-row sm:flex-wrap sm:items-center sm:gap-2"
+										>
+											<div
+												class="min-w-0 max-sm:col-start-1 max-sm:row-start-1 sm:order-1 sm:min-w-0 sm:flex-1 sm:basis-0"
+											>
+												<SearchableSelect
+													bind:value={splitExtras[i].categoryId}
+													options={splitCategoryOptionsForRow(i)}
+													placeholder="Additional category…"
+													allowClear={false}
+													fieldKey="transaction.category.split"
+													selectionContext={{
+														transactionType,
+														status,
+														accountId: selectedAccount || undefined
+													}}
+													autoOpenNonce={i === splitExtras.length - 1 &&
+													!splitExtras[i]?.categoryId?.trim()
+														? splitSelectOpenNonce
+														: 0}
+													onValueChange={() => {
+														splitExtras = splitExtras.map((e) => ({ ...e }));
+													}}
+												/>
 											</div>
-											<input
-												type="range"
-												min="5"
-												max="95"
-												step="5"
-												class="w-full accent-[var(--color-amber)]"
-												value={Math.round((1 - lone.weight) * 100)}
-												oninput={(e) => {
-													onSoftSplitSliderInput(
-														parseInt((e.target as HTMLInputElement).value, 10)
-													);
-												}}
-											/>
-											{#if amount}
-												<p class="text-muted-foreground text-xs tabular-nums">
-													{formatAmount(Math.abs(amount) * (1 - lone.weight), currency || 'USD')}
-													·
-													{formatAmount(Math.abs(amount) * lone.weight, currency || 'USD')}
-												</p>
+											<Button.Root
+												type="button"
+												variant="destructive"
+												size="icon"
+												class="shrink-0 max-sm:col-start-2 max-sm:row-start-1 sm:order-3"
+												aria-label="Remove this category from split"
+												onclick={() => removeSplitRow(i)}
+											>
+												<X class="size-4" aria-hidden="true" />
+											</Button.Root>
+											{#if useSplitSteppers && (row.categoryId?.trim() ?? '').length > 0}
+												<div
+													class="flex w-full max-w-full items-center justify-between gap-3 max-sm:col-span-2 max-sm:row-start-2 sm:order-2 sm:flex sm:h-9 sm:w-[7rem] sm:shrink-0 sm:items-center sm:justify-center sm:gap-1"
+												>
+													<Button.Root
+														type="button"
+														variant="outline"
+														size="icon"
+														class="shrink-0"
+														disabled={!splitRowCanDecrease(i)}
+														aria-label="Decrease category share by 5%"
+														onclick={() => nudgeSplitExtraWeight(i, -SPLIT_WEIGHT_STEP)}
+													>
+														<Minus class="size-4" aria-hidden="true" />
+													</Button.Root>
+													<span
+														class="text-muted-foreground min-w-[2.75rem] flex-1 text-center text-xs font-medium tabular-nums sm:w-10 sm:min-w-0 sm:flex-none"
+														>{Math.round(row.weight * 100)}%</span
+													>
+													<Button.Root
+														type="button"
+														variant="outline"
+														size="icon"
+														class="shrink-0"
+														disabled={!splitRowCanIncrease(i)}
+														aria-label="Increase category share by 5%"
+														onclick={() => nudgeSplitExtraWeight(i, SPLIT_WEIGHT_STEP)}
+													>
+														<Plus class="size-4" aria-hidden="true" />
+													</Button.Root>
+												</div>
 											{/if}
 										</div>
+									{/each}
+
+									{#if useSplitSlider && validSplitExtrasList.length === 1}
+										{@const lone = validSplitExtrasList[0]}
+										{@const extraLabel =
+											categoryOptions.find((o) => o.value === lone?.categoryId)?.label ?? ''}
+										{#if lone?.categoryId}
+											<div class="space-y-1.5">
+												<div class="flex justify-between gap-2 text-xs">
+													<span class="text-foreground min-w-0 truncate font-medium"
+														>{primaryLabel}</span
+													>
+													<span class="text-muted-foreground shrink-0 tabular-nums"
+														>{Math.round((1 - lone.weight) * 100)}% · {Math.round(
+															lone.weight * 100
+														)}%</span
+													>
+													<span class="text-foreground min-w-0 truncate text-right font-medium"
+														>{extraLabel}</span
+													>
+												</div>
+												<input
+													type="range"
+													min="5"
+													max="95"
+													step="5"
+													class="w-full accent-[var(--color-amber)]"
+													value={Math.round((1 - lone.weight) * 100)}
+													oninput={(e) => {
+														onSoftSplitSliderInput(
+															parseInt((e.target as HTMLInputElement).value, 10)
+														);
+													}}
+												/>
+												{#if amount}
+													<p class="text-muted-foreground text-xs tabular-nums">
+														{formatAmount(Math.abs(amount) * (1 - lone.weight), currency || 'USD')}
+														·
+														{formatAmount(Math.abs(amount) * lone.weight, currency || 'USD')}
+													</p>
+												{/if}
+											</div>
+										{/if}
 									{/if}
-								{/if}
 
-								{#if useSplitSteppers && splitCategoryWeightsBuilt?.weights && amount}
-									<ul class="text-muted-foreground space-y-0.5 text-xs tabular-nums">
-										{#each splitCategoryWeightsBuilt.weights as w}
-											<li class="flex justify-between gap-2">
-												<span class="min-w-0 truncate"
-													>{categoryOptions.find((o) => o.value === w.categoryId)?.label ??
-														w.categoryId}</span
-												>
-												<span class="shrink-0"
-													>{Math.round(w.weight * 100)}% · {formatAmount(
-														Math.abs(amount) * w.weight,
-														currency || 'USD'
-													)}</span
-												>
-											</li>
-										{/each}
-									</ul>
-								{/if}
+									{#if useSplitSteppers && splitCategoryWeightsBuilt?.weights && amount}
+										<ul class="text-muted-foreground space-y-0.5 text-xs tabular-nums">
+											{#each splitCategoryWeightsBuilt.weights as w}
+												<li class="flex justify-between gap-2">
+													<span class="min-w-0 truncate"
+														>{categoryOptions.find((o) => o.value === w.categoryId)?.label ??
+															w.categoryId}</span
+													>
+													<span class="shrink-0"
+														>{Math.round(w.weight * 100)}% · {formatAmount(
+															Math.abs(amount) * w.weight,
+															currency || 'USD'
+														)}</span
+													>
+												</li>
+											{/each}
+										</ul>
+									{/if}
 
-								{#if splitExtras.length < SPLIT_MAX_EXTRAS}
-									{@render splitCategoryAddDividerButton(addSplitExtraRow)}
-								{/if}
+									{#if splitExtras.length < SPLIT_MAX_EXTRAS}
+										{@render splitCategoryAddDividerButton(addSplitExtraRow)}
+									{/if}
 
-								{#if merchantSplitNote}
-									<div class="flex items-center gap-2">
-										<span class={suggestedPillClass}>Suggested</span>
-										<p class="text-muted-foreground text-xs">{merchantSplitNote}</p>
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</div>
-				{/if}
+									{#if merchantSplitNote}
+										<div class="flex items-center gap-2">
+											<span class={suggestedPillClass}>Suggested</span>
+											<p class="text-muted-foreground text-xs">{merchantSplitNote}</p>
+										</div>
+									{/if}
+								</div>
+							{/if}
+						</div>
+					{/if}
 
 					{#if transactionType === 'expense' && !selectedCategory}
 						<div
@@ -2564,8 +2565,8 @@
 						Split group ({linkedGroupMembers.length} parts)
 					</p>
 					<p class="text-xs text-[var(--color-text-tertiary)]">
-						This row is one part of a linked split. Edit each part below or change the shared group name
-						in Advanced.
+						This row is one part of a linked split. Edit each part below or change the shared group
+						name in Advanced.
 					</p>
 					<ul class="space-y-2">
 						{#each linkedGroupMembers as member (member.id)}
@@ -2609,7 +2610,10 @@
 				<Label.Root for="group" class="text-right md:flex-shrink-0">Group</Label.Root>
 				<div class="flex-1 space-y-2">
 					<div class="flex items-center space-x-2">
-						<Switch.Root bind:checked={isGroupTransaction} disabled={linkedGroupMembers.length > 1} />
+						<Switch.Root
+							bind:checked={isGroupTransaction}
+							disabled={linkedGroupMembers.length > 1}
+						/>
 						<Label.Root for="group" class="font-normal">Grouped transaction</Label.Root>
 					</div>
 					{#if isGroupTransaction}
@@ -2979,7 +2983,6 @@
 			{/if}
 		{/snippet}
 	</DialogDrawer>
-
 
 	<CurrencySelectionSheet
 		bind:open={showCurrencySheet}

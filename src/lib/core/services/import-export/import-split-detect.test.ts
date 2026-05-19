@@ -7,9 +7,7 @@ import {
 	SPLIT_PROXIMITY_MS
 } from './import-split-detect';
 
-function tx(
-	overrides: Partial<Transaction> & { id: string; clearedDate: string }
-): Transaction {
+function tx(overrides: Partial<Transaction> & { id: string; clearedDate: string }): Transaction {
 	return {
 		type: 'expense',
 		status: 'cleared',

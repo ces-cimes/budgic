@@ -198,7 +198,9 @@ export function getMmCsvTable(
 	tableName: string
 ): CSVFile | undefined {
 	const upper = tableName.toUpperCase();
-	return csvFiles.get(upper) ?? [...csvFiles.entries()].find(([k]) => k.toUpperCase() === upper)?.[1];
+	return (
+		csvFiles.get(upper) ?? [...csvFiles.entries()].find(([k]) => k.toUpperCase() === upper)?.[1]
+	);
 }
 
 export async function readCSVFile(file: File): Promise<CSVFile> {

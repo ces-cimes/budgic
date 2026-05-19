@@ -554,9 +554,9 @@ class TransactionService {
 		await this.checkRepaymentOverdueInsights();
 
 		if (transaction.status === 'cleared') {
-			merchantProfileService.onTransactionSaved(transaction).catch((err) =>
-				console.warn('merchantProfileService.onTransactionSaved failed', err)
-			);
+			merchantProfileService
+				.onTransactionSaved(transaction)
+				.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
 		}
 
 		await invalidateTransactionCaches();
@@ -697,9 +697,9 @@ class TransactionService {
 		await this.checkRepaymentOverdueInsights();
 
 		if (updatedTransaction.status === 'cleared') {
-			merchantProfileService.onTransactionSaved(updatedTransaction).catch((err) =>
-				console.warn('merchantProfileService.onTransactionSaved failed', err)
-			);
+			merchantProfileService
+				.onTransactionSaved(updatedTransaction)
+				.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
 		}
 
 		await invalidateTransactionCaches();
@@ -1706,9 +1706,9 @@ class TransactionService {
 		const savedGroup = await db.transactions.where('groupId').equals(groupId).toArray();
 		for (const t of savedGroup) {
 			if (t.status === 'cleared') {
-				merchantProfileService.onTransactionSaved(t).catch((err) =>
-					console.warn('merchantProfileService.onTransactionSaved failed', err)
-				);
+				merchantProfileService
+					.onTransactionSaved(t)
+					.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
 			}
 		}
 

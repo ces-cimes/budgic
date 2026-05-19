@@ -18,7 +18,7 @@ export function looksLikeExpression(raw: string): boolean {
 	if (!s || s.length > MAX_LEN) return false;
 	// Scientific notation not supported; treat lone number as not "expression UI"
 	if (/[()]/.test(s)) return true;
-	if (/[*\/]/.test(s)) return true;
+	if (/[*/]/.test(s)) return true;
 	// Binary + or - between digit-like regions
 	if (/\d\s*\+\s*\d/.test(s)) return true;
 	if (/\d\s*-\s*\d/.test(s)) return true;

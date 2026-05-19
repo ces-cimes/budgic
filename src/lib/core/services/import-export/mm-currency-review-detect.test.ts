@@ -16,22 +16,24 @@ describe('detectMmCurrencyReviewNeeded', () => {
 		const files = new Map<string, CSVFile>([
 			[
 				'INOUTCOME',
-				csv('INOUTCOME', ['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid', 'assetUid', 'ctgUid'], [
-					{
-						DO_TYPE: '1',
-						IS_DEL: '0',
-						currencyUid: 'RUB_RUB',
-						uid: 't1',
-						assetUid: 'a1',
-						ctgUid: 'c1'
-					}
-				])
+				csv(
+					'INOUTCOME',
+					['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid', 'assetUid', 'ctgUid'],
+					[
+						{
+							DO_TYPE: '1',
+							IS_DEL: '0',
+							currencyUid: 'RUB_RUB',
+							uid: 't1',
+							assetUid: 'a1',
+							ctgUid: 'c1'
+						}
+					]
+				)
 			],
 			[
 				'CURRENCY',
-				csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [
-					{ uid: 'RUB_RUB', ISO: 'RUB', IS_DEL: '0' }
-				])
+				csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [{ uid: 'RUB_RUB', ISO: 'RUB', IS_DEL: '0' }])
 			]
 		]);
 		const r = detectMmCurrencyReviewNeeded(files);
@@ -44,10 +46,14 @@ describe('detectMmCurrencyReviewNeeded', () => {
 		const files = new Map<string, CSVFile>([
 			[
 				'INOUTCOME',
-				csv('INOUTCOME', ['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'], [
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'RUB_RUB', uid: 't1' },
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'USD_USD', uid: 't2' }
-				])
+				csv(
+					'INOUTCOME',
+					['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'],
+					[
+						{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'RUB_RUB', uid: 't1' },
+						{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'USD_USD', uid: 't2' }
+					]
+				)
 			]
 		]);
 		const r = detectMmCurrencyReviewNeeded(files);
@@ -59,9 +65,11 @@ describe('detectMmCurrencyReviewNeeded', () => {
 		const files = new Map<string, CSVFile>([
 			[
 				'INOUTCOME',
-				csv('INOUTCOME', ['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'], [
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'null', uid: 't1' }
-				])
+				csv(
+					'INOUTCOME',
+					['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'],
+					[{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'null', uid: 't1' }]
+				)
 			]
 		]);
 		const r = detectMmCurrencyReviewNeeded(files);
@@ -73,17 +81,25 @@ describe('detectMmCurrencyReviewNeeded', () => {
 		const files = new Map<string, CSVFile>([
 			[
 				'INOUTCOME',
-				csv('INOUTCOME', ['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'], [
-					{ DO_TYPE: '7', IS_DEL: '0', currencyUid: 'EUR_EUR', uid: 'r1' },
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'RUB_RUB', uid: 't1' }
-				])
+				csv(
+					'INOUTCOME',
+					['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'],
+					[
+						{ DO_TYPE: '7', IS_DEL: '0', currencyUid: 'EUR_EUR', uid: 'r1' },
+						{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'RUB_RUB', uid: 't1' }
+					]
+				)
 			],
 			[
 				'CURRENCY',
-				csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [
-					{ uid: 'RUB_RUB', ISO: 'RUB', IS_DEL: '0' },
-					{ uid: 'EUR_EUR', ISO: 'EUR', IS_DEL: '0' }
-				])
+				csv(
+					'CURRENCY',
+					['uid', 'ISO', 'IS_DEL'],
+					[
+						{ uid: 'RUB_RUB', ISO: 'RUB', IS_DEL: '0' },
+						{ uid: 'EUR_EUR', ISO: 'EUR', IS_DEL: '0' }
+					]
+				)
 			]
 		]);
 		const r = detectMmCurrencyReviewNeeded(files);
@@ -129,12 +145,16 @@ describe('detectMmCurrencyReviewNeeded', () => {
 		const files = new Map<string, CSVFile>([
 			[
 				'INOUTCOME',
-				csv('INOUTCOME', ['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'], [
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'AAA', uid: 't1' },
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'BBB', uid: 't2' },
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'BBB', uid: 't3' },
-					{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'BBB', uid: 't4' }
-				])
+				csv(
+					'INOUTCOME',
+					['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'],
+					[
+						{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'AAA', uid: 't1' },
+						{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'BBB', uid: 't2' },
+						{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'BBB', uid: 't3' },
+						{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'BBB', uid: 't4' }
+					]
+				)
 			]
 		]);
 		const r = detectMmCurrencyReviewNeeded(files);

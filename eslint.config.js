@@ -54,8 +54,9 @@ export default ts.config(
 			}
 		}
 	},
-	// Baseline: repo has extensive legacy debt; keep Prettier as the hard gate and avoid
-	// blocking `npm run lint` on hundreds of stylistic / strict-mode findings until tackled incrementally.
+	// Intentional ESLint allowlist (see docs/actionable/CHECKLIST_FEATURES.md — lint item).
+	// Prettier is the hard gate; rules below stay off so `npm run lint` passes while legacy
+	// debt is fixed incrementally. Re-enable one rule at a time when ready.
 	{
 		files: ['**/*.{js,ts,svelte}'],
 		rules: {

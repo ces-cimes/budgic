@@ -359,8 +359,7 @@ export class MoneyManagerImporter extends BaseImporter {
 				}
 
 				const accountTypeOverride = this.options.mmAccountUidToBudgicType?.[accountUid];
-				const resolvedType =
-					accountTypeOverride ?? inferMmAccountType(row).type;
+				const resolvedType = accountTypeOverride ?? inferMmAccountType(row).type;
 
 				if (this.options.mmAccountUidMarkedAsPerson?.[accountUid]) {
 					this.personAccountPreFlaggedNames.push(accountName);
@@ -674,9 +673,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		const mmUid = row.uid || row.ID; // MM transaction UID
 		const uidMode = this.options.mmTransactionUidConflict ?? 'skip';
 		const existingByMmUid =
-			mmUid && mmUid !== 'null' && mmUid !== ''
-				? this.findTransactionByMMUid(mmUid)
-				: null;
+			mmUid && mmUid !== 'null' && mmUid !== '' ? this.findTransactionByMMUid(mmUid) : null;
 		if (existingByMmUid && uidMode === 'skip') {
 			return false;
 		}
@@ -932,9 +929,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		const mmUid = pair.txUidTrans; // Use transfer pair UID as identifier
 		const uidMode = this.options.mmTransactionUidConflict ?? 'skip';
 		const existingByMmUid =
-			mmUid && mmUid !== 'null' && mmUid !== ''
-				? this.findTransactionByMMUid(mmUid)
-				: null;
+			mmUid && mmUid !== 'null' && mmUid !== '' ? this.findTransactionByMMUid(mmUid) : null;
 		if (existingByMmUid && uidMode === 'skip') {
 			return false;
 		}
@@ -1189,10 +1184,7 @@ export class MoneyManagerImporter extends BaseImporter {
 			splitCandidateGroups.length > 0
 				? {
 						groupCount: splitCandidateGroups.length,
-						transactionCount: splitCandidateGroups.reduce(
-							(n, g) => n + g.transactionIds.length,
-							0
-						)
+						transactionCount: splitCandidateGroups.reduce((n, g) => n + g.transactionIds.length, 0)
 					}
 				: undefined;
 

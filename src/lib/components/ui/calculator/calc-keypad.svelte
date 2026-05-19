@@ -70,47 +70,54 @@
 		if (!next) onClose?.();
 	}
 
-	const rows: { label: string; action: () => void; variant?: 'default' | 'secondary' | 'outline' }[][] =
+	const rows: {
+		label: string;
+		action: () => void;
+		variant?: 'default' | 'secondary' | 'outline';
+	}[][] = [
 		[
-			[
-				{ label: 'C', action: clearAll, variant: 'outline' },
-				{ label: '(', action: () => append('('), variant: 'secondary' },
-				{ label: ')', action: () => append(')'), variant: 'secondary' },
-				{ label: '⌫', action: backspace, variant: 'outline' }
-			],
-			[
-				{ label: '7', action: () => append('7'), variant: 'secondary' },
-				{ label: '8', action: () => append('8'), variant: 'secondary' },
-				{ label: '9', action: () => append('9'), variant: 'secondary' },
-				{ label: '÷', action: () => append('/'), variant: 'secondary' }
-			],
-			[
-				{ label: '4', action: () => append('4'), variant: 'secondary' },
-				{ label: '5', action: () => append('5'), variant: 'secondary' },
-				{ label: '6', action: () => append('6'), variant: 'secondary' },
-				{ label: '×', action: () => append('*'), variant: 'secondary' }
-			],
-			[
-				{ label: '1', action: () => append('1'), variant: 'secondary' },
-				{ label: '2', action: () => append('2'), variant: 'secondary' },
-				{ label: '3', action: () => append('3'), variant: 'secondary' },
-				{ label: '−', action: () => append('-'), variant: 'secondary' }
-			],
-			[
-				{ label: '±', action: toggleSign, variant: 'outline' },
-				{ label: '0', action: () => append('0'), variant: 'secondary' },
-				{ label: '.', action: () => append('.'), variant: 'secondary' },
-				{ label: '+', action: () => append('+'), variant: 'secondary' }
-			]
-		];
+			{ label: 'C', action: clearAll, variant: 'outline' },
+			{ label: '(', action: () => append('('), variant: 'secondary' },
+			{ label: ')', action: () => append(')'), variant: 'secondary' },
+			{ label: '⌫', action: backspace, variant: 'outline' }
+		],
+		[
+			{ label: '7', action: () => append('7'), variant: 'secondary' },
+			{ label: '8', action: () => append('8'), variant: 'secondary' },
+			{ label: '9', action: () => append('9'), variant: 'secondary' },
+			{ label: '÷', action: () => append('/'), variant: 'secondary' }
+		],
+		[
+			{ label: '4', action: () => append('4'), variant: 'secondary' },
+			{ label: '5', action: () => append('5'), variant: 'secondary' },
+			{ label: '6', action: () => append('6'), variant: 'secondary' },
+			{ label: '×', action: () => append('*'), variant: 'secondary' }
+		],
+		[
+			{ label: '1', action: () => append('1'), variant: 'secondary' },
+			{ label: '2', action: () => append('2'), variant: 'secondary' },
+			{ label: '3', action: () => append('3'), variant: 'secondary' },
+			{ label: '−', action: () => append('-'), variant: 'secondary' }
+		],
+		[
+			{ label: '±', action: toggleSign, variant: 'outline' },
+			{ label: '0', action: () => append('0'), variant: 'secondary' },
+			{ label: '.', action: () => append('.'), variant: 'secondary' },
+			{ label: '+', action: () => append('+'), variant: 'secondary' }
+		]
+	];
 </script>
 
 {#snippet keypadBody()}
 	<div class={cn('flex flex-col gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]', className)}>
-		<div class="border-border bg-muted/40 min-h-[4.5rem] rounded-[var(--radius-lg)] border px-3 py-2">
-			<p class="text-muted-foreground font-mono text-xs tracking-wide break-all">{expression || '0'}</p>
+		<div
+			class="border-border bg-muted/40 min-h-[4.5rem] rounded-[var(--radius-lg)] border px-3 py-2"
+		>
+			<p class="text-muted-foreground font-mono text-xs tracking-wide break-all">
+				{expression || '0'}
+			</p>
 			<p
-				class="font-display text-[var(--color-hero-number)] mt-1 text-2xl tabular-nums"
+				class="font-display mt-1 text-2xl text-[var(--color-hero-number)] tabular-nums"
 				class:text-destructive={preview.isError}
 			>
 				{preview.text}
@@ -146,14 +153,24 @@
 
 {#if embedDrawer}
 	{#if nested}
-		<Drawer.NestedRoot bind:open onOpenChange={handleOpenChange} direction="bottom" shouldScaleBackground={false}>
-			<Drawer.Content class="rounded-t-[var(--radius-xl)] border-t bg-background">
+		<Drawer.NestedRoot
+			bind:open
+			onOpenChange={handleOpenChange}
+			direction="bottom"
+			shouldScaleBackground={false}
+		>
+			<Drawer.Content class="bg-background rounded-t-[var(--radius-xl)] border-t">
 				{@render keypadBody()}
 			</Drawer.Content>
 		</Drawer.NestedRoot>
 	{:else}
-		<Drawer.Root bind:open onOpenChange={handleOpenChange} direction="bottom" shouldScaleBackground={false}>
-			<Drawer.Content class="rounded-t-[var(--radius-xl)] border-t bg-background">
+		<Drawer.Root
+			bind:open
+			onOpenChange={handleOpenChange}
+			direction="bottom"
+			shouldScaleBackground={false}
+		>
+			<Drawer.Content class="bg-background rounded-t-[var(--radius-xl)] border-t">
 				{@render keypadBody()}
 			</Drawer.Content>
 		</Drawer.Root>

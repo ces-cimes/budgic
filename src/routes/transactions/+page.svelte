@@ -532,7 +532,11 @@
 
 	// Handle transaction click (single tx or grouped row)
 	function handleTransactionClick(transaction: Transaction | any) {
-		if (transaction?.isGroup && Array.isArray(transaction.transactions) && transaction.transactions.length > 0) {
+		if (
+			transaction?.isGroup &&
+			Array.isArray(transaction.transactions) &&
+			transaction.transactions.length > 0
+		) {
 			const members = transaction.transactions.filter(
 				(t: Transaction | undefined): t is Transaction => !!t?.id
 			);
@@ -584,7 +588,7 @@
 	{/snippet}
 
 	<div
-		class="mx-auto flex min-h-full min-w-0 max-w-4xl flex-1 flex-col overflow-x-clip overscroll-x-contain px-5 py-4 sm:px-6"
+		class="mx-auto flex min-h-full max-w-4xl min-w-0 flex-1 flex-col overflow-x-clip overscroll-x-contain px-5 py-4 sm:px-6"
 	>
 		{#if isLoading}
 			<!-- Skeleton loading state — no spinners -->

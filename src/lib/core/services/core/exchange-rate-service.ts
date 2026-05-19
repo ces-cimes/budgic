@@ -273,8 +273,7 @@ class ExchangeRateService {
 				typeof window !== 'undefined'
 					? `${this.API_PROXY_PATH}/${baseCurrency}`
 					: `${this.API_BASE_URL}/${baseCurrency}`;
-			const response =
-				typeof window !== 'undefined' ? await apiFetch(url) : await fetch(url);
+			const response = typeof window !== 'undefined' ? await apiFetch(url) : await fetch(url);
 
 			if (!response.ok) {
 				const errText = await response.text();

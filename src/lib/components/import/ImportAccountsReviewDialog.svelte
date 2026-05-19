@@ -31,9 +31,7 @@
 		onCancel
 	}: Props = $props();
 
-	const canConfirm = $derived(
-		rows.length > 0 && rows.every((r) => typeSelection[r.mmUid] != null)
-	);
+	const canConfirm = $derived(rows.length > 0 && rows.every((r) => typeSelection[r.mmUid] != null));
 
 	function sourceLabel(source: MmAccountTypeSource): string {
 		switch (source) {
@@ -48,7 +46,9 @@
 
 	function typeLabel(type: Account['type'] | undefined): string {
 		if (!type) return 'Select type';
-		return MM_ACCOUNT_REVIEW_TYPE_LABELS[type as keyof typeof MM_ACCOUNT_REVIEW_TYPE_LABELS] ?? type;
+		return (
+			MM_ACCOUNT_REVIEW_TYPE_LABELS[type as keyof typeof MM_ACCOUNT_REVIEW_TYPE_LABELS] ?? type
+		);
 	}
 </script>
 
@@ -84,7 +84,7 @@
 			<div class="overflow-x-auto rounded-xl border border-[var(--color-border)]">
 				<table class="w-full min-w-[32rem] text-left text-sm">
 					<thead
-						class="bg-[var(--color-bg-surface)] text-xs uppercase text-[var(--color-text-tertiary)]"
+						class="bg-[var(--color-bg-surface)] text-xs text-[var(--color-text-tertiary)] uppercase"
 					>
 						<tr>
 							<th class="px-3 py-2 font-semibold">Account</th>
@@ -118,7 +118,7 @@
 											if (v) onTypeChange(row.mmUid, v as Account['type']);
 										}}
 									>
-										<Select.Trigger class="w-full min-w-[9rem] max-w-[12rem]">
+										<Select.Trigger class="w-full max-w-[12rem] min-w-[9rem]">
 											{typeLabel(typeSelection[row.mmUid])}
 										</Select.Trigger>
 										<Select.Content>
@@ -167,4 +167,3 @@
 		</div>
 	</div>
 {/if}
-

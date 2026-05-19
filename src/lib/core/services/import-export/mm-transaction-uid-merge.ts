@@ -134,10 +134,7 @@ export function diffMmReplace(
 	before: Transaction,
 	after: Transaction
 ): Array<{ field: string; before: unknown; after: unknown }> {
-	const keys = new Set<string>([
-		...MM_MERGE_IMPORT_OWNED_KEYS,
-		...MM_REPLACE_EXTRA_DIFF_KEYS
-	]);
+	const keys = new Set<string>([...MM_MERGE_IMPORT_OWNED_KEYS, ...MM_REPLACE_EXTRA_DIFF_KEYS]);
 	const out: Array<{ field: string; before: unknown; after: unknown }> = [];
 	for (const key of keys) {
 		const k = key as keyof Transaction;

@@ -27,9 +27,7 @@ function worseFxConversion(a: FxConversionQuality, b: FxConversionQuality): FxCo
 
 /** Dexie tables can occasionally yield sparse/invalid rows; never pass those into analytics loops. */
 function compactTransactions(transactions: (Transaction | null | undefined)[]): Transaction[] {
-	return transactions.filter(
-		(tx): tx is Transaction => tx != null && typeof tx.type === 'string'
-	);
+	return transactions.filter((tx): tx is Transaction => tx != null && typeof tx.type === 'string');
 }
 
 /** Start of window for spent vs budget (category-level). */
@@ -1048,9 +1046,7 @@ class BudgetService {
 		transactions: Transaction[],
 		accounts: Array<{ id: string; type: string }>
 	): Set<string> {
-		const creditIds = new Set(
-			accounts.filter((a) => a?.type === 'credit').map((a) => a.id)
-		);
+		const creditIds = new Set(accounts.filter((a) => a?.type === 'credit').map((a) => a.id));
 		const result = new Set<string>();
 		if (creditIds.size === 0) return result;
 

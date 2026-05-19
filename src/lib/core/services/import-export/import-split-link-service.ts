@@ -1,4 +1,10 @@
-import { db, generateUUID, validateTransactionGroup, type ImportQuality, type Transaction } from '$lib/core/db';
+import {
+	db,
+	generateUUID,
+	validateTransactionGroup,
+	type ImportQuality,
+	type Transaction
+} from '$lib/core/db';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 
@@ -27,7 +33,10 @@ function pickGroupName(transactions: Transaction[]): string {
 	return descriptions[0] ?? 'Split';
 }
 
-function pickEarliestIso(transactions: Transaction[], field: 'clearedDate' | 'plannedDate'): string | undefined {
+function pickEarliestIso(
+	transactions: Transaction[],
+	field: 'clearedDate' | 'plannedDate'
+): string | undefined {
 	const values = transactions
 		.map((t) => t[field])
 		.filter((v): v is string => !!v)
@@ -56,9 +65,9 @@ export async function linkTransactionsAsSplitGroup(
 		throw new Error('Select at least two transactions to create a split');
 	}
 
-	const transactions = (
-		await Promise.all(uniqueIds.map((id) => db.transactions.get(id)))
-	).filter((t): t is Transaction => !!t && !t.deletedAt);
+	const transactions = (await Promise.all(uniqueIds.map((id) => db.transactions.get(id)))).filter(
+		(t): t is Transaction => !!t && !t.deletedAt
+	);
 
 	if (transactions.length !== uniqueIds.length) {
 		throw new Error('One or more transactions were not found');
@@ -88,8 +97,7 @@ export async function linkTransactionsAsSplitGroup(
 	const categoryIds = new Set(
 		transactions.map((t) => t.categoryId).filter((id): id is string => !!id)
 	);
-	const needsExactCategory =
-		type === 'expense' && categoryIds.size > 1;
+	const needsExactCategory = type === 'expense' && categoryIds.size > 1;
 
 	const groupId = generateUUID();
 	const groupName = pickGroupName(transactions);

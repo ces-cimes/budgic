@@ -42,9 +42,7 @@ export function getPanelUnreadCount(insights: Insight[]): number {
  */
 export function getPanelGroupedBadgeCount(insights: Insight[]): number {
 	const { critical, high } = splitByTier(insights);
-	return (
-		groupPanelAlertsForDisplay(critical).length + groupPanelAlertsForDisplay(high).length
-	);
+	return groupPanelAlertsForDisplay(critical).length + groupPanelAlertsForDisplay(high).length;
 }
 
 /** Badge color: red if any Critical, else amber if any High. */

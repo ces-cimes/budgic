@@ -413,11 +413,7 @@ class OptimizationService {
 			// Get all planned transactions
 			devLog('[Optimization] Getting planned transactions for dependency validation...');
 			const transactions = await transactionService.getTransactionsByStatus('planned');
-			devLog(
-				'[Optimization] Found',
-				transactions.length,
-				'planned transactions for validation'
-			);
+			devLog('[Optimization] Found', transactions.length, 'planned transactions for validation');
 
 			// Validate dependency graph
 			// Note: validateDependencyGraph already checks for circular dependencies internally
