@@ -1,7 +1,16 @@
 <script lang="ts">
 	import '../app.css';
-	import { registerServiceWorker, handleOfflineStatus } from '$lib/pwa';
+	import { handleOfflineStatus } from '$lib/pwa';
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
+	import { requestStoragePersistence } from '$lib/storage-persistence';
+	import {
+		startBackupSyncListeners,
+		restoreFromServerIfEmpty,
+		scheduleBackupPush
+	} from '$lib/core/services/import-export';
+	import { db } from '$lib/core/db';
+	import { BACKUP_TABLE_NAMES } from '$lib/core/services/import-export/budgic-backup-service';
 	import { ModeWatcher } from 'mode-watcher';
 	import {
 		insightsService,
@@ -22,8 +31,44 @@
 	let { children } = $props();
 
 	onMount(() => {
-		registerServiceWorker();
 		handleOfflineStatus();
+
+		void requestStoragePersistence().then(({ isStandalone, persisted }) => {
+			if (import.meta.env.DEV) {
+				devLog('[storage]', { isStandalone, persisted });
+			}
+			if (!isStandalone && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+				const key = 'budgic_ios_install_hint_shown';
+				if (!sessionStorage.getItem(key)) {
+					sessionStorage.setItem(key, '1');
+					toast.info('Install to Home Screen for reliable saving on iPhone', {
+						duration: 8000
+					});
+				}
+			}
+		});
+
+		const stopBackupListeners = startBackupSyncListeners();
+		const backupTables = new Set<string>(BACKUP_TABLE_NAMES);
+		for (const table of db.tables) {
+			if (!backupTables.has(table.name)) {
+				continue;
+			}
+			table.hook('creating', () => scheduleBackupPush());
+			table.hook('updating', () => scheduleBackupPush());
+			table.hook('deleting', () => scheduleBackupPush());
+		}
+
+		void restoreFromServerIfEmpty(() =>
+			confirm(
+				'No local data found. Restore your latest backup from the server? This replaces any local data.'
+			)
+		).then((restored) => {
+			if (restored) {
+				toast.success('Restored from server backup');
+				window.location.reload();
+			}
+		});
 
 		// In dev, surface slow operations (>500 ms) to the console.
 		if (import.meta.env.DEV) {
@@ -64,6 +109,7 @@
 
 		// Cleanup on unmount
 		return () => {
+			stopBackupListeners();
 			insightsService.stopAutoUpdates();
 			crossRouteSyncService.stop();
 			notificationsService.stopPolling();
@@ -81,7 +127,8 @@
 	/>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 	<meta name="theme-color" content="#3b82f6" />
-	<link rel="manifest" href="/manifest.json" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 	<link rel="apple-touch-icon" href="/icon-192.png" />
 </svelte:head>
 

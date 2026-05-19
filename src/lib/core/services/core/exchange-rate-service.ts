@@ -4,6 +4,7 @@
  */
 
 import { db, generateUUID, type ExchangeRate } from '$lib/core/db';
+import { apiFetch } from '$lib/api-client';
 import { userService } from './user-service';
 import { scheduler } from '$lib/utils/scheduler';
 import { devLog } from '$lib/utils/dev-log';
@@ -272,7 +273,8 @@ class ExchangeRateService {
 				typeof window !== 'undefined'
 					? `${this.API_PROXY_PATH}/${baseCurrency}`
 					: `${this.API_BASE_URL}/${baseCurrency}`;
-			const response = await fetch(url);
+			const response =
+				typeof window !== 'undefined' ? await apiFetch(url) : await fetch(url);
 
 			if (!response.ok) {
 				const errText = await response.text();

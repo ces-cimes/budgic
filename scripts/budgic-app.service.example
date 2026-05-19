@@ -1,0 +1,21 @@
+[Unit]
+Description=Budgic personal finance app (SvelteKit PWA)
+After=network.target
+
+[Service]
+Type=simple
+User=budgic-app
+Group=budgic-app
+WorkingDirectory=/opt/budgic-app
+EnvironmentFile=/opt/budgic-app/.env
+ExecStart=/usr/bin/node /opt/budgic-app/build/index.js
+Restart=on-failure
+RestartSec=5
+
+# Hardening (adjust as needed)
+NoNewPrivileges=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/budgic-app/backups
+
+[Install]
+WantedBy=multi-user.target

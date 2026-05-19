@@ -59,6 +59,26 @@ export {
 	type SqliteDb
 } from './mm-sqlite-reader';
 
+// Budgic full backup / restore
+export {
+	exportFullBackup,
+	importFullBackup,
+	isLocalDatabaseEmpty,
+	BUDGIC_BACKUP_VERSION,
+	type BudgicBackup,
+	type BudgicBackupV2
+} from './budgic-backup-service';
+
+export {
+	pushBackupToServer,
+	scheduleBackupPush,
+	fetchLatestServerBackup,
+	restoreFromServerIfEmpty,
+	startBackupSyncListeners,
+	getLastServerBackupAt,
+	isServerBackupEnabled
+} from './backup-sync-service';
+
 // Import source detection
 export {
 	detectImportSource,

@@ -6,8 +6,10 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { Switch } from '$lib/components/ui/switch/index.ts';
-	import { BarChart2, HardDrive, LineChart } from '@lucide/svelte';
+	import { BarChart2, Copy, HardDrive, LineChart } from '@lucide/svelte';
 	import type { UserPreferences } from '$lib/core/db';
+	import { getDeviceId } from '$lib/device-id';
+	import { getLastServerBackupAt } from '$lib/core/services/import-export';
 
 	// State
 	let isLoading = $state(true);
@@ -22,6 +24,9 @@
 	let analyticsEnabled = $state(true);
 	let backupEnabled = $state(true);
 	let insightsShadowCategoryBreakdown = $state(false);
+	let deviceId = $state('');
+	let lastServerBackupAt = $state<string | null>(null);
+	let deviceIdCopied = $state(false);
 
 	// User maturity options
 	const userMaturityOptions = [
@@ -43,8 +48,20 @@
 		}
 	];
 
+	async function copyDeviceId() {
+		try {
+			await navigator.clipboard.writeText(deviceId);
+			deviceIdCopied = true;
+			setTimeout(() => (deviceIdCopied = false), 2000);
+		} catch {
+			// ignore
+		}
+	}
+
 	// Load user preferences on mount
 	onMount(async () => {
+		deviceId = getDeviceId();
+		lastServerBackupAt = getLastServerBackupAt();
 		try {
 			const preferences = await userService.getUserPreferences();
 			if (preferences) {
@@ -232,6 +249,32 @@
 							</div>
 						</div>
 						<Switch bind:checked={backupEnabled} aria-label="Toggle data backup" />
+					</div>
+					{#if backupEnabled && lastServerBackupAt}
+						<p class="px-5 pb-3 text-xs text-[var(--color-text-tertiary)]">
+							Last server backup: {new Date(lastServerBackupAt).toLocaleString()}
+						</p>
+					{/if}
+					<div class="border-border border-t px-5 py-4">
+						<p class="text-sm font-medium text-[var(--color-text-primary)]">Device ID</p>
+						<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+							Send this to the admin to enable server backup on
+							<code class="text-[var(--color-text-secondary)]">budgic.example.ru</code>.
+						</p>
+						<div class="mt-2 flex flex-wrap items-center gap-2">
+							<code
+								class="border-border max-w-full truncate rounded-lg border bg-[var(--color-bg-surface)] px-2 py-1 text-xs text-[var(--color-text-secondary)]"
+								>{deviceId}</code
+							>
+							<button
+								type="button"
+								onclick={copyDeviceId}
+								class="border-border inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)]"
+							>
+								<Copy class="size-3" />
+								{deviceIdCopied ? 'Copied' : 'Copy'}
+							</button>
+						</div>
 					</div>
 					<div class="flex items-center justify-between gap-4 px-5 py-4">
 						<div class="flex items-center gap-3">

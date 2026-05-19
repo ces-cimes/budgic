@@ -31,7 +31,11 @@
 		type CSVFile,
 		type MmCurrencyReviewRow,
 		type MmAccountReviewRow,
-		type ImportSourceDetection
+		type ImportSourceDetection,
+		exportFullBackup,
+		importFullBackup,
+		pushBackupToServer,
+		getLastServerBackupAt
 	} from '$lib/core/services/import-export';
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import ImportCurrencyReviewDialog from '$lib/components/import/ImportCurrencyReviewDialog.svelte';
@@ -286,20 +290,7 @@
 		success = null;
 
 		try {
-			// Simple JSON export for now
-			const data = {
-				accounts: await db.accounts.toArray(),
-				transactions: await db.transactions.toArray(),
-				categories: await db.categories.toArray(),
-				goals: await db.goals.toArray(),
-				insights: await db.insights.toArray(),
-				userActions: await db.userActions.toArray(),
-				userPreferences: await db.userPreferences.toArray(),
-				exportDate: new Date().toISOString(),
-				version: '1.0'
-			};
-
-			// Create download link
+			const data = await exportFullBackup();
 			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
@@ -310,6 +301,12 @@
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
 
+			try {
+				await pushBackupToServer();
+			} catch (backupErr) {
+				devLog('Server backup after export failed:', backupErr);
+			}
+
 			success = 'Saved';
 		} catch (err) {
 			error = 'Failed to export data';
@@ -318,6 +315,11 @@
 			isExporting = false;
 		}
 	}
+
+	let lastServerBackupAt = $state<string | null>(null);
+	$effect(() => {
+		lastServerBackupAt = getLastServerBackupAt();
+	});
 
 	function resetImportSelection() {
 		releaseImportSourceDetection(importDetection);
@@ -400,24 +402,22 @@
 
 		try {
 			const text = await file.text();
-			const data = JSON.parse(text) as {
-				version?: unknown;
-				exportDate?: string;
-				userPreferences?: unknown[];
-			};
+			const data = JSON.parse(text);
 
-			if (!data.version || !data.exportDate) {
+			if (
+				!data ||
+				typeof data !== 'object' ||
+				!('version' in data) ||
+				!('exportDate' in data)
+			) {
 				throw new Error('Invalid export file format');
 			}
 
-			if (data.userPreferences && Array.isArray(data.userPreferences) && data.userPreferences.length > 0) {
-				await userService.updateUserPreferences(
-					data.userPreferences[0] as Awaited<ReturnType<typeof userService.getUserPreferences>>
-				);
-			}
+			await importFullBackup(data);
 
 			success = 'Saved';
 			resetImportSelection();
+			window.location.reload();
 		} catch (err) {
 			error = 'Failed to import data: ' + (err instanceof Error ? err.message : 'Unknown error');
 			console.error('Error importing Budgic JSON:', err);
@@ -1008,6 +1008,11 @@
 						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
 							Download a backup of all your financial data
 						</p>
+						{#if lastServerBackupAt}
+							<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+								Last server backup: {new Date(lastServerBackupAt).toLocaleString()}
+							</p>
+						{/if}
 					</div>
 					<div class="space-y-3 px-5 py-4">
 						<div class="space-y-1.5">
