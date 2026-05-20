@@ -16,6 +16,7 @@ import {
 	effectiveAmountForCategory,
 	shouldIncludeClearedExpenseInAnalyticsSpend
 } from '$lib/utils/category-utils';
+import { deduplicateForSpendTotals } from '$lib/utils/transaction-split';
 
 /**
  * Prediction Service
@@ -169,7 +170,7 @@ class PredictionService {
 					tx.status === 'cleared' &&
 					tx.clearedDate &&
 					new Date(tx.clearedDate) >= cutoffDate &&
-					(!categoryId || tx.categoryId === categoryId) &&
+					(!categoryId || Math.abs(effectiveAmountForCategory(tx, categoryId)) > 1e-9) &&
 					// Ensure transaction has a valid amount
 					tx.amount !== null &&
 					tx.amount !== undefined &&
@@ -177,43 +178,27 @@ class PredictionService {
 					Math.abs(tx.amount) > 0
 			);
 
-			// Handle split transactions: if we have grouped transactions, we should use the total
-			// For now, we'll include all transactions (split parts are fine as they represent actual spending)
-			// But we'll log if we detect potential double-counting
-			const groupIds = new Set<string>();
-			const transactionsByGroup = new Map<string, Transaction[]>();
-			for (const tx of relevantTransactions) {
-				if (tx.groupId) {
-					if (!transactionsByGroup.has(tx.groupId)) {
-						transactionsByGroup.set(tx.groupId, []);
-					}
-					transactionsByGroup.get(tx.groupId)!.push(tx);
-				}
-			}
-
-			// Log if we find split transactions (for debugging)
-			if (transactionsByGroup.size > 0) {
+			// One economic event per split.id (partitioned groups collapse to split.totalAmount)
+			const spendRows = deduplicateForSpendTotals(relevantTransactions);
+			const groupRowCount = relevantTransactions.filter((tx) => tx.groupId).length;
+			if (groupRowCount > spendRows.length) {
 				devLog(
-					`[PredictionService] Found ${transactionsByGroup.size} transaction groups ` +
-						`with ${relevantTransactions.filter((tx) => tx.groupId).length} split transactions`
+					`[PredictionService] Deduped ${groupRowCount} grouped rows to ${spendRows.length} spend events`
 				);
 			}
 
 			// Debug: Log filtering results
-			const totalBeforeConversion = relevantTransactions.reduce(
+			const totalBeforeConversion = spendRows.reduce(
 				(sum, tx) => sum + Math.abs(tx.amount || 0),
 				0
 			);
 			devLog(
-				`[PredictionService] Filtered ${relevantTransactions.length} transactions ` +
+				`[PredictionService] Filtered ${spendRows.length} spend events ` +
 					`(total: ${totalBeforeConversion.toFixed(2)}) for prediction${categoryId ? ` (category: ${categoryId})` : ''}`
 			);
 
 			// Convert to main currency
-			relevantTransactions = await this.convertTransactionsToMainCurrency(
-				relevantTransactions,
-				mainCurrency
-			);
+			relevantTransactions = await this.convertTransactionsToMainCurrency(spendRows, mainCurrency);
 
 			// Debug: Log after conversion
 			const totalAfterConversion = relevantTransactions.reduce(
@@ -252,13 +237,20 @@ class PredictionService {
 				);
 				if (forecast) forecasts.push(forecast);
 			} else {
-				// Predict for all categories
+				// Predict for all categories (soft splits: attribute slices per category id)
 				const categorySpending = new Map<string, Transaction[]>();
 				for (const tx of relevantTransactions) {
-					if (tx.categoryId) {
-						const existing = categorySpending.get(tx.categoryId) || [];
-						existing.push(tx);
-						categorySpending.set(tx.categoryId, existing);
+					for (const cid of categoryIdsWithSpendShare(tx)) {
+						const slice = effectiveAmountForCategory(tx, cid);
+						if (Math.abs(slice) < 1e-9) continue;
+						const existing = categorySpending.get(cid) || [];
+						existing.push({
+							...tx,
+							amount: Math.abs(slice),
+							categoryId: cid,
+							categoryWeights: undefined
+						});
+						categorySpending.set(cid, existing);
 					}
 				}
 
@@ -292,16 +284,14 @@ class PredictionService {
 		months: number,
 		mainCurrency: string
 	): Promise<SpendingForecast | null> {
-		if (transactions.length < this.MIN_MONTHS_FOR_PREDICTION) {
-			return null;
-		}
+		const spendRows = deduplicateForSpendTotals(transactions);
 
 		// Debug: Log transaction amounts before grouping
-		const totalBeforeGrouping = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
-		const avgTransactionAmount = totalBeforeGrouping / transactions.length;
+		const totalBeforeGrouping = spendRows.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+		const avgTransactionAmount = totalBeforeGrouping / spendRows.length;
 
 		// Group by month
-		const monthlyData = this.groupTransactionsByMonth(transactions);
+		const monthlyData = this.groupTransactionsByMonth(spendRows);
 		const monthlyAmounts = Array.from(monthlyData.values()).sort((a, b) =>
 			a.month.localeCompare(b.month)
 		);
@@ -325,7 +315,7 @@ class PredictionService {
 		// Enhanced debug logging to identify issues
 		devLog(
 			`[PredictionService] ${categoryName}: ` +
-				`Total transactions: ${transactions.length}, ` +
+				`Total spend events: ${spendRows.length}, ` +
 				`Total before grouping: ${totalBeforeGrouping.toFixed(2)} ${mainCurrency}, ` +
 				`Avg transaction: ${avgTransactionAmount.toFixed(2)} ${mainCurrency}, ` +
 				`Months with data: ${monthsCovered} (${firstMonth} to ${lastMonth}), ` +

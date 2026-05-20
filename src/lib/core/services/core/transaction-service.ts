@@ -1705,12 +1705,13 @@ class TransactionService {
 		}
 
 		const savedGroup = await db.transactions.where('groupId').equals(groupId).toArray();
-		for (const t of savedGroup) {
-			if (t.status === 'cleared') {
-				merchantProfileService
-					.onTransactionSaved(t)
-					.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
-			}
+		const clearedForLearning = savedGroup.find(
+			(t) => t.status === 'cleared' && (t.type === 'expense' || t.type === 'income')
+		);
+		if (clearedForLearning) {
+			merchantProfileService
+				.onTransactionSaved(clearedForLearning)
+				.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
 		}
 
 		return groupId;

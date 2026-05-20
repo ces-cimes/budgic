@@ -63,7 +63,8 @@ function resolveWeightedSplit(tx: Transaction): TransactionSplit {
 	};
 }
 
-function pickRepresentative(members: Transaction[]): Transaction {
+/** Row used for merchant learning and spend dedup keys (largest |amount| in group). */
+export function splitRepresentativeRow(members: Transaction[]): Transaction {
 	return members.reduce((a, b) =>
 		Math.abs(b.amount ?? 0) > Math.abs(a.amount ?? 0) ? b : a
 	);
@@ -98,7 +99,7 @@ function resolvePartitionedSplit(tx: Transaction, members: Transaction[]): Trans
 	}));
 
 	const totalAmount = members.reduce((s, m) => s + (m.amount ?? 0), 0);
-	const representative = pickRepresentative(members);
+	const representative = splitRepresentativeRow(members);
 	const groupId = tx.groupId!;
 
 	return {
@@ -131,6 +132,57 @@ export function resolveSplit(tx: Transaction, members?: Transaction[]): Transact
 
 export function hasSplit(split: TransactionSplit): boolean {
 	return split.slices.length >= 2;
+}
+
+/**
+ * True when a row already has split storage that bulk retrospective apply must not overwrite
+ * (partitioned `groupId` or soft `categoryWeights` with 2+ categories).
+ */
+export function transactionHasExistingSplit(tx: Transaction): boolean {
+	if (tx.groupId) return true;
+	return Boolean(tx.categoryWeights && tx.categoryWeights.length >= 2);
+}
+
+/**
+ * Collapse partitioned groups to one row per `split.id` for spend summation / prediction totals.
+ * Weighted soft splits stay one row; ungrouped rows pass through unchanged.
+ */
+/** Distinct YYYY-MM months with `clearedDate` (for prediction minimum-history gates). */
+export function distinctClearedMonths(transactions: Transaction[]): number {
+	const months = new Set<string>();
+	for (const tx of transactions) {
+		if (tx.clearedDate) {
+			months.add(new Date(tx.clearedDate).toISOString().substring(0, 7));
+		}
+	}
+	return months.size;
+}
+
+export function deduplicateForSpendTotals(transactions: Transaction[]): Transaction[] {
+	const groupMap = buildGroupMemberMap(transactions);
+	const seenGroupIds = new Set<string>();
+	const out: Transaction[] = [];
+
+	for (const tx of transactions) {
+		const gid = tx.groupId;
+		if (!gid) {
+			out.push(tx);
+			continue;
+		}
+		if (seenGroupIds.has(gid)) continue;
+		seenGroupIds.add(gid);
+
+		const members = groupMap.get(gid) ?? [tx];
+		const split = resolveSplit(tx, members);
+		if (split) {
+			const rep = splitRepresentativeRow(members);
+			out.push({ ...rep, amount: split.totalAmount });
+		} else {
+			out.push(tx);
+		}
+	}
+
+	return out;
 }
 
 export function amountForCategory(split: TransactionSplit, categoryId: string): number {

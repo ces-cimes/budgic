@@ -1,7 +1,19 @@
 import { db, generateUUID, type MerchantCategoryProfile, type Transaction } from '$lib/core/db';
+import {
+	hasSplit,
+	resolveSplit,
+	splitRepresentativeRow,
+	transactionHasExistingSplit,
+	type TransactionSplit
+} from '$lib/utils/transaction-split';
 import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
 
 type ProfileWeight = MerchantCategoryProfile['weights'][number];
+
+/** Cleared expense or income — eligible for merchant split learning (not transfers). */
+function isMerchantLearningTransaction(tx: Transaction): boolean {
+	return tx.status === 'cleared' && (tx.type === 'expense' || tx.type === 'income');
+}
 
 class MerchantProfileService {
 	public get ready() {
@@ -67,21 +79,52 @@ class MerchantProfileService {
 		return { ...row, meanWeight: mean, stdDev, observationCount: n, weightM2: m2 };
 	}
 
+	/** Welford passes per slice: 2 when multi-slice split has `categoryConfidence: 'exact'`. */
+	private welfordPassesForSplit(split: TransactionSplit | null): number {
+		if (split && hasSplit(split) && split.categoryConfidence === 'exact') return 2;
+		return 1;
+	}
+
+	private applySliceObservation(row: ProfileWeight, observedWeight: number, passes: number): ProfileWeight {
+		let next = row;
+		for (let i = 0; i < passes; i++) {
+			next = this.upsertWelford(next, observedWeight);
+		}
+		return next;
+	}
+
 	/**
-	 * Accumulate merchant → category weight stats from a cleared expense (Phase 9.5).
+	 * Accumulate merchant → category weight stats from a cleared expense or income (Phase 9.5).
+	 * Partitioned groups: one observation per `split.id` (representative row only).
 	 */
 	async onTransactionSaved(tx: Transaction): Promise<void> {
-		if (tx.status !== 'cleared' || tx.type !== 'expense') return;
+		if (!isMerchantLearningTransaction(tx)) return;
 		const key = normaliseMerchantKey(tx.description ?? '');
 		if (!key) return;
 
+		let members: Transaction[] | undefined;
+		if (tx.groupId) {
+			members = await db.transactions
+				.where('groupId')
+				.equals(tx.groupId)
+				.filter((t) => !t.deletedAt)
+				.toArray();
+			if (members.length > 0) {
+				const rep = splitRepresentativeRow(members);
+				if (tx.id !== rep.id) return;
+			}
+		}
+
+		const split = resolveSplit(tx, members);
 		const slices: { categoryId: string; weight: number }[] =
-			tx.categoryWeights?.length && tx.categoryWeights.length >= 1
-				? tx.categoryWeights.map((w) => ({ categoryId: w.categoryId, weight: w.weight }))
+			split && hasSplit(split)
+				? split.slices.map((s) => ({ categoryId: s.categoryId, weight: s.share }))
 				: tx.categoryId
 					? [{ categoryId: tx.categoryId, weight: 1 }]
 					: [];
 		if (slices.length === 0) return;
+
+		const welfordPasses = this.welfordPassesForSplit(split);
 
 		const accountId = tx.accountId;
 		const existing = await this.getProfile(key, accountId);
@@ -104,7 +147,7 @@ class MerchantProfileService {
 					observationCount: 0,
 					weightM2: 0
 				} as ProfileWeight);
-			weightByCat.set(categoryId, this.upsertWelford(prev, weight));
+			weightByCat.set(categoryId, this.applySliceObservation(prev, weight, welfordPasses));
 		}
 
 		const weights = Array.from(weightByCat.values());
@@ -133,6 +176,7 @@ class MerchantProfileService {
 
 	/**
 	 * Bulk-apply mean split to historical cleared expenses (Phase 9.5 retrospective).
+	 * Skips partitioned groups and rows that already have soft splits (B-Split Phase 2 guard).
 	 */
 	async applyRetrospectiveSplits(
 		merchantKey: string,
@@ -155,9 +199,10 @@ class MerchantProfileService {
 		let updated = 0;
 		for (const id of transactionIds) {
 			const tx = await db.transactions.get(id);
-			if (!tx || tx.deletedAt || tx.type !== 'expense' || tx.status !== 'cleared') continue;
+			if (!tx || tx.deletedAt || !isMerchantLearningTransaction(tx)) continue;
 			if (normaliseMerchantKey(tx.description ?? '') !== merchantKey) continue;
 			if ((tx.accountId ?? '') !== (accountId ?? '')) continue;
+			if (transactionHasExistingSplit(tx)) continue;
 
 			await db.transactions.update(id, {
 				categoryWeights: normalized,
@@ -175,7 +220,12 @@ class MerchantProfileService {
 	 */
 	async applyAllRetrospectiveEligible(): Promise<number> {
 		const txs = await db.transactions
-			.filter((t) => !t.deletedAt && t.type === 'expense' && t.status === 'cleared')
+			.filter(
+				(t) =>
+					!t.deletedAt &&
+					t.status === 'cleared' &&
+					(t.type === 'expense' || t.type === 'income')
+			)
 			.toArray();
 		const byKey = new Map<string, string[]>();
 		for (const t of txs) {

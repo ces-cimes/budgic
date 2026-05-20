@@ -4,9 +4,12 @@ import { validateTransactionCategoryWeights } from '$lib/core/db';
 import {
 	amountForCategory,
 	buildGroupMemberMap,
+	deduplicateForSpendTotals,
+	distinctClearedMonths,
 	hasSplit,
 	resolveSplit,
-	tierAmountsFromSplit
+	tierAmountsFromSplit,
+	transactionHasExistingSplit
 } from './transaction-split';
 
 function cat(id: string, tier: Category['waterfallTier']): Category {
@@ -131,6 +134,71 @@ describe('partitioned edge cases', () => {
 		const map = buildGroupMemberMap(txs);
 		expect(map.get(gid)).toHaveLength(2);
 		expect(map.has('other')).toBe(false);
+	});
+});
+
+describe('transactionHasExistingSplit', () => {
+	it('is true for groupId or multi-entry categoryWeights', () => {
+		expect(
+			transactionHasExistingSplit({ groupId: 'g1', categoryId: 'gro' } as unknown as Transaction)
+		).toBe(true);
+		expect(
+			transactionHasExistingSplit({
+				categoryWeights: [
+					{ categoryId: 'a', weight: 0.6 },
+					{ categoryId: 'b', weight: 0.4 }
+				]
+			} as unknown as Transaction)
+		).toBe(true);
+		expect(transactionHasExistingSplit({ categoryId: 'gro' } as unknown as Transaction)).toBe(
+			false
+		);
+	});
+});
+
+describe('distinctClearedMonths', () => {
+	it('counts unique months, not row count', () => {
+		const oneMonth = Array.from({ length: 10 }, (_, i) => ({
+			id: `t${i}`,
+			clearedDate: '2024-03-15T12:00:00Z',
+			amount: -10
+		})) as unknown as Transaction[];
+		expect(distinctClearedMonths(oneMonth)).toBe(1);
+
+		const threeMonths = [
+			{ id: 'a', clearedDate: '2024-01-10T12:00:00Z', amount: -10 },
+			{ id: 'b', clearedDate: '2024-02-10T12:00:00Z', amount: -10 },
+			{ id: 'c', clearedDate: '2024-03-10T12:00:00Z', amount: -10 }
+		] as unknown as Transaction[];
+		expect(distinctClearedMonths(threeMonths)).toBe(3);
+	});
+});
+
+describe('deduplicateForSpendTotals', () => {
+	it('collapses partitioned group to one row with split.totalAmount', () => {
+		const gid = 'g-dedup';
+		const txs = [
+			{ id: 'a', groupId: gid, amount: -60, categoryId: 'gro', clearedDate: '2024-01-01' },
+			{ id: 'b', groupId: gid, amount: -40, categoryId: 'hh', clearedDate: '2024-01-01' },
+			{ id: 'solo', amount: -25, categoryId: 'gro', clearedDate: '2024-01-02' }
+		] as unknown as Transaction[];
+		const out = deduplicateForSpendTotals(txs);
+		expect(out).toHaveLength(2);
+		const collapsed = out.find((t) => t.groupId === gid)!;
+		expect(collapsed.amount).toBe(-100);
+		expect(out.find((t) => t.id === 'solo')?.amount).toBe(-25);
+	});
+
+	it('leaves weighted soft split row unchanged', () => {
+		const soft = {
+			id: 'soft',
+			amount: -100,
+			categoryWeights: [
+				{ categoryId: 'gro', weight: 0.6 },
+				{ categoryId: 'hh', weight: 0.4 }
+			]
+		} as unknown as Transaction;
+		expect(deduplicateForSpendTotals([soft])).toEqual([soft]);
 	});
 });
 
