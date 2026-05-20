@@ -10,9 +10,20 @@ import {
 	type Category,
 	type Transaction
 } from '$lib/core/db';
+import {
+	amountForCategory,
+	categoryIdsInSplit,
+	hasSplit,
+	resolveSplit,
+	tierAmountsFromSplit
+} from './transaction-split';
 
 /** Category ids that receive a non-zero share of this transaction's amount */
 export function categoryIdsWithSpendShare(tx: Transaction): string[] {
+	const split = resolveSplit(tx);
+	if (split && hasSplit(split)) {
+		return categoryIdsInSplit(split);
+	}
 	if (tx.categoryWeights?.length) {
 		return tx.categoryWeights.map((w) => w.categoryId);
 	}
@@ -54,6 +65,10 @@ export function shouldIncludeClearedExpenseInAnalyticsSpend(
  * Phase 9 — signed amount attributed to a category (soft split or legacy single categoryId).
  */
 export function effectiveAmountForCategory(tx: Transaction, categoryId: string): number {
+	const split = resolveSplit(tx);
+	if (split && hasSplit(split)) {
+		return amountForCategory(split, categoryId);
+	}
 	const base = tx.amount ?? 0;
 	if (!tx.categoryWeights?.length) {
 		return tx.categoryId === categoryId ? base : 0;
@@ -69,6 +84,10 @@ export function tierAmounts(
 	tx: Transaction,
 	categories: Map<string, Category>
 ): Record<string, number> {
+	const split = resolveSplit(tx);
+	if (split && hasSplit(split)) {
+		return tierAmountsFromSplit(split, categories);
+	}
 	const result: Record<string, number> = {};
 	const base = tx.amount ?? 0;
 	const addToTier = (tier: string, amount: number) => {
