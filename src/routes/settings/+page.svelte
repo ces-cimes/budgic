@@ -29,6 +29,7 @@
 	let notificationsEnabled = $state(true);
 	let autoCategorizationEnabled = $state(true);
 	let stressDetectionEnabled = $state(true);
+	let suggestSplitsAfterAddEnabled = $state(true);
 	let darkModeEnabled = $derived(mode.current === 'dark');
 
 	// Dev section state
@@ -44,6 +45,7 @@
 				notificationsEnabled = userPreferences.analyticsEnabled ?? true;
 				autoCategorizationEnabled = userPreferences.enablePredictiveAnalytics ?? true;
 				stressDetectionEnabled = userPreferences.enableAdvancedFeatures ?? true;
+				suggestSplitsAfterAddEnabled = userPreferences.suggestSplitsAfterAdd ?? true;
 			} else {
 				// Create default preferences if none exist
 				userPreferences = await userService.updateUserPreferences({
@@ -84,6 +86,7 @@
 				analyticsEnabled: notificationsEnabled,
 				enablePredictiveAnalytics: autoCategorizationEnabled,
 				enableAdvancedFeatures: stressDetectionEnabled,
+				suggestSplitsAfterAdd: suggestSplitsAfterAddEnabled,
 				theme: darkModeEnabled ? 'dark' : 'light'
 			});
 		} catch (error) {
@@ -323,6 +326,15 @@
 								>Advanced features</span
 							>
 							<Switch bind:checked={stressDetectionEnabled} aria-label="Toggle advanced features" />
+						</div>
+						<div class="flex items-center justify-between px-5 py-4">
+							<span class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Suggest splits after adding</span
+							>
+							<Switch
+								bind:checked={suggestSplitsAfterAddEnabled}
+								aria-label="Toggle split suggestions after adding transactions"
+							/>
 						</div>
 					</div>
 				</section>

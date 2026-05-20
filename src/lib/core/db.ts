@@ -1370,6 +1370,11 @@ const UserPreferencesSchema = BaseSchema.extend({
 	 */
 	goalRelativePrecisionDismissals: z.record(z.string(), z.array(z.string().datetime())).optional(),
 
+	/** B-Split Phase 4 — suggest linking nearby txs after manual expense/income create */
+	suggestSplitsAfterAdd: z.boolean().default(true),
+	/** B-Split Phase 4 — dismissal timestamps (ISO) per sorted member-id cluster key */
+	postAddSplitDismissals: z.record(z.string(), z.array(z.string().datetime())).optional(),
+
 	/** Phase 9.7 — resume review session (transaction ids + cursor) */
 	reviewSessionQueueIds: z.array(z.string()).optional(),
 	reviewSessionIndex: z.number().int().min(0).optional()

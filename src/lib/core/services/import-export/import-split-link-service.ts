@@ -1,3 +1,10 @@
+/**
+ * Hard split **link** for import review and post-add suggestions (partitioned only).
+ *
+ * `linkTransactionsAsSplitGroup` sets shared `groupId` in place — must not write
+ * `categoryWeights` or downgrade to approximate splits. See
+ * docs/analysis/transaction-split-unification.md § Import workflow.
+ */
 import {
 	db,
 	generateUUID,

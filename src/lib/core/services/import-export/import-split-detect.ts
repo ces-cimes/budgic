@@ -1,3 +1,10 @@
+/**
+ * Import / post-add split **detection** only (partitioned candidates).
+ *
+ * B-Split boundary: detect + link stay **exact (groupId)** — never auto-convert linked
+ * groups to `categoryWeights`. Eligibility aligns with `transactionHasExistingSplit` on
+ * retrospective apply. See docs/analysis/transaction-split-unification.md § Import workflow.
+ */
 import { generateUUID, type Transaction } from '$lib/core/db';
 
 export const SPLIT_PROXIMITY_MS = 10 * 60 * 1000;

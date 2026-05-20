@@ -91,6 +91,9 @@ class UserService {
 			goalRelativePrecisionDismissals:
 				(prefs.goalRelativePrecisionDismissals as UserPreferences['goalRelativePrecisionDismissals']) ??
 				undefined,
+			suggestSplitsAfterAdd: prefs.suggestSplitsAfterAdd ?? true,
+			postAddSplitDismissals:
+				(prefs.postAddSplitDismissals as UserPreferences['postAddSplitDismissals']) ?? undefined,
 			reviewSessionQueueIds: (prefs.reviewSessionQueueIds as string[] | undefined) ?? undefined,
 			reviewSessionIndex:
 				typeof prefs.reviewSessionIndex === 'number' ? prefs.reviewSessionIndex : undefined
@@ -157,6 +160,7 @@ class UserService {
 				balanceUpdateAutoResolveThreshold: 5,
 				insightsShadowCategoryBreakdown: false,
 				...updates,
+				suggestSplitsAfterAdd: updates.suggestSplitsAfterAdd ?? true,
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null
@@ -516,6 +520,7 @@ class UserService {
 			includeAccruedInNetWorth: false,
 			balanceUpdateAutoResolveThreshold: 5,
 			insightsShadowCategoryBreakdown: false,
+			suggestSplitsAfterAdd: true,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null

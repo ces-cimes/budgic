@@ -123,6 +123,12 @@ export {
 	type DismissSplitCandidateResult
 } from './import-split-link-service';
 
+export {
+	findPostAddSplitSuggestion,
+	isPostAddSplitDismissed,
+	postAddSplitDismissalKey
+} from './post-add-split-suggest';
+
 // Money Manager mapper utilities
 export {
 	mapAccountType,

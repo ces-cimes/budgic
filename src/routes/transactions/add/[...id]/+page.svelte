@@ -35,6 +35,13 @@
 		type SplitSource
 	} from '$lib/utils/split-persist';
 	import SplitEditor from '$lib/components/transactions/SplitEditor.svelte';
+	import PostAddSplitSuggestionSheet from '$lib/components/transactions/PostAddSplitSuggestionSheet.svelte';
+	import {
+		findPostAddSplitSuggestion,
+		linkTransactionsAsSplitGroup,
+		postAddSplitDismissalKey
+	} from '$lib/core/services/import-export';
+	import type { ImportSplitReviewGroup } from '$lib/core/services/core/data-quality-service';
 	import { devLog } from '$lib/utils/dev-log';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import * as Form from '$lib/components/ui/form/index.ts';
@@ -314,6 +321,10 @@
 	let goalPrecisionSheetOpen = $state(false);
 	let goalPrecisionAmountStr = $state('');
 	let goalPrecisionDismissTimer: ReturnType<typeof setTimeout> | null = null;
+
+	let postAddSplitGroup = $state<ImportSplitReviewGroup | null>(null);
+	let postAddSplitSheetOpen = $state(false);
+	let postAddSplitBusy = $state(false);
 
 	// Reimbursement tracking (Phase 3.1)
 	let showReimbursementSection = $state(false);
@@ -1136,12 +1147,78 @@
 		return true;
 	}
 
+	async function finishAddFlow(saved: Transaction): Promise<void> {
+		if (!isEditMode && (saved.type === 'expense' || saved.type === 'income')) {
+			const fresh = await transactionService.getTransaction(saved.id);
+			if (fresh && (await tryOpenPostAddSplitSuggestion(fresh))) {
+				return;
+			}
+		}
+		goto('/transactions');
+	}
+
+	async function tryOpenPostAddSplitSuggestion(saved: Transaction): Promise<boolean> {
+		const group = await findPostAddSplitSuggestion(saved);
+		if (!group) return false;
+		postAddSplitGroup = group;
+		postAddSplitSheetOpen = true;
+		return true;
+	}
+
+	async function recordPostAddSplitDismissal(memberIds: string[]): Promise<void> {
+		try {
+			const p = await userService.getUserPreferences();
+			const dismissKey = postAddSplitDismissalKey(memberIds);
+			const nextArr = [...(p.postAddSplitDismissals?.[dismissKey] ?? []), new Date().toISOString()];
+			await userService.updateUserPreferences({
+				...p,
+				postAddSplitDismissals: {
+					...(p.postAddSplitDismissals ?? {}),
+					[dismissKey]: nextArr
+				}
+			});
+		} catch {
+			// non-blocking
+		}
+	}
+
+	async function postAddSplitOnDismiss() {
+		const group = postAddSplitGroup;
+		postAddSplitGroup = null;
+		postAddSplitSheetOpen = false;
+		if (group) {
+			await recordPostAddSplitDismissal(group.transactions.map((t) => t.id));
+		}
+		goto('/transactions');
+	}
+
+	async function postAddSplitOnConfirm(selectedIds: string[]) {
+		postAddSplitBusy = true;
+		try {
+			await linkTransactionsAsSplitGroup(selectedIds);
+			postAddSplitGroup = null;
+			postAddSplitSheetOpen = false;
+			goto('/transactions');
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not create split';
+		} finally {
+			postAddSplitBusy = false;
+		}
+	}
+
+	function postAddSplitAccountName(): string | undefined {
+		const accountId = postAddSplitGroup?.transactions[0]?.accountId;
+		if (!accountId) return undefined;
+		return accounts.find((a) => a.id === accountId)?.name;
+	}
+
 	async function goalPrecisionOnNo() {
 		clearGoalPrecisionDismissTimer();
 		const ctx = goalPrecisionNudge;
 		goalPrecisionNudge = null;
 		goalPrecisionSheetOpen = false;
 		goalPrecisionAmountStr = '';
+		let saved: Transaction | null = null;
 		if (ctx) {
 			try {
 				await merchantProfileService.applyNegativeCategoryHint(
@@ -1165,11 +1242,16 @@
 						[dismissKey]: nextArr
 					}
 				});
+				saved = await transactionService.getTransaction(ctx.savedTransactionId);
 			} catch {
 				// non-blocking
 			}
 		}
-		goto('/transactions');
+		if (saved) {
+			await finishAddFlow(saved);
+		} else {
+			goto('/transactions');
+		}
 	}
 
 	async function goalPrecisionOnApplyAmount() {
@@ -1210,7 +1292,12 @@
 		goalPrecisionNudge = null;
 		goalPrecisionSheetOpen = false;
 		goalPrecisionAmountStr = '';
-		goto('/transactions');
+		const saved = await transactionService.getTransaction(ctx.savedTransactionId);
+		if (saved) {
+			await finishAddFlow(saved);
+		} else {
+			goto('/transactions');
+		}
 	}
 
 	onDestroy(() => {
@@ -1285,7 +1372,7 @@
 
 		const deferredNav = await tryOpenGoalPrecisionNudge(savedTransaction);
 		if (!deferredNav) {
-			goto('/transactions');
+			await finishAddFlow(savedTransaction);
 		}
 		return savedTransaction;
 	}
@@ -2652,6 +2739,18 @@
 			{/if}
 		{/snippet}
 	</DialogDrawer>
+
+	<PostAddSplitSuggestionSheet
+		open={postAddSplitSheetOpen}
+		group={postAddSplitGroup}
+		accountName={postAddSplitAccountName()}
+		busy={postAddSplitBusy}
+		onOpenChange={(open) => {
+			if (!open && postAddSplitGroup) void postAddSplitOnDismiss();
+		}}
+		onconfirm={(ids) => void postAddSplitOnConfirm(ids)}
+		ondismiss={() => void postAddSplitOnDismiss()}
+	/>
 
 	<CurrencySelectionSheet
 		bind:open={showCurrencySheet}
