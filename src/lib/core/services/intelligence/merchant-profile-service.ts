@@ -6,6 +6,7 @@ import {
 	transactionHasExistingSplit,
 	type TransactionSplit
 } from '$lib/utils/transaction-split';
+import { persistRetrospectiveWeightedSplit } from '$lib/utils/split-persist';
 import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
 
 type ProfileWeight = MerchantCategoryProfile['weights'][number];
@@ -204,13 +205,12 @@ class MerchantProfileService {
 			if ((tx.accountId ?? '') !== (accountId ?? '')) continue;
 			if (transactionHasExistingSplit(tx)) continue;
 
-			await db.transactions.update(id, {
-				categoryWeights: normalized,
-				categoryId: primary.categoryId,
-				categoryConfidence: 'profile-inferred',
-				updatedAt: new Date().toISOString()
-			});
-			updated++;
+			const applied = await persistRetrospectiveWeightedSplit(
+				id,
+				normalized,
+				primary.categoryId
+			);
+			if (applied) updated++;
 		}
 		return updated;
 	}

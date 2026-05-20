@@ -3494,6 +3494,8 @@ export class BudgicDB extends Dexie {
 				amount?: number;
 				description?: string;
 				accountId?: string;
+				categoryId?: string;
+				categoryConfidence?: Transaction['categoryConfidence'];
 			}>;
 		}
 	): Promise<void> {
@@ -3523,6 +3525,10 @@ export class BudgicDB extends Dexie {
 					if (update.amount !== undefined) updateData.amount = update.amount;
 					if (update.description !== undefined) updateData.description = update.description;
 					if (update.accountId !== undefined) updateData.accountId = update.accountId;
+					if (update.categoryId !== undefined) updateData.categoryId = update.categoryId;
+					if (update.categoryConfidence !== undefined) {
+						updateData.categoryConfidence = update.categoryConfidence;
+					}
 
 					await this.transactions.update(update.id, updateData);
 				}

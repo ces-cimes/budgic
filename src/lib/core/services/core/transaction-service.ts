@@ -1746,6 +1746,8 @@ class TransactionService {
 				amount?: number;
 				description?: string;
 				accountId?: string;
+				categoryId?: string;
+				categoryConfidence?: Transaction['categoryConfidence'];
 			}>;
 		}
 	): Promise<void> {

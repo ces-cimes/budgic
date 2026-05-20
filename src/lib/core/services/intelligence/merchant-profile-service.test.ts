@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantCategoryProfile, Transaction } from '$lib/core/db';
 
-const { mockGetProfile, mockPut, mockAdd, mockGroupWhere, mockTxGet, mockTxUpdate } = vi.hoisted(
-	() => ({
+const { mockGetProfile, mockPut, mockAdd, mockGroupWhere, mockTxGet, mockTxUpdate, mockPersistRetro } =
+	vi.hoisted(() => ({
 		mockGetProfile: vi.fn(),
 		mockPut: vi.fn(),
 		mockAdd: vi.fn(),
 		mockGroupWhere: vi.fn(),
 		mockTxGet: vi.fn(),
-		mockTxUpdate: vi.fn()
-	})
-);
+		mockTxUpdate: vi.fn(),
+		mockPersistRetro: vi.fn()
+	}));
+
+vi.mock('$lib/utils/split-persist', () => ({
+	persistRetrospectiveWeightedSplit: mockPersistRetro
+}));
 
 vi.mock('$lib/core/db', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$lib/core/db')>();
@@ -256,6 +260,7 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 		mockGetProfile.mockResolvedValue([matureProfile()]);
 		mockPut.mockResolvedValue(undefined);
 		mockTxUpdate.mockResolvedValue(undefined);
+		mockPersistRetro.mockResolvedValue(true);
 	});
 
 	it('applies weights to eligible single-category history', async () => {
@@ -269,15 +274,13 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 		);
 
 		expect(n).toBe(1);
-		expect(mockTxUpdate).toHaveBeenCalledWith(
+		expect(mockPersistRetro).toHaveBeenCalledWith(
 			'plain',
-			expect.objectContaining({
-				categoryWeights: [
-					{ categoryId: 'gro', weight: 0.6 },
-					{ categoryId: 'hh', weight: 0.4 }
-				],
-				categoryId: 'gro'
-			})
+			[
+				{ categoryId: 'gro', weight: 0.6 },
+				{ categoryId: 'hh', weight: 0.4 }
+			],
+			'gro'
 		);
 	});
 

@@ -13,6 +13,7 @@
 		getWaterfallTierLabel
 	} from '$lib/utils/waterfall-tier-utils';
 	import { formatTransferLabel } from '$lib/utils/transfer-utils';
+	import { hasSplit, resolveSplit } from '$lib/utils/transaction-split';
 
 	interface Props {
 		transaction: Transaction | any; // Allow grouped transaction objects
@@ -515,6 +516,19 @@
 
 	// Grouped/split transaction collapsible state (already declared above at line 185)
 
+	const showSplitIndicator = $derived.by(() => {
+		if (isGroup) {
+			const rep = (transaction?.representative ?? groupTransactions[0]) as Transaction | undefined;
+			if (!rep) return false;
+			const split = resolveSplit(rep, groupTransactions);
+			return split != null && hasSplit(split);
+		}
+		const tx = transaction as Transaction;
+		if (!tx?.id && !tx?.categoryWeights) return false;
+		const split = resolveSplit(tx);
+		return split != null && hasSplit(split);
+	});
+
 	const handleLongPressStart = () => {
 		isLongPressReady = false;
 		// Add a small delay before showing visual feedback to prevent accidental triggers
@@ -1009,7 +1023,7 @@
 						<!-- Description (first line) -->
 						<div class="flex items-center space-x-2">
 							<!-- Split indicator -->
-							{#if transaction.groupId}
+							{#if showSplitIndicator}
 								<div
 									class="bg-golden-amber h-4 w-0.5 flex-shrink-0 rounded-full"
 									title="Split transaction"
