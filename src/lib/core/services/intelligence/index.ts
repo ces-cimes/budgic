@@ -4,6 +4,7 @@ export { detectEssentials } from './essential-detector';
 export type { ClassificationCandidate } from './essential-detector';
 export {
 	TransactionSimilarityEngine,
+	RECURRING_CANONICAL_CACHE_KEY,
 	RECURRING_DETECTION_CONFIG,
 	AUTOCOMPLETE_CONTEXT_CONFIG,
 	ESSENTIAL_DETECTION_CONFIG,

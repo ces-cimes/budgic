@@ -19,6 +19,7 @@ import { devLog } from '$lib/utils/dev-log';
 import { recordRecurringCanonicalTier } from '$lib/utils/plan-perf-debug';
 import { canonicalDuplicateKey, iqrFilter } from '$lib/utils/data-quality-utils';
 import {
+	RECURRING_CANONICAL_CACHE_KEY,
 	RECURRING_DETECTION_CONFIG,
 	TransactionSimilarityEngine,
 	resolveSimilarityProfile,
@@ -27,6 +28,7 @@ import {
 import TransactionSimilarityWorker from '../intelligence/transaction-similarity.worker?worker';
 
 const PATTERN_CACHE_TTL = 10 * 60 * 1000; // 10 minutes — O(n²) is expensive to recompute
+const RECURRING_CANONICAL_SERVICE_CACHE_KEY = `recurring:patterns:${RECURRING_CANONICAL_CACHE_KEY}`;
 
 import {
 	format,
@@ -347,7 +349,7 @@ class RecurringTransactionIntelligenceService {
 	 */
 	private async _getCanonical(): Promise<RecurringPattern[]> {
 		// Tier 1: in-memory cache
-		const cached = serviceCache.get<RecurringPattern[]>('recurring:patterns:canonical');
+		const cached = serviceCache.get<RecurringPattern[]>(RECURRING_CANONICAL_SERVICE_CACHE_KEY);
 		if (cached !== null) {
 			recordRecurringCanonicalTier('memory');
 			return cached;
@@ -355,10 +357,10 @@ class RecurringTransactionIntelligenceService {
 
 		// Tier 2: IndexedDB — survives page refresh
 		try {
-			const dbRow = await db.recurringPatternsCache.get('canonical');
+			const dbRow = await db.recurringPatternsCache.get(RECURRING_CANONICAL_CACHE_KEY);
 			if (dbRow && Date.now() - new Date(dbRow.computedAt).getTime() < 24 * 60 * 60 * 1000) {
 				const patterns = dbRow.patterns as RecurringPattern[];
-				serviceCache.set('recurring:patterns:canonical', patterns, PATTERN_CACHE_TTL);
+				serviceCache.set(RECURRING_CANONICAL_SERVICE_CACHE_KEY, patterns, PATTERN_CACHE_TTL);
 				for (const p of patterns) this.patternCache.set(p.id, p);
 				devLog(`[Recurring] loaded ${patterns.length} patterns from IndexedDB cache`);
 				recordRecurringCanonicalTier('indexeddb');
@@ -373,10 +375,10 @@ class RecurringTransactionIntelligenceService {
 			recordRecurringCanonicalTier('cold_start');
 			this._canonicalInFlight = this._runDetection(365, 2)
 				.then(async (result) => {
-					serviceCache.set('recurring:patterns:canonical', result, PATTERN_CACHE_TTL);
+					serviceCache.set(RECURRING_CANONICAL_SERVICE_CACHE_KEY, result, PATTERN_CACHE_TTL);
 					try {
 						await db.recurringPatternsCache.put({
-							id: 'canonical',
+							id: RECURRING_CANONICAL_CACHE_KEY,
 							patterns: result,
 							computedAt: new Date().toISOString()
 						});
@@ -778,17 +780,17 @@ class RecurringTransactionIntelligenceService {
 		}
 
 		// 2. serviceCache (in-memory canonical array)
-		const canonical = serviceCache.get<RecurringPattern[]>('recurring:patterns:canonical');
+		const canonical = serviceCache.get<RecurringPattern[]>(RECURRING_CANONICAL_SERVICE_CACHE_KEY);
 		if (canonical) {
 			const patched = canonical.map((p) =>
 				p.id === patternId ? { ...p, learnedCategoryId: categoryId } : p
 			);
-			serviceCache.set('recurring:patterns:canonical', patched, PATTERN_CACHE_TTL);
+			serviceCache.set(RECURRING_CANONICAL_SERVICE_CACHE_KEY, patched, PATTERN_CACHE_TTL);
 		}
 
 		// 3. IndexedDB canonical row (survives page refresh)
 		try {
-			const dbRow = await db.recurringPatternsCache.get('canonical');
+			const dbRow = await db.recurringPatternsCache.get(RECURRING_CANONICAL_CACHE_KEY);
 			if (dbRow) {
 				const patched = dbRow.patterns.map((p: any) =>
 					p.id === patternId ? { ...p, learnedCategoryId: categoryId } : p
@@ -809,7 +811,7 @@ class RecurringTransactionIntelligenceService {
 		// Abandon any in-flight detection so the next call starts fresh
 		this._canonicalInFlight = null;
 		// Delete the persisted row so a page-refresh cold start also re-detects
-		void db.recurringPatternsCache.delete('canonical');
+		void db.recurringPatternsCache.delete(RECURRING_CANONICAL_CACHE_KEY);
 	}
 
 	// ============================================================================

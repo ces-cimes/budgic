@@ -133,4 +133,160 @@ describe('similarity profiles', () => {
 		);
 		expect(resolveSimilarityProfile('ESSENTIAL_DETECTION_CONFIG')).toBe(ESSENTIAL_DETECTION_CONFIG);
 	});
+
+	it('RECURRING_DETECTION_CONFIG uses doc-aligned threshold and dimension weights', () => {
+		expect(RECURRING_DETECTION_CONFIG.threshold).toBe(0.6);
+		const weights = Object.fromEntries(
+			RECURRING_DETECTION_CONFIG.dimensions.map((d) => [d.name, d.weight])
+		);
+		expect(weights).toEqual({
+			description: 0.4,
+			amount: 0.2,
+			account: 0.2,
+			type: 0.1,
+			temporal: 0.1,
+			direction: 0.1
+		});
+	});
+});
+
+function clusterIds(transactions: Transaction[], minGroupSize = 2): string[][] {
+	const engine = new TransactionSimilarityEngine();
+	return engine
+		.cluster(transactions, RECURRING_DETECTION_CONFIG, minGroupSize)
+		.map((group) => group.map((tx) => tx.id).sort());
+}
+
+function pairInSameCluster(
+	transactions: Transaction[],
+	idA: string,
+	idB: string,
+	minGroupSize = 2
+): boolean {
+	const groups = clusterIds(transactions, minGroupSize);
+	return groups.some((ids) => ids.includes(idA) && ids.includes(idB));
+}
+
+describe('RECURRING_DETECTION_CONFIG clustering', () => {
+	it('does not cluster unrelated merchants sharing only a generic token', () => {
+		const transactions = [
+			makeTx({
+				id: 'amazon-mp-1',
+				description: 'AMAZON MARKETPLACE',
+				amount: -4200,
+				accountId: 'card-1',
+				clearedDate: '2026-01-10T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'amazon-mp-2',
+				description: 'AMAZON MARKETPLACE',
+				amount: -4350,
+				accountId: 'card-1',
+				clearedDate: '2026-02-10T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'amazon-prime-1',
+				description: 'AMAZON PRIME',
+				amount: -599,
+				accountId: 'card-1',
+				clearedDate: '2026-01-10T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'amazon-prime-2',
+				description: 'AMAZON PRIME',
+				amount: -599,
+				accountId: 'card-1',
+				clearedDate: '2026-02-10T00:00:00.000Z'
+			})
+		];
+
+		expect(pairInSameCluster(transactions, 'amazon-mp-1', 'amazon-prime-1')).toBe(false);
+		expect(pairInSameCluster(transactions, 'amazon-mp-2', 'amazon-prime-2')).toBe(false);
+	});
+
+	it('does not cluster same-brand locations with materially different amounts', () => {
+		const transactions = [
+			makeTx({
+				id: 'sb-5th-1',
+				description: 'STARBUCKS 5TH AVE',
+				amount: -450,
+				accountId: 'card-1',
+				clearedDate: '2026-03-05T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'sb-5th-2',
+				description: 'STARBUCKS 5TH AVE',
+				amount: -480,
+				accountId: 'card-1',
+				clearedDate: '2026-04-05T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'sb-air-1',
+				description: 'STARBUCKS AIRPORT',
+				amount: -1200,
+				accountId: 'card-1',
+				clearedDate: '2026-03-12T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'sb-air-2',
+				description: 'STARBUCKS AIRPORT',
+				amount: -1150,
+				accountId: 'card-1',
+				clearedDate: '2026-04-12T00:00:00.000Z'
+			})
+		];
+
+		expect(pairInSameCluster(transactions, 'sb-5th-1', 'sb-air-1')).toBe(false);
+	});
+
+	it('does not cluster opposite economic direction despite similar description and amount', () => {
+		const transactions = [
+			makeTx({
+				id: 'borrow',
+				description: 'LOAN DISBURSEMENT ACME',
+				amount: -15000,
+				accountId: 'acc-1',
+				clearedDate: '2026-01-01T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'return',
+				description: 'LOAN DISBURSEMENT ACME RETURN',
+				amount: 15000,
+				accountId: 'acc-1',
+				clearedDate: '2026-02-01T00:00:00.000Z'
+			})
+		];
+
+		expect(pairInSameCluster(transactions, 'borrow', 'return')).toBe(false);
+	});
+
+	it('clusters true subscription occurrences with stable amount and cadence', () => {
+		const transactions = [
+			makeTx({
+				id: 'netflix-1',
+				description: 'NETFLIX SUBSCRIPTION',
+				amount: -599,
+				accountId: 'card-1',
+				clearedDate: '2026-01-10T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'netflix-2',
+				description: 'NETFLIX SUBSCRIPTION',
+				amount: -599,
+				accountId: 'card-1',
+				clearedDate: '2026-02-10T00:00:00.000Z'
+			}),
+			makeTx({
+				id: 'netflix-3',
+				description: 'NETFLIX SUBSCRIPTION',
+				amount: -599,
+				accountId: 'card-1',
+				clearedDate: '2026-03-10T00:00:00.000Z'
+			})
+		];
+
+		const groups = clusterIds(transactions, 2);
+		expect(groups).toHaveLength(1);
+		expect(groups[0]).toEqual(['netflix-1', 'netflix-2', 'netflix-3']);
+	});
 });

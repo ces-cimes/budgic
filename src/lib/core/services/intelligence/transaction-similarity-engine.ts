@@ -70,6 +70,11 @@ export class TransactionSimilarityEngine {
 			totalWeight += dimension.weight;
 		}
 
+		// Hard gate: opposite economic direction never clusters (recurring profile).
+		if (breakdown.direction === 0) {
+			return { transaction: b, score: 0, breakdown };
+		}
+
 		return {
 			transaction: b,
 			score: totalWeight > 0 ? clamp01(weightedScore / totalWeight) : 0,
@@ -250,17 +255,20 @@ export class TransactionSimilarityEngine {
 	}
 }
 
-// Weights sum to 1.0.
-// direction weight 0.20 means opposite-sign pairs can score at most 0.80 even with
-// perfect description/amount/account/temporal — safely below the 0.65 threshold.
+/** IndexedDB + in-memory canonical pattern cache id; bump when profile below changes. */
+export const RECURRING_CANONICAL_CACHE_KEY = 'canonical:v2';
+
+// Weights sum to 1.0 (aligned with contextual-intelligence-surfaces + amount/direction gates).
+// direction hard-gates opposite-sign pairs to score 0 regardless of other dimensions.
 export const RECURRING_DETECTION_CONFIG: SimilarityConfig = {
-	threshold: 0.65,
+	threshold: 0.6,
 	dimensions: [
 		TransactionSimilarityEngine.descriptionDimension(0.4),
-		TransactionSimilarityEngine.amountDimension(0.25, 0.1),
-		TransactionSimilarityEngine.directionDimension(0.2),
-		TransactionSimilarityEngine.accountDimension(0.1),
-		TransactionSimilarityEngine.temporalDimension(0.05)
+		TransactionSimilarityEngine.amountDimension(0.2, 0.1),
+		TransactionSimilarityEngine.accountDimension(0.2),
+		TransactionSimilarityEngine.typeDimension(0.1),
+		TransactionSimilarityEngine.temporalDimension(0.1),
+		TransactionSimilarityEngine.directionDimension(0.1)
 	]
 };
 

@@ -14,6 +14,7 @@ import { exchangeRateService } from './exchange-rate-service';
 import { serviceCache } from './service-cache';
 import { addDays, addWeeks, addMonths } from 'date-fns';
 import { merchantProfileService } from '../intelligence/merchant-profile-service';
+import { RECURRING_CANONICAL_CACHE_KEY } from '../intelligence/transaction-similarity-engine';
 import { dataCorrectionService, type DataCorrectionAppend } from './data-correction-service';
 
 /** Invalidate all derived caches that depend on the transaction table. */
@@ -23,7 +24,7 @@ async function invalidateTransactionCaches(): Promise<void> {
 	serviceCache.invalidatePattern(/^recurring:patterns:/);
 	// Also clear the persisted IndexedDB pattern cache so a page-refresh cold
 	// start picks up the mutation rather than serving a 24 h stale result.
-	await db.recurringPatternsCache.delete('canonical');
+	await db.recurringPatternsCache.delete(RECURRING_CANONICAL_CACHE_KEY);
 }
 
 type TransferDetails = NonNullable<Transaction['transferDetails']>;
