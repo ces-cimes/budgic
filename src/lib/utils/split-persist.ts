@@ -132,7 +132,8 @@ function buildWeightedPayload(draft: SplitDraft): {
 
 function allocateSignedAmounts(
 	totalAmount: number,
-	slices: { categoryId: string; amount: number }[]
+	slices: { categoryId: string; amount: number }[],
+	primaryCategoryId: string
 ): { categoryId: string; amount: number }[] {
 	const totalAbs = Math.abs(totalAmount);
 	const sign = totalAmount < 0 ? -1 : 1;
@@ -146,8 +147,8 @@ function allocateSignedAmounts(
 			? mags
 			: mags.map((m) => round2((m / sumMag) * totalAbs));
 	const drift = round2(totalAbs - scaled.reduce((a, b) => a + b, 0));
-	const primaryIdx = slices.findIndex((s) => s.categoryId === slices[0]?.categoryId);
-	const absorbIdx = Math.max(0, primaryIdx);
+	const primaryIdx = slices.findIndex((s) => s.categoryId === primaryCategoryId);
+	const absorbIdx = primaryIdx >= 0 ? primaryIdx : 0;
 	scaled[absorbIdx] = round2((scaled[absorbIdx] ?? 0) + drift);
 
 	return slices.map((s, i) => ({
@@ -175,7 +176,11 @@ function buildPartitionedRows(
 	if (slices.length < 2) {
 		throw new Error('Exact split requires at least two categories with amounts');
 	}
-	const signed = allocateSignedAmounts(shell.amount ?? 0, slices);
+	const categoryIds = slices.map((s) => s.categoryId);
+	if (new Set(categoryIds).size !== categoryIds.length) {
+		throw new Error('Exact split requires distinct categories');
+	}
+	const signed = allocateSignedAmounts(shell.amount ?? 0, slices, draft.primaryCategoryId);
 	const categoriesDiffer = new Set(signed.map((s) => s.categoryId)).size >= 2;
 	const confidence: CategoryConfidence | undefined = categoriesDiffer ? 'exact' : undefined;
 	const base = shellWithoutSplitFields(shell);
@@ -241,33 +246,76 @@ async function persistPartitionedUpdate(
 	const rows = buildPartitionedRows(ctx.shell, draft);
 	const groupName = draft.groupName?.trim() || members[0]?.groupName || 'Split';
 
-	await transactionService.updateTransactionGroup(groupId, {
-		sharedFields: {
-			type: ctx.shell.type,
-			status: ctx.shell.status,
-			currency: ctx.shell.currency,
-			plannedDate: ctx.shell.plannedDate,
-			clearedDate: ctx.shell.clearedDate,
-			recurrenceRule: ctx.shell.recurrenceRule,
-			parentRecurrenceId: ctx.shell.parentRecurrenceId,
-			reference: ctx.shell.reference,
-			notes: ctx.shell.notes,
-			importSource: ctx.shell.importSource,
-			toAccountId: ctx.shell.toAccountId,
-			groupName
-		},
-		individualUpdates: rows.map((row, i) => {
-			const existing = members[i];
-			return {
-				id: existing?.id ?? members[0]!.id,
-				amount: row.amount,
+	const poolByCategory = new Map<string, Transaction[]>();
+	for (const m of members) {
+		const cid = m.categoryId ?? '';
+		if (!cid) continue;
+		const arr = poolByCategory.get(cid) ?? [];
+		arr.push(m);
+		poolByCategory.set(cid, arr);
+	}
+
+	const matchedIds = new Set<string>();
+	const individualUpdates: Array<{
+		id: string;
+		amount: number;
+		description?: string;
+		accountId?: string;
+		categoryId: string;
+		categoryConfidence?: Transaction['categoryConfidence'];
+	}> = [];
+	const rowsToCreate: typeof rows = [];
+
+	for (const row of rows) {
+		const categoryId = row.categoryId ?? '';
+		if (!categoryId) continue;
+		const pool = poolByCategory.get(categoryId);
+		const existing = pool?.shift();
+		if (existing?.id) {
+			matchedIds.add(existing.id);
+			individualUpdates.push({
+				id: existing.id,
+				amount: row.amount ?? 0,
 				description: ctx.shell.description,
 				accountId: ctx.shell.accountId,
-				categoryId: row.categoryId,
+				categoryId,
 				categoryConfidence: row.categoryConfidence
-			};
-		})
-	});
+			});
+		} else {
+			rowsToCreate.push(row);
+		}
+	}
+
+	for (const m of members) {
+		if (!matchedIds.has(m.id)) {
+			await transactionService.deleteTransaction(m.id);
+		}
+	}
+
+	for (const row of rowsToCreate) {
+		const created = await transactionService.createTransaction(row);
+		await transactionService.addTransactionToGroup(created.id, groupId);
+	}
+
+	if (individualUpdates.length > 0 || rowsToCreate.length > 0) {
+		await transactionService.updateTransactionGroup(groupId, {
+			sharedFields: {
+				type: ctx.shell.type,
+				status: ctx.shell.status,
+				currency: ctx.shell.currency,
+				plannedDate: ctx.shell.plannedDate,
+				clearedDate: ctx.shell.clearedDate,
+				recurrenceRule: ctx.shell.recurrenceRule,
+				parentRecurrenceId: ctx.shell.parentRecurrenceId,
+				reference: ctx.shell.reference,
+				notes: ctx.shell.notes,
+				importSource: ctx.shell.importSource,
+				toAccountId: ctx.shell.toAccountId,
+				groupName
+			},
+			individualUpdates: individualUpdates.length > 0 ? individualUpdates : undefined
+		});
+	}
 
 	const updated = await transactionService.getGroupTransactions(groupId);
 	const rep =

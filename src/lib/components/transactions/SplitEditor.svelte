@@ -35,6 +35,9 @@
 		groupName?: string;
 		suggestedPillClass: string;
 		onPrimaryCategoryIdChange?: (id: string) => void;
+		/** Edit of an existing partitioned group — Approximate switch needs parent confirm */
+		partitionedGroupActive?: boolean;
+		onRequestModeChange?: (next: SplitPersistMode) => boolean | Promise<boolean>;
 	}
 
 	let {
@@ -54,7 +57,9 @@
 		exactOnly = false,
 		groupName = $bindable(''),
 		suggestedPillClass,
-		onPrimaryCategoryIdChange
+		onPrimaryCategoryIdChange,
+		partitionedGroupActive = false,
+		onRequestModeChange
 	}: Props = $props();
 
 	const splittableType = $derived(transactionType === 'expense' || transactionType === 'income');
@@ -203,8 +208,17 @@
 		}));
 	}
 
-	function setMode(next: SplitPersistMode): void {
+	async function setMode(next: SplitPersistMode): Promise<void> {
 		if (exactOnly) return;
+		if (
+			next === 'weighted' &&
+			mode === 'partitioned' &&
+			partitionedGroupActive &&
+			onRequestModeChange
+		) {
+			const ok = await onRequestModeChange(next);
+			if (!ok) return;
+		}
 		mode = next;
 		if (next === 'partitioned') {
 			seedExactFromWeights();
@@ -283,7 +297,7 @@
 							class="rounded-md px-2.5 py-1 {mode === 'weighted'
 								? 'bg-[var(--color-amber-subtle)] font-medium text-[var(--color-amber)]'
 								: 'text-muted-foreground'}"
-							onclick={() => setMode('weighted')}
+							onclick={() => void setMode('weighted')}
 						>
 							Approximate
 						</button>
@@ -292,7 +306,7 @@
 							class="rounded-md px-2.5 py-1 {mode === 'partitioned'
 								? 'bg-[var(--color-amber-subtle)] font-medium text-[var(--color-amber)]'
 								: 'text-muted-foreground'}"
-							onclick={() => setMode('partitioned')}
+							onclick={() => void setMode('partitioned')}
 						>
 							Exact
 						</button>

@@ -185,6 +185,55 @@ export function deduplicateForSpendTotals(transactions: Transaction[]): Transact
 	return out;
 }
 
+/**
+ * Expand partitioned groups into per-slice pseudo-rows for category attribution
+ * (e.g. prediction “all categories” after dedup). Soft splits pass through unchanged.
+ * Pass `memberPool` when `transactions` may not include every group member (filtered lists).
+ */
+export function expandForCategoryAttribution(
+	transactions: Transaction[],
+	memberPool?: Transaction[]
+): Transaction[] {
+	const groupMap = buildGroupMemberMap(memberPool ?? transactions);
+	const seenGroupIds = new Set<string>();
+	const out: Transaction[] = [];
+
+	for (const tx of transactions) {
+		if (tx.categoryWeights && tx.categoryWeights.length >= 2) {
+			out.push(tx);
+			continue;
+		}
+		const gid = tx.groupId;
+		if (!gid) {
+			out.push(tx);
+			continue;
+		}
+		if (seenGroupIds.has(gid)) continue;
+		seenGroupIds.add(gid);
+
+		const members = groupMap.get(gid) ?? [tx];
+		const split = resolveSplit(tx, members);
+		if (split && hasSplit(split)) {
+			const rep = splitRepresentativeRow(members);
+			for (const slice of split.slices) {
+				out.push({
+					...rep,
+					id: slice.rowId ?? rep.id,
+					amount: slice.amount,
+					categoryId: slice.categoryId,
+					groupId: undefined,
+					groupName: undefined,
+					categoryWeights: undefined
+				});
+			}
+		} else {
+			out.push(tx);
+		}
+	}
+
+	return out;
+}
+
 export function amountForCategory(split: TransactionSplit, categoryId: string): number {
 	return split.slices
 		.filter((s) => s.categoryId === categoryId)

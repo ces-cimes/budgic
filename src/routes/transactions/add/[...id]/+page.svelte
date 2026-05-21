@@ -31,6 +31,7 @@
 		buildSplitDraftFromFormState,
 		hydrateSplitDraft,
 		persistSplit,
+		persistRetrospectiveWeightedSplit,
 		type SplitPersistMode,
 		type SplitSource
 	} from '$lib/utils/split-persist';
@@ -324,6 +325,8 @@
 
 	let postAddSplitGroup = $state<ImportSplitReviewGroup | null>(null);
 	let postAddSplitSheetOpen = $state(false);
+	let splitApproximateConfirmOpen = $state(false);
+	let splitApproximateConfirmResolver = $state<((ok: boolean) => void) | null>(null);
 	let postAddSplitBusy = $state(false);
 
 	// Reimbursement tracking (Phase 3.1)
@@ -583,6 +586,23 @@
 	});
 
 	const splitExactOnly = $derived(linkedGroupMembers.length > 1);
+	const splitPartitionedGroupActive = $derived(
+		isEditMode && Boolean(linkedGroupId) && linkedGroupMembers.length >= 2
+	);
+
+	function requestSplitModeChange(_next: SplitPersistMode): Promise<boolean> {
+		if (!splitPartitionedGroupActive) return Promise.resolve(true);
+		return new Promise((resolve) => {
+			splitApproximateConfirmResolver = resolve;
+			splitApproximateConfirmOpen = true;
+		});
+	}
+
+	function splitApproximateConfirmAnswer(ok: boolean) {
+		splitApproximateConfirmOpen = false;
+		splitApproximateConfirmResolver?.(ok);
+		splitApproximateConfirmResolver = null;
+	}
 
 	function exactAmountsForPersist(): { categoryId: string; amount: number }[] {
 		if (splitMode !== 'partitioned') return splitExactAmounts;
@@ -1278,11 +1298,15 @@
 		isLoading = true;
 		error = '';
 		try {
-			await transactionService.updateTransaction(ctx.savedTransactionId, {
-				categoryWeights: weights,
-				categoryId: primaryId,
-				categoryConfidence: 'weighted'
-			});
+			const applied = await persistRetrospectiveWeightedSplit(
+				ctx.savedTransactionId,
+				weights,
+				primaryId
+			);
+			if (!applied) {
+				error = 'Could not update split';
+				return;
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not update split';
 			return;
@@ -1836,6 +1860,8 @@
 							exactOnly={splitExactOnly}
 							bind:groupName={splitGroupName}
 							{suggestedPillClass}
+							partitionedGroupActive={splitPartitionedGroupActive}
+							onRequestModeChange={requestSplitModeChange}
 						/>
 					{/if}
 
@@ -2737,6 +2763,28 @@
 					</div>
 				</div>
 			{/if}
+		{/snippet}
+	</DialogDrawer>
+
+	<DialogDrawer
+		open={splitApproximateConfirmOpen}
+		onOpenChange={(open) => {
+			if (!open) splitApproximateConfirmAnswer(false);
+		}}
+		title="Switch to approximate split?"
+		description="This merges separate ledger lines into one transaction with percentage weights. Other lines in the split group will be removed."
+	>
+		{#snippet children()}
+			<div class="flex flex-wrap gap-2 pt-2">
+				<Button.Root
+					type="button"
+					variant="outline"
+					onclick={() => splitApproximateConfirmAnswer(false)}>Cancel</Button.Root
+				>
+				<Button.Root type="button" onclick={() => splitApproximateConfirmAnswer(true)}
+					>Merge to approximate</Button.Root
+				>
+			</div>
 		{/snippet}
 	</DialogDrawer>
 

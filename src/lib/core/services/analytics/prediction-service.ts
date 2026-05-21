@@ -16,7 +16,10 @@ import {
 	effectiveAmountForCategory,
 	shouldIncludeClearedExpenseInAnalyticsSpend
 } from '$lib/utils/category-utils';
-import { deduplicateForSpendTotals } from '$lib/utils/transaction-split';
+import {
+	deduplicateForSpendTotals,
+	expandForCategoryAttribution
+} from '$lib/utils/transaction-split';
 
 /**
  * Prediction Service
@@ -237,9 +240,26 @@ class PredictionService {
 				);
 				if (forecast) forecasts.push(forecast);
 			} else {
-				// Predict for all categories (soft splits: attribute slices per category id)
+				// Predict for all categories — expand partitioned groups before bucketing (B-Split Phase 5)
+				const expandedForCategories = expandForCategoryAttribution(
+					transactions.filter(
+						(tx) =>
+							tx.type === 'expense' &&
+							tx.status === 'cleared' &&
+							tx.clearedDate &&
+							new Date(tx.clearedDate) >= cutoffDate &&
+							tx.amount !== null &&
+							tx.amount !== undefined &&
+							!isNaN(tx.amount) &&
+							Math.abs(tx.amount) > 0
+					)
+				);
+				const convertedExpanded = await this.convertTransactionsToMainCurrency(
+					expandedForCategories,
+					mainCurrency
+				);
 				const categorySpending = new Map<string, Transaction[]>();
-				for (const tx of relevantTransactions) {
+				for (const tx of convertedExpanded) {
 					for (const cid of categoryIdsWithSpendShare(tx)) {
 						const slice = effectiveAmountForCategory(tx, cid);
 						if (Math.abs(slice) < 1e-9) continue;
@@ -248,7 +268,8 @@ class PredictionService {
 							...tx,
 							amount: Math.abs(slice),
 							categoryId: cid,
-							categoryWeights: undefined
+							categoryWeights: undefined,
+							groupId: undefined
 						});
 						categorySpending.set(cid, existing);
 					}

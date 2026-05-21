@@ -6,11 +6,13 @@ import {
 	buildGroupMemberMap,
 	deduplicateForSpendTotals,
 	distinctClearedMonths,
+	expandForCategoryAttribution,
 	hasSplit,
 	resolveSplit,
 	tierAmountsFromSplit,
 	transactionHasExistingSplit
 } from './transaction-split';
+import { effectiveAmountForCategory } from './category-utils';
 
 function cat(id: string, tier: Category['waterfallTier']): Category {
 	return {
@@ -171,6 +173,48 @@ describe('distinctClearedMonths', () => {
 			{ id: 'c', clearedDate: '2024-03-10T12:00:00Z', amount: -10 }
 		] as unknown as Transaction[];
 		expect(distinctClearedMonths(threeMonths)).toBe(3);
+	});
+});
+
+describe('expandForCategoryAttribution', () => {
+	const gid = 'g-costco-expand';
+	const hardMembers = [
+		{ id: 'hard-1', groupId: gid, amount: -60, categoryId: 'gro', clearedDate: '2024-01-01' },
+		{ id: 'hard-2', groupId: gid, amount: -40, categoryId: 'hh', clearedDate: '2024-01-01' }
+	] as unknown as Transaction[];
+
+	it('expands partitioned group to per-slice rows', () => {
+		const expanded = expandForCategoryAttribution(hardMembers);
+		expect(expanded).toHaveLength(2);
+		expect(expanded.find((t) => t.categoryId === 'gro')?.amount).toBe(-60);
+		expect(expanded.find((t) => t.categoryId === 'hh')?.amount).toBe(-40);
+		expect(expanded.every((t) => !t.groupId)).toBe(true);
+	});
+
+	it('matches soft 60/40 per-category attribution vs collapsed dedup row', () => {
+		const softTx = {
+			id: 'soft',
+			amount: -100,
+			categoryId: 'gro',
+			categoryWeights: [
+				{ categoryId: 'gro', weight: 0.6 },
+				{ categoryId: 'hh', weight: 0.4 }
+			]
+		} as unknown as Transaction;
+
+		const expandedHard = expandForCategoryAttribution(hardMembers);
+		const deduped = deduplicateForSpendTotals(hardMembers);
+		expect(deduped).toHaveLength(1);
+
+		for (const cid of ['gro', 'hh']) {
+			const fromSoft = effectiveAmountForCategory(softTx, cid);
+			const fromExpanded = expandedHard
+				.filter((t) => t.categoryId === cid)
+				.reduce((s, t) => s + (t.amount ?? 0), 0);
+			const fromDedupedOnly = effectiveAmountForCategory(deduped[0]!, cid);
+			expect(fromExpanded).toBe(fromSoft);
+			expect(fromDedupedOnly).not.toBe(fromSoft);
+		}
 	});
 });
 

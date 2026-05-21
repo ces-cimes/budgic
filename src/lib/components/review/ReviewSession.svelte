@@ -4,6 +4,7 @@
 	 */
 	import { db, isAnalyticsTier, type Transaction, type Category } from '$lib/core/db';
 	import { userService, merchantProfileService, transactionService } from '$lib/core/services';
+	import { persistRetrospectiveWeightedSplit } from '$lib/utils/split-persist';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import SearchableSelect from '$lib/components/ui/SearchableSelect.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -88,11 +89,15 @@
 		saving = true;
 		try {
 			const primary = sug.weights.reduce((a, b) => (b.weight > a.weight ? b : a));
-			await transactionService.updateTransaction(tx.id, {
-				categoryId: primary.categoryId,
-				categoryWeights: sug.weights,
-				categoryConfidence: 'profile-inferred'
-			});
+			const applied = await persistRetrospectiveWeightedSplit(
+				tx.id,
+				sug.weights,
+				primary.categoryId
+			);
+			if (!applied) {
+				message = 'Save failed';
+				return;
+			}
 			await advance();
 		} catch (e) {
 			message = e instanceof Error ? e.message : 'Save failed';
