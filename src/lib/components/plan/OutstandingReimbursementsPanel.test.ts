@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ReimbursementEntry } from '$lib/core/db';
 
-function personLabel(
-	reimbursement: ReimbursementEntry,
-	peopleById: Map<string, string>
-): string {
+function personLabel(reimbursement: ReimbursementEntry, peopleById: Map<string, string>): string {
 	if (reimbursement.personId) {
 		const fromPerson = peopleById.get(reimbursement.personId);
 		if (fromPerson) return fromPerson;

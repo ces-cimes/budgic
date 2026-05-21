@@ -46,10 +46,7 @@ function transferDestId(tx: Transaction): string | undefined {
 	return tx.transferDetails?.toAccountId ?? tx.toAccountId;
 }
 
-function personMatchesReimbursement(
-	reimbursement: ReimbursementEntry,
-	person: Person
-): boolean {
+function personMatchesReimbursement(reimbursement: ReimbursementEntry, person: Person): boolean {
 	if (reimbursement.personId && reimbursement.personId === person.id) return true;
 	const name = reimbursement.person?.trim().toLowerCase();
 	if (!name) return false;
@@ -159,9 +156,7 @@ export async function inferProposalsForLedger(
 	]);
 
 	const walletIds = new Set(walletAccounts.map((w) => w.id));
-	const clearedLedger = ledgerTxs.filter(
-		(t) => t.deletedAt == null && t.status === 'cleared'
-	);
+	const clearedLedger = ledgerTxs.filter((t) => t.deletedAt == null && t.status === 'cleared');
 	const groupMap = collectGroupIds(clearedLedger);
 	const consumed = new Set<string>();
 	const proposals: MigrationProposal[] = [];
@@ -212,12 +207,7 @@ export async function inferProposalsForLedger(
 				if (walletTx) consumed.add(walletTx.id);
 				for (const id of sourceIds) consumed.add(id);
 
-				const candidates = rankSettlementCandidates(
-					anchorTxs,
-					person,
-					amount,
-					ledgerTx.currency
-				);
+				const candidates = rankSettlementCandidates(anchorTxs, person, amount, ledgerTx.currency);
 
 				proposals.push({
 					id: generateUUID(),
@@ -301,12 +291,7 @@ export async function inferProposalsForLedger(
 		if (ledgerTx.type === 'income') {
 			const amount = Math.abs(ledgerTx.amount ?? 0);
 			if (amount <= AMOUNT_TOLERANCE) continue;
-			const candidates = rankSettlementCandidates(
-				anchorTxs,
-				person,
-				amount,
-				ledgerTx.currency
-			);
+			const candidates = rankSettlementCandidates(anchorTxs, person, amount, ledgerTx.currency);
 			const sourceIds = expandSourceIds(ledgerTx, groupMap, consumed);
 			if (sourceIds.length === 0) continue;
 			for (const id of sourceIds) consumed.add(id);
@@ -365,7 +350,5 @@ export async function estimateResidualBalances(
 		}
 	}
 
-	return Object.fromEntries(
-		Object.entries(byCurrency).filter(([, v]) => Math.abs(v) > 0.001)
-	);
+	return Object.fromEntries(Object.entries(byCurrency).filter(([, v]) => Math.abs(v) > 0.001));
 }

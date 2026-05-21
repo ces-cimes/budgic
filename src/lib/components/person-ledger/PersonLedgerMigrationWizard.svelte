@@ -17,7 +17,10 @@
 		personService
 	} from '$lib/core/services/person-ledger';
 	import type { Account } from '$lib/core/db';
-	import type { MigrationProposal, PersonMigrationMode } from '$lib/core/services/person-ledger/types';
+	import type {
+		MigrationProposal,
+		PersonMigrationMode
+	} from '$lib/core/services/person-ledger/types';
 	import { formatTransactionAmount, convertToMainCurrency } from '$lib/utils/currency-utils';
 
 	type WizardStep = 'mode' | 'guided' | 'residual' | 'done';
@@ -53,9 +56,8 @@
 	let proposalDecisions = $state<Record<string, ProposalDecision>>({});
 	let proposalSettlementKeys = $state<Record<string, string>>({});
 	let residualBalances = $state<Record<string, number>>({});
-	let tailMode = $state<Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>>(
-		'single_total'
-	);
+	let tailMode =
+		$state<Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>>('single_total');
 
 	$effect(() => {
 		if (open && ledgerAccountId) {
@@ -399,14 +401,16 @@
 				</p>
 
 				{#if allProposals.length === 0}
-					<p class="text-sm">No history rewrites detected. You can still close with a single balance move.</p>
+					<p class="text-sm">
+						No history rewrites detected. You can still close with a single balance move.
+					</p>
 				{/if}
 
 				{#each [{ key: 'high', label: 'High confidence' }, { key: 'medium', label: 'Medium confidence' }, { key: 'low', label: 'Low confidence' }] as section (section.key)}
 					{@const items = groupedProposals[section.key as keyof typeof groupedProposals]}
 					{#if items.length > 0}
 						<div class="space-y-2">
-							<p class="text-xs font-medium uppercase text-[var(--color-text-tertiary)]">
+							<p class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">
 								{section.label}
 							</p>
 							{#each items as proposal (proposal.id)}
@@ -438,7 +442,9 @@
 									<div class="mt-2 flex flex-wrap gap-2">
 										<Button.Root
 											size="sm"
-											variant={proposalDecisions[proposal.id] === 'accepted' ? 'default' : 'outline'}
+											variant={proposalDecisions[proposal.id] === 'accepted'
+												? 'default'
+												: 'outline'}
 											disabled={busy}
 											onclick={() => setProposalDecision(proposal.id, 'accepted')}
 										>
@@ -537,8 +543,8 @@
 					</ul>
 					{#if mainCurrencyTotal != null}
 						<p class="mt-1 text-sm text-[var(--color-text-tertiary)]">
-							≈ {formatTransactionAmount(mainCurrencyTotal, mainCurrency)} total ({mainCurrency}, display
-							only)
+							≈ {formatTransactionAmount(mainCurrencyTotal, mainCurrency)} total ({mainCurrency},
+							display only)
 						</p>
 					{/if}
 				</div>
@@ -573,11 +579,7 @@
 
 			<div class="flex flex-wrap gap-2 pt-2">
 				<Button.Root disabled={busy || !anchorAccountId} onclick={handleApply}>
-					{busy
-						? 'Working…'
-						: mode === 'guided'
-							? 'Review proposals'
-							: 'Confirm'}
+					{busy ? 'Working…' : mode === 'guided' ? 'Review proposals' : 'Confirm'}
 				</Button.Root>
 				<Button.Root variant="ghost" disabled={busy} onclick={close}>Cancel</Button.Root>
 			</div>

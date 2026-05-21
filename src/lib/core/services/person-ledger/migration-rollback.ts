@@ -1,5 +1,11 @@
 import { db } from '$lib/core/db';
-import type { Account, MigrationOperation, Person, PersonMigrationBatch, Transaction } from '$lib/core/db';
+import type {
+	Account,
+	MigrationOperation,
+	Person,
+	PersonMigrationBatch,
+	Transaction
+} from '$lib/core/db';
 import { accountService } from '$lib/core/services/core/account-service';
 import { transactionService } from '$lib/core/services/core/transaction-service';
 import { personService } from './person-service';
@@ -121,12 +127,19 @@ export async function rollbackPersonMigrationBatch(batchId: string): Promise<Per
 
 	const reversed = [...batch.operations].reverse();
 
-	await db.transaction('rw', db.transactions, db.accounts, db.people, db.personMigrationBatches, async () => {
-		for (const op of reversed) {
-			await rollbackOperation(op);
+	await db.transaction(
+		'rw',
+		db.transactions,
+		db.accounts,
+		db.people,
+		db.personMigrationBatches,
+		async () => {
+			for (const op of reversed) {
+				await rollbackOperation(op);
+			}
+			await personMigrationBatchService.updateBatch(batchId, { status: 'rolled_back' });
 		}
-		await personMigrationBatchService.updateBatch(batchId, { status: 'rolled_back' });
-	});
+	);
 
 	const updated = await personMigrationBatchService.getBatch(batchId);
 	if (!updated) throw new Error('Batch missing after rollback');

@@ -352,8 +352,7 @@
 							type="single"
 							value={defaultReimbursementAnchorAccountId || '__none__'}
 							onValueChange={(v) => {
-								defaultReimbursementAnchorAccountId =
-									v && v !== '__none__' ? v : '';
+								defaultReimbursementAnchorAccountId = v && v !== '__none__' ? v : '';
 							}}
 						>
 							<SelectTrigger id="default-reimbursement-anchor" class="max-w-md">

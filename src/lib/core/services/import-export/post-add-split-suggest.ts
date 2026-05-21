@@ -11,11 +11,7 @@ import {
 	getSplitPickerCandidateIds,
 	isEligibleForSplitDetection
 } from './import-split-detect';
-import {
-	hasSplit,
-	resolveSplit,
-	transactionHasExistingSplit
-} from '$lib/utils/transaction-split';
+import { hasSplit, resolveSplit, transactionHasExistingSplit } from '$lib/utils/transaction-split';
 
 const DISMISS_WINDOW_MS = 30 * 86400000;
 const DISMISS_MAX_IN_WINDOW = 3;
@@ -31,7 +27,10 @@ export function isPostAddSplitDismissed(prefs: UserPreferences, key: string): bo
 	return recent >= DISMISS_MAX_IN_WINDOW;
 }
 
-async function loadEligibleAccountPool(accountId: string, type: Transaction['type']): Promise<Transaction[]> {
+async function loadEligibleAccountPool(
+	accountId: string,
+	type: Transaction['type']
+): Promise<Transaction[]> {
 	return db.transactions
 		.where('accountId')
 		.equals(accountId)

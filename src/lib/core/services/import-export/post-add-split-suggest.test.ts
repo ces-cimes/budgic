@@ -29,9 +29,7 @@ import {
 	postAddSplitDismissalKey
 } from './post-add-split-suggest';
 
-function tx(
-	overrides: Partial<Transaction> & { id: string; clearedDate: string }
-): Transaction {
+function tx(overrides: Partial<Transaction> & { id: string; clearedDate: string }): Transaction {
 	return {
 		type: 'expense',
 		status: 'cleared',

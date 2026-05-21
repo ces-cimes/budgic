@@ -15,10 +15,7 @@ export {
 	estimateResidualBalances
 } from './migration-inference';
 export { applyPersonMigrationBatch, createAndApplyMigrationBatch } from './migration-apply';
-export {
-	rollbackPersonMigrationBatch,
-	getLatestAppliedBatchForLedger
-} from './migration-rollback';
+export { rollbackPersonMigrationBatch, getLatestAppliedBatchForLedger } from './migration-rollback';
 export type {
 	Person,
 	PersonExternalKey,

@@ -127,10 +127,7 @@
 	let lastSuggestedMerchantKey = $state('');
 
 	async function runMerchantProfileSuggestion() {
-		if (
-			(transactionType !== 'expense' && transactionType !== 'income') ||
-			!description.trim()
-		) {
+		if ((transactionType !== 'expense' && transactionType !== 'income') || !description.trim()) {
 			merchantSplitNote = null;
 			return;
 		}
@@ -1362,8 +1359,7 @@
 		settlementTarget: SettlementTarget | null
 	): Promise<Transaction> {
 		let savedTransaction: Transaction;
-		const useSplitPersist =
-			txData.type === 'expense' || txData.type === 'income';
+		const useSplitPersist = txData.type === 'expense' || txData.type === 'income';
 		if (useSplitPersist) {
 			const draft = buildSplitDraftFromFormState({
 				primaryCategoryId: selectedCategory,
@@ -1380,8 +1376,7 @@
 				isEdit,
 				transactionId: existingId ?? undefined,
 				groupId: linkedGroupId,
-				groupMembers:
-					linkedGroupMembers.length > 0 ? linkedGroupMembers : undefined
+				groupMembers: linkedGroupMembers.length > 0 ? linkedGroupMembers : undefined
 			});
 			savedTransaction = result.transaction;
 			if (result.groupId) linkedGroupId = result.groupId;
@@ -1437,9 +1432,8 @@
 			if (
 				showSplitSection &&
 				splitMode === 'partitioned' &&
-				Math.abs(
-					exactAmountsForPersist().reduce((s, r) => s + r.amount, 0) - Math.abs(amount)
-				) > 0.02
+				Math.abs(exactAmountsForPersist().reduce((s, r) => s + r.amount, 0) - Math.abs(amount)) >
+					0.02
 			) {
 				throw new Error('Exact split amounts must sum to the transaction total');
 			}

@@ -1,16 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantCategoryProfile, Transaction } from '$lib/core/db';
 
-const { mockGetProfile, mockPut, mockAdd, mockGroupWhere, mockTxGet, mockTxUpdate, mockPersistRetro } =
-	vi.hoisted(() => ({
-		mockGetProfile: vi.fn(),
-		mockPut: vi.fn(),
-		mockAdd: vi.fn(),
-		mockGroupWhere: vi.fn(),
-		mockTxGet: vi.fn(),
-		mockTxUpdate: vi.fn(),
-		mockPersistRetro: vi.fn()
-	}));
+const {
+	mockGetProfile,
+	mockPut,
+	mockAdd,
+	mockGroupWhere,
+	mockTxGet,
+	mockTxUpdate,
+	mockPersistRetro
+} = vi.hoisted(() => ({
+	mockGetProfile: vi.fn(),
+	mockPut: vi.fn(),
+	mockAdd: vi.fn(),
+	mockGroupWhere: vi.fn(),
+	mockTxGet: vi.fn(),
+	mockTxUpdate: vi.fn(),
+	mockPersistRetro: vi.fn()
+}));
 
 vi.mock('$lib/utils/split-persist', () => ({
 	persistRetrospectiveWeightedSplit: mockPersistRetro
@@ -76,7 +83,9 @@ describe('merchantProfileService.onTransactionSaved — splits', () => {
 		mockGetProfile.mockResolvedValue([]);
 		mockPut.mockResolvedValue(undefined);
 		mockAdd.mockResolvedValue(undefined);
-		mockGroupWhere.mockReturnValue({ filter: vi.fn(() => ({ toArray: vi.fn().mockResolvedValue([]) })) });
+		mockGroupWhere.mockReturnValue({
+			filter: vi.fn(() => ({ toArray: vi.fn().mockResolvedValue([]) }))
+		});
 	});
 
 	it('soft 60/40 — one observation, slice shares', async () => {
@@ -267,11 +276,9 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 		const tx = expense({ id: 'plain' });
 		mockTxGet.mockResolvedValue(tx);
 
-		const n = await merchantProfileService.applyRetrospectiveSplits(
-			'costco wholesale',
-			'acc-1',
-			['plain']
-		);
+		const n = await merchantProfileService.applyRetrospectiveSplits('costco wholesale', 'acc-1', [
+			'plain'
+		]);
 
 		expect(n).toBe(1);
 		expect(mockPersistRetro).toHaveBeenCalledWith(
@@ -287,11 +294,9 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 	it('skips partitioned group members', async () => {
 		mockTxGet.mockResolvedValue(expense({ id: 'hard-1', groupId: 'g1', amount: -60 }));
 
-		const n = await merchantProfileService.applyRetrospectiveSplits(
-			'costco wholesale',
-			'acc-1',
-			['hard-1']
-		);
+		const n = await merchantProfileService.applyRetrospectiveSplits('costco wholesale', 'acc-1', [
+			'hard-1'
+		]);
 
 		expect(n).toBe(0);
 		expect(mockTxUpdate).not.toHaveBeenCalled();
@@ -308,11 +313,9 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 			})
 		);
 
-		const n = await merchantProfileService.applyRetrospectiveSplits(
-			'costco wholesale',
-			'acc-1',
-			['soft']
-		);
+		const n = await merchantProfileService.applyRetrospectiveSplits('costco wholesale', 'acc-1', [
+			'soft'
+		]);
 
 		expect(n).toBe(0);
 		expect(mockTxUpdate).not.toHaveBeenCalled();

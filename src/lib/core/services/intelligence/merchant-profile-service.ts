@@ -86,7 +86,11 @@ class MerchantProfileService {
 		return 1;
 	}
 
-	private applySliceObservation(row: ProfileWeight, observedWeight: number, passes: number): ProfileWeight {
+	private applySliceObservation(
+		row: ProfileWeight,
+		observedWeight: number,
+		passes: number
+	): ProfileWeight {
 		let next = row;
 		for (let i = 0; i < passes; i++) {
 			next = this.upsertWelford(next, observedWeight);
@@ -205,11 +209,7 @@ class MerchantProfileService {
 			if ((tx.accountId ?? '') !== (accountId ?? '')) continue;
 			if (transactionHasExistingSplit(tx)) continue;
 
-			const applied = await persistRetrospectiveWeightedSplit(
-				id,
-				normalized,
-				primary.categoryId
-			);
+			const applied = await persistRetrospectiveWeightedSplit(id, normalized, primary.categoryId);
 			if (applied) updated++;
 		}
 		return updated;
@@ -222,9 +222,7 @@ class MerchantProfileService {
 		const txs = await db.transactions
 			.filter(
 				(t) =>
-					!t.deletedAt &&
-					t.status === 'cleared' &&
-					(t.type === 'expense' || t.type === 'income')
+					!t.deletedAt && t.status === 'cleared' && (t.type === 'expense' || t.type === 'income')
 			)
 			.toArray();
 		const byKey = new Map<string, string[]>();

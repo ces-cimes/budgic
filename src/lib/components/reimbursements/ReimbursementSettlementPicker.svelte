@@ -29,9 +29,7 @@
 		return `${opt.transactionId}::${opt.reimbursementId}`;
 	}
 
-	const selectedLabel = $derived(
-		options.find((o) => optionKey(o) === value)?.label ?? placeholder
-	);
+	const selectedLabel = $derived(options.find((o) => optionKey(o) === value)?.label ?? placeholder);
 
 	function handleChange(v: string | undefined) {
 		if (v == null) return;

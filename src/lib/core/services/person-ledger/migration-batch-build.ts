@@ -148,9 +148,7 @@ export async function compileAcceptedProposalsToOperations(
 
 		const primary = sourceTxs[0];
 		const clearedDate = primary.clearedDate || primary.createdAt;
-		const amount = Math.abs(
-			primary.transferDetails?.transferAmount ?? primary.amount ?? 0
-		);
+		const amount = Math.abs(primary.transferDetails?.transferAmount ?? primary.amount ?? 0);
 
 		if (proposal.kind === 'collapse_transfer_to_ledger') {
 			if (!proposal.linkExistingReimbursementId) {
@@ -165,8 +163,7 @@ export async function compileAcceptedProposalsToOperations(
 							accountId: anchorAccountId,
 							amount: -amount,
 							currency: primary.currency,
-							description:
-								primary.description || `From person ledger: ${person.displayName}`,
+							description: primary.description || `From person ledger: ${person.displayName}`,
 							categoryId: primary.categoryId,
 							reimbursements: [newExpectingReimbursement(amount, primary.currency, person)],
 							clearedDate
@@ -190,8 +187,7 @@ export async function compileAcceptedProposalsToOperations(
 								accountId: anchorAccountId,
 								amount,
 								currency: primary.currency,
-								description:
-									primary.description || `Repayment: ${person.displayName}`,
+								description: primary.description || `Repayment: ${person.displayName}`,
 								clearedDate
 							}
 						}
@@ -229,8 +225,7 @@ export async function compileAcceptedProposalsToOperations(
 							accountId: anchorAccountId,
 							amount,
 							currency: primary.currency,
-							description:
-								primary.description || `Repayment: ${person.displayName}`,
+							description: primary.description || `Repayment: ${person.displayName}`,
 							clearedDate
 						}
 					}

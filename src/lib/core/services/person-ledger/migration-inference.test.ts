@@ -76,7 +76,9 @@ vi.mock('$lib/core/db', async (importOriginal) => {
 	};
 });
 
-function tx(partial: Partial<Transaction> & Pick<Transaction, 'id' | 'type' | 'amount'>): Transaction {
+function tx(
+	partial: Partial<Transaction> & Pick<Transaction, 'id' | 'type' | 'amount'>
+): Transaction {
 	return {
 		status: 'cleared',
 		currency: 'USD',

@@ -141,8 +141,7 @@
 				.filter((id): id is string => Boolean(id))
 		);
 		return categoryOptions.filter(
-			(o) =>
-				o.value !== primaryCategoryId && !other.has(o.value) && !exactOther.has(o.value)
+			(o) => o.value !== primaryCategoryId && !other.has(o.value) && !exactOther.has(o.value)
 		);
 	}
 
@@ -238,9 +237,7 @@
 		categoryOptions.find((o) => o.value === primaryCategoryId)?.label ?? ''
 	);
 
-	const exactSum = $derived(
-		exactAmounts.reduce((s, r) => s + (r.amount > 0 ? r.amount : 0), 0)
-	);
+	const exactSum = $derived(exactAmounts.reduce((s, r) => s + (r.amount > 0 ? r.amount : 0), 0));
 	const exactTotalOk = $derived(
 		Math.abs(exactSum - Math.abs(amount)) < 0.02 || Math.abs(amount) < 1e-9
 	);
@@ -391,9 +388,7 @@
 								<div class="flex justify-between gap-2 text-xs">
 									<span class="text-foreground min-w-0 truncate font-medium">{primaryLabel}</span>
 									<span class="text-muted-foreground shrink-0 tabular-nums"
-										>{Math.round((1 - lone.weight) * 100)}% · {Math.round(
-											lone.weight * 100
-										)}%</span
+										>{Math.round((1 - lone.weight) * 100)}% · {Math.round(lone.weight * 100)}%</span
 									>
 									<span class="text-foreground min-w-0 truncate text-right font-medium"
 										>{extraLabel}</span
@@ -407,9 +402,7 @@
 									class="w-full accent-[var(--color-amber)]"
 									value={Math.round((1 - lone.weight) * 100)}
 									oninput={(e) => {
-										onSoftSplitSliderInput(
-											parseInt((e.target as HTMLInputElement).value, 10)
-										);
+										onSoftSplitSliderInput(parseInt((e.target as HTMLInputElement).value, 10));
 									}}
 								/>
 								{#if amount}
@@ -449,16 +442,15 @@
 			{:else}
 				<div class="space-y-3 pt-0.5">
 					<div class="flex items-center gap-2">
-						<span class="text-muted-foreground min-w-0 flex-1 truncate text-sm">{primaryLabel}</span>
+						<span class="text-muted-foreground min-w-0 flex-1 truncate text-sm">{primaryLabel}</span
+						>
 						<input
 							type="number"
 							min="0"
 							step="0.01"
 							class="border-input h-9 w-28 rounded-md border px-2 text-sm tabular-nums"
 							value={exactAmounts.find((r) => r.categoryId === primaryCategoryId)?.amount ??
-								(exactAmounts[0]?.categoryId === primaryCategoryId
-									? exactAmounts[0]?.amount
-									: '')}
+								(exactAmounts[0]?.categoryId === primaryCategoryId ? exactAmounts[0]?.amount : '')}
 							oninput={(e) => {
 								const v = parseFloat((e.target as HTMLInputElement).value);
 								const amt = Number.isFinite(v) ? v : 0;

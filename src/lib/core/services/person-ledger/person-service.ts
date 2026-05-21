@@ -31,7 +31,10 @@ class PersonService {
 		return await db.people.orderBy('displayName').toArray();
 	}
 
-	async updatePerson(id: string, updates: Partial<Omit<Person, 'id' | 'createdAt'>>): Promise<Person> {
+	async updatePerson(
+		id: string,
+		updates: Partial<Omit<Person, 'id' | 'createdAt'>>
+	): Promise<Person> {
 		const existing = await db.people.get(id);
 		if (!existing) {
 			throw new Error(`Person with ID ${id} not found`);

@@ -131,12 +131,19 @@ export async function applyPersonMigrationBatch(batchId: string): Promise<Person
 		throw new Error(`Batch ${batchId} is not draft (status: ${batch.status})`);
 	}
 
-	await db.transaction('rw', db.transactions, db.accounts, db.people, db.personMigrationBatches, async () => {
-		for (const op of batch.operations) {
-			await executeOperation(op);
+	await db.transaction(
+		'rw',
+		db.transactions,
+		db.accounts,
+		db.people,
+		db.personMigrationBatches,
+		async () => {
+			for (const op of batch.operations) {
+				await executeOperation(op);
+			}
+			await personMigrationBatchService.updateBatch(batchId, { status: 'applied' });
 		}
-		await personMigrationBatchService.updateBatch(batchId, { status: 'applied' });
-	});
+	);
 
 	const updated = await personMigrationBatchService.getBatch(batchId);
 	if (!updated) throw new Error('Batch missing after apply');

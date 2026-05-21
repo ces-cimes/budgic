@@ -65,9 +65,7 @@ function resolveWeightedSplit(tx: Transaction): TransactionSplit {
 
 /** Row used for merchant learning and spend dedup keys (largest |amount| in group). */
 export function splitRepresentativeRow(members: Transaction[]): Transaction {
-	return members.reduce((a, b) =>
-		Math.abs(b.amount ?? 0) > Math.abs(a.amount ?? 0) ? b : a
-	);
+	return members.reduce((a, b) => (Math.abs(b.amount ?? 0) > Math.abs(a.amount ?? 0) ? b : a));
 }
 
 function resolvePartitionedSplit(tx: Transaction, members: Transaction[]): TransactionSplit {

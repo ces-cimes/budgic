@@ -63,9 +63,9 @@ describe('migration-batch-build', () => {
 		const creates = batch.operations.filter((o) => o.op === 'create_transaction');
 		expect(creates).toHaveLength(2);
 		const anchorCreate = creates.find((o) => o.transactionId && o.payload);
-		expect(
-			(anchorCreate?.payload as { after?: { automation?: string } })?.after?.automation
-		).toBe('person-opening-balance');
+		expect((anchorCreate?.payload as { after?: { automation?: string } })?.after?.automation).toBe(
+			'person-opening-balance'
+		);
 
 		const ledgerClose = creates.find(
 			(o) =>
@@ -149,9 +149,9 @@ describe('migration-batch-build', () => {
 		});
 
 		expect(ops.some((o) => o.op === 'create_transaction')).toBe(true);
-		expect(ops.some((o) => o.op === 'soft_delete_transaction' && o.transactionId === 'ledger-exp')).toBe(
-			true
-		);
+		expect(
+			ops.some((o) => o.op === 'soft_delete_transaction' && o.transactionId === 'ledger-exp')
+		).toBe(true);
 	});
 
 	it('buildGuidedMigrationBatch merges proposal ops, tail, and archive', async () => {

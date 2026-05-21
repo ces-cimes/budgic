@@ -33,13 +33,7 @@
 	{#snippet children()}
 		{#if group}
 			<ul class="m-0 list-none p-0">
-				<ImportSplitReviewCard
-					{group}
-					{accountName}
-					{busy}
-					{onconfirm}
-					{ondismiss}
-				/>
+				<ImportSplitReviewCard {group} {accountName} {busy} {onconfirm} {ondismiss} />
 			</ul>
 		{/if}
 	{/snippet}
