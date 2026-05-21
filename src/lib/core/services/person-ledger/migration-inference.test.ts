@@ -2,8 +2,15 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
 	estimateResidualBalances,
 	groupProposalsByConfidence,
-	inferProposalsForLedger
+	hasBlockingConflict,
+	inferProposalsForLedger,
+	automaticThresholdFromPreferences,
+	normalizeAutomaticThreshold,
+	prepareAutomaticAcceptedProposals,
+	resolveAutomaticSettlements,
+	selectProposalsForAutomatic
 } from './migration-inference';
+import type { MigrationProposal } from './types';
 import type { Account, Person, Transaction } from '$lib/core/db';
 
 const person: Person = {
@@ -300,5 +307,120 @@ describe('migration-inference', () => {
 		]);
 		expect(grouped.high).toHaveLength(1);
 		expect(grouped.low).toHaveLength(1);
+	});
+
+	it('selectProposalsForAutomatic respects threshold', () => {
+		const proposals: MigrationProposal[] = [
+			{
+				id: 'h',
+				kind: 'reattach_ledger_expense',
+				confidence: 'high',
+				sourceTransactionIds: [],
+				summary: 'high'
+			},
+			{
+				id: 'l',
+				kind: 'reattach_ledger_income',
+				confidence: 'low',
+				sourceTransactionIds: [],
+				summary: 'low'
+			}
+		];
+		const selected = selectProposalsForAutomatic(proposals, {
+			high: true,
+			medium: true,
+			low: false
+		});
+		expect(selected.map((p) => p.id)).toEqual(['h']);
+	});
+
+	it('resolveAutomaticSettlements FIFO-fills settlement and drops blocking conflicts', () => {
+		const proposals: MigrationProposal[] = [
+			{
+				id: 'fifo',
+				kind: 'collapse_transfer_from_ledger',
+				confidence: 'medium',
+				sourceTransactionIds: ['t1'],
+				summary: 'repay',
+				settlementCandidates: [
+					{
+						transactionId: 'a1',
+						reimbursementId: 'r1',
+						label: 'first',
+						clearedDate: '2024-01-01'
+					},
+					{
+						transactionId: 'a2',
+						reimbursementId: 'r2',
+						label: 'second',
+						clearedDate: '2024-02-01'
+					}
+				]
+			},
+			{
+				id: 'block',
+				kind: 'reattach_ledger_income',
+				confidence: 'high',
+				sourceTransactionIds: ['t2'],
+				summary: 'ambiguous',
+				conflict: 'Amount mismatch — review in guided mode'
+			},
+			{
+				id: 'ok-link',
+				kind: 'collapse_transfer_to_ledger',
+				confidence: 'high',
+				sourceTransactionIds: ['t3'],
+				summary: 'link',
+				conflict: 'Matching open reimbursement on anchor — will link instead of creating',
+				linkExistingReimbursementId: 'r-dup',
+				linkExistingTransactionId: 'tx-dup'
+			}
+		];
+		const resolved = resolveAutomaticSettlements(proposals);
+		expect(resolved).toHaveLength(2);
+		expect(resolved[0].selectedSettlementKey).toBe('a1::r1');
+		expect(resolved.some((p) => p.id === 'ok-link')).toBe(true);
+		expect(hasBlockingConflict(proposals[1])).toBe(true);
+	});
+
+	it('normalizeAutomaticThreshold falls back when all levels off', () => {
+		expect(normalizeAutomaticThreshold({ high: false, medium: false, low: false })).toEqual({
+			high: true,
+			medium: true,
+			low: false
+		});
+	});
+
+	it('automaticThresholdFromPreferences reads stored prefs', () => {
+		expect(
+			automaticThresholdFromPreferences({
+				personLedgerAutomaticThreshold: { high: true, medium: false, low: true }
+			})
+		).toEqual({ high: true, medium: false, low: true });
+		expect(automaticThresholdFromPreferences(null)).toEqual({
+			high: true,
+			medium: true,
+			low: false
+		});
+	});
+
+	it('prepareAutomaticAcceptedProposals chains filter and resolve', () => {
+		const out = prepareAutomaticAcceptedProposals([
+			{
+				id: 'm',
+				kind: 'reattach_ledger_expense',
+				confidence: 'medium',
+				sourceTransactionIds: [],
+				summary: 'm'
+			},
+			{
+				id: 'l',
+				kind: 'reattach_ledger_income',
+				confidence: 'low',
+				sourceTransactionIds: [],
+				summary: 'l'
+			}
+		]);
+		expect(out.map((p) => p.id)).toEqual(['m']);
 	});
 });

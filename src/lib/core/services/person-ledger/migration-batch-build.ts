@@ -427,8 +427,12 @@ export type BuildGuidedMigrationBatchInput = {
 	residualBalances?: Record<string, number>;
 };
 
-export async function buildGuidedMigrationBatch(
-	input: BuildGuidedMigrationBatchInput
+export type BuildProposalMigrationBatchInput = BuildGuidedMigrationBatchInput & {
+	mode: Extract<PersonMigrationMode, 'guided' | 'automatic'>;
+};
+
+export async function buildProposalMigrationBatch(
+	input: BuildProposalMigrationBatchInput
 ): Promise<BuiltMigrationBatch> {
 	const {
 		ledgerAccount,
@@ -437,7 +441,8 @@ export async function buildGuidedMigrationBatch(
 		batchId,
 		acceptedProposals,
 		tailMode,
-		residualBalances
+		residualBalances,
+		mode
 	} = input;
 
 	const operations: MigrationOperation[] = [];
@@ -493,7 +498,7 @@ export async function buildGuidedMigrationBatch(
 						batchId,
 						ledgerAccountId: ledgerAccount.id,
 						migratedAt: new Date().toISOString(),
-						mode: 'guided' as const
+						mode
 					}
 				],
 				openBalancesByCurrency: {}
@@ -516,9 +521,21 @@ export async function buildGuidedMigrationBatch(
 		ledgerAccountId: ledgerAccount.id,
 		personId: person.id,
 		anchorAccountId,
-		mode: 'guided',
+		mode,
 		operations
 	};
+}
+
+export async function buildGuidedMigrationBatch(
+	input: BuildGuidedMigrationBatchInput
+): Promise<BuiltMigrationBatch> {
+	return buildProposalMigrationBatch({ ...input, mode: 'guided' });
+}
+
+export async function buildAutomaticMigrationBatch(
+	input: BuildGuidedMigrationBatchInput
+): Promise<BuiltMigrationBatch> {
+	return buildProposalMigrationBatch({ ...input, mode: 'automatic' });
 }
 
 async function buildCloseBatch(
@@ -635,7 +652,16 @@ export async function prepareMigrationBatch(params: {
 	}
 
 	if (params.mode === 'automatic') {
-		throw new Error('Automatic migration mode is not implemented yet');
+		return buildProposalMigrationBatch({
+			ledgerAccount,
+			person,
+			anchorAccountId: params.anchorAccountId,
+			batchId,
+			mode: 'automatic',
+			acceptedProposals: params.acceptedProposals ?? [],
+			tailMode: params.tailMode,
+			residualBalances: params.residualBalances
+		});
 	}
 
 	const input: BuildMigrationBatchInput = {

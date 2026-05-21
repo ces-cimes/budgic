@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
+	buildAutomaticMigrationBatch,
 	buildForgiveArchiveBatch,
 	buildGuidedMigrationBatch,
 	buildSingleTotalBatch,
@@ -170,5 +171,18 @@ describe('migration-batch-build', () => {
 		expect(
 			batch.operations.filter((o) => o.op === 'create_transaction').length
 		).toBeGreaterThanOrEqual(2);
+	});
+
+	it('buildAutomaticMigrationBatch uses automatic mode on manifest', async () => {
+		const batch = await buildAutomaticMigrationBatch({
+			ledgerAccount: ledger,
+			person,
+			anchorAccountId: 'anchor-1',
+			batchId: 'batch-auto',
+			acceptedProposals: []
+		});
+
+		expect(batch.mode).toBe('automatic');
+		expect(batch.operations.some((o) => o.op === 'archive_account')).toBe(true);
 	});
 });

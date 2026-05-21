@@ -77,6 +77,9 @@ class UserService {
 			reimbursementAllowanceMode: prefs.reimbursementAllowanceMode ?? 'conservative',
 			defaultReimbursementAnchorAccountId:
 				(prefs.defaultReimbursementAnchorAccountId as string | undefined) ?? undefined,
+			personLedgerAutomaticThreshold:
+				(prefs.personLedgerAutomaticThreshold as UserPreferences['personLedgerAutomaticThreshold']) ??
+				undefined,
 			maxDebtPeriodDays: (prefs.maxDebtPeriodDays as number) ?? 90,
 			recoveryAggressiveness: (prefs.recoveryAggressiveness as number) ?? 0.2,
 			debtRecoveryActive: prefs.debtRecoveryActive ?? false,

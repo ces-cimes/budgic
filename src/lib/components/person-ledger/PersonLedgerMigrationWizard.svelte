@@ -7,15 +7,22 @@
 	import { userService } from '$lib/core/services/core/user-service';
 	import {
 		createAndApplyMigrationBatch,
+		automaticThresholdFromPreferences,
+		DEFAULT_AUTOMATIC_THRESHOLD,
+		normalizeAutomaticThreshold,
 		estimateResidualBalances,
 		groupProposalsByConfidence,
+		hasBlockingConflict,
 		inferProposalsForLedger,
 		ledgerBalancesByCurrency,
+		prepareAutomaticAcceptedProposals,
 		prepareMigrationBatch,
 		resolveDefaultAnchorAccountId,
 		rollbackPersonMigrationBatch,
+		selectProposalsForAutomatic,
 		personService
 	} from '$lib/core/services/person-ledger';
+	import type { AutomaticThreshold } from '$lib/core/services/person-ledger';
 	import type { Account } from '$lib/core/db';
 	import type {
 		MigrationProposal,
@@ -23,7 +30,7 @@
 	} from '$lib/core/services/person-ledger/types';
 	import { formatTransactionAmount, convertToMainCurrency } from '$lib/utils/currency-utils';
 
-	type WizardStep = 'mode' | 'guided' | 'residual' | 'done';
+	type WizardStep = 'mode' | 'guided' | 'automatic' | 'residual' | 'done';
 	type ProposalDecision = 'pending' | 'accepted' | 'skipped';
 
 	interface Props {
@@ -58,6 +65,8 @@
 	let residualBalances = $state<Record<string, number>>({});
 	let tailMode =
 		$state<Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>>('single_total');
+	let automaticThreshold = $state<AutomaticThreshold>({ ...DEFAULT_AUTOMATIC_THRESHOLD });
+	let automaticResidualBalances = $state<Record<string, number>>({});
 
 	$effect(() => {
 		if (open && ledgerAccountId) {
@@ -98,12 +107,14 @@
 		residualBalances = {};
 		busy = true;
 		try {
-			const [acct, selectable, wallets, balances] = await Promise.all([
+			const [acct, selectable, wallets, balances, prefs] = await Promise.all([
 				accountService.getAccount(ledgerAccountId),
 				accountService.getSelectableAccounts(),
 				accountService.getWalletAccounts(),
-				ledgerBalancesByCurrency(ledgerAccountId)
+				ledgerBalancesByCurrency(ledgerAccountId),
+				userService.getUserPreferences()
 			]);
+			automaticThreshold = automaticThresholdFromPreferences(prefs);
 			ledgerAccount = acct;
 			selectableAccounts = selectable.filter((a) => a.id !== ledgerAccountId);
 			walletAccountIds = new Set(wallets.map((w) => w.id));
@@ -184,6 +195,39 @@
 			}))
 	);
 
+	const thresholdSelectedProposals = $derived(
+		selectProposalsForAutomatic(allProposals, automaticThreshold)
+	);
+
+	const autoAcceptedProposals = $derived(
+		prepareAutomaticAcceptedProposals(allProposals, automaticThreshold)
+	);
+
+	const automaticSkipCounts = $derived.by(() => {
+		let belowThreshold = 0;
+		let needsGuided = 0;
+		for (const p of allProposals) {
+			const inThreshold = thresholdSelectedProposals.some((t) => t.id === p.id);
+			if (!inThreshold) {
+				belowThreshold++;
+				continue;
+			}
+			if (hasBlockingConflict(p) || !autoAcceptedProposals.some((a) => a.id === p.id)) {
+				needsGuided++;
+			}
+		}
+		return { belowThreshold, needsGuided };
+	});
+
+	const automaticResidualLines = $derived(
+		Object.entries(automaticResidualBalances)
+			.filter(([, v]) => Math.abs(v) > 0.001)
+			.map(([currency, amount]) => ({
+				currency,
+				label: formatTransactionAmount(amount, currency)
+			}))
+	);
+
 	const anchorLabel = $derived(
 		selectableAccounts.find((a) => a.id === anchorAccountId)?.name ?? 'Select account'
 	);
@@ -214,6 +258,40 @@
 		wizardStep = 'guided';
 	}
 
+	async function goToAutomaticPreview() {
+		if (!anchorAccountId) {
+			error = 'Choose an anchor account';
+			return;
+		}
+		await loadGuidedProposals();
+		automaticResidualBalances = await estimateResidualBalances(
+			ledgerAccountId,
+			autoAcceptedProposals
+		);
+		wizardStep = 'automatic';
+	}
+
+	async function setAutomaticThreshold(key: keyof AutomaticThreshold, enabled: boolean) {
+		automaticThreshold = normalizeAutomaticThreshold({
+			...automaticThreshold,
+			[key]: enabled
+		});
+		try {
+			await userService.updateUserPreferences({
+				personLedgerAutomaticThreshold: automaticThreshold
+			});
+		} catch (e) {
+			console.error('Failed to save automatic migration threshold', e);
+		}
+	}
+
+	async function refreshAutomaticResidual() {
+		automaticResidualBalances = await estimateResidualBalances(
+			ledgerAccountId,
+			autoAcceptedProposals
+		);
+	}
+
 	async function continueFromGuided() {
 		busy = true;
 		error = null;
@@ -232,24 +310,55 @@
 		}
 	}
 
-	async function applyGuidedBatch() {
+	async function applyProposalBatch(
+		batchMode: Extract<PersonMigrationMode, 'guided' | 'automatic'>,
+		proposals: MigrationProposal[],
+		balances: Record<string, number>
+	) {
 		if (!anchorAccountId) return;
+		const hasResidual = Object.values(balances).some((v) => Math.abs(v) > 0.001);
 		const built = await prepareMigrationBatch({
 			ledgerAccountId,
 			anchorAccountId,
-			mode: 'guided',
-			acceptedProposals,
-			tailMode: Object.values(residualBalances).some((v) => Math.abs(v) > 0.001)
-				? tailMode
-				: undefined,
-			residualBalances: Object.values(residualBalances).some((v) => Math.abs(v) > 0.001)
-				? residualBalances
-				: undefined
+			mode: batchMode,
+			acceptedProposals: proposals,
+			tailMode: hasResidual ? tailMode : undefined,
+			residualBalances: hasResidual ? balances : undefined
 		});
 		const batch = await createAndApplyMigrationBatch(built);
 		appliedBatchId = batch.id;
 		wizardStep = 'done';
 		onApplied?.();
+	}
+
+	async function applyGuidedBatch() {
+		await applyProposalBatch('guided', acceptedProposals, residualBalances);
+	}
+
+	async function applyAutomaticBatch() {
+		await applyProposalBatch('automatic', autoAcceptedProposals, automaticResidualBalances);
+	}
+
+	async function continueFromAutomatic() {
+		busy = true;
+		error = null;
+		try {
+			automaticResidualBalances = await estimateResidualBalances(
+				ledgerAccountId,
+				autoAcceptedProposals
+			);
+			const hasResidual = Object.values(automaticResidualBalances).some((v) => Math.abs(v) > 0.001);
+			if (hasResidual) {
+				residualBalances = automaticResidualBalances;
+				wizardStep = 'residual';
+			} else {
+				await applyAutomaticBatch();
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Failed to estimate remaining balance';
+		} finally {
+			busy = false;
+		}
 	}
 
 	async function handleApply() {
@@ -259,6 +368,10 @@
 		}
 		if (mode === 'guided') {
 			await goToGuidedReview();
+			return;
+		}
+		if (mode === 'automatic') {
+			await goToAutomaticPreview();
 			return;
 		}
 		busy = true;
@@ -284,7 +397,11 @@
 		busy = true;
 		error = null;
 		try {
-			await applyGuidedBatch();
+			if (mode === 'automatic') {
+				await applyAutomaticBatch();
+			} else {
+				await applyGuidedBatch();
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Migration failed';
 		} finally {
@@ -346,11 +463,113 @@
 			</div>
 		{:else if busy && !ledgerAccount}
 			<p class="text-sm text-[var(--color-text-tertiary)]">Loading…</p>
+		{:else if ledgerAccount && wizardStep === 'automatic'}
+			<div class="space-y-4">
+				<p class="text-sm text-[var(--color-text-tertiary)]">
+					Apply inferred rewrites at or above your confidence threshold. Review the summary before
+					committing.
+				</p>
+
+				<div class="space-y-2">
+					<p class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">
+						Confidence threshold
+					</p>
+					<div class="flex flex-wrap gap-3">
+						<label class="flex cursor-pointer items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={automaticThreshold.high}
+								onchange={async (e) => {
+									setAutomaticThreshold('high', e.currentTarget.checked);
+									await refreshAutomaticResidual();
+								}}
+							/>
+							High
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={automaticThreshold.medium}
+								onchange={async (e) => {
+									setAutomaticThreshold('medium', e.currentTarget.checked);
+									await refreshAutomaticResidual();
+								}}
+							/>
+							Medium
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={automaticThreshold.low}
+								onchange={async (e) => {
+									setAutomaticThreshold('low', e.currentTarget.checked);
+									await refreshAutomaticResidual();
+								}}
+							/>
+							Low
+						</label>
+					</div>
+				</div>
+
+				<div
+					class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-3 text-sm"
+				>
+					<p>
+						<span class="font-medium">{autoAcceptedProposals.length}</span>
+						rewrite{autoAcceptedProposals.length === 1 ? '' : 's'} will apply
+					</p>
+					{#if automaticSkipCounts.belowThreshold > 0}
+						<p class="mt-1 text-[var(--color-text-tertiary)]">
+							{automaticSkipCounts.belowThreshold} below threshold
+						</p>
+					{/if}
+					{#if automaticSkipCounts.needsGuided > 0}
+						<p class="mt-1 text-amber-700">
+							{automaticSkipCounts.needsGuided} need guided review (conflict or blocked)
+						</p>
+					{/if}
+				</div>
+
+				{#if autoAcceptedProposals.length > 0}
+					<ul class="max-h-40 space-y-1 overflow-y-auto text-sm">
+						{#each autoAcceptedProposals as proposal (proposal.id)}
+							<li class="text-[var(--color-text-primary)]">{proposal.summary}</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="text-sm text-[var(--color-text-tertiary)]">
+						No rewrites match your threshold. Choose another mode or adjust confidence.
+					</p>
+				{/if}
+
+				{#if automaticResidualLines.length > 0}
+					<div>
+						<p class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">
+							Estimated remainder after rewrites
+						</p>
+						<ul class="mt-1 space-y-0.5 text-sm">
+							{#each automaticResidualLines as line (line.currency)}
+								<li>{line.label} ({line.currency})</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+
+				<div class="flex flex-wrap gap-2 pt-2">
+					<Button.Root
+						disabled={busy || autoAcceptedProposals.length === 0}
+						onclick={continueFromAutomatic}
+					>
+						{busy ? 'Checking balance…' : 'Apply migration'}
+					</Button.Root>
+					<Button.Root variant="ghost" disabled={busy} onclick={backToMode}>Back</Button.Root>
+				</div>
+			</div>
 		{:else if ledgerAccount && wizardStep === 'residual'}
 			<div class="space-y-3">
 				<p class="text-sm text-[var(--color-text-primary)]">
-					After the rewrites you confirmed, this person ledger still has a balance. Choose how to
-					close the remainder before archiving.
+					After the rewrites {mode === 'automatic' ? 'selected' : 'you confirmed'}, this person
+					ledger still has a balance. Choose how to close the remainder before archiving.
 				</p>
 				<ul class="space-y-0.5 text-sm">
 					{#each residualLines as line (line.currency)}
@@ -389,7 +608,11 @@
 					<Button.Root disabled={busy} onclick={handleApplyResidual}>
 						{busy ? 'Applying…' : 'Apply migration'}
 					</Button.Root>
-					<Button.Root variant="ghost" disabled={busy} onclick={() => (wizardStep = 'guided')}>
+					<Button.Root
+						variant="ghost"
+						disabled={busy}
+						onclick={() => (wizardStep = mode === 'automatic' ? 'automatic' : 'guided')}
+					>
 						Back
 					</Button.Root>
 				</div>
@@ -500,6 +723,24 @@
 						<input
 							type="radio"
 							name="pl-mode"
+							value="automatic"
+							checked={mode === 'automatic'}
+							onchange={() => (mode = 'automatic')}
+							class="mt-1"
+						/>
+						<span>
+							<span class="text-sm font-medium">Apply suggestions (automatic)</span>
+							<span class="mt-0.5 block text-xs text-[var(--color-text-tertiary)]">
+								Apply high/medium confidence rewrites with a summary before commit.
+							</span>
+						</span>
+					</label>
+					<label
+						class="flex cursor-pointer items-start gap-2 rounded-lg border border-[var(--color-border)] p-3"
+					>
+						<input
+							type="radio"
+							name="pl-mode"
 							value="single_total"
 							checked={mode === 'single_total'}
 							onchange={() => (mode = 'single_total')}
@@ -579,7 +820,13 @@
 
 			<div class="flex flex-wrap gap-2 pt-2">
 				<Button.Root disabled={busy || !anchorAccountId} onclick={handleApply}>
-					{busy ? 'Working…' : mode === 'guided' ? 'Review proposals' : 'Confirm'}
+					{busy
+						? 'Working…'
+						: mode === 'guided'
+							? 'Review proposals'
+							: mode === 'automatic'
+								? 'Preview suggestions'
+								: 'Confirm'}
 				</Button.Root>
 				<Button.Root variant="ghost" disabled={busy} onclick={close}>Cancel</Button.Root>
 			</div>

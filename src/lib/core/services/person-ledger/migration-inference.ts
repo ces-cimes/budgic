@@ -144,6 +144,82 @@ export function groupProposalsByConfidence(proposals: MigrationProposal[]): Prop
 	return { high, medium, low };
 }
 
+export type AutomaticThreshold = {
+	high: boolean;
+	medium: boolean;
+	low: boolean;
+};
+
+export const DEFAULT_AUTOMATIC_THRESHOLD: AutomaticThreshold = {
+	high: true,
+	medium: true,
+	low: false
+};
+
+export function normalizeAutomaticThreshold(threshold: AutomaticThreshold): AutomaticThreshold {
+	if (threshold.high || threshold.medium || threshold.low) return threshold;
+	return { ...DEFAULT_AUTOMATIC_THRESHOLD };
+}
+
+export function automaticThresholdFromPreferences(
+	prefs: { personLedgerAutomaticThreshold?: Partial<AutomaticThreshold> } | null | undefined
+): AutomaticThreshold {
+	const stored = prefs?.personLedgerAutomaticThreshold;
+	if (!stored || typeof stored !== 'object') {
+		return { ...DEFAULT_AUTOMATIC_THRESHOLD };
+	}
+	return normalizeAutomaticThreshold({
+		high: stored.high ?? DEFAULT_AUTOMATIC_THRESHOLD.high,
+		medium: stored.medium ?? DEFAULT_AUTOMATIC_THRESHOLD.medium,
+		low: stored.low ?? DEFAULT_AUTOMATIC_THRESHOLD.low
+	});
+}
+
+function confidenceAllowed(confidence: ProposalConfidence, threshold: AutomaticThreshold): boolean {
+	if (confidence === 'high') return threshold.high;
+	if (confidence === 'medium') return threshold.medium;
+	return threshold.low;
+}
+
+/** Filter proposals by user-selected confidence threshold (default high + medium). */
+export function selectProposalsForAutomatic(
+	proposals: MigrationProposal[],
+	threshold: AutomaticThreshold = DEFAULT_AUTOMATIC_THRESHOLD
+): MigrationProposal[] {
+	return proposals.filter((p) => confidenceAllowed(p.confidence, threshold));
+}
+
+/** Conflict that requires guided review (informational link-existing conflicts are OK). */
+export function hasBlockingConflict(proposal: MigrationProposal): boolean {
+	return Boolean(proposal.conflict) && !proposal.linkExistingReimbursementId;
+}
+
+/** FIFO settlement when ambiguous; drop blocking conflicts. */
+export function resolveAutomaticSettlements(proposals: MigrationProposal[]): MigrationProposal[] {
+	const result: MigrationProposal[] = [];
+	for (const proposal of proposals) {
+		if (hasBlockingConflict(proposal)) continue;
+		const candidates = proposal.settlementCandidates;
+		if (candidates && candidates.length > 0 && !proposal.selectedSettlementKey) {
+			const first = candidates[0];
+			result.push({
+				...proposal,
+				selectedSettlementKey: `${first.transactionId}::${first.reimbursementId}`
+			});
+		} else {
+			result.push(proposal);
+		}
+	}
+	return result;
+}
+
+export function prepareAutomaticAcceptedProposals(
+	proposals: MigrationProposal[],
+	threshold: AutomaticThreshold = DEFAULT_AUTOMATIC_THRESHOLD
+): MigrationProposal[] {
+	return resolveAutomaticSettlements(selectProposalsForAutomatic(proposals, threshold));
+}
+
 export async function inferProposalsForLedger(
 	params: InferProposalsParams
 ): Promise<MigrationProposal[]> {

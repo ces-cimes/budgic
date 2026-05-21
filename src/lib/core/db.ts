@@ -1441,6 +1441,14 @@ const UserPreferencesSchema = BaseSchema.extend({
 	reimbursementAllowanceMode: z.enum(['conservative', 'optimistic']).default('conservative'),
 	/** Milestone C — default anchor wallet for reimbursements and migration inference */
 	defaultReimbursementAnchorAccountId: z.string().optional(),
+	/** Milestone C Phase D — default confidence levels for automatic person-ledger migration */
+	personLedgerAutomaticThreshold: z
+		.object({
+			high: z.boolean(),
+			medium: z.boolean(),
+			low: z.boolean()
+		})
+		.optional(),
 
 	/** Phase 5.4 — max intentional debt window (days) for tolerance messaging */
 	maxDebtPeriodDays: z.number().int().min(7).max(183).default(90),

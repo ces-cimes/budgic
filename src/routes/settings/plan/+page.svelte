@@ -13,6 +13,11 @@
 	import Header from '$lib/components/Header.svelte';
 	import { PageLayout } from '$lib/components/layouts';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import {
+		automaticThresholdFromPreferences,
+		normalizeAutomaticThreshold
+	} from '$lib/core/services/person-ledger';
+	import type { AutomaticThreshold } from '$lib/core/services/person-ledger';
 	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 
 	const NEGATIVE_ALLOWANCE_LABELS: Record<NegativeAllowanceHandling, string> = {
@@ -27,6 +32,11 @@
 	let negativeAllowanceHandling = $state<NegativeAllowanceHandling>('allow_with_strong_warning');
 	let reimbursementAllowanceMode = $state<'conservative' | 'optimistic'>('conservative');
 	let defaultReimbursementAnchorAccountId = $state<string>('');
+	let personLedgerAutomaticThreshold = $state<AutomaticThreshold>({
+		high: true,
+		medium: true,
+		low: false
+	});
 	let walletAccounts = $state<Account[]>([]);
 	let envelopeBorrowMaxPerCategoryPercent = $state(50);
 	let envelopeBorrowRepaymentPeriods = $state(2);
@@ -61,6 +71,7 @@
 				defaultReimbursementAnchorAccountId =
 					(prefs as { defaultReimbursementAnchorAccountId?: string })
 						.defaultReimbursementAnchorAccountId ?? '';
+				personLedgerAutomaticThreshold = automaticThresholdFromPreferences(prefs);
 				walletAccounts = await accountService.getWalletAccounts();
 				const p = prefs as Record<string, unknown>;
 				envelopeBorrowMaxPerCategoryPercent = Math.round(
@@ -135,6 +146,7 @@
 				negativeAllowanceHandling,
 				reimbursementAllowanceMode,
 				defaultReimbursementAnchorAccountId: defaultReimbursementAnchorAccountId || undefined,
+				personLedgerAutomaticThreshold: normalizeAutomaticThreshold(personLedgerAutomaticThreshold),
 				envelopeBorrowMaxPerCategoryPercent: envelopeBorrowMaxPerCategoryPercent / 100,
 				envelopeBorrowRepaymentPeriods,
 				envelopeBorrowTotalLimit:
@@ -368,6 +380,61 @@
 								{/each}
 							</SelectContent>
 						</Select>
+					</div>
+				</div>
+
+				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+					<div class="border-border border-b px-5 py-3">
+						<h2
+							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Automatic person-ledger migration
+						</h2>
+						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+							Default confidence levels when using automatic mode in Close person account (at least
+							one required).
+						</p>
+					</div>
+					<div class="flex flex-wrap gap-4 px-5 py-4">
+						<label class="flex cursor-pointer items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={personLedgerAutomaticThreshold.high}
+								onchange={(e) => {
+									personLedgerAutomaticThreshold = normalizeAutomaticThreshold({
+										...personLedgerAutomaticThreshold,
+										high: e.currentTarget.checked
+									});
+								}}
+							/>
+							High confidence
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={personLedgerAutomaticThreshold.medium}
+								onchange={(e) => {
+									personLedgerAutomaticThreshold = normalizeAutomaticThreshold({
+										...personLedgerAutomaticThreshold,
+										medium: e.currentTarget.checked
+									});
+								}}
+							/>
+							Medium confidence
+						</label>
+						<label class="flex cursor-pointer items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={personLedgerAutomaticThreshold.low}
+								onchange={(e) => {
+									personLedgerAutomaticThreshold = normalizeAutomaticThreshold({
+										...personLedgerAutomaticThreshold,
+										low: e.currentTarget.checked
+									});
+								}}
+							/>
+							Low confidence
+						</label>
 					</div>
 				</div>
 
