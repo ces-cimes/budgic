@@ -634,6 +634,10 @@ export async function prepareMigrationBatch(params: {
 		});
 	}
 
+	if (params.mode === 'automatic') {
+		throw new Error('Automatic migration mode is not implemented yet');
+	}
+
 	const input: BuildMigrationBatchInput = {
 		ledgerAccount,
 		person,

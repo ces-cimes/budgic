@@ -1856,8 +1856,8 @@ export type MerchantCategoryProfile = z.infer<typeof MerchantCategoryProfileSche
  *  The `patterns` field is the serialised RecurringPattern[] from the intelligence service.
  *  We avoid importing that type here to keep db.ts free of analytics service dependencies. */
 export interface RecurringPatternsCacheEntry {
-	/** Always 'canonical' — only one row is ever stored. */
-	id: 'canonical';
+	/** Always `canonical:v2` — matches RECURRING_CANONICAL_CACHE_KEY; only one row is stored. */
+	id: 'canonical:v2';
 	patterns: any[];
 	computedAt: string; // ISO date
 }

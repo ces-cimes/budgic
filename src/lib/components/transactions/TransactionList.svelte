@@ -316,14 +316,14 @@
 		}
 		if (transaction.isGroup && Array.isArray(transaction.transactions)) {
 			const members = transaction.transactions.filter((t: Transaction) => !!t?.id);
-			const categoryIds = new Set(
+			const categoryIds = new Set<string>(
 				members
 					.map((t: Transaction) => t.categoryId)
 					.filter((id: string | undefined): id is string => !!id)
 			);
 			if (categoryIds.size === 0) return 'Uncategorized';
 			if (categoryIds.size === 1) {
-				const only = [...categoryIds][0]!;
+				const only: string = [...categoryIds][0]!;
 				if (categories[only]) return categories[only].name;
 				return only.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 			}

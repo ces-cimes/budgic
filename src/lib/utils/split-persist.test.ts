@@ -166,8 +166,8 @@ describe('persistPartitionedUpdate member sync', () => {
 	it('adds a third group member when exact split gains a category', async () => {
 		const gid = 'g-upd';
 		const members = [
-			{ id: 'm1', groupId: gid, amount: -60, categoryId: 'gro', ...shell },
-			{ id: 'm2', groupId: gid, amount: -40, categoryId: 'hh', ...shell }
+			{ ...shell, id: 'm1', groupId: gid, amount: -60, categoryId: 'gro' },
+			{ ...shell, id: 'm2', groupId: gid, amount: -40, categoryId: 'hh' }
 		] as unknown as Transaction[];
 
 		vi.mocked(transactionService.getGroupTransactions).mockResolvedValue(members);
@@ -184,7 +184,7 @@ describe('persistPartitionedUpdate member sync', () => {
 			.mockResolvedValueOnce(members)
 			.mockResolvedValueOnce([
 				...members,
-				{ id: 'm3', groupId: gid, amount: -10, categoryId: 'ent', ...shell }
+				{ ...shell, id: 'm3', groupId: gid, amount: -10, categoryId: 'ent' }
 			] as Transaction[]);
 
 		await persistSplit({
@@ -214,9 +214,9 @@ describe('persistPartitionedUpdate member sync', () => {
 	it('deletes removed member when exact split drops a category', async () => {
 		const gid = 'g-del';
 		const members = [
-			{ id: 'm1', groupId: gid, amount: -50, categoryId: 'gro', ...shell },
-			{ id: 'm2', groupId: gid, amount: -30, categoryId: 'hh', ...shell },
-			{ id: 'm3', groupId: gid, amount: -20, categoryId: 'ent', ...shell }
+			{ ...shell, id: 'm1', groupId: gid, amount: -50, categoryId: 'gro' },
+			{ ...shell, id: 'm2', groupId: gid, amount: -30, categoryId: 'hh' },
+			{ ...shell, id: 'm3', groupId: gid, amount: -20, categoryId: 'ent' }
 		] as unknown as Transaction[];
 
 		vi.mocked(transactionService.getGroupTransactions)

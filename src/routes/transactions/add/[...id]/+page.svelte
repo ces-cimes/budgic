@@ -187,6 +187,7 @@
 	let accounts = $state<Account[]>([]);
 	let categories = $state<Category[]>([]);
 	let transaction = $state<Transaction | null>(null);
+	let isEditMode = $derived(!!transaction);
 	const importQualityFlags = $derived(() => ({
 		amountInferred: Boolean(transaction?.importQuality?.amountInferred),
 		dateInferred: Boolean(transaction?.importQuality?.dateInferred),
@@ -1028,7 +1029,6 @@
 	}
 
 	// Computed properties
-	let isEditMode = $derived(!!transaction);
 	let pageTitle = $derived(isEditMode ? 'Edit Transaction' : 'Add Transaction');
 
 	function triggerSave() {

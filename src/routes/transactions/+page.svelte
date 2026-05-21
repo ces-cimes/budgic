@@ -541,8 +541,10 @@
 				(t: Transaction | undefined): t is Transaction => !!t?.id
 			);
 			if (members.length === 0) return;
-			const master = members.reduce((best, t) =>
-				Math.abs(t.amount ?? 0) >= Math.abs(best.amount ?? 0) ? t : best
+			const master = members.reduce(
+				(best: Transaction, t: Transaction) =>
+					Math.abs(t.amount ?? 0) >= Math.abs(best.amount ?? 0) ? t : best,
+				members[0]
 			);
 			goto(`/transactions/add/${master.id}`);
 			return;
