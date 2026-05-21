@@ -722,8 +722,7 @@
 
 		const breakdown = computeBatchExpenseSpendBreakdown(txs, categoryTierById);
 		const ucCount = countUnclassifiedExpenseTransactions(txs, categoryTierById);
-		const openClassification =
-			txs.length > 0 && shouldOpenImportWizard(breakdown, ucCount);
+		const openClassification = txs.length > 0 && shouldOpenImportWizard(breakdown, ucCount);
 
 		wizardExpenseTxIds = batch.wizardExpenseTransactionIds ?? [];
 		wizardExpenseAbsByTxId = batch.wizardExpenseAbsByTransactionId ?? {};

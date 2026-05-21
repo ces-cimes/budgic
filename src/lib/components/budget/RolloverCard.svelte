@@ -104,78 +104,31 @@
 					</div>
 				</div>
 
-				<!-- Per category -->
-				<div class="space-y-2">
-					<div class="text-sm font-medium">By category</div>
-					<ul class="space-y-1 text-sm">
-						<li class="flex justify-between">
-							<span class="text-muted-foreground">Essential</span>
-							<span>
-								{#if surplusDeficit.essential.surplus > 0}
-									<span class="text-success"
-										>+{formatTransactionAmount(
-											surplusDeficit.essential.surplus,
-											surplusDeficit.essential.currency
-										)}</span
-									>
-								{:else if surplusDeficit.essential.deficit > 0}
-									<span class="text-destructive"
-										>−{formatTransactionAmount(
-											surplusDeficit.essential.deficit,
-											surplusDeficit.essential.currency
-										)}</span
-									>
-								{:else}
-									<span class="text-muted-foreground">—</span>
-								{/if}
-							</span>
-						</li>
-						<li class="flex justify-between">
-							<span class="text-muted-foreground">Discretionary</span>
-							<span>
-								{#if surplusDeficit.discretionary.surplus > 0}
-									<span class="text-success"
-										>+{formatTransactionAmount(
-											surplusDeficit.discretionary.surplus,
-											surplusDeficit.discretionary.currency
-										)}</span
-									>
-								{:else if surplusDeficit.discretionary.deficit > 0}
-									<span class="text-destructive"
-										>−{formatTransactionAmount(
-											surplusDeficit.discretionary.deficit,
-											surplusDeficit.discretionary.currency
-										)}</span
-									>
-								{:else}
-									<span class="text-muted-foreground">—</span>
-								{/if}
-							</span>
-						</li>
-						<li class="flex justify-between">
-							<span class="text-muted-foreground">Buffer</span>
-							<span>
-								{#if surplusDeficit.buffer.surplus > 0}
-									<span class="text-success"
-										>+{formatTransactionAmount(
-											surplusDeficit.buffer.surplus,
-											surplusDeficit.buffer.currency
-										)}</span
-									>
-								{:else if surplusDeficit.buffer.deficit > 0}
-									<span class="text-destructive"
-										>−{formatTransactionAmount(
-											surplusDeficit.buffer.deficit,
-											surplusDeficit.buffer.currency
-										)}</span
-									>
-								{:else}
-									<span class="text-muted-foreground">—</span>
-								{/if}
-							</span>
-						</li>
-					</ul>
-				</div>
+				{#if surplusDeficit.categories.length > 0}
+					<div class="space-y-2">
+						<div class="text-sm font-medium">By category</div>
+						<ul class="space-y-1 text-sm">
+							{#each surplusDeficit.categories as cat (cat.categoryId)}
+								<li class="flex justify-between gap-2">
+									<span class="text-muted-foreground">{cat.categoryName}</span>
+									<span>
+										{#if cat.surplus > 0}
+											<span class="text-success"
+												>+{formatTransactionAmount(cat.surplus, cat.currency)}</span
+											>
+										{:else if cat.deficit > 0}
+											<span class="text-destructive"
+												>−{formatTransactionAmount(cat.deficit, cat.currency)}</span
+											>
+										{:else}
+											<span class="text-muted-foreground">—</span>
+										{/if}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 
 				{#if suggestions.length > 0}
 					<div class="space-y-2">
@@ -185,7 +138,7 @@
 								<li class="flex items-start gap-2">
 									<CheckCircle class="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
 									<span
-										>{s.category}: {s.action} ({formatTransactionAmount(
+										>{s.categoryName}: {s.action} ({formatTransactionAmount(
 											s.amount,
 											s.currency
 										)})</span

@@ -9,6 +9,7 @@ import type { Category, Transaction } from '$lib/core/db';
 import type { AnalyticsTier } from '$lib/core/db';
 import type { AllowanceConfidence } from '$lib/core/db';
 import { differenceInCalendarMonths, startOfISOWeek, startOfMonth } from 'date-fns';
+import { dateUtils } from '$lib/utils/date-utils';
 import type { FxConversionQuality } from './exchange-rate-service';
 import { recurringTransactionIntelligenceService } from '../analytics/recurring-transaction-intelligence-service';
 import { passiveAccountService } from './passive-account-service';
@@ -40,6 +41,44 @@ export function getCategoryBudgetPeriodStart(
 	if (mode === 'weekly') return startOfISOWeek(now);
 	const monthStart = startOfMonth(now);
 	return now.getDate() <= 15 ? monthStart : new Date(now.getFullYear(), now.getMonth(), 15);
+}
+
+/** End of window for spent vs budget (category-level). */
+export function getCategoryBudgetPeriodEnd(
+	now: Date,
+	budgetPeriod: Category['budgetPeriod'] | undefined
+): Date {
+	const mode = budgetPeriod ?? 'monthly';
+	if (mode === 'monthly') {
+		return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+	}
+	if (mode === 'weekly') {
+		return dateUtils.getWeekEnd(1, now);
+	}
+	if (now.getDate() <= 15) {
+		return new Date(now.getFullYear(), now.getMonth(), 15, 23, 59, 59, 999);
+	}
+	return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+/** Whole days from now through period end (minimum 1). */
+export function daysRemainingInCategoryPeriod(now: Date, periodEnd: Date): number {
+	const end = new Date(periodEnd);
+	end.setHours(23, 59, 59, 999);
+	const diffMs = end.getTime() - now.getTime();
+	return Math.max(1, Math.ceil(diffMs / (24 * 60 * 60 * 1000)));
+}
+
+export interface LifestyleCategorySpendInput {
+	categoryId: string;
+	categoryName: string;
+	budgetAmount: number;
+	spentAmount: number;
+	remainingAmount: number;
+	daysRemaining: number;
+	budgetPeriod: Category['budgetPeriod'];
+	periodStart: Date;
+	periodEnd: Date;
 }
 
 interface BudgetAllocation {
@@ -191,7 +230,7 @@ class BudgetService {
 		for (const category of categories) {
 			if (category.budgetAmount && category.budgetAmount > 0) {
 				const periodStart = getCategoryBudgetPeriodStart(nowForBudget, category.budgetPeriod);
-				const { sum: spentAmount, fxQuality } = await this.calculateCategorySpending(
+				const { sum: spentAmount, fxQuality } = await this.sumCategorySpending(
 					category.id,
 					transactions,
 					creditPaymentTransferIds,
@@ -337,7 +376,7 @@ class BudgetService {
 			prefs?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
 		const now = new Date();
 		const periodStart = getCategoryBudgetPeriodStart(now, category.budgetPeriod);
-		const { sum: spentAmount, fxQuality } = await this.calculateCategorySpending(
+		const { sum: spentAmount, fxQuality } = await this.sumCategorySpending(
 			categoryId,
 			transactions,
 			new Set(),
@@ -380,7 +419,7 @@ class BudgetService {
 			let spent = 0;
 			if (budget !== null) {
 				const periodStart = getCategoryBudgetPeriodStart(now, category.budgetPeriod);
-				const { sum } = await this.calculateCategorySpending(
+				const { sum } = await this.sumCategorySpending(
 					category.id,
 					transactions,
 					creditPaymentTransferIds,
@@ -998,9 +1037,58 @@ class BudgetService {
 	}
 
 	/**
+	 * Lifestyle-tier categories with attributed spend for the current budget period (household, main currency).
+	 */
+	async getLifestyleCategorySpendInputs(now: Date = new Date()): Promise<{
+		inputs: LifestyleCategorySpendInput[];
+		mainCurrency: string;
+	}> {
+		const categories = await db.getActiveCategories();
+		const lifestyle = categories.filter(
+			(c) => c.waterfallTier === 'lifestyle' && c.budgetAmount != null && c.budgetAmount > 0
+		);
+		const transactions = compactTransactions(await db.getActiveTransactions());
+		const accounts = await db.getActiveAccounts();
+		const prefs = await db.userPreferences.toCollection().first();
+		const mainCurrency = prefs?.currency ?? 'USD';
+		const reimbursementAllowanceMode =
+			prefs?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
+		const creditPaymentTransferIds = this.detectCreditPaymentTransfers(transactions, accounts);
+		const inputs: LifestyleCategorySpendInput[] = [];
+
+		for (const category of lifestyle) {
+			const periodStart = getCategoryBudgetPeriodStart(now, category.budgetPeriod);
+			const periodEnd = getCategoryBudgetPeriodEnd(now, category.budgetPeriod);
+			const { sum: spentAmount } = await this.sumCategorySpending(
+				category.id,
+				transactions,
+				creditPaymentTransferIds,
+				mainCurrency,
+				periodStart,
+				reimbursementAllowanceMode
+			);
+			const budgetAmount = category.budgetAmount ?? 0;
+			const remainingAmount = Math.max(0, budgetAmount - spentAmount);
+			inputs.push({
+				categoryId: category.id,
+				categoryName: category.name,
+				budgetAmount,
+				spentAmount,
+				remainingAmount,
+				daysRemaining: daysRemainingInCategoryPeriod(now, periodEnd),
+				budgetPeriod: category.budgetPeriod,
+				periodStart,
+				periodEnd
+			});
+		}
+
+		return { inputs, mainCurrency };
+	}
+
+	/**
 	 * Cleared spend for a category in [periodStart, now], in main currency, with FX quality for UI.
 	 */
-	private async calculateCategorySpending(
+	async sumCategorySpending(
 		categoryId: string,
 		transactions: Transaction[],
 		excludedIds: Set<string>,
@@ -1094,12 +1182,19 @@ export const budgetService = new BudgetService();
 export {
 	calculateEnhancedAllowance,
 	calculateGlobalAllowance,
-	getSimpleDailyAllowance
+	computeDailyAllowance,
+	getSimpleDailyAllowance,
+	PACE_OVER_THRESHOLD,
+	PACE_UNDER_THRESHOLD
 } from './allowance-calculation';
 export type {
 	AllowanceCalculation,
-	AllowanceCategory,
+	AllowancePaceSignal,
 	AllowanceRecommendation,
+	AllowanceTotalBlock,
+	DailyAllowanceResult,
+	DailyAllowanceView,
 	EnhancedAllowance,
+	LifestyleCategoryAllowanceLine,
 	MethodWeights
 } from './allowance-calculation';

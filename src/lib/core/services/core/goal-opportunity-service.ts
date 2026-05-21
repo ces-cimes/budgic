@@ -6,7 +6,6 @@
 import { goalService } from '$lib/core/services/core/goal-service';
 import type { Goal } from '$lib/core/db';
 import type { RequiredSavingsResult } from '$lib/core/services/core/goal-service';
-import { calculateGlobalAllowance } from '$lib/core/services/core/budget-service';
 import { transactionService } from '$lib/core/services/core/transaction-service';
 import { userService } from '$lib/core/services/core/user-service';
 import { db } from '$lib/core/db';
@@ -71,10 +70,12 @@ class GoalOpportunityService {
 		const income = await this.getProjectedIncomeForPeriod(start, end, currency);
 
 		// 2. Allowance breakdown (essential, buffer, discretionary) for the period
-		const allowance = await calculateGlobalAllowance(start, end);
-		const essential = allowance.essential.monthly;
-		const buffer = allowance.buffer.monthly;
-		const allowances = allowance.discretionary.monthly;
+		const { budgetService } = await import('$lib/core/services');
+		const summary = await budgetService.getBudgetSummary();
+		const essential =
+			(summary.byTier.survival?.allocated ?? 0) + (summary.byTier.security?.allocated ?? 0);
+		const buffer = summary.byTier.growth?.allocated ?? 0;
+		const allowances = summary.byTier.lifestyle?.allocated ?? 0;
 
 		// 3. Current savings commitment = sum of active goals' monthly contribution or required monthly
 		const savingsCommitment = await this.getCurrentSavingsCommitment(currency);
@@ -88,7 +89,7 @@ class GoalOpportunityService {
 			allowances,
 			savingsCommitment,
 			surplus: Math.max(0, surplus),
-			currency: allowance.total.currency
+			currency
 		};
 	}
 

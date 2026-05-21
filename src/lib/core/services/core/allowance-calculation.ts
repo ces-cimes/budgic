@@ -8,7 +8,7 @@
 
 import type { Account, Transaction } from '$lib/core/db';
 import { db, expenseCountsTowardAllowanceAnalytics } from '$lib/core/db';
-import type { AllowanceProjection } from './budget-service';
+import { budgetService, type AllowanceProjection } from './budget-service';
 import { getBufferAmount, calculateRecommendedBuffer } from '$lib/utils/account-metadata-utils';
 import { accountService } from './account-service';
 import { transactionService } from './transaction-service';
@@ -52,32 +52,76 @@ export interface MethodWeights {
 	velocity: number;
 }
 
-/**
- * Allowance category types
- */
-export type AllowanceCategory = 'essential' | 'discretionary' | 'buffer';
+/** Pace signal thresholds (see allowance-reframe.md). */
+export const PACE_OVER_THRESHOLD = 1.05;
+export const PACE_UNDER_THRESHOLD = 0.85;
+
+export type AllowancePaceSignal = 'on_track' | 'over_pace' | 'under_pace';
+
+export interface LifestyleCategoryAllowanceLine {
+	categoryId: string;
+	categoryName: string;
+	budgetAmount: number;
+	spentAmount: number;
+	remaining: number;
+	dailyRate: number;
+	daysRemaining: number;
+	budgetPeriod?: import('$lib/core/db').Category['budgetPeriod'];
+}
+
+/** Aggregated block used by home/plan progress UI. */
+export interface AllowanceTotalBlock {
+	dailySafe: number;
+	monthly: number;
+	remaining: number;
+	spentSoFar: number;
+	daysRemaining: number;
+	currency: string;
+	confidence: number;
+	projectedBalance: number;
+	methodWeights?: MethodWeights;
+	methodResults?: AllowanceCalculation['methodResults'];
+}
 
 /**
- * Enhanced allowance result with categories
+ * Household daily allowance from lifestyle-tier category attribution.
  */
-export interface EnhancedAllowance {
-	/** Essential unplanned expenses allowance */
-	essential: AllowanceCalculation;
-	/** Discretionary spending allowance */
-	discretionary: AllowanceCalculation;
-	/** Pure buffer allowance (safety margin) */
-	buffer: AllowanceCalculation;
-	/** Total combined allowance */
-	total: AllowanceCalculation;
-	/** Period start date */
+export interface DailyAllowanceView {
+	daily: number;
+	monthlyRemaining: number;
+	lifestyleRemaining: number;
+	lifestyleSpent: number;
+	lifestyleBudget: number;
+	pace: number;
+	signal: AllowancePaceSignal;
+	confidenceLevel: 'low' | 'medium' | 'high';
+	currency: string;
+	lifestyleLines: LifestyleCategoryAllowanceLine[];
+	total: AllowanceTotalBlock;
 	periodStart: Date;
-	/** Period end date */
 	periodEnd: Date;
-	/** Recommendations for allowance adjustments */
 	recommendations: AllowanceRecommendation[];
-	/** Phase 5 — forward three-layer projection (optional until loaded) */
 	projection?: AllowanceProjection | null;
 }
+
+export type DailyAllowanceResult = Pick<
+	DailyAllowanceView,
+	| 'daily'
+	| 'monthlyRemaining'
+	| 'lifestyleRemaining'
+	| 'lifestyleSpent'
+	| 'lifestyleBudget'
+	| 'pace'
+	| 'signal'
+	| 'currency'
+	| 'confidenceLevel'
+	| 'lifestyleLines'
+	| 'periodStart'
+	| 'periodEnd'
+>;
+
+/** @deprecated Use DailyAllowanceView — kept for import compatibility. */
+export type EnhancedAllowance = DailyAllowanceView;
 
 /**
  * Allowance recommendation
@@ -123,126 +167,162 @@ function applyReimbursementAllowanceMode(
 	});
 }
 
+export function paceSignalFromRatio(pace: number): AllowancePaceSignal {
+	if (pace > PACE_OVER_THRESHOLD) return 'over_pace';
+	if (pace < PACE_UNDER_THRESHOLD) return 'under_pace';
+	return 'on_track';
+}
+
+function buildLifestyleLines(
+	inputs: Awaited<ReturnType<typeof budgetService.getLifestyleCategorySpendInputs>>['inputs']
+): LifestyleCategoryAllowanceLine[] {
+	return inputs.map((row) => ({
+		categoryId: row.categoryId,
+		categoryName: row.categoryName,
+		budgetAmount: row.budgetAmount,
+		spentAmount: row.spentAmount,
+		remaining: row.remainingAmount,
+		dailyRate: row.remainingAmount / row.daysRemaining,
+		daysRemaining: row.daysRemaining,
+		budgetPeriod: row.budgetPeriod
+	}));
+}
+
 /**
- * Calculate enhanced allowance for an account
+ * Household daily allowance from lifestyle-tier category budgets and attributed spend.
  */
-export async function calculateEnhancedAllowance(
-	account: Account,
+export async function computeDailyAllowance(
 	periodStart?: Date,
 	periodEnd?: Date
-): Promise<EnhancedAllowance> {
+): Promise<DailyAllowanceView> {
 	const now = new Date();
-	const start = periodStart || new Date(now.getFullYear(), now.getMonth(), 1);
-	const end = periodEnd || new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+	const start = periodStart ?? new Date(now.getFullYear(), now.getMonth(), 1);
+	const end = periodEnd ?? new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
-	// Get all transactions for historical analysis
-	const allTransactions = await transactionService.getTransactionsByAccount(account.id);
-	const preferences = await db.userPreferences.toCollection().first();
-	const mainCurrency = preferences?.currency || account.currency || 'USD';
-	const reimbursementAllowanceMode: ReimbursementAllowanceMode =
-		preferences?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
-	const adjustedTransactions = applyReimbursementAllowanceMode(
-		allTransactions,
-		reimbursementAllowanceMode
-	);
-	const clearedTransactions = adjustedTransactions.filter((t) => t.status === 'cleared');
+	const { inputs, mainCurrency } = await budgetService.getLifestyleCategorySpendInputs(now);
 
-	// Calculate days elapsed and remaining
-	const daysElapsed = Math.max(
-		0,
+	if (inputs.length === 0) {
+		return buildLegacyFallbackAllowanceView(start, end, mainCurrency, 'low');
+	}
+
+	const lifestyleLines = buildLifestyleLines(inputs);
+	const lifestyleBudget = inputs.reduce((s, r) => s + r.budgetAmount, 0);
+	const lifestyleSpent = inputs.reduce((s, r) => s + r.spentAmount, 0);
+	const lifestyleRemaining = inputs.reduce((s, r) => s + r.remainingAmount, 0);
+	const daily = lifestyleLines.reduce((s, line) => s + line.dailyRate, 0);
+	const monthlyRemaining = lifestyleRemaining;
+
+	const periodDaysElapsed = Math.max(
+		1,
 		Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
 	);
+	const actualDailySpend = lifestyleSpent / periodDaysElapsed;
+	const pace = daily > 0 ? actualDailySpend / daily : lifestyleSpent > 0 ? 2 : 1;
+	const signal = paceSignalFromRatio(pace);
+
 	const daysRemaining = Math.max(
 		1,
 		Math.floor((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 	);
 
-	// Get planned transactions for buffer calculation
-	const plannedTransactions = adjustedTransactions.filter(
-		(t) => (t.status === 'planned' || t.status === 'pending') && t.plannedDate
-	);
-
-	const categories = await db.getActiveCategories();
-	const tierByCategoryId = new Map(categories.map((c) => [c.id, c.waterfallTier]));
-
-	// Calculate historical spending data (FX-converted to main currency, same as global allowance)
-	const historicalData = await calculateHistoricalSpendingWithConversion(
-		clearedTransactions,
-		start,
-		mainCurrency,
-		tierByCategoryId
-	);
-
-	// Calculate method weights based on data availability
-	const methodWeights = calculateMethodWeights(
-		historicalData.hasEnoughData,
-		daysElapsed,
-		daysRemaining
-	);
-
-	// Calculate spent so far in current period
-	const spentSoFar = await calculateSpentSoFarWithConversion(
-		clearedTransactions,
-		start,
-		now,
-		mainCurrency,
-		tierByCategoryId
-	);
-
-	// Calculate buffer amount
-	const bufferTransactions = clearedTransactions
-		.filter((t) => t.amount !== undefined)
-		.map((t) => ({
-			amount: t.amount!,
-			clearedDate: t.clearedDate,
-			type: t.type
-		}));
-	const bufferAmount = await calculateRecommendedBuffer(account, bufferTransactions);
-
-	// Calculate total allowance using all three methods
-	const totalAllowance = await calculateTotalAllowance(
-		account,
-		historicalData,
-		plannedTransactions,
-		spentSoFar,
-		daysElapsed,
+	const total: AllowanceTotalBlock = {
+		dailySafe: daily,
+		monthly: lifestyleBudget,
+		remaining: monthlyRemaining,
+		spentSoFar: lifestyleSpent,
 		daysRemaining,
-		bufferAmount,
-		methodWeights,
-		start,
-		now
-	);
+		currency: mainCurrency,
+		confidence: lifestyleBudget > 0 ? Math.min(1, lifestyleLines.length / 3) : 0.3,
+		projectedBalance: 0
+	};
 
-	// Split into categories (simplified: 60% essential, 30% discretionary, 10% buffer)
-	const essential = calculateCategoryAllowance(totalAllowance, 0.6, 'essential');
-	const discretionary = calculateCategoryAllowance(totalAllowance, 0.3, 'discretionary');
-	const bufferCategory = calculateCategoryAllowance(totalAllowance, 0.1, 'buffer');
-
-	// Generate recommendations
-	const recommendations = generateAllowanceRecommendations(
-		totalAllowance,
-		account,
-		historicalData,
-		spentSoFar,
-		daysElapsed,
-		daysRemaining
-	);
+	const recommendations: AllowanceRecommendation[] = [];
+	if (signal === 'over_pace') {
+		recommendations.push({
+			type: 'warning',
+			message:
+				'Spending pace is above your lifestyle daily allowance. Slow down discretionary spend.',
+			severity: 'medium',
+			actionable: true,
+			metadata: { pace, daily, actualDailySpend }
+		});
+	}
 
 	return {
-		essential,
-		discretionary,
-		buffer: bufferCategory,
-		total: totalAllowance,
+		daily,
+		monthlyRemaining,
+		lifestyleRemaining,
+		lifestyleSpent,
+		lifestyleBudget,
+		pace,
+		signal,
+		confidenceLevel: 'high',
+		currency: mainCurrency,
+		lifestyleLines,
+		total,
 		periodStart: start,
 		periodEnd: end,
-		recommendations
+		recommendations,
+		projection: null
 	};
+}
+
+/** Balance/history envelope when lifestyle budgets are empty (onboarding). */
+async function buildLegacyFallbackAllowanceView(
+	start: Date,
+	end: Date,
+	mainCurrency: string,
+	confidenceLevel: 'low' | 'medium' | 'high'
+): Promise<DailyAllowanceView> {
+	const legacy = await calculateGlobalAllowanceLegacy(start, end);
+	const daily = legacy.total.dailySafe;
+	return {
+		daily,
+		monthlyRemaining: legacy.total.remaining,
+		lifestyleRemaining: legacy.total.remaining,
+		lifestyleSpent: legacy.total.spentSoFar,
+		lifestyleBudget: legacy.total.monthly,
+		pace: 1,
+		signal: 'on_track',
+		confidenceLevel,
+		currency: mainCurrency,
+		lifestyleLines: [],
+		total: {
+			dailySafe: daily,
+			monthly: legacy.total.monthly,
+			remaining: legacy.total.remaining,
+			spentSoFar: legacy.total.spentSoFar,
+			daysRemaining: legacy.total.daysRemaining,
+			currency: mainCurrency,
+			confidence: legacy.total.confidence,
+			projectedBalance: legacy.total.projectedBalance,
+			methodWeights: legacy.total.methodWeights,
+			methodResults: legacy.total.methodResults
+		},
+		periodStart: start,
+		periodEnd: end,
+		recommendations: legacy.recommendations,
+		projection: null
+	};
+}
+
+/**
+ * Calculate enhanced allowance for an account
+ * @deprecated Household allowance only — use computeDailyAllowance.
+ */
+export async function calculateEnhancedAllowance(
+	account: Account,
+	periodStart?: Date,
+	periodEnd?: Date
+): Promise<DailyAllowanceView> {
+	void account;
+	return computeDailyAllowance(periodStart, periodEnd);
 }
 
 /**
  * Calculate total allowance using weighted combination of three methods
  */
-async function calculateTotalAllowance(
+export async function calculateTotalAllowance(
 	account: Account,
 	historicalData: HistoricalSpendingData,
 	plannedTransactions: Transaction[],
@@ -252,7 +332,8 @@ async function calculateTotalAllowance(
 	bufferAmount: number,
 	methodWeights: MethodWeights,
 	periodStart: Date,
-	now: Date
+	now: Date,
+	mainCurrency: string
 ): Promise<AllowanceCalculation> {
 	// Method 1: Historical Pattern-Based
 	let historicalAllowance: number | undefined;
@@ -301,8 +382,8 @@ async function calculateTotalAllowance(
 	const monthly = combinedDaily * 30.44;
 	const remaining = Math.max(0, monthly - spentSoFar);
 
-	// Calculate projected balance
-	const projectedBalance = account.currentBalance - (monthly - remaining);
+	// Use actual spend so overspend is not hidden when remaining is clamped to 0
+	const projectedBalance = account.currentBalance - spentSoFar;
 
 	// Calculate confidence (higher with more historical data and more days elapsed)
 	const confidence = Math.min(
@@ -317,7 +398,7 @@ async function calculateTotalAllowance(
 		dailySafe: Math.max(0, combinedDaily),
 		monthly,
 		remaining,
-		currency: account.currency,
+		currency: mainCurrency,
 		daysRemaining,
 		methodWeights,
 		methodResults: {
@@ -697,22 +778,6 @@ async function calculateSpentSoFarWithConversion(
 }
 
 /**
- * Calculate category-specific allowance
- */
-function calculateCategoryAllowance(
-	total: AllowanceCalculation,
-	percentage: number,
-	category: AllowanceCategory
-): AllowanceCalculation {
-	return {
-		...total,
-		dailySafe: total.dailySafe * percentage,
-		monthly: total.monthly * percentage,
-		remaining: total.remaining * percentage
-	};
-}
-
-/**
  * Generate allowance recommendations
  */
 function generateAllowanceRecommendations(
@@ -792,7 +857,20 @@ function generateAllowanceRecommendations(
 export async function calculateGlobalAllowance(
 	periodStart?: Date,
 	periodEnd?: Date
-): Promise<EnhancedAllowance> {
+): Promise<DailyAllowanceView> {
+	return computeDailyAllowance(periodStart, periodEnd);
+}
+
+/** Legacy global envelope for sparse lifestyle budgets. */
+async function calculateGlobalAllowanceLegacy(
+	periodStart?: Date,
+	periodEnd?: Date
+): Promise<{
+	total: AllowanceCalculation;
+	periodStart: Date;
+	periodEnd: Date;
+	recommendations: AllowanceRecommendation[];
+}> {
 	const now = new Date();
 	const start = periodStart || new Date(now.getFullYear(), now.getMonth(), 1);
 	const end = periodEnd || new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -946,15 +1024,10 @@ export async function calculateGlobalAllowance(
 		totalBufferAmount,
 		methodWeights,
 		start,
-		now
+		now,
+		userCurrency
 	);
 
-	// Split into categories (simplified: 60% essential, 30% discretionary, 10% buffer)
-	const essential = calculateCategoryAllowance(totalAllowance, 0.6, 'essential');
-	const discretionary = calculateCategoryAllowance(totalAllowance, 0.3, 'discretionary');
-	const bufferCategory = calculateCategoryAllowance(totalAllowance, 0.1, 'buffer');
-
-	// Generate recommendations (using virtual account for buffer checks)
 	const recommendations = generateAllowanceRecommendations(
 		totalAllowance,
 		virtualAccount,
@@ -965,10 +1038,7 @@ export async function calculateGlobalAllowance(
 	);
 
 	return {
-		essential,
-		discretionary,
-		buffer: bufferCategory,
-		total: totalAllowance,
+		total: { ...totalAllowance, currency: userCurrency },
 		periodStart: start,
 		periodEnd: end,
 		recommendations
@@ -984,26 +1054,11 @@ export async function getSimpleDailyAllowance(accountId?: string): Promise<{
 	daysRemaining: number;
 	projectedBalance: number;
 }> {
-	// If accountId provided, use account-specific (for backward compatibility)
-	if (accountId) {
-		const account = await accountService.getAccount(accountId);
-		if (account) {
-			const enhanced = await calculateEnhancedAllowance(account);
-			return {
-				amount: enhanced.total.dailySafe,
-				currency: enhanced.total.currency,
-				daysRemaining: enhanced.total.daysRemaining,
-				projectedBalance: enhanced.total.projectedBalance
-			};
-		}
-	}
-
-	// Otherwise use global calculation
-	const enhanced = await calculateGlobalAllowance();
+	const view = await computeDailyAllowance();
 	return {
-		amount: enhanced.total.dailySafe,
-		currency: enhanced.total.currency,
-		daysRemaining: enhanced.total.daysRemaining,
-		projectedBalance: enhanced.total.projectedBalance
+		amount: view.daily,
+		currency: view.currency,
+		daysRemaining: view.total.daysRemaining,
+		projectedBalance: view.total.projectedBalance
 	};
 }

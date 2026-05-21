@@ -1,39 +1,35 @@
 /**
  * Negative Allowance Service
  *
- * Handles detection, tracking, and recovery when spending exceeds allowance.
- * Implements user-configurable behaviour: block with warning, allow with strong warning,
- * borrow from future, borrow from other categories.
+ * Detects overspend against household lifestyle allowance (total + per category).
  */
 
 import { db, generateUUID } from '$lib/core/db';
 import type { NegativeAllowanceEvent } from '$lib/core/db';
-import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
+import type { DailyAllowanceView } from '$lib/core/services/core/budget-service';
 import { formatAmount } from '$lib/utils/currency-utils';
 
-/** User-configurable handling when allowance goes negative */
 export type NegativeAllowanceHandling =
 	| 'block_with_warning'
 	| 'allow_with_strong_warning'
 	| 'borrow_from_future'
 	| 'borrow_from_other_categories';
 
-/** Which allowance category is negative */
-export type NegativeAllowanceCategory = 'total' | 'essential' | 'discretionary' | 'buffer';
+/** `total` or a lifestyle categoryId */
+export type NegativeAllowanceCategory = 'total' | string;
 
 export interface NegativeAllowanceStatus {
 	isNegative: boolean;
 	handlingMode: NegativeAllowanceHandling;
 	negativeCategories: Array<{
 		category: NegativeAllowanceCategory;
+		categoryName?: string;
 		allowanceAmount: number;
 		spentAmount: number;
 		overBy: number;
 		currency: string;
 	}>;
-	/** True only when handling is block_with_warning and user must explicitly override */
 	shouldBlock: boolean;
-	/** Message for strong warning (when allow_with_strong_warning or block_with_warning) */
 	warningMessage: string | null;
 }
 
@@ -64,6 +60,17 @@ export interface RecordNegativeAllowanceInput {
 	handlingApplied: NegativeAllowanceHandling;
 }
 
+function isOverBudget(allowanceAmount: number, spentAmount: number): boolean {
+	const effectiveRemaining = allowanceAmount - spentAmount;
+	return effectiveRemaining < 0 || (allowanceAmount <= 0 && spentAmount >= 0);
+}
+
+function overByAmount(allowanceAmount: number, spentAmount: number): number {
+	const effectiveRemaining = allowanceAmount - spentAmount;
+	if (allowanceAmount <= 0) return Math.max(spentAmount, 1);
+	return Math.abs(effectiveRemaining);
+}
+
 class NegativeAllowanceService {
 	public get ready() {
 		return db.isOpen();
@@ -73,41 +80,33 @@ class NegativeAllowanceService {
 		return !this.ready;
 	}
 
-	/**
-	 * Detect if allowance is negative and derive status based on user's handling preference.
-	 */
 	async checkNegativeAllowance(
-		allowance: EnhancedAllowance,
+		allowance: DailyAllowanceView,
 		handlingMode: NegativeAllowanceHandling,
 		accountId?: string
 	): Promise<NegativeAllowanceStatus> {
+		void accountId;
 		const negativeCategories: NegativeAllowanceStatus['negativeCategories'] = [];
 
-		const categories: Array<{
-			key: NegativeAllowanceCategory;
-			calc: EnhancedAllowance['total'];
-		}> = [
-			{ key: 'total', calc: allowance.total },
-			{ key: 'essential', calc: allowance.essential },
-			{ key: 'discretionary', calc: allowance.discretionary },
-			{ key: 'buffer', calc: allowance.buffer }
-		];
+		if (isOverBudget(allowance.lifestyleBudget, allowance.lifestyleSpent)) {
+			negativeCategories.push({
+				category: 'total',
+				allowanceAmount: allowance.lifestyleBudget,
+				spentAmount: allowance.lifestyleSpent,
+				overBy: overByAmount(allowance.lifestyleBudget, allowance.lifestyleSpent),
+				currency: allowance.currency
+			});
+		}
 
-		for (const { key, calc } of categories) {
-			// Use effective remaining (allowance utils clamp remaining to >= 0, so we must use monthly - spentSoFar)
-			const effectiveRemaining = calc.monthly - calc.spentSoFar;
-			// Negative when over allowance, or when there is no allowance (monthly <= 0) and user has/will have spending
-			const isOver = effectiveRemaining < 0 || (calc.monthly <= 0 && calc.spentSoFar >= 0);
-			if (isOver) {
-				// When monthly <= 0: overBy = spentSoFar, or 1 if both 0 (so "adding any expense is over")
-				const overBy =
-					calc.monthly <= 0 ? Math.max(calc.spentSoFar, 1) : Math.abs(effectiveRemaining);
+		for (const line of allowance.lifestyleLines) {
+			if (isOverBudget(line.budgetAmount, line.spentAmount)) {
 				negativeCategories.push({
-					category: key,
-					allowanceAmount: calc.monthly,
-					spentAmount: calc.spentSoFar,
-					overBy,
-					currency: calc.currency
+					category: line.categoryId,
+					categoryName: line.categoryName,
+					allowanceAmount: line.budgetAmount,
+					spentAmount: line.spentAmount,
+					overBy: overByAmount(line.budgetAmount, line.spentAmount),
+					currency: allowance.currency
 				});
 			}
 		}
@@ -124,12 +123,12 @@ class NegativeAllowanceService {
 			const totalOver = negativeCategories.reduce((s, c) => s + c.overBy, 0);
 			const hasNoAllowance = primary.allowanceAmount <= 0;
 			warningMessage = hasNoAllowance
-				? `You have no spending allowance for this period (zero balance or no data). ${
+				? `You have no lifestyle budget for this period. ${
 						shouldBlock
-							? 'Confirm to proceed, or add funds first.'
-							: 'Consider adding funds or reviewing your budget.'
+							? 'Confirm to proceed, or set category budgets first.'
+							: 'Consider setting lifestyle category budgets.'
 					}`
-				: `You're over your spending allowance by ${formatAmount(totalOver, primary.currency)} this period. ${
+				: `You're over your lifestyle allowance by ${formatAmount(totalOver, primary.currency)} this period. ${
 						shouldBlock
 							? 'Confirm to proceed, or adjust your spending.'
 							: 'Review your budget and consider reducing future spending.'
@@ -145,9 +144,6 @@ class NegativeAllowanceService {
 		};
 	}
 
-	/**
-	 * Record a negative allowance event for accountability tracking.
-	 */
 	async recordNegativeAllowanceEvent(
 		input: RecordNegativeAllowanceInput
 	): Promise<NegativeAllowanceEvent> {
@@ -170,11 +166,8 @@ class NegativeAllowanceService {
 		return event;
 	}
 
-	/**
-	 * Record events for all currently negative categories (idempotent per period: only records if not already recorded for this period).
-	 */
 	async recordCurrentNegativeAllowanceIfAny(
-		allowance: EnhancedAllowance,
+		allowance: DailyAllowanceView,
 		handlingMode: NegativeAllowanceHandling,
 		accountId?: string
 	): Promise<NegativeAllowanceEvent[]> {
@@ -188,7 +181,6 @@ class NegativeAllowanceService {
 		const periodEnd =
 			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
 
-		// Avoid duplicate events for same period+category
 		const periodStartStr = periodStart.toISOString();
 		const existing = await db.negativeAllowanceEvents
 			.where('periodStart')
@@ -218,9 +210,6 @@ class NegativeAllowanceService {
 		return created;
 	}
 
-	/**
-	 * List negative allowance events for accountability (e.g. settings or reports).
-	 */
 	async getNegativeAllowanceEvents(filters?: {
 		accountId?: string;
 		since?: Date;
@@ -234,8 +223,8 @@ class NegativeAllowanceService {
 			result = result.filter((e) => e.accountId === filters.accountId);
 		}
 		if (filters?.since) {
-			const t = filters.since.getTime();
-			result = result.filter((e) => new Date(e.periodStart).getTime() >= t);
+			const sinceMs = filters.since.getTime();
+			result = result.filter((e) => new Date(e.periodStart).getTime() >= sinceMs);
 		}
 		if (filters?.recoveredOnly) {
 			result = result.filter((e) => e.recoveredAt != null);
@@ -243,64 +232,40 @@ class NegativeAllowanceService {
 		if (filters?.unrecoveredOnly) {
 			result = result.filter((e) => e.recoveredAt == null);
 		}
+
 		return result.sort(
 			(a, b) => new Date(b.periodStart).getTime() - new Date(a.periodStart).getTime()
 		);
 	}
 
-	/**
-	 * Mark a negative allowance event as recovered (e.g. user moved transactions or period rolled).
-	 */
-	async markRecovered(eventId: string): Promise<void> {
-		const event = await db.negativeAllowanceEvents.get(eventId);
-		if (!event || event.deletedAt) return;
-		await db.negativeAllowanceEvents.update(eventId, {
-			recoveredAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString()
-		});
-	}
-
-	/**
-	 * Generate recovery suggestions when allowance is negative.
-	 */
-	getRecoverySuggestions(allowance: EnhancedAllowance): RecoverySuggestion[] {
+	getRecoverySuggestions(allowance: DailyAllowanceView): RecoverySuggestion[] {
 		const suggestions: RecoverySuggestion[] = [];
-		const currency = allowance.total.currency;
+		const currency = allowance.currency;
 
-		// Total over
-		const totalRemaining =
-			allowance.total.remaining ?? allowance.total.monthly - allowance.total.spentSoFar;
-		if (totalRemaining >= 0) return suggestions;
+		if (allowance.lifestyleSpent > allowance.lifestyleBudget) {
+			const overBy = allowance.lifestyleSpent - allowance.lifestyleBudget;
+			suggestions.push({
+				id: 'reduce-spending',
+				title: 'Reduce lifestyle spending',
+				description: `You're ${formatAmount(overBy, currency)} over your lifestyle budgets. Pause discretionary purchases until back on pace.`,
+				actionType: 'reduce_spending',
+				priority: 'high',
+				estimatedImpact: overBy,
+				currency
+			});
+		}
 
-		const overBy = Math.abs(totalRemaining);
-
-		suggestions.push({
-			id: 'reduce-future',
-			title: 'Reduce future spending',
-			description: `Spend ${formatAmount(overBy, currency)} less over the rest of the period to get back on track.`,
-			actionType: 'reduce_spending',
-			priority: 'high',
-			estimatedImpact: overBy,
-			currency
-		});
-
-		suggestions.push({
-			id: 'move-transactions',
-			title: 'Move transactions to next period',
-			description:
-				'Reschedule some discretionary or buffer spending to next month to balance this period.',
-			actionType: 'move_transactions',
-			priority: 'medium'
-		});
-
-		suggestions.push({
-			id: 'review-budget',
-			title: 'Review your budget',
-			description:
-				'Check if your allowance is realistic for your income and fixed costs; adjust categories if needed.',
-			actionType: 'review_budget',
-			priority: 'low'
-		});
+		const overLines = allowance.lifestyleLines.filter((l) => l.spentAmount > l.budgetAmount);
+		if (overLines.length > 0) {
+			suggestions.push({
+				id: 'review-budget',
+				title: 'Review category budgets',
+				description: `${overLines.map((l) => l.categoryName).join(', ')} exceeded this period. Adjust budgets or re-categorize transactions.`,
+				actionType: 'review_budget',
+				priority: 'medium',
+				currency
+			});
+		}
 
 		return suggestions;
 	}

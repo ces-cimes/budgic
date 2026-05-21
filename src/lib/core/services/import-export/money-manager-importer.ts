@@ -1156,19 +1156,14 @@ export class MoneyManagerImporter extends BaseImporter {
 
 	private async buildImportBatchMetadata(): Promise<ImportResult['importBatch'] | undefined> {
 		if (!this.importedTransactionIds.length) {
-			if (
-				this.personLedgerCloseQueue.length > 0 ||
-				this.personAccountPreFlaggedNames.length > 0
-			) {
+			if (this.personLedgerCloseQueue.length > 0 || this.personAccountPreFlaggedNames.length > 0) {
 				return {
 					transactionIds: [],
 					unclassifiedTransactionIds: [],
 					accountIdsAffected: Array.from(this.importedAccountIds),
 					...(this.personAccountPreFlaggedNames.length > 0
 						? {
-								personAccountPreFlaggedNames: [
-									...new Set(this.personAccountPreFlaggedNames)
-								]
+								personAccountPreFlaggedNames: [...new Set(this.personAccountPreFlaggedNames)]
 							}
 						: {}),
 					...(this.personLedgerCloseQueue.length > 0

@@ -1,20 +1,15 @@
 /**
  * Rollover Service
  *
- * Handles period-end surplus and deficit per allowance category:
- * - Computes surplus (unspent) / deficit (overspent) per category
- * - Applies user preferences: rollover to next period, to savings goals, or hybrid
- * - Deficit handling: reduce next period, borrow from other, or one-time exception
- * - Stores adjustments that are applied to the next period's allowance
+ * Period-end surplus/deficit per lifestyle budget category (categoryId).
+ * Adjustments apply to next period's per-category budget via planning-service.
  */
 
 import { db, generateUUID } from '$lib/core/db';
 import type { RolloverAdjustment } from '$lib/core/db';
 import type { UserPreferences } from '$lib/core/db';
-import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
+import type { DailyAllowanceView } from '$lib/core/services/core/budget-service';
 import { userService } from './user-service';
-
-export type AllowanceCategoryKey = 'essential' | 'discretionary' | 'buffer';
 
 export type RolloverSurplusBehavior = 'rollover_next' | 'to_savings_goals' | 'hybrid';
 export type RolloverDeficitBehavior =
@@ -23,6 +18,8 @@ export type RolloverDeficitBehavior =
 	| 'one_time_exception';
 
 export interface CategorySurplusDeficit {
+	categoryId: string;
+	categoryName: string;
 	surplus: number;
 	deficit: number;
 	allowanceAmount: number;
@@ -34,15 +31,14 @@ export interface PeriodSurplusDeficit {
 	periodStart: Date;
 	periodEnd: Date;
 	currency: string;
-	essential: CategorySurplusDeficit;
-	discretionary: CategorySurplusDeficit;
-	buffer: CategorySurplusDeficit;
+	categories: CategorySurplusDeficit[];
 	totalSurplus: number;
 	totalDeficit: number;
 }
 
 export interface RolloverSuggestion {
-	category: AllowanceCategoryKey;
+	categoryId: string;
+	categoryName: string;
 	type: 'surplus' | 'deficit';
 	amount: number;
 	currency: string;
@@ -52,16 +48,11 @@ export interface RolloverSuggestion {
 
 export interface ApplyRolloverInput {
 	accountId?: string;
-	allowance: EnhancedAllowance;
-	/** Override surplus behavior for this apply (optional) */
+	allowance: DailyAllowanceView;
 	surplusBehavior?: RolloverSurplusBehavior;
-	/** Override deficit behavior for this apply (optional) */
 	deficitBehavior?: RolloverDeficitBehavior;
-	/** Override hybrid ratio 0–1 (optional) */
 	hybridRatio?: number;
 }
-
-const CATEGORY_KEYS: AllowanceCategoryKey[] = ['essential', 'discretionary', 'buffer'];
 
 function getNextPeriodStart(periodEnd: Date): Date {
 	const next = new Date(periodEnd);
@@ -75,57 +66,48 @@ class RolloverService {
 		return db.isOpen();
 	}
 
-	/**
-	 * Compute period-end surplus and deficit per category from an enhanced allowance.
-	 */
-	computeSurplusDeficit(allowance: EnhancedAllowance): PeriodSurplusDeficit {
+	computeSurplusDeficit(allowance: DailyAllowanceView): PeriodSurplusDeficit {
 		const periodStart =
 			allowance.periodStart instanceof Date
 				? allowance.periodStart
 				: new Date(allowance.periodStart);
 		const periodEnd =
 			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
-		const currency = allowance.total.currency;
+		const currency = allowance.currency;
+
+		const categories: CategorySurplusDeficit[] = allowance.lifestyleLines.map((line) => {
+			const allowanceAmount = line.budgetAmount;
+			const spentAmount = line.spentAmount;
+			const remaining = allowanceAmount - spentAmount;
+			return {
+				categoryId: line.categoryId,
+				categoryName: line.categoryName,
+				allowanceAmount,
+				spentAmount,
+				surplus: remaining > 0 ? remaining : 0,
+				deficit: remaining < 0 ? Math.abs(remaining) : 0,
+				currency
+			};
+		});
 
 		let totalSurplus = 0;
 		let totalDeficit = 0;
-		const result: PeriodSurplusDeficit = {
+		for (const cat of categories) {
+			totalSurplus += cat.surplus;
+			totalDeficit += cat.deficit;
+		}
+
+		return {
 			periodStart,
 			periodEnd,
 			currency,
-			essential: { surplus: 0, deficit: 0, allowanceAmount: 0, spentAmount: 0, currency },
-			discretionary: { surplus: 0, deficit: 0, allowanceAmount: 0, spentAmount: 0, currency },
-			buffer: { surplus: 0, deficit: 0, allowanceAmount: 0, spentAmount: 0, currency },
-			totalSurplus: 0,
-			totalDeficit: 0
+			categories,
+			totalSurplus,
+			totalDeficit
 		};
-
-		for (const key of CATEGORY_KEYS) {
-			const calc = allowance[key];
-			const allowanceAmount = calc.monthly;
-			const spentAmount = calc.spentSoFar;
-			const remaining = allowanceAmount - spentAmount;
-			const surplus = remaining > 0 ? remaining : 0;
-			const deficit = remaining < 0 ? Math.abs(remaining) : 0;
-			result[key] = {
-				surplus,
-				deficit,
-				allowanceAmount,
-				spentAmount,
-				currency: calc.currency
-			};
-			totalSurplus += surplus;
-			totalDeficit += deficit;
-		}
-		result.totalSurplus = totalSurplus;
-		result.totalDeficit = totalDeficit;
-		return result;
 	}
 
-	/**
-	 * Get suggested rollover actions based on surplus/deficit and user preferences.
-	 */
-	async getRolloverSuggestions(allowance: EnhancedAllowance): Promise<RolloverSuggestion[]> {
+	async getRolloverSuggestions(allowance: DailyAllowanceView): Promise<RolloverSuggestion[]> {
 		const sd = this.computeSurplusDeficit(allowance);
 		const prefs = await userService.getUserPreferences();
 		const surplusBehavior = prefs.rolloverSurplusBehavior ?? 'rollover_next';
@@ -133,8 +115,7 @@ class RolloverService {
 		const hybridRatio = prefs.rolloverSurplusHybridRatio ?? 0.5;
 		const suggestions: RolloverSuggestion[] = [];
 
-		for (const key of CATEGORY_KEYS) {
-			const cat = sd[key];
+		for (const cat of sd.categories) {
 			if (cat.surplus > 0) {
 				const action =
 					surplusBehavior === 'rollover_next'
@@ -143,7 +124,8 @@ class RolloverService {
 							? 'Reallocate to savings goals'
 							: `Roll over ${Math.round(hybridRatio * 100)}% to next period, rest to goals`;
 				suggestions.push({
-					category: key,
+					categoryId: cat.categoryId,
+					categoryName: cat.categoryName,
 					type: 'surplus',
 					amount: cat.surplus,
 					currency: cat.currency,
@@ -161,10 +143,11 @@ class RolloverService {
 					deficitBehavior === 'reduce_next_period'
 						? 'Reduce next period allowance'
 						: deficitBehavior === 'borrow_from_other'
-							? 'Borrow from other categories (envelope)'
+							? 'Borrow from another category'
 							: 'One-time exception (no adjustment)';
 				suggestions.push({
-					category: key,
+					categoryId: cat.categoryId,
+					categoryName: cat.categoryName,
 					type: 'deficit',
 					amount: cat.deficit,
 					currency: cat.currency,
@@ -181,9 +164,6 @@ class RolloverService {
 		return suggestions;
 	}
 
-	/**
-	 * Apply rollover: create adjustment records for the next period based on surplus/deficit and preferences.
-	 */
 	async applyRollover(input: ApplyRolloverInput): Promise<RolloverAdjustment[]> {
 		const { accountId, allowance } = input;
 		const prefs = await userService.getUserPreferences();
@@ -203,12 +183,10 @@ class RolloverService {
 		const fromPeriodStartStr = periodStart.toISOString();
 		const nextPeriodStart = getNextPeriodStart(periodEnd);
 		const forPeriodStartStr = nextPeriodStart.toISOString();
-		const currency = allowance.total.currency;
+		const currency = allowance.currency;
 		const created: RolloverAdjustment[] = [];
 
-		for (const key of CATEGORY_KEYS) {
-			const cat = sd[key];
-			// Surplus
+		for (const cat of sd.categories) {
 			if (cat.surplus > 0) {
 				let toNext = cat.surplus;
 				let toGoals = 0;
@@ -224,7 +202,7 @@ class RolloverService {
 						id: generateUUID(),
 						accountId,
 						forPeriodStart: forPeriodStartStr,
-						category: key,
+						category: cat.categoryId,
 						amountDelta: toNext,
 						currency,
 						source: 'surplus_rollover',
@@ -242,7 +220,7 @@ class RolloverService {
 						id: generateUUID(),
 						accountId,
 						forPeriodStart: forPeriodStartStr,
-						category: key,
+						category: cat.categoryId,
 						amountDelta: 0,
 						currency,
 						source: 'to_goals',
@@ -256,13 +234,12 @@ class RolloverService {
 					created.push(adj);
 				}
 			}
-			// Deficit
 			if (cat.deficit > 0 && deficitBehavior === 'reduce_next_period') {
 				const adj: RolloverAdjustment = {
 					id: generateUUID(),
 					accountId,
 					forPeriodStart: forPeriodStartStr,
-					category: key,
+					category: cat.categoryId,
 					amountDelta: -cat.deficit,
 					currency,
 					source: 'deficit_reduction',
@@ -275,14 +252,10 @@ class RolloverService {
 				await db.rolloverAdjustments.add(adj);
 				created.push(adj);
 			}
-			// one_time_exception and borrow_from_other: no stored adjustment (user handles separately)
 		}
 		return created;
 	}
 
-	/**
-	 * Get all rollover adjustments that apply to a given period (for merging into allowance).
-	 */
 	async getAdjustmentsForPeriod(
 		accountId: string | undefined,
 		periodStart: Date
@@ -297,84 +270,57 @@ class RolloverService {
 		);
 	}
 
-	/**
-	 * Sum adjustment deltas per category for a period (for applying to allowance amounts).
-	 */
 	async getAdjustmentDeltasByCategory(
 		accountId: string | undefined,
 		periodStart: Date
-	): Promise<Record<AllowanceCategoryKey, number>> {
+	): Promise<Record<string, number>> {
 		const adjustments = await this.getAdjustmentsForPeriod(accountId, periodStart);
-		const deltas: Record<AllowanceCategoryKey, number> = {
-			essential: 0,
-			discretionary: 0,
-			buffer: 0
-		};
+		const deltas: Record<string, number> = {};
 		for (const a of adjustments) {
-			// Only surplus_rollover and deficit_reduction change next period's allowance
 			if (a.source === 'surplus_rollover' || a.source === 'deficit_reduction') {
-				deltas[a.category] += a.amountDelta;
+				deltas[a.category] = (deltas[a.category] ?? 0) + a.amountDelta;
 			}
 		}
 		return deltas;
 	}
 
-	/**
-	 * Apply rollover adjustment deltas to an allowance (pure; returns a new object).
-	 * Call after getAdjustmentDeltasByCategory to merge previous period's rollover into current allowance.
-	 */
 	applyDeltasToAllowance(
-		allowance: EnhancedAllowance,
-		deltas: Record<AllowanceCategoryKey, number>
-	): EnhancedAllowance {
-		const periodStart =
-			allowance.periodStart instanceof Date
-				? allowance.periodStart
-				: new Date(allowance.periodStart);
-		const periodEnd =
-			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
-		const currency = allowance.total.currency;
-
-		const updateCat = (
-			calc: EnhancedAllowance['essential'],
-			delta: number
-		): EnhancedAllowance['essential'] => {
-			const newMonthly = calc.monthly + delta;
-			const newRemaining = newMonthly - calc.spentSoFar;
-			const daysRemaining = calc.daysRemaining;
+		allowance: DailyAllowanceView,
+		deltas: Record<string, number>
+	): DailyAllowanceView {
+		const lifestyleLines = allowance.lifestyleLines.map((line) => {
+			const delta = deltas[line.categoryId] ?? 0;
+			const budgetAmount = line.budgetAmount + delta;
+			const remaining = budgetAmount - line.spentAmount;
+			const dailyRate = line.daysRemaining > 0 ? Math.max(0, remaining) / line.daysRemaining : 0;
 			return {
-				...calc,
-				monthly: newMonthly,
-				remaining: newRemaining,
-				dailySafe: daysRemaining > 0 ? newRemaining / daysRemaining : 0
+				...line,
+				budgetAmount,
+				remaining: remaining,
+				dailyRate
 			};
-		};
+		});
 
-		const essential = updateCat(allowance.essential, deltas.essential);
-		const discretionary = updateCat(allowance.discretionary, deltas.discretionary);
-		const buffer = updateCat(allowance.buffer, deltas.buffer);
-		const totalMonthly = essential.monthly + discretionary.monthly + buffer.monthly;
-		const totalSpent = allowance.total.spentSoFar;
-		const totalRemaining = totalMonthly - totalSpent;
-		const total = {
-			...allowance.total,
-			monthly: totalMonthly,
-			remaining: totalRemaining,
-			dailySafe:
-				allowance.total.daysRemaining > 0 ? totalRemaining / allowance.total.daysRemaining : 0
-		};
+		const lifestyleBudget = lifestyleLines.reduce((s, l) => s + l.budgetAmount, 0);
+		const lifestyleRemaining = lifestyleLines.reduce((s, l) => s + Math.max(0, l.remaining), 0);
+		const daily = lifestyleLines.reduce((s, l) => s + l.dailyRate, 0);
+
 		return {
 			...allowance,
-			essential,
-			discretionary,
-			buffer,
-			total
+			daily,
+			monthlyRemaining: lifestyleRemaining,
+			lifestyleRemaining,
+			lifestyleBudget,
+			lifestyleLines,
+			total: {
+				...allowance.total,
+				dailySafe: daily,
+				monthly: lifestyleBudget,
+				remaining: lifestyleRemaining
+			}
 		};
 	}
 
-	/**
-	 * List recent rollover adjustments (for UI history).
-	 */
 	async getRolloverHistory(
 		accountId: string | undefined,
 		options?: { limit?: number }

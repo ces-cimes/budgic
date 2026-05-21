@@ -19,8 +19,11 @@
 	import Header from '$lib/components/Header.svelte';
 	import { Pencil, Scale, ChevronDown } from '@lucide/svelte';
 	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
-	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
-	import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
+	import AccountPaceCard from '$lib/components/accounts/AccountPaceCard.svelte';
+	import {
+		getAccountPace,
+		type AccountPaceResult
+	} from '$lib/core/services/core/account-pace-service';
 	import CountUpHero from '$lib/components/CountUpHero.svelte';
 	import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
 	import CreditUtilizationVisualization from '$lib/components/accounts/CreditUtilizationVisualization.svelte';
@@ -32,17 +35,11 @@
 	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
 	import { getLatestAppliedBatchForLedger } from '$lib/core/services/person-ledger';
 	import { isPersonLedgerNameCandidate } from '$lib/utils/person-ledger-heuristics';
-	import { planService, negativeAllowanceService } from '$lib/core/services';
 	import { startOfDay } from 'date-fns';
 	import { format } from 'date-fns';
 	import NextOutflowPanel from '$lib/components/accounts/NextOutflowPanel.svelte';
 	import AutomationAggregationCard from '$lib/components/accounts/AutomationAggregationCard.svelte';
 	import type { AutomationTag } from '$lib/core/db';
-	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
-	import type {
-		NegativeAllowanceStatus,
-		RecoverySuggestion
-	} from '$lib/core/services/core/negative-allowance-service';
 
 	const { data } = $props<{ data: any }>();
 
@@ -50,10 +47,8 @@
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
 	let userCurrency = $state<string | null>(null);
-	let enhancedAllowance = $state<EnhancedAllowance | null>(null);
-	let negativeAllowanceStatus = $state<NegativeAllowanceStatus | null>(null);
-	let recoverySuggestions = $state<RecoverySuggestion[]>([]);
-	let isLoadingAllowance = $state(false);
+	let accountPace = $state<AccountPaceResult | null>(null);
+	let isLoadingPace = $state(false);
 	let reconciliationSummary = $state<{
 		lastReconciledDate: string | null;
 		daysSinceLastReconciliation: number;
@@ -116,7 +111,7 @@
 		}
 		await loadTransactions();
 		await loadAccountInlineInsights();
-		await loadEnhancedAllowance();
+		await loadAccountPace();
 		if (accountId) {
 			try {
 				const summary = await reconciliationService.getReconciliationSummary(accountId);
@@ -372,37 +367,16 @@
 		}
 	}
 
-	async function loadEnhancedAllowance() {
-		if (!accountId || !account) return;
-
-		isLoadingAllowance = true;
+	async function loadAccountPace() {
+		if (!account) return;
+		isLoadingPace = true;
 		try {
-			enhancedAllowance = await planService.getEnhancedAllowance(accountId);
-			if (enhancedAllowance) {
-				const prefs = await userService.getUserPreferences();
-				const handling =
-					(prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ??
-					'allow_with_strong_warning';
-				negativeAllowanceStatus = await negativeAllowanceService.checkNegativeAllowance(
-					enhancedAllowance,
-					handling as
-						| 'block_with_warning'
-						| 'allow_with_strong_warning'
-						| 'borrow_from_future'
-						| 'borrow_from_other_categories',
-					accountId
-				);
-				recoverySuggestions = negativeAllowanceStatus.isNegative
-					? negativeAllowanceService.getRecoverySuggestions(enhancedAllowance)
-					: [];
-			} else {
-				negativeAllowanceStatus = null;
-				recoverySuggestions = [];
-			}
+			accountPace = await getAccountPace(account);
 		} catch (error) {
-			console.error('Error loading enhanced allowance:', error);
+			console.error('Error loading account pace:', error);
+			accountPace = null;
 		} finally {
-			isLoadingAllowance = false;
+			isLoadingPace = false;
 		}
 	}
 
@@ -663,35 +637,10 @@
 					<h2
 						class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 					>
-						Safe to spend
+						Spending pace
 					</h2>
 					<div class="border-border rounded-2xl border bg-[var(--color-bg-tertiary)] p-6">
-						{#if isLoadingAllowance}
-							<div class="space-y-3 py-4">
-								<div class="h-4 w-1/2 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-								<div class="h-3 w-1/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-							</div>
-						{:else if enhancedAllowance}
-							<AllowanceVisualization
-								allowance={enhancedAllowance}
-								showDetails={true}
-								showRecommendations={true}
-								negativeStatus={negativeAllowanceStatus}
-								{recoverySuggestions}
-							/>
-							<EnvelopeBorrowingCard
-								accountId={account?.id}
-								allowance={enhancedAllowance}
-								negativeStatus={negativeAllowanceStatus}
-								onBorrowCreated={async () => {
-									await loadAccount();
-								}}
-							/>
-						{:else}
-							<p class="py-4 text-sm text-[var(--color-text-tertiary)]">
-								Unable to calculate allowance.
-							</p>
-						{/if}
+						<AccountPaceCard pace={accountPace} loading={isLoadingPace} />
 					</div>
 				</section>
 
@@ -720,7 +669,7 @@
 						onRecommendationApplied={async () => {
 							await loadAccount();
 							await loadTransactions();
-							await loadEnhancedAllowance();
+							await loadAccountPace();
 						}}
 					/>
 				</div>

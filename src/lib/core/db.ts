@@ -1762,7 +1762,7 @@ const NegativeAllowanceEventSchema = BaseSchema.extend({
 	periodStart: z.string().datetime(), // Start of allowance period
 	periodEnd: z.string().datetime(), // End of allowance period
 	accountId: z.string().optional(), // Account (if per-account); empty = global
-	category: z.enum(['total', 'essential', 'discretionary', 'buffer']), // Which allowance category went negative
+	category: z.string(), // `total` or lifestyle categoryId
 	allowanceAmount: z.number(), // Budgeted allowance for the period
 	spentAmount: z.number(), // Actual spent
 	overBy: z.number(), // spentAmount - allowanceAmount (positive when negative allowance)
@@ -1780,8 +1780,8 @@ const NegativeAllowanceEventSchema = BaseSchema.extend({
 // Envelope Borrowing - Temporary borrowing between allowance categories
 const EnvelopeBorrowingSchema = BaseSchema.extend({
 	accountId: z.string().optional(), // Account (if per-account); empty = global
-	fromCategory: z.enum(['essential', 'discretionary', 'buffer']), // Lender category
-	toCategory: z.enum(['essential', 'discretionary', 'buffer']), // Borrower category (the one that was over)
+	fromCategory: z.string(), // Lender lifestyle categoryId
+	toCategory: z.string(), // Borrower lifestyle categoryId
 	amount: z.number().positive(),
 	currency: z.string().min(3).max(3),
 	periodStart: z.string().datetime(), // Period this borrow covers
@@ -1797,7 +1797,7 @@ const EnvelopeBorrowingSchema = BaseSchema.extend({
 const RolloverAdjustmentSchema = BaseSchema.extend({
 	accountId: z.string().optional(), // Account (if per-account); empty = global
 	forPeriodStart: z.string().datetime(), // Start of the period this adjustment applies to
-	category: z.enum(['essential', 'discretionary', 'buffer']),
+	category: z.string(), // lifestyle categoryId (rollover target)
 	amountDelta: z.number(), // Positive = add to allowance, negative = reduce
 	currency: z.string().min(3).max(3),
 	source: z.enum(['surplus_rollover', 'deficit_reduction', 'to_goals', 'one_time_exception']),
@@ -2799,6 +2799,113 @@ export class BudgicDB extends Dexie {
 			personMigrationBatches:
 				'id, status, ledgerAccountId, personId, anchorAccountId, createdAt, updatedAt, [ledgerAccountId+status]'
 		});
+
+		// Version 31: Milestone D — rollover/envelope categoryId strings (was essential/discretionary/buffer)
+		this.version(31)
+			.stores({
+				accounts:
+					'id, type, currency, isActive, ledgerRole, deletedAt, createdAt, updatedAt, [type+isActive]',
+				currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+				categories:
+					'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
+				transactions:
+					'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+				goals:
+					'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+				userPreferences: 'id, createdAt, updatedAt',
+				userActions:
+					'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+				autocompleteUsage:
+					'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+				tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+				insights:
+					'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+				currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+				exchangeRates:
+					'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+				badges:
+					'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+				reconciliationRecords:
+					'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+				reconciliationDiscrepancies:
+					'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+				learningPatterns:
+					'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+				userFeedback:
+					'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+				optimizationPreferences:
+					'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+				negativeAllowanceEvents:
+					'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+				envelopeBorrowings:
+					'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+				rolloverAdjustments:
+					'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+				roundUpRules:
+					'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
+				merchantCategoryProfiles:
+					'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]',
+				recurringPatternsCache: 'id, computedAt',
+				dataCorrections:
+					'id, transactionId, accountId, field, source, timestamp, [transactionId+timestamp], [accountId+timestamp]',
+				people: 'id, displayName, deletedAt, createdAt, updatedAt',
+				personMigrationBatches:
+					'id, status, ledgerAccountId, personId, anchorAccountId, createdAt, updatedAt, [ledgerAccountId+status]'
+			})
+			.upgrade(async (tx) => {
+				const legacyBuckets = new Set(['essential', 'discretionary', 'buffer']);
+				const categories = await tx.table('categories').toArray();
+				const lifestyleIds = categories
+					.filter(
+						(c: { waterfallTier?: string; budgetAmount?: number; deletedAt?: string | null }) =>
+							c.waterfallTier === 'lifestyle' && (c.budgetAmount ?? 0) > 0 && !c.deletedAt
+					)
+					.map((c: { id: string }) => c.id);
+				const now = new Date().toISOString();
+
+				const rolloverRows = await tx.table('rolloverAdjustments').toArray();
+				for (const adj of rolloverRows) {
+					if (!legacyBuckets.has(adj.category)) continue;
+					await tx.table('rolloverAdjustments').update(adj.id, { deletedAt: now });
+					if (
+						adj.category === 'discretionary' &&
+						lifestyleIds.length > 0 &&
+						(adj.source === 'surplus_rollover' || adj.source === 'deficit_reduction')
+					) {
+						const share = adj.amountDelta / lifestyleIds.length;
+						for (const categoryId of lifestyleIds) {
+							await tx.table('rolloverAdjustments').add({
+								...adj,
+								id: generateUUID(),
+								category: categoryId,
+								amountDelta: share,
+								deletedAt: null,
+								metadata: JSON.stringify({
+									legacyBucket: 'discretionary',
+									migratedFrom: adj.id
+								}),
+								createdAt: now,
+								updatedAt: now
+							});
+						}
+					}
+				}
+
+				const borrowRows = await tx.table('envelopeBorrowings').toArray();
+				const fallbackId = lifestyleIds[0];
+				for (const b of borrowRows) {
+					const patch: Record<string, string> = {};
+					if (legacyBuckets.has(b.fromCategory) && fallbackId) {
+						patch.fromCategory = fallbackId;
+					}
+					if (legacyBuckets.has(b.toCategory) && fallbackId) {
+						patch.toCategory = fallbackId;
+					}
+					if (Object.keys(patch).length > 0) {
+						await tx.table('envelopeBorrowings').update(b.id, patch);
+					}
+				}
+			});
 
 		// Add validation hooks
 		this.setupValidationHooks();

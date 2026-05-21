@@ -9,10 +9,9 @@ import {
 } from '$lib/core/services';
 import type { Account } from '$lib/core/db';
 import {
-	calculateEnhancedAllowance,
-	calculateGlobalAllowance,
+	computeDailyAllowance,
 	getSimpleDailyAllowance,
-	type EnhancedAllowance
+	type DailyAllowanceView
 } from '$lib/core/services/core/budget-service';
 import { formatAmount } from '$lib/utils/currency-utils';
 
@@ -156,22 +155,13 @@ class PlanService {
 	/**
 	 * Get enhanced allowance calculation with categories and recommendations (global)
 	 */
-	async getEnhancedAllowance(accountId?: string): Promise<EnhancedAllowance> {
+	async getEnhancedAllowance(_accountId?: string): Promise<DailyAllowanceView> {
 		try {
-			let raw: EnhancedAllowance;
-			// If accountId provided, return account-specific (for account detail pages)
-			if (accountId) {
-				const account = await accountService.getAccount(accountId);
-				raw = account
-					? await calculateEnhancedAllowance(account)
-					: await calculateGlobalAllowance();
-			} else {
-				raw = await calculateGlobalAllowance();
-			}
+			void _accountId;
+			const raw = await computeDailyAllowance();
 			const periodStart =
 				raw.periodStart instanceof Date ? raw.periodStart : new Date(raw.periodStart);
-			const periodEnd = raw.periodEnd instanceof Date ? raw.periodEnd : new Date(raw.periodEnd);
-			const deltas = await rolloverService.getAdjustmentDeltasByCategory(accountId, periodStart);
+			const deltas = await rolloverService.getAdjustmentDeltasByCategory(undefined, periodStart);
 			let allowance = rolloverService.applyDeltasToAllowance(raw, deltas);
 			let projection: import('$lib/core/services/core/budget-service').AllowanceProjection | null =
 				null;
@@ -183,28 +173,31 @@ class PlanService {
 			return { ...allowance, projection };
 		} catch (error) {
 			console.error('Error getting enhanced allowance:', error);
-			// Return empty allowance structure on error
 			const now = new Date();
 			const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 			const userCurrency = await this.getUserCurrency();
-			const emptyAllowance = {
+			const emptyTotal = {
 				dailySafe: 0,
 				monthly: 0,
 				remaining: 0,
-				currency: userCurrency,
-				daysRemaining: Math.max(1, endOfMonth.getDate() - now.getDate()),
-				methodWeights: { historical: 0, buffer: 0.5, velocity: 0.5 },
-				methodResults: { buffer: 0, velocity: 0 },
 				spentSoFar: 0,
-				projectedBalance: 0,
-				confidence: 0
+				daysRemaining: Math.max(1, endOfMonth.getDate() - now.getDate()),
+				currency: userCurrency,
+				confidence: 0,
+				projectedBalance: 0
 			};
-
 			return {
-				essential: emptyAllowance,
-				discretionary: emptyAllowance,
-				buffer: emptyAllowance,
-				total: emptyAllowance,
+				daily: 0,
+				monthlyRemaining: 0,
+				lifestyleRemaining: 0,
+				lifestyleSpent: 0,
+				lifestyleBudget: 0,
+				pace: 1,
+				signal: 'on_track',
+				confidenceLevel: 'low',
+				currency: userCurrency,
+				lifestyleLines: [],
+				total: emptyTotal,
 				periodStart: new Date(now.getFullYear(), now.getMonth(), 1),
 				periodEnd: endOfMonth,
 				recommendations: [],

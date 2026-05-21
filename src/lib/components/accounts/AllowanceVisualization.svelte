@@ -1,8 +1,5 @@
 <script lang="ts">
-	import type {
-		AllowanceRecommendation,
-		EnhancedAllowance
-	} from '$lib/core/services/core/budget-service';
+	import type { DailyAllowanceView } from '$lib/core/services/core/budget-service';
 	import type { AllowanceProjection } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
@@ -17,8 +14,8 @@
 		Info,
 		Wallet,
 		ShoppingBag,
-		Shield,
-		Lightbulb
+		Lightbulb,
+		ChevronDown
 	} from '@lucide/svelte';
 	import { Progress } from '$lib/components/ui/progress';
 	import {
@@ -30,10 +27,9 @@
 	} from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
-	import { ChevronDown } from '@lucide/svelte';
 
 	interface Props {
-		allowance: EnhancedAllowance;
+		allowance: DailyAllowanceView;
 		showDetails?: boolean;
 		showRecommendations?: boolean;
 		confidence?: {
@@ -42,11 +38,8 @@
 			unclassifiedSpend: number;
 			totalSpend: number;
 		} | null;
-		/** When spending exceeds allowance (for strong-warning / block UX) */
 		negativeStatus?: NegativeAllowanceStatus | null;
-		/** Recovery suggestions when allowance is negative */
 		recoverySuggestions?: RecoverySuggestion[];
-		/** Phase 5 — forward projection layers */
 		projection?: AllowanceProjection | null;
 	}
 
@@ -66,60 +59,27 @@
 				negativeStatus.handlingMode === 'block_with_warning')
 	);
 
-	let showMethodDetails = $state(false);
+	let showCategoryDetails = $state(false);
 	let showRecommendationsExpanded = $state(false);
 
-	// Calculate usage percentage for each category
-	const essentialUsage = $derived(() => {
-		if (allowance.essential.monthly === 0) return 0;
-		return Math.min(100, (allowance.essential.spentSoFar / allowance.essential.monthly) * 100);
+	const lifestyleUsage = $derived(() => {
+		if (allowance.lifestyleBudget === 0) return allowance.lifestyleSpent > 0 ? 100 : 0;
+		return Math.min(100, (allowance.lifestyleSpent / allowance.lifestyleBudget) * 100);
 	});
 
-	const discretionaryUsage = $derived(() => {
-		if (allowance.discretionary.monthly === 0) return 0;
-		return Math.min(
-			100,
-			(allowance.discretionary.spentSoFar / allowance.discretionary.monthly) * 100
-		);
+	const paceBadge = $derived.by(() => {
+		switch (allowance.signal) {
+			case 'over_pace':
+				return { label: 'Over pace', variant: 'destructive' as const, icon: AlertCircle };
+			case 'under_pace':
+				return { label: 'Under pace', variant: 'default' as const, icon: CheckCircle2 };
+			default:
+				return { label: 'On track', variant: 'secondary' as const, icon: TrendingUp };
+		}
 	});
 
-	const totalUsage = $derived(() => {
-		if (allowance.total.monthly === 0) return allowance.total.spentSoFar > 0 ? 100 : 0;
-		return Math.min(100, (allowance.total.spentSoFar / allowance.total.monthly) * 100);
-	});
+	const PaceIcon = $derived(paceBadge.icon);
 
-	const hasZeroAllowance = $derived(allowance.total.monthly <= 0);
-
-	// Get status based on usage
-	const getStatus = (usage: number) => {
-		if (usage >= 100)
-			return {
-				label: 'Exceeded',
-				color: 'text-destructive',
-				bgColor: 'bg-destructive/10',
-				icon: AlertCircle
-			};
-		if (usage >= 80)
-			return {
-				label: 'Warning',
-				color: 'text-warning',
-				bgColor: 'bg-warning/10',
-				icon: AlertTriangle
-			};
-		if (usage >= 50)
-			return { label: 'On Track', color: 'text-info', bgColor: 'bg-info/10', icon: TrendingUp };
-		return { label: 'Good', color: 'text-success', bgColor: 'bg-success/10', icon: CheckCircle2 };
-	};
-
-	const totalStatus = $derived(getStatus(totalUsage()));
-	const essentialStatus = $derived(getStatus(essentialUsage()));
-	const discretionaryStatus = $derived(getStatus(discretionaryUsage()));
-
-	const TotalStatusIcon = $derived(totalStatus.icon);
-	const EssentialStatusIcon = $derived(essentialStatus.icon);
-	const DiscretionaryStatusIcon = $derived(discretionaryStatus.icon);
-
-	// Use new AllowanceConfidence.ratio when available, fall back to old scalar
 	const confidencePercent = $derived(
 		confidence ? Math.round(confidence.ratio * 100) : Math.round(allowance.total.confidence * 100)
 	);
@@ -128,28 +88,17 @@
 
 	const allowanceRangeValues = $derived.by(() => {
 		if (!confidence) return null;
-
-		const remaining = allowance.total.remaining;
-		const monthly = allowance.total.monthly;
-		// Current: unclassified excluded from spend (as-is)
+		const remaining = allowance.lifestyleRemaining;
+		const monthly = allowance.lifestyleBudget;
 		const current = remaining;
-		// Conservative: if all unclassified spend counted as lifestyle
 		const conservative = Math.max(remaining - confidence.unclassifiedSpend, 0);
-
-		// Normalise positions against monthly budget for the bar overlay
 		const barMax = Math.max(monthly, 1);
 		const currentPct = Math.min(Math.max((current / barMax) * 100, 0), 100);
 		const conservativePct = Math.min(Math.max((conservative / barMax) * 100, 0), 100);
 		let rangeStartPercent = conservativePct;
 		let rangeWidthPercent = Math.max(currentPct - conservativePct, 2);
 		rangeWidthPercent = Math.min(rangeWidthPercent, 100 - rangeStartPercent);
-
-		return {
-			current,
-			conservative,
-			rangeStartPercent,
-			rangeWidthPercent
-		};
+		return { current, conservative, rangeStartPercent, rangeWidthPercent };
 	});
 </script>
 
@@ -157,7 +106,7 @@
 	{#if projection}
 		<Alert class="border-border bg-muted/40">
 			<Info class="size-4" />
-			<AlertTitle>Forward projection (this month)</AlertTitle>
+			<AlertTitle>Forward projection (cash-flow view)</AlertTitle>
 			<AlertDescription>
 				<p class="text-muted-foreground text-xs">
 					Committed {formatTransactionAmount(projection.committed, projection.currency, false)} · Planned{' '}
@@ -179,26 +128,14 @@
 						)}
 					</p>
 				{/if}
-				{#if projection.hasAcknowledgedDebtInPeriod && projection.recoveryWeeksEstimate != null}
-					<div class="relative mt-4 h-7 w-full" role="img" aria-label="Recovery projection">
-						<div
-							class="pointer-events-none absolute top-3 right-0 left-8 border-t border-dashed border-amber-600/60"
-							style="transform: rotate(-6deg); transform-origin: left center;"
-						></div>
-						<p class="text-muted-foreground absolute bottom-0 left-0 text-[10px]">
-							Recovery trajectory · ~{projection.recoveryWeeksEstimate} wk
-						</p>
-					</div>
-				{/if}
 			</AlertDescription>
 		</Alert>
 	{/if}
 
-	<!-- Negative Allowance Warning -->
 	{#if showNegativeWarning && negativeStatus?.warningMessage}
 		<Alert variant="destructive" class="border-destructive/50">
 			<AlertTriangle class="size-4" />
-			<AlertTitle>Over allowance</AlertTitle>
+			<AlertTitle>Over lifestyle budget</AlertTitle>
 			<AlertDescription>
 				<p class="font-medium">{negativeStatus.warningMessage}</p>
 				{#if recoverySuggestions.length > 0}
@@ -215,269 +152,130 @@
 		</Alert>
 	{/if}
 
-	<!-- Total Allowance Overview -->
 	<Card>
 		<CardHeader>
 			<CardTitle class="flex items-center gap-2">
 				<Wallet class="h-5 w-5" />
-				Monthly Allowance
+				Daily allowance
 			</CardTitle>
-			<CardDescription>
-				{allowance.total.daysRemaining} days remaining in period
-			</CardDescription>
+			<CardDescription>Household lifestyle budgets · {allowance.currency}</CardDescription>
 		</CardHeader>
 		<CardContent class="space-y-4">
-			{#if hasZeroAllowance}
+			{#if allowance.lifestyleBudget <= 0 && allowance.confidenceLevel === 'low'}
 				<div
 					class="bg-muted/50 border-border text-muted-foreground rounded-lg border px-4 py-3 text-sm"
 				>
-					No spending allowance calculated (zero balance or no spending data). Add funds or
-					historical transactions to see an allowance.
+					No lifestyle category budgets yet — showing a simplified estimate. Add lifestyle budgets
+					for a tier-attributed daily allowance.
 				</div>
 			{/if}
-			<!-- Total Allowance Amount -->
+
 			<div class="space-y-2 text-center">
 				<div class="text-primary text-3xl font-bold">
-					{formatTransactionAmount(allowance.total.monthly, allowance.total.currency)}
+					{formatTransactionAmount(allowance.daily, allowance.currency)}
 				</div>
-				<div class="text-muted-foreground text-sm">
-					{formatTransactionAmount(allowance.total.dailySafe, allowance.total.currency)} per day
+				<div class="text-muted-foreground text-sm">per day across lifestyle categories</div>
+				<div class="flex items-center justify-center gap-2 pt-1">
+					<PaceIcon class="h-4 w-4" />
+					<Badge variant={paceBadge.variant}>{paceBadge.label}</Badge>
+					<span class="text-muted-foreground text-xs"
+						>Pace {allowance.pace.toFixed(2)}× · {allowance.lifestyleRemaining > 0
+							? formatTransactionAmount(allowance.lifestyleRemaining, allowance.currency)
+							: '0'} left</span
+					>
 				</div>
-				{#if showAllowanceRangeBand && allowanceRangeValues}
-					<div class="bg-muted/40 mt-2 space-y-2 rounded-md px-3 py-2 text-left">
-						<p class="text-muted-foreground text-xs font-medium">
-							Remaining range
-							<span class={confidence?.tier === 'low' ? 'text-destructive' : 'text-warning'}
-								>({confidence?.tier} confidence)</span
-							>
-						</p>
-						<div class="bg-muted/70 relative h-2 overflow-hidden rounded-full">
-							<div
-								class="bg-primary/30 absolute inset-y-0 rounded-full"
-								style="left: {allowanceRangeValues.rangeStartPercent}%; width: {allowanceRangeValues.rangeWidthPercent}%;"
-							></div>
-						</div>
-						<div class="text-muted-foreground grid gap-1 text-xs">
-							<div class="flex items-center justify-between">
-								<span>Current (unclassified excluded)</span>
-								<span class="font-medium">
-									{formatTransactionAmount(allowanceRangeValues.current, allowance.total.currency)}
-								</span>
-							</div>
-							<div class="flex items-center justify-between">
-								<span>Conservative (if all unclassified counted)</span>
-								<span class="font-medium">
-									{formatTransactionAmount(
-										allowanceRangeValues.conservative,
-										allowance.total.currency
-									)}
-								</span>
-							</div>
-						</div>
-					</div>
-				{/if}
 			</div>
 
-			<!-- Usage Progress -->
+			{#if showAllowanceRangeBand && allowanceRangeValues}
+				<div class="bg-muted/40 mt-2 space-y-2 rounded-md px-3 py-2 text-left">
+					<p class="text-muted-foreground text-xs font-medium">
+						Remaining range
+						<span class={confidence?.tier === 'low' ? 'text-destructive' : 'text-warning'}
+							>({confidence?.tier} confidence)</span
+						>
+					</p>
+					<div class="bg-muted/70 relative h-2 overflow-hidden rounded-full">
+						<div
+							class="bg-primary/30 absolute inset-y-0 rounded-full"
+							style="left: {allowanceRangeValues.rangeStartPercent}%; width: {allowanceRangeValues.rangeWidthPercent}%;"
+						></div>
+					</div>
+				</div>
+			{/if}
+
 			<div class="space-y-2">
 				<div class="flex items-center justify-between text-sm">
-					<span class="text-muted-foreground">Spent this period</span>
+					<span class="text-muted-foreground">Lifestyle spend</span>
 					<span class="font-medium">
-						{formatTransactionAmount(allowance.total.spentSoFar, allowance.total.currency)} / {formatTransactionAmount(
-							allowance.total.monthly,
-							allowance.total.currency
-						)} allowance
+						{formatTransactionAmount(allowance.lifestyleSpent, allowance.currency)} / {formatTransactionAmount(
+							allowance.lifestyleBudget,
+							allowance.currency
+						)}
 					</span>
 				</div>
-				<Progress value={totalUsage()} max={100} class="h-3" />
-				<div class="flex items-center justify-between text-xs">
-					<span class="text-muted-foreground">Remaining</span>
-					<span
-						class="font-medium {allowance.total.remaining < 0
-							? 'text-destructive'
-							: 'text-success'}"
-					>
-						{formatTransactionAmount(allowance.total.remaining, allowance.total.currency)}
-					</span>
-				</div>
+				<Progress value={lifestyleUsage()} max={100} class="h-3" />
 			</div>
 
-			<!-- Status Badge -->
-			<div class="flex items-center justify-center gap-2">
-				<TotalStatusIcon class="h-4 w-4 {totalStatus.color}" />
-				<Badge
-					variant={totalUsage() >= 100
-						? 'destructive'
-						: totalUsage() >= 80
-							? 'secondary'
-							: 'default'}
-				>
-					{totalStatus.label}
-				</Badge>
-				{#if showDetails}
-					<Badge variant="outline" class="ml-auto">
-						{confidencePercent}% confidence
-					</Badge>
-				{/if}
-			</div>
+			{#if showDetails}
+				<Badge variant="outline">{confidencePercent}% confidence</Badge>
+			{/if}
 		</CardContent>
 	</Card>
 
-	<!-- Category Breakdown -->
-	{#if showDetails}
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-			<!-- Essential Allowance -->
-			<Card>
-				<CardHeader class="pb-3">
-					<CardTitle class="flex items-center gap-2 text-base">
-						<Shield class="h-4 w-4" />
-						Essential
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="space-y-3">
-					<div class="text-xl font-semibold">
-						{formatTransactionAmount(allowance.essential.monthly, allowance.essential.currency)}
-					</div>
-					<div class="space-y-1">
-						<Progress value={essentialUsage()} max={100} class="h-2" />
-						<div class="text-muted-foreground flex justify-between text-xs">
-							<span
-								>Spent: {formatTransactionAmount(
-									allowance.essential.spentSoFar,
-									allowance.essential.currency
-								)}</span
-							>
-							<span
-								>Remaining: {formatTransactionAmount(
-									allowance.essential.remaining,
-									allowance.essential.currency
-								)}</span
-							>
-						</div>
-					</div>
-					<div class="flex items-center gap-1">
-						<EssentialStatusIcon class="h-3 w-3 {essentialStatus.color}" />
-						<span class="text-xs {essentialStatus.color}">{essentialStatus.label}</span>
-					</div>
-				</CardContent>
-			</Card>
-
-			<!-- Discretionary Allowance -->
-			<Card>
-				<CardHeader class="pb-3">
-					<CardTitle class="flex items-center gap-2 text-base">
-						<ShoppingBag class="h-4 w-4" />
-						Discretionary
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="space-y-3">
-					<div class="text-xl font-semibold">
-						{formatTransactionAmount(
-							allowance.discretionary.monthly,
-							allowance.discretionary.currency
-						)}
-					</div>
-					<div class="space-y-1">
-						<Progress value={discretionaryUsage()} max={100} class="h-2" />
-						<div class="text-muted-foreground flex justify-between text-xs">
-							<span
-								>Spent: {formatTransactionAmount(
-									allowance.discretionary.spentSoFar,
-									allowance.discretionary.currency
-								)}</span
-							>
-							<span
-								>Remaining: {formatTransactionAmount(
-									allowance.discretionary.remaining,
-									allowance.discretionary.currency
-								)}</span
-							>
-						</div>
-					</div>
-					<div class="flex items-center gap-1">
-						<DiscretionaryStatusIcon class="h-3 w-3 {discretionaryStatus.color}" />
-						<span class="text-xs {discretionaryStatus.color}">{discretionaryStatus.label}</span>
-					</div>
-				</CardContent>
-			</Card>
-
-			<!-- Buffer Allowance -->
-			<Card>
-				<CardHeader class="pb-3">
-					<CardTitle class="flex items-center gap-2 text-base">
-						<Shield class="h-4 w-4" />
-						Buffer
-					</CardTitle>
-				</CardHeader>
-				<CardContent class="space-y-3">
-					<div class="text-xl font-semibold">
-						{formatTransactionAmount(allowance.buffer.monthly, allowance.buffer.currency)}
-					</div>
-					<div class="text-muted-foreground text-xs">Safety margin for unexpected expenses</div>
-					<div class="text-sm">
-						Remaining: {formatTransactionAmount(
-							allowance.buffer.remaining,
-							allowance.buffer.currency
-						)}
-					</div>
-				</CardContent>
-			</Card>
-		</div>
-	{/if}
-
-	<!-- Method Details (Collapsible) -->
-	{#if showDetails}
+	{#if showDetails && allowance.lifestyleLines.length > 0}
 		<div class="space-y-2">
 			<button
+				type="button"
 				class="bg-muted/50 hover:bg-muted flex w-full items-center justify-between rounded-lg border p-3 transition-colors"
-				onclick={() => (showMethodDetails = !showMethodDetails)}
+				onclick={() => (showCategoryDetails = !showCategoryDetails)}
 			>
-				<span class="text-sm font-medium">Calculation Method Details</span>
-				<ChevronDown class="h-4 w-4 transition-transform {showMethodDetails ? 'rotate-180' : ''}" />
+				<span class="flex items-center gap-2 text-sm font-medium">
+					<ShoppingBag class="h-4 w-4" />
+					By category ({allowance.lifestyleLines.length})
+				</span>
+				<ChevronDown
+					class="h-4 w-4 transition-transform {showCategoryDetails ? 'rotate-180' : ''}"
+				/>
 			</button>
-			{#if showMethodDetails}
-				<Card>
-					<CardContent class="space-y-3 pt-4">
-						<div class="space-y-2 text-sm">
-							<div class="flex justify-between">
-								<span class="text-muted-foreground">Historical Pattern:</span>
-								<span class="font-medium">
-									{allowance.total.methodWeights.historical > 0
-										? `${Math.round(allowance.total.methodWeights.historical * 100)}%`
-										: 'Not available'}
-								</span>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-muted-foreground">Buffer-Based:</span>
-								<span class="font-medium"
-									>{Math.round(allowance.total.methodWeights.buffer * 100)}%</span
-								>
-							</div>
-							<div class="flex justify-between">
-								<span class="text-muted-foreground">Velocity-Adjusted:</span>
-								<span class="font-medium"
-									>{Math.round(allowance.total.methodWeights.velocity * 100)}%</span
-								>
-							</div>
-						</div>
-						{#if allowance.total.methodResults.historical !== undefined}
-							<div class="text-muted-foreground border-t pt-2 text-xs">
-								Historical average: {formatTransactionAmount(
-									allowance.total.methodResults.historical,
-									allowance.total.currency
-								)}
-							</div>
-						{/if}
-					</CardContent>
-				</Card>
+			{#if showCategoryDetails}
+				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+					{#each allowance.lifestyleLines as line (line.categoryId)}
+						<Card>
+							<CardHeader class="pb-2">
+								<CardTitle class="text-base">{line.categoryName}</CardTitle>
+							</CardHeader>
+							<CardContent class="space-y-2 text-sm">
+								<div class="flex justify-between">
+									<span class="text-muted-foreground">Daily rate</span>
+									<span class="font-medium"
+										>{formatTransactionAmount(line.dailyRate, allowance.currency)}</span
+									>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-muted-foreground">Remaining</span>
+									<span class="font-medium"
+										>{formatTransactionAmount(line.remaining, allowance.currency)}</span
+									>
+								</div>
+								<Progress
+									value={line.budgetAmount > 0
+										? Math.min(100, (line.spentAmount / line.budgetAmount) * 100)
+										: 0}
+									max={100}
+									class="h-2"
+								/>
+							</CardContent>
+						</Card>
+					{/each}
+				</div>
 			{/if}
 		</div>
 	{/if}
 
-	<!-- Recommendations -->
 	{#if showRecommendations && allowance.recommendations.length > 0}
 		<div class="space-y-2">
 			<button
+				type="button"
 				class="bg-muted/50 hover:bg-muted flex w-full items-center justify-between rounded-lg border p-3 transition-colors"
 				onclick={() => (showRecommendationsExpanded = !showRecommendationsExpanded)}
 			>
@@ -492,49 +290,8 @@
 			{#if showRecommendationsExpanded}
 				<div class="space-y-2">
 					{#each allowance.recommendations as rec}
-						{@const RecSeverityIcon =
-							rec.severity === 'high'
-								? AlertCircle
-								: rec.severity === 'medium'
-									? AlertTriangle
-									: Info}
-						<Card
-							class={rec.severity === 'high'
-								? 'border-destructive'
-								: rec.severity === 'medium'
-									? 'border-warning'
-									: ''}
-						>
-							<CardContent class="pt-4">
-								<div class="flex items-start gap-3">
-									<RecSeverityIcon
-										class="mt-0.5 h-5 w-5 {rec.severity === 'high'
-											? 'text-destructive'
-											: rec.severity === 'medium'
-												? 'text-warning'
-												: 'text-info'}"
-									/>
-									<div class="flex-1 space-y-1">
-										<div class="flex items-center gap-2">
-											<Badge
-												variant={rec.type === 'warning'
-													? 'destructive'
-													: rec.type === 'increase'
-														? 'default'
-														: 'outline'}
-											>
-												{rec.type}
-											</Badge>
-											<span class="text-sm font-medium">{rec.message}</span>
-										</div>
-										{#if rec.actionable}
-											<div class="text-muted-foreground text-xs">
-												This recommendation requires your attention
-											</div>
-										{/if}
-									</div>
-								</div>
-							</CardContent>
+						<Card>
+							<CardContent class="pt-4 text-sm">{rec.message}</CardContent>
 						</Card>
 					{/each}
 				</div>
