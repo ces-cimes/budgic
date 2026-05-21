@@ -856,40 +856,6 @@
 		});
 	}
 
-	async function runPersonAccountMigration() {
-		if (!mmResult?.importBatch) return;
-		const accounts = await accountService.getAccounts();
-		const targets = accounts.filter((a) => wizardPersonAccountCandidates.includes(a.name));
-		const uncategorized = await getOrCreateUncategorizedCategory();
-		for (const account of targets) {
-			if (Math.abs(account.currentBalance) <= 0.01) continue;
-			const direction = account.currentBalance > 0 ? 'lending' : 'borrowing';
-			const amount = Math.abs(account.currentBalance);
-			await transactionService.createTransaction({
-				type: account.currentBalance > 0 ? 'expense' : 'income',
-				status: 'cleared',
-				accountId: account.id,
-				amount: account.currentBalance > 0 ? amount : -amount,
-				currency: account.currency,
-				description: `Person account migration: ${account.name}`,
-				categoryId: uncategorized.id,
-				reimbursements: [
-					{
-						id: crypto.randomUUID(),
-						direction,
-						amount,
-						currency: account.currency,
-						person: account.name,
-						status: direction === 'lending' ? 'expecting' : 'owed',
-						createdAt: new Date().toISOString(),
-						updatedAt: new Date().toISOString()
-					}
-				],
-				clearedDate: new Date().toISOString()
-			});
-		}
-	}
-
 	async function handleClearTransactionData() {
 		if (dangerBusy) return;
 		if (
@@ -1600,7 +1566,6 @@
 		personAccountCandidates={wizardPersonAccountCandidates}
 		personAccountPreFlagged={wizardPersonAccountPreFlagged}
 		personAccountPanels={wizardPersonAccountPanels}
-		onMigratePersonAccounts={runPersonAccountMigration}
 		onTagPersonTxGift={tagPersonTxAsGift}
 		onTagPersonTxReimbursement={tagPersonTxAsReimbursement}
 		onGoPatterns={() => goto('/insights?tab=patterns')}

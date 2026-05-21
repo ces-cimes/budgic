@@ -11,10 +11,11 @@
 		planService,
 		negativeAllowanceService,
 		merchantProfileService,
-		goalService
+		goalService,
+		personService
 	} from '$lib/core/services';
 	import { db } from '$lib/core/db';
-	import type { Account, Transaction, Category, ReimbursementEntry } from '$lib/core/db';
+	import type { Account, Transaction, Category, ReimbursementEntry, Person } from '$lib/core/db';
 	import {
 		getOrCreateUncategorizedCategory,
 		getOrCreateUncategorizedIncomeCategory
@@ -104,6 +105,22 @@
 	function labelFromDebtGroupId(id: string | undefined): string {
 		if (!id) return '';
 		return id.replace(/^debt:/, '').replace(/-/g, ' ');
+	}
+
+	function resolveReimbursementPersonId(
+		personName: string,
+		existingId?: string
+	): string | undefined {
+		const trimmed = personName.trim();
+		if (!trimmed) return undefined;
+		const normalized = trimmed.toLowerCase();
+		const match = knownPeople.find(
+			(p) =>
+				p.displayName.trim().toLowerCase() === normalized ||
+				(p.aliases ?? []).some((a) => a.trim().toLowerCase() === normalized)
+		);
+		if (match) return match.id;
+		return existingId;
 	}
 
 	let merchantSuggestTimer: ReturnType<typeof setTimeout> | null = null;
@@ -334,6 +351,8 @@
 	let reimbursementDirection = $state<ReimbursementEntry['direction']>('lending');
 	let reimbursementAmount = $state(0);
 	let reimbursementPerson = $state('');
+	let reimbursementPersonId = $state<string | undefined>(undefined);
+	let knownPeople = $state<Person[]>([]);
 	let reimbursementStatus = $state<ReimbursementEntry['status']>('expecting');
 	let reimbursementInitializedFromAmount = $state(false);
 	let reimbursementPersonSuggestions = $state<string[]>([]);
@@ -635,8 +654,9 @@
 
 	onMount(async () => {
 		try {
-			[accounts, categories] = await Promise.all([
-				accountService.getAccounts(),
+			[accounts, knownPeople, categories] = await Promise.all([
+				accountService.getSelectableAccounts(),
+				personService.listPeople(),
 				db.getActiveCategories()
 			]);
 			[accountBlendScores, categoryBlendScores] = await Promise.all([
@@ -771,6 +791,7 @@
 						reimbursementDirection = firstReimbursement.direction;
 						reimbursementAmount = firstReimbursement.amount;
 						reimbursementPerson = firstReimbursement.person || '';
+						reimbursementPersonId = firstReimbursement.personId;
 						reimbursementStatus = firstReimbursement.status;
 						reimbursementInitializedFromAmount = true;
 					}
@@ -1461,6 +1482,10 @@
 			if (showReimbursementSection && reimbursementAmount > 0) {
 				const now = new Date().toISOString();
 				const existingReimbursement = transaction?.reimbursements?.[0];
+				const linkedPersonId = resolveReimbursementPersonId(
+					reimbursementPerson,
+					existingReimbursement?.personId ?? reimbursementPersonId
+				);
 				reimbursements = [
 					{
 						id: existingReimbursement?.id || crypto.randomUUID(),
@@ -1468,6 +1493,7 @@
 						amount: Math.abs(reimbursementAmount),
 						currency,
 						person: reimbursementPerson.trim() || undefined,
+						personId: linkedPersonId,
 						status: reimbursementStatus,
 						settledTransactionId: existingReimbursement?.settledTransactionId,
 						createdAt: existingReimbursement?.createdAt || now,
@@ -2215,6 +2241,7 @@
 									showReimbursementSection = false;
 									reimbursementAmount = 0;
 									reimbursementPerson = '';
+									reimbursementPersonId = undefined;
 								}}
 								class="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
 							>

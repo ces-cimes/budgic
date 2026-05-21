@@ -41,4 +41,13 @@ export {
 	monitorPerformance,
 	performanceThreshold
 } from './performance-monitor';
-export { personService, personMigrationBatchService } from '../person-ledger';
+export {
+	personService,
+	personMigrationBatchService,
+	resolveDefaultAnchorAccountId,
+	prepareMigrationBatch,
+	createAndApplyMigrationBatch,
+	rollbackPersonMigrationBatch,
+	getLatestAppliedBatchForLedger,
+	ledgerBalancesByCurrency
+} from '../person-ledger';

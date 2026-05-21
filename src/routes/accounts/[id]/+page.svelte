@@ -29,6 +29,8 @@
 	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import UpdateBalanceSheet from '$lib/components/accounts/UpdateBalanceSheet.svelte';
 	import { passiveAccountService } from '$lib/core/services';
+	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
+	import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
 	import { planService, negativeAllowanceService } from '$lib/core/services';
 	import { startOfDay } from 'date-fns';
 	import { format } from 'date-fns';
@@ -61,6 +63,7 @@
 	let overdraftChip = $state<string | null>(null);
 	let repaymentChip = $state<string | null>(null);
 	let updateBalanceOpen = $state(false);
+	let personLedgerWizardOpen = $state(false);
 	let taxWithheldYtd = $state<number | null>(null);
 
 	/** Phase 8 — cached surface intelligence (no per-render DB reads in template). */
@@ -90,6 +93,12 @@
 	let automationRowExpanded = $state<Record<string, boolean>>({});
 
 	const accountId = $derived($page.params.id);
+
+	const showPersonLedgerClose = $derived(
+		account != null &&
+			account.ledgerRole !== 'archived_person' &&
+			(account.ledgerRole === 'person' || isPersonAccountNameCandidate(account.name))
+	);
 
 	onMount(async () => {
 		// Load user currency preference first
@@ -475,6 +484,17 @@
 						Tax withheld year-to-date: {formatBalance(taxWithheldYtd, currency)}
 					</p>
 				{/if}
+				{#if showPersonLedgerClose}
+					<div class="mt-4 flex justify-center">
+						<Button.Root
+							variant="outline"
+							size="sm"
+							onclick={() => (personLedgerWizardOpen = true)}
+						>
+							Close person account
+						</Button.Root>
+					</div>
+				{/if}
 				{#if account.initialBalance !== account.currentBalance}
 					<p class="mt-2 text-xs text-[var(--color-text-tertiary)]">
 						Started at {formatBalance(account.initialBalance, account.currency)}
@@ -823,4 +843,12 @@
 		onOpenChange={(v) => (updateBalanceOpen = v)}
 		onSuccess={afterBalanceUpdate}
 	/>
+	{#if accountId && showPersonLedgerClose}
+		<PersonLedgerMigrationWizard
+			ledgerAccountId={accountId}
+			open={personLedgerWizardOpen}
+			onOpenChange={(v) => (personLedgerWizardOpen = v)}
+			onApplied={afterBalanceUpdate}
+		/>
+	{/if}
 </PageLayout>

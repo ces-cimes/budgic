@@ -18,7 +18,6 @@
 		personAccountCandidates?: string[];
 		personAccountPreFlagged?: string[];
 		personAccountPanels?: PersonAccountTxPanel[];
-		onMigratePersonAccounts?: () => void;
 		onTagPersonTxGift?: (transactionId: string) => void;
 		onTagPersonTxReimbursement?: (transactionId: string, personName: string) => void;
 		onNext: () => void;
@@ -36,7 +35,6 @@
 		personAccountCandidates = [],
 		personAccountPreFlagged = [],
 		personAccountPanels = [],
-		onMigratePersonAccounts,
 		onTagPersonTxGift,
 		onTagPersonTxReimbursement,
 		onNext,
@@ -152,15 +150,6 @@
 					</ul>
 				</div>
 			{/each}
-			{#if onMigratePersonAccounts}
-				<button
-					type="button"
-					class="rounded-md border border-[var(--color-border)] px-3 py-1 text-xs hover:bg-[var(--color-bg-surface)]"
-					onclick={onMigratePersonAccounts}
-				>
-					Run person-account migration
-				</button>
-			{/if}
 		</div>
 	{/if}
 	<div class="flex items-center justify-between">

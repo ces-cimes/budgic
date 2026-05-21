@@ -12,6 +12,8 @@
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import type { AccountCompounding } from '$lib/core/db';
+	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
+	import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
 
 	let account = $state<Account | null>(null);
 	let postCreateAccount = $state<Account | null>(null);
@@ -22,12 +24,20 @@
 	let isSubmitting = $state(false);
 	let isDeleting = $state(false);
 	let showDeleteDialog = $state(false);
+	let personLedgerWizardOpen = $state(false);
 	let error = $state('');
 
 	const accountId = $derived($page.params.id);
 
 	// Computed properties
 	let isEditMode = $derived(!!account && !!accountId);
+
+	const showPersonLedgerClose = $derived(
+		isEditMode &&
+			account != null &&
+			account.ledgerRole !== 'archived_person' &&
+			(account.ledgerRole === 'person' || isPersonAccountNameCandidate(account.name))
+	);
 	let pageTitle = $derived(isEditMode ? 'Edit account' : 'New account');
 	let submitButtonText = $derived(
 		isLoading ? (isEditMode ? 'Updating…' : 'Creating…') : isEditMode ? 'Update' : 'Create'
@@ -195,6 +205,24 @@
 				{/each}
 			</div>
 		{:else if !isEditMode || account}
+			{#if showPersonLedgerClose && account}
+				<div
+					class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-5 py-4"
+				>
+					<p class="text-sm text-[var(--color-text-primary)]">
+						This looks like a person ledger account. Close it to track reimbursements on a real
+						wallet instead.
+					</p>
+					<Button
+						variant="outline"
+						size="sm"
+						class="mt-3"
+						onclick={() => (personLedgerWizardOpen = true)}
+					>
+						Close person account
+					</Button>
+				</div>
+			{/if}
 			<!-- Account Form -->
 			<AccountForm
 				account={account || undefined}
@@ -259,6 +287,18 @@
 		/>
 	{/snippet}
 
+	{#if account && isEditMode && showPersonLedgerClose}
+		<PersonLedgerMigrationWizard
+			ledgerAccountId={account.id}
+			open={personLedgerWizardOpen}
+			onOpenChange={(v) => (personLedgerWizardOpen = v)}
+			onApplied={async () => {
+				if (!account) return;
+				const refreshed = await accountService.getAccount(account.id);
+				if (refreshed) account = refreshed;
+			}}
+		/>
+	{/if}
 	{#if account && isEditMode}
 		<DeleteConfirmationDialog
 			open={showDeleteDialog}

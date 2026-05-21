@@ -195,6 +195,8 @@ class AccountService {
 				| 'lastConfirmedBalance'
 				| 'lastConfirmedAt'
 				| 'passiveRatePromptDismissed'
+				| 'ledgerRole'
+				| 'personId'
 			>
 		>
 	): Promise<Account> {

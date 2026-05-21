@@ -27,7 +27,6 @@
 		personAccountCandidates?: string[];
 		personAccountPreFlagged?: string[];
 		personAccountPanels?: PersonTxPanel[];
-		onMigratePersonAccounts?: () => Promise<void> | void;
 		onTagPersonTxGift?: (transactionId: string) => Promise<void> | void;
 		onTagPersonTxReimbursement?: (
 			transactionId: string,
@@ -48,7 +47,6 @@
 		personAccountCandidates = [],
 		personAccountPreFlagged = [],
 		personAccountPanels = [],
-		onMigratePersonAccounts,
 		onTagPersonTxGift,
 		onTagPersonTxReimbursement,
 		onClose,
@@ -119,7 +117,6 @@
 					{personAccountCandidates}
 					{personAccountPreFlagged}
 					{personAccountPanels}
-					{onMigratePersonAccounts}
 					{onTagPersonTxGift}
 					{onTagPersonTxReimbursement}
 					onNext={() => (step = 2)}
