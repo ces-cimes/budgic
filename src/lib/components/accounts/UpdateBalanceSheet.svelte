@@ -4,12 +4,16 @@
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
-	import type { Account, AutomationTag } from '$lib/core/db';
+	import type { Account } from '$lib/core/db';
 	import { accountService, passiveAccountService } from '$lib/core/services';
+	import {
+		guessUpdateBalanceClassification,
+		type UpdateBalanceClassification
+	} from './update-balance-classification';
 	import { formatAmount } from '$lib/utils/currency-utils';
 	import { goto } from '$app/navigation';
 
-	type SheetClassification = AutomationTag | 'none' | 'unclassified';
+	type SheetClassification = UpdateBalanceClassification;
 
 	interface Props {
 		open: boolean;
@@ -49,23 +53,11 @@
 		account ? enteredNum - passiveAccountService.projectBalance(account, new Date()) : 0
 	);
 
-	function guessClassification(a: Account, diff: number): SheetClassification {
-		const eps = 0.02;
-		if (!a.rateProfile || Math.abs(diff) < eps) return 'unclassified';
-		if (a.type === 'savings') {
-			if (diff > eps) return 'interest-income';
-			if (diff < -eps) return 'transfer-fee';
-		}
-		if (a.type === 'credit' && diff < -eps) return 'interest-charge';
-		if (a.type === 'loan' && diff < -eps) return 'interest-charge';
-		return 'unclassified';
-	}
-
 	$effect(() => {
 		if (open && !wasOpen && account) {
 			const suggested = passiveAccountService.suggestedSheetOpeningBalance(account, new Date());
 			enteredStr = String(Math.round(suggested * 100) / 100);
-			classification = guessClassification(
+			classification = guessUpdateBalanceClassification(
 				account,
 				suggested - passiveAccountService.projectBalance(account, new Date())
 			);
