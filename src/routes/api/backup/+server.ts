@@ -1,6 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { backupPayloadHasUserData } from '$lib/backup/backup-payload-utils';
+import { readBestBackupFromDeviceDir } from '$lib/server/backup-read';
 import { getBackupDir } from '$lib/server/device-auth';
 import type { RequestHandler } from './$types';
 
@@ -26,6 +28,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const dir = join(getBackupDir(), deviceId);
 	await mkdir(dir, { recursive: true });
+
+	if (!backupPayloadHasUserData(body)) {
+		const existing = await readBestBackupFromDeviceDir(dir, deviceId, false);
+		if (existing && backupPayloadHasUserData(existing.data)) {
+			return json({
+				ok: true,
+				skipped: true,
+				reason: 'empty_backup_not_stored',
+				message: 'Backup not saved: no accounts or transactions (existing backup kept)'
+			});
+		}
+	}
 
 	const latestPath = join(dir, 'latest.json');
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');

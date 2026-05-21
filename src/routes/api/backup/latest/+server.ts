@@ -1,7 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { getBackupDir } from '$lib/server/device-auth';
+import { getBackupDirDiagnostics, readLatestBackupWithFallback } from '$lib/server/backup-read';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -10,17 +8,26 @@ export const GET: RequestHandler = async ({ locals }) => {
 		return json({ error: 'device_not_allowed' }, { status: 401 });
 	}
 
-	const latestPath = join(getBackupDir(), deviceId, 'latest.json');
-
 	try {
-		const raw = await readFile(latestPath, 'utf8');
-		const data = JSON.parse(raw) as unknown;
-		return json(data);
-	} catch (err) {
-		const code = (err as NodeJS.ErrnoException)?.code;
-		if (code === 'ENOENT') {
-			return json({ error: 'not_found' }, { status: 404 });
+		const result = await readLatestBackupWithFallback(deviceId);
+		if (!result) {
+			const diagnostics = await getBackupDirDiagnostics();
+			return json(
+				{
+					error: 'not_found',
+					message:
+						diagnostics.filesScanned > 0 &&
+						diagnostics.maxAccounts === 0 &&
+						diagnostics.maxTransactions === 0
+							? 'Backups exist on disk but none contain accounts or transactions'
+							: 'No backup files found',
+					diagnostics
+				},
+				{ status: 404 }
+			);
 		}
+		return json(result.data);
+	} catch (err) {
 		console.error('[backup] read failed:', err);
 		return json({ error: 'read_failed' }, { status: 500 });
 	}

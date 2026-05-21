@@ -36,7 +36,8 @@
 		exportFullBackup,
 		importFullBackup,
 		pushBackupToServer,
-		getLastServerBackupAt
+		getLastServerBackupAt,
+		resetAutoRestorePromptState
 	} from '$lib/core/services/import-export';
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import ImportCurrencyReviewDialog from '$lib/components/import/ImportCurrencyReviewDialog.svelte';
@@ -980,9 +981,10 @@
 		success = null;
 		try {
 			await clearFullDatabaseReset();
+			resetAutoRestorePromptState();
 			success = 'All data cleared. Reloading…';
 			setTimeout(() => {
-				window.location.assign('/onboarding');
+				window.location.reload();
 			}, 600);
 		} catch (err) {
 			error = 'Failed to clear all data';

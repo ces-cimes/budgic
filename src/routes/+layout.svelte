@@ -5,12 +5,11 @@
 	import { toast } from 'svelte-sonner';
 	import { requestStoragePersistence } from '$lib/storage-persistence';
 	import {
-		startBackupSyncListeners,
+		initBackupSyncOnce,
+		stopBackupSync,
 		restoreFromServerIfEmpty,
-		scheduleBackupPush
+		reloadPageAfterRestoreIfNeeded
 	} from '$lib/core/services/import-export';
-	import { db } from '$lib/core/db';
-	import { BACKUP_TABLE_NAMES } from '$lib/core/services/import-export/budgic-backup-service';
 	import { ModeWatcher } from 'mode-watcher';
 	import {
 		insightsService,
@@ -48,27 +47,24 @@
 			}
 		});
 
-		const stopBackupListeners = startBackupSyncListeners();
-		const backupTables = new Set<string>(BACKUP_TABLE_NAMES);
-		for (const table of db.tables) {
-			if (!backupTables.has(table.name)) {
-				continue;
+		void (async () => {
+			try {
+				const restored = await restoreFromServerIfEmpty(() =>
+					confirm(
+						'No local data found. Restore your latest backup from the server? This replaces any local data.'
+					)
+				);
+				if (restored) {
+					toast.success('Restored from server backup');
+					reloadPageAfterRestoreIfNeeded();
+					return;
+				}
+			} catch (err) {
+				console.error('[backup] restore on startup failed:', err);
 			}
-			table.hook('creating', () => scheduleBackupPush());
-			table.hook('updating', () => scheduleBackupPush());
-			table.hook('deleting', () => scheduleBackupPush());
-		}
 
-		void restoreFromServerIfEmpty(() =>
-			confirm(
-				'No local data found. Restore your latest backup from the server? This replaces any local data.'
-			)
-		).then((restored) => {
-			if (restored) {
-				toast.success('Restored from server backup');
-				window.location.reload();
-			}
-		});
+			initBackupSyncOnce();
+		})();
 
 		// In dev, surface slow operations (>500 ms) to the console.
 		if (import.meta.env.DEV) {
@@ -112,7 +108,7 @@
 
 		// Cleanup on unmount
 		return () => {
-			stopBackupListeners();
+			stopBackupSync();
 			insightsService.stopAutoUpdates();
 			crossRouteSyncService.stop();
 			notificationsService.stopPolling();

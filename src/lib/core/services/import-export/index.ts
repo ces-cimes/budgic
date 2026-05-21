@@ -64,6 +64,7 @@ export {
 	exportFullBackup,
 	importFullBackup,
 	isLocalDatabaseEmpty,
+	backupHasUserData,
 	BUDGIC_BACKUP_VERSION,
 	type BudgicBackup,
 	type BudgicBackupV2
@@ -75,8 +76,14 @@ export {
 	fetchLatestServerBackup,
 	restoreFromServerIfEmpty,
 	startBackupSyncListeners,
+	initBackupSyncOnce,
+	stopBackupSync,
+	reloadPageAfterRestoreIfNeeded,
 	getLastServerBackupAt,
-	isServerBackupEnabled
+	isServerBackupEnabled,
+	hasDeclinedServerRestore,
+	clearServerRestoreDeclined,
+	resetAutoRestorePromptState
 } from './backup-sync-service';
 
 // Import source detection

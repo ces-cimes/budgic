@@ -1,6 +1,13 @@
 import { db } from '$lib/core/db';
+import {
+	BUDGIC_BACKUP_VERSION,
+	backupPayloadHasUserData,
+	isV2BackupPayload,
+	type BudgicBackupV1,
+	type BudgicBackupV2
+} from '$lib/backup/backup-payload-utils';
 
-export const BUDGIC_BACKUP_VERSION = '2.0';
+export { BUDGIC_BACKUP_VERSION };
 
 /** Tables included in full export/import (all user data stores). */
 export const BACKUP_TABLE_NAMES = [
@@ -35,31 +42,12 @@ export const BACKUP_TABLE_NAMES = [
 
 export type BudgicBackupTableName = (typeof BACKUP_TABLE_NAMES)[number];
 
-export type BudgicBackupV2 = {
-	version: typeof BUDGIC_BACKUP_VERSION;
-	exportDate: string;
-	tables: Record<BudgicBackupTableName, unknown[]>;
-};
-
-/** Legacy export shape from early /data page. */
-type BudgicBackupV1 = {
-	version: string;
-	exportDate: string;
-	accounts?: unknown[];
-	transactions?: unknown[];
-	categories?: unknown[];
-	goals?: unknown[];
-	insights?: unknown[];
-	userActions?: unknown[];
-	userPreferences?: unknown[];
-};
+export type { BudgicBackupV1, BudgicBackupV2 };
 
 export type BudgicBackup = BudgicBackupV2 | BudgicBackupV1;
 
 function isV2Backup(data: BudgicBackup): data is BudgicBackupV2 {
-	return (
-		data.version === BUDGIC_BACKUP_VERSION && typeof (data as BudgicBackupV2).tables === 'object'
-	);
+	return isV2BackupPayload(data);
 }
 
 function backupTableNamesSet(): Set<string> {
@@ -132,4 +120,9 @@ export async function isLocalDatabaseEmpty(): Promise<boolean> {
 		db.transactions.count()
 	]);
 	return accounts === 0 && transactions === 0;
+}
+
+/** True when backup contains at least one account or transaction (user data). */
+export function backupHasUserData(data: BudgicBackup): boolean {
+	return backupPayloadHasUserData(data);
 }

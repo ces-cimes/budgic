@@ -4,7 +4,8 @@ export class ApiError extends Error {
 	constructor(
 		message: string,
 		public readonly status: number,
-		public readonly code?: string
+		public readonly code?: string,
+		public readonly details?: unknown
 	) {
 		super(message);
 		this.name = 'ApiError';
@@ -27,9 +28,10 @@ export async function apiFetchJson<T>(input: string, init: RequestInit = {}): Pr
 	const response = await apiFetch(input, init);
 	if (!response.ok) {
 		let code: string | undefined;
+		let details: unknown;
 		try {
-			const body = (await response.json()) as { error?: string };
-			code = body.error;
+			details = await response.json();
+			code = (details as { error?: string })?.error;
 		} catch {
 			// ignore
 		}
@@ -38,7 +40,8 @@ export async function apiFetchJson<T>(input: string, init: RequestInit = {}): Pr
 				? 'This device is not registered. Copy your Device ID from Settings and ask the admin to allow it.'
 				: `Request failed (${response.status})`,
 			response.status,
-			code
+			code,
+			details
 		);
 	}
 	return response.json() as Promise<T>;
