@@ -8,8 +8,14 @@ import {
 } from '$lib/utils/transaction-split';
 import { persistRetrospectiveWeightedSplit } from '$lib/utils/split-persist';
 import { normaliseMerchantKey } from '$lib/utils/transfer-utils';
+import {
+	applySliceObservation,
+	recomputeStability,
+	welfordPassesForSplit,
+	type ProfileWeightRow
+} from './merchant-profile-welford';
 
-type ProfileWeight = MerchantCategoryProfile['weights'][number];
+type ProfileWeight = ProfileWeightRow;
 
 /** Cleared expense or income — eligible for merchant split learning (not transfers). */
 function isMerchantLearningTransaction(tx: Transaction): boolean {
@@ -54,50 +60,6 @@ class MerchantProfileService {
 		return { weights, stability: p.stability, totalObservations: p.totalObservations };
 	}
 
-	private recomputeStability(weights: ProfileWeight[]): number {
-		if (weights.length === 0) return 0;
-		const meanStd = weights.reduce((a, w) => a + w.stdDev, 0) / weights.length;
-		return Math.max(0, Math.min(1, 1 - meanStd));
-	}
-
-	private upsertWelford(row: ProfileWeight, observedWeight: number): ProfileWeight {
-		const n0 = row.observationCount;
-		if (n0 === 0) {
-			return {
-				...row,
-				meanWeight: observedWeight,
-				stdDev: 0,
-				observationCount: 1,
-				weightM2: 0
-			};
-		}
-		const n = n0 + 1;
-		const delta = observedWeight - row.meanWeight;
-		const mean = row.meanWeight + delta / n;
-		const delta2 = observedWeight - mean;
-		const m2 = (row.weightM2 ?? 0) + delta * delta2;
-		const stdDev = n > 1 ? Math.sqrt(Math.max(0, m2 / (n - 1))) : 0;
-		return { ...row, meanWeight: mean, stdDev, observationCount: n, weightM2: m2 };
-	}
-
-	/** Welford passes per slice: 2 when multi-slice split has `categoryConfidence: 'exact'`. */
-	private welfordPassesForSplit(split: TransactionSplit | null): number {
-		if (split && hasSplit(split) && split.categoryConfidence === 'exact') return 2;
-		return 1;
-	}
-
-	private applySliceObservation(
-		row: ProfileWeight,
-		observedWeight: number,
-		passes: number
-	): ProfileWeight {
-		let next = row;
-		for (let i = 0; i < passes; i++) {
-			next = this.upsertWelford(next, observedWeight);
-		}
-		return next;
-	}
-
 	/**
 	 * Accumulate merchant → category weight stats from a cleared expense or income (Phase 9.5).
 	 * Partitioned groups: one observation per `split.id` (representative row only).
@@ -129,7 +91,7 @@ class MerchantProfileService {
 					: [];
 		if (slices.length === 0) return;
 
-		const welfordPasses = this.welfordPassesForSplit(split);
+		const welfordPasses = welfordPassesForSplit(split);
 
 		const accountId = tx.accountId;
 		const existing = await this.getProfile(key, accountId);
@@ -152,12 +114,12 @@ class MerchantProfileService {
 					observationCount: 0,
 					weightM2: 0
 				} as ProfileWeight);
-			weightByCat.set(categoryId, this.applySliceObservation(prev, weight, welfordPasses));
+			weightByCat.set(categoryId, applySliceObservation(prev, weight, welfordPasses));
 		}
 
 		const weights = Array.from(weightByCat.values());
 		const totalObservations = (existing?.totalObservations ?? 0) + 1;
-		const stability = this.recomputeStability(weights);
+		const stability = recomputeStability(weights);
 
 		const payload: MerchantCategoryProfile = {
 			id: existing?.id ?? generateUUID(),
@@ -261,7 +223,7 @@ class MerchantProfileService {
 			const nextMean = Math.max(0, w.meanWeight - 0.04);
 			return { ...w, meanWeight: nextMean };
 		});
-		const stability = this.recomputeStability(weights);
+		const stability = recomputeStability(weights);
 		await db.merchantCategoryProfiles.put({
 			...existing,
 			weights,

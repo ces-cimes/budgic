@@ -41,7 +41,11 @@ function getSundayWeekStart(ref: Date): Date {
 }
 
 /** Expense on a full Sunday–Saturday week (weeksAgo=0 is current week). */
-function createWeekAlignedExpense(amount: number, weeksAgo: number, dayInWeek: number): Transaction {
+function createWeekAlignedExpense(
+	amount: number,
+	weeksAgo: number,
+	dayInWeek: number
+): Transaction {
 	const weekStart = getSundayWeekStart(new Date());
 	weekStart.setDate(weekStart.getDate() - weeksAgo * 7);
 	const clearedDate = new Date(weekStart);
