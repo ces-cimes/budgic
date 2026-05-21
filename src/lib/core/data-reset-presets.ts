@@ -14,6 +14,7 @@ export const TRANSACTION_DATA_PRESET_TABLE_KEYS = [
 	'reconciliationRecords',
 	'reconciliationDiscrepancies',
 	'dataCorrections',
+	'personMigrationBatches',
 	'insights',
 	'learningPatterns',
 	'merchantCategoryProfiles',
@@ -28,7 +29,7 @@ export const TRANSACTION_DATA_PRESET_TABLE_KEYS = [
 	'autocompleteUsage'
 ] as const;
 
-/** Dexie store keys cleared by {@link clearFullDatabaseReset} — full BudgicDB surface (v29). */
+/** Dexie store keys cleared by {@link clearFullDatabaseReset} — full BudgicDB surface (v30). */
 export const FULL_DATABASE_RESET_TABLE_KEYS = [
 	'accounts',
 	'currencies',
@@ -54,7 +55,9 @@ export const FULL_DATABASE_RESET_TABLE_KEYS = [
 	'roundUpRules',
 	'merchantCategoryProfiles',
 	'recurringPatternsCache',
-	'dataCorrections'
+	'dataCorrections',
+	'people',
+	'personMigrationBatches'
 ] as const;
 
 /** Short bullets for Danger zone — what “Clear transaction data” removes. */

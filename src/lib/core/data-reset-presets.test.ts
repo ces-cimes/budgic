@@ -36,7 +36,7 @@ describe('data-reset-presets table sets', () => {
 	});
 
 	it('full reset covers every BudgicDB store (update count when schema adds a table)', () => {
-		expect(FULL_DATABASE_RESET_TABLE_KEYS.length).toBe(25);
+		expect(FULL_DATABASE_RESET_TABLE_KEYS.length).toBe(27);
 	});
 
 	it('transaction preset has no duplicate keys', () => {

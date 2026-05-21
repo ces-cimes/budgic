@@ -41,3 +41,4 @@ export {
 	monitorPerformance,
 	performanceThreshold
 } from './performance-monitor';
+export { personService, personMigrationBatchService } from '../person-ledger';

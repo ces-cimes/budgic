@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { userService } from '$lib/core/services/index.ts';
+	import { accountService, userService } from '$lib/core/services/index.ts';
+	import type { Account } from '$lib/core/db';
 	import type { NegativeAllowanceHandling } from '$lib/core/services/core/negative-allowance-service';
 	import {
 		Select,
@@ -25,6 +26,8 @@
 	let isSaving = $state(false);
 	let negativeAllowanceHandling = $state<NegativeAllowanceHandling>('allow_with_strong_warning');
 	let reimbursementAllowanceMode = $state<'conservative' | 'optimistic'>('conservative');
+	let defaultReimbursementAnchorAccountId = $state<string>('');
+	let walletAccounts = $state<Account[]>([]);
 	let envelopeBorrowMaxPerCategoryPercent = $state(50);
 	let envelopeBorrowRepaymentPeriods = $state(2);
 	let envelopeBorrowTotalLimit = $state<string>('');
@@ -55,6 +58,10 @@
 				reimbursementAllowanceMode =
 					(prefs as { reimbursementAllowanceMode?: 'conservative' | 'optimistic' })
 						.reimbursementAllowanceMode ?? 'conservative';
+				defaultReimbursementAnchorAccountId =
+					(prefs as { defaultReimbursementAnchorAccountId?: string })
+						.defaultReimbursementAnchorAccountId ?? '';
+				walletAccounts = await accountService.getWalletAccounts();
 				const p = prefs as Record<string, unknown>;
 				envelopeBorrowMaxPerCategoryPercent = Math.round(
 					(typeof p.envelopeBorrowMaxPerCategoryPercent === 'number'
@@ -127,6 +134,7 @@
 				...prefs,
 				negativeAllowanceHandling,
 				reimbursementAllowanceMode,
+				defaultReimbursementAnchorAccountId: defaultReimbursementAnchorAccountId || undefined,
 				envelopeBorrowMaxPerCategoryPercent: envelopeBorrowMaxPerCategoryPercent / 100,
 				envelopeBorrowRepaymentPeriods,
 				envelopeBorrowTotalLimit:
@@ -318,6 +326,47 @@
 								<SelectItem value="optimistic"
 									>Optimistic - net open expected reimbursements</SelectItem
 								>
+							</SelectContent>
+						</Select>
+					</div>
+				</div>
+
+				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+					<div class="border-border border-b px-5 py-3">
+						<h2
+							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Default reimbursement account
+						</h2>
+						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+							Anchor wallet for new reimbursements and person-ledger migration when inference has no
+							better match.
+						</p>
+					</div>
+					<div class="space-y-2 px-5 py-4">
+						<label
+							for="default-reimbursement-anchor"
+							class="text-sm font-medium text-[var(--color-text-primary)]">Account</label
+						>
+						<Select
+							type="single"
+							value={defaultReimbursementAnchorAccountId || '__none__'}
+							onValueChange={(v) => {
+								defaultReimbursementAnchorAccountId =
+									v && v !== '__none__' ? v : '';
+							}}
+						>
+							<SelectTrigger id="default-reimbursement-anchor" class="max-w-md">
+								{defaultReimbursementAnchorAccountId
+									? (walletAccounts.find((a) => a.id === defaultReimbursementAnchorAccountId)
+											?.name ?? 'Selected account')
+									: 'Not set'}
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="__none__">Not set</SelectItem>
+								{#each walletAccounts as account (account.id)}
+									<SelectItem value={account.id}>{account.name}</SelectItem>
+								{/each}
 							</SelectContent>
 						</Select>
 					</div>

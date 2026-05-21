@@ -75,6 +75,8 @@ class UserService {
 					: 100,
 			nudgeClassifyDismissed: prefs.nudgeClassifyDismissed ?? false,
 			reimbursementAllowanceMode: prefs.reimbursementAllowanceMode ?? 'conservative',
+			defaultReimbursementAnchorAccountId:
+				(prefs.defaultReimbursementAnchorAccountId as string | undefined) ?? undefined,
 			maxDebtPeriodDays: (prefs.maxDebtPeriodDays as number) ?? 90,
 			recoveryAggressiveness: (prefs.recoveryAggressiveness as number) ?? 0.2,
 			debtRecoveryActive: prefs.debtRecoveryActive ?? false,

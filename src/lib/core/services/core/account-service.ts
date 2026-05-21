@@ -1,5 +1,14 @@
-import { db, generateUUID, calculateTransferImpact } from '$lib/core/db';
+import {
+	db,
+	generateUUID,
+	calculateTransferImpact,
+	accountCountsInNetWorth,
+	accountSelectableInUi,
+	isWalletLedgerAccount
+} from '$lib/core/db';
 import type { Account, AccountMetadata, AutomationTag, Transaction } from '$lib/core/db';
+
+export { accountCountsInNetWorth, accountSelectableInUi, isWalletLedgerAccount };
 import { loanAmortizationService } from './loan-amortization-service';
 
 /**
@@ -116,6 +125,18 @@ class AccountService {
 	 */
 	async getAccounts(): Promise<Account[]> {
 		return await db.getActiveAccounts();
+	}
+
+	/** Accounts usable in pickers (excludes archived person ledgers). */
+	async getSelectableAccounts(): Promise<Account[]> {
+		const accounts = await this.getAccounts();
+		return accounts.filter(accountSelectableInUi);
+	}
+
+	/** Wallet accounts for reimbursement anchor defaults. */
+	async getWalletAccounts(): Promise<Account[]> {
+		const accounts = await this.getAccounts();
+		return accounts.filter(isWalletLedgerAccount);
 	}
 
 	/**
@@ -322,6 +343,7 @@ class AccountService {
 
 		let total = 0;
 		for (const account of accounts) {
+			if (!accountCountsInNetWorth(account)) continue;
 			const passiveType =
 				account.type === 'savings' || account.type === 'credit' || account.type === 'loan';
 			let balanceForTotal = account.currentBalance;
@@ -383,6 +405,7 @@ class AccountService {
 		let total = 0;
 
 		for (const account of accounts) {
+			if (!accountCountsInNetWorth(account)) continue;
 			const passiveType =
 				account.type === 'savings' || account.type === 'credit' || account.type === 'loan';
 			const projected =

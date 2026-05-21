@@ -899,7 +899,11 @@ const AccountSchema = BaseSchema.extend({
 	lastConfirmedBalance: z.number().optional(),
 	lastConfirmedAt: z.string().datetime().optional(),
 	/** User skipped "set interest rate?" prompt on account creation */
-	passiveRatePromptDismissed: z.boolean().optional()
+	passiveRatePromptDismissed: z.boolean().optional(),
+	/** Milestone C — person ledger role; omit = wallet */
+	ledgerRole: z.enum(['wallet', 'person', 'archived_person']).optional(),
+	/** Milestone C — linked `Person` when ledgerRole is person or archived_person */
+	personId: z.string().optional()
 });
 
 /** Phase 9 — how category assignment was determined (optional; omit = legacy / unspecified) */
@@ -1089,7 +1093,9 @@ export const AutomationTagSchema = z.enum([
 	'tax-withholding',
 	'transfer-fee',
 	'reconciliation-adjustment',
-	'scheduled-savings'
+	'scheduled-savings',
+	'person-ledger-close',
+	'person-opening-balance'
 ]);
 export type AutomationTag = z.infer<typeof AutomationTagSchema>;
 
@@ -1099,6 +1105,8 @@ const ReimbursementEntrySchema = z.object({
 	amount: z.number().positive(),
 	currency: z.string().min(3).max(3),
 	person: z.string().optional(),
+	/** Milestone C — stable link to `people.id` when known */
+	personId: z.string().optional(),
 	status: z.enum(['expecting', 'owed', 'settled', 'forgiven']),
 	settledTransactionId: z.string().optional(),
 	createdAt: z.string().datetime(),
@@ -1140,6 +1148,21 @@ export function expenseCountsTowardAllowanceAnalytics(
 	return isAnalyticsTier(categoryWaterfallTier);
 }
 
+/** Milestone C — archived person ledgers excluded from net worth */
+export function accountCountsInNetWorth(account: Pick<Account, 'ledgerRole'>): boolean {
+	return account.ledgerRole !== 'archived_person';
+}
+
+/** Milestone C — archived person ledgers hidden from account pickers */
+export function accountSelectableInUi(account: Pick<Account, 'ledgerRole'>): boolean {
+	return account.ledgerRole !== 'archived_person';
+}
+
+/** Milestone C — wallet accounts usable as reimbursement anchor */
+export function isWalletLedgerAccount(account: Pick<Account, 'ledgerRole'>): boolean {
+	return !account.ledgerRole || account.ledgerRole === 'wallet';
+}
+
 /** Tags silent MM import fallbacks (amount/date/currency) for review and analytics weighting */
 const ImportQualitySchema = z.object({
 	amountInferred: z.boolean().optional(),
@@ -1166,6 +1189,77 @@ const DataCorrectionSchema = z
 	.refine((d) => Boolean(d.transactionId?.length || d.accountId?.length), {
 		message: 'DataCorrection requires transactionId or accountId'
 	});
+
+/** Milestone C — importer identity for stable Person matching */
+export const PersonExternalKeySchema = z.object({
+	source: z.string().min(1),
+	entity: z.string().min(1),
+	key: z.string().min(1)
+});
+
+const PersonMigrationHistoryEntrySchema = z.object({
+	batchId: z.string(),
+	ledgerAccountId: z.string(),
+	migratedAt: z.string().datetime(),
+	mode: z.enum(['guided', 'automatic', 'single_total', 'forgive_archive'])
+});
+
+/** Milestone C — tracker entity (not an account) */
+const PersonSchema = BaseSchema.extend({
+	displayName: z.string().min(1),
+	aliases: z.array(z.string()).optional(),
+	externalKeys: z.array(PersonExternalKeySchema).default([]),
+	preferredAnchorAccountId: z.string().optional(),
+	migrationHistory: z.array(PersonMigrationHistoryEntrySchema).optional(),
+	openBalancesByCurrency: z.record(z.string(), z.number()).optional()
+});
+
+export const MigrationOperationSchema = z.discriminatedUnion('op', [
+	z.object({
+		op: z.literal('create_transaction'),
+		transactionId: z.string().optional(),
+		payload: z.record(z.unknown())
+	}),
+	z.object({
+		op: z.literal('update_transaction'),
+		transactionId: z.string(),
+		payload: z.record(z.unknown())
+	}),
+	z.object({
+		op: z.literal('soft_delete_transaction'),
+		transactionId: z.string(),
+		payload: z.record(z.unknown()).optional()
+	}),
+	z.object({
+		op: z.literal('update_account'),
+		accountId: z.string(),
+		payload: z.record(z.unknown())
+	}),
+	z.object({
+		op: z.literal('archive_account'),
+		accountId: z.string(),
+		payload: z.record(z.unknown()).optional()
+	}),
+	z.object({
+		op: z.literal('create_person'),
+		personId: z.string().optional(),
+		payload: z.record(z.unknown())
+	}),
+	z.object({
+		op: z.literal('update_person'),
+		personId: z.string(),
+		payload: z.record(z.unknown())
+	})
+]);
+
+const PersonMigrationBatchSchema = BaseSchema.extend({
+	status: z.enum(['draft', 'applied', 'rolled_back']),
+	ledgerAccountId: z.string(),
+	personId: z.string(),
+	anchorAccountId: z.string(),
+	mode: z.enum(['guided', 'automatic', 'single_total', 'forgive_archive']),
+	operations: z.array(MigrationOperationSchema)
+});
 
 const TransactionSchema = BaseSchema.extend({
 	type: TransactionType,
@@ -1345,6 +1439,8 @@ const UserPreferencesSchema = BaseSchema.extend({
 	nudgeClassifyDismissed: z.boolean().default(false),
 	/** Phase 3.4 reimbursement handling in allowance calculations */
 	reimbursementAllowanceMode: z.enum(['conservative', 'optimistic']).default('conservative'),
+	/** Milestone C — default anchor wallet for reimbursements and migration inference */
+	defaultReimbursementAnchorAccountId: z.string().optional(),
 
 	/** Phase 5.4 — max intentional debt window (days) for tolerance messaging */
 	maxDebtPeriodDays: z.number().int().min(7).max(183).default(90),
@@ -1731,6 +1827,10 @@ export type Category = z.infer<typeof CategorySchema>;
 export type Transaction = z.infer<typeof TransactionSchema>;
 export type ImportQuality = z.infer<typeof ImportQualitySchema>;
 export type DataCorrection = z.infer<typeof DataCorrectionSchema>;
+export type PersonExternalKey = z.infer<typeof PersonExternalKeySchema>;
+export type Person = z.infer<typeof PersonSchema>;
+export type MigrationOperation = z.infer<typeof MigrationOperationSchema>;
+export type PersonMigrationBatch = z.infer<typeof PersonMigrationBatchSchema>;
 export type UserPreferences = z.infer<typeof UserPreferencesSchema>;
 export type UserAction = z.infer<typeof UserActionSchema>;
 export type AutocompleteUsage = z.infer<typeof AutocompleteUsageSchema>;
@@ -1836,6 +1936,8 @@ export class BudgicDB extends Dexie {
 	merchantCategoryProfiles!: Table<MerchantCategoryProfile>;
 	recurringPatternsCache!: Table<RecurringPatternsCacheEntry>;
 	dataCorrections!: Table<DataCorrection>;
+	people!: Table<Person>;
+	personMigrationBatches!: Table<PersonMigrationBatch>;
 
 	constructor() {
 		super('BudgicDB');
@@ -2638,6 +2740,58 @@ export class BudgicDB extends Dexie {
 				'id, transactionId, accountId, field, source, timestamp, [transactionId+timestamp], [accountId+timestamp]'
 		});
 
+		// Version 30: Milestone C Phase A — people, personMigrationBatches, ledgerRole (schema-only on Account)
+		this.version(30).stores({
+			accounts:
+				'id, type, currency, isActive, ledgerRole, deletedAt, createdAt, updatedAt, [type+isActive]',
+			currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+			categories:
+				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
+			transactions:
+				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+			goals:
+				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			userPreferences: 'id, createdAt, updatedAt',
+			userActions:
+				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+			autocompleteUsage:
+				'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+			tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+			insights:
+				'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+			exchangeRates:
+				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+			badges:
+				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			reconciliationRecords:
+				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+			reconciliationDiscrepancies:
+				'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+			learningPatterns:
+				'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+			userFeedback:
+				'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+			optimizationPreferences:
+				'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+			negativeAllowanceEvents:
+				'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+			envelopeBorrowings:
+				'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+			rolloverAdjustments:
+				'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+			roundUpRules:
+				'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
+			merchantCategoryProfiles:
+				'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]',
+			recurringPatternsCache: 'id, computedAt',
+			dataCorrections:
+				'id, transactionId, accountId, field, source, timestamp, [transactionId+timestamp], [accountId+timestamp]',
+			people: 'id, displayName, deletedAt, createdAt, updatedAt',
+			personMigrationBatches:
+				'id, status, ledgerAccountId, personId, anchorAccountId, createdAt, updatedAt, [ledgerAccountId+status]'
+		});
+
 		// Add validation hooks
 		this.setupValidationHooks();
 
@@ -3271,6 +3425,53 @@ export class BudgicDB extends Dexie {
 				throw error;
 			}
 		});
+
+		this.people.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = PersonSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Person validation failed:', error);
+				throw error;
+			}
+		});
+		this.people.hook('updating', (modifications: Partial<Person>, primKey, obj, trans) => {
+			try {
+				if (modifications.updatedAt === undefined) {
+					modifications.updatedAt = new Date().toISOString();
+				}
+				const updated = { ...obj, ...modifications };
+				PersonSchema.parse(updated);
+			} catch (error) {
+				console.error('Person update validation failed:', error);
+				throw error;
+			}
+		});
+
+		this.personMigrationBatches.hook('creating', (primKey, obj, trans) => {
+			try {
+				const validated = PersonMigrationBatchSchema.parse(obj);
+				Object.assign(obj, validated);
+			} catch (error) {
+				console.error('Person migration batch validation failed:', error);
+				throw error;
+			}
+		});
+		this.personMigrationBatches.hook(
+			'updating',
+			(modifications: Partial<PersonMigrationBatch>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					PersonMigrationBatchSchema.parse(updated);
+				} catch (error) {
+					console.error('Person migration batch update validation failed:', error);
+					throw error;
+				}
+			}
+		);
 	}
 
 	private setupSoftDeleteHooks() {
@@ -3313,6 +3514,16 @@ export class BudgicDB extends Dexie {
 				console.warn('[DB Hook] transactions: obj is undefined', new Error().stack);
 				return undefined;
 			}
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.people.hook('reading', (obj) => {
+			if (!obj) return undefined;
+			return obj.deletedAt ? undefined : obj;
+		});
+
+		this.personMigrationBatches.hook('reading', (obj) => {
+			if (!obj) return undefined;
 			return obj.deletedAt ? undefined : obj;
 		});
 

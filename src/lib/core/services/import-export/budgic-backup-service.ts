@@ -28,7 +28,9 @@ export const BACKUP_TABLE_NAMES = [
 	'roundUpRules',
 	'merchantCategoryProfiles',
 	'recurringPatternsCache',
-	'dataCorrections'
+	'dataCorrections',
+	'people',
+	'personMigrationBatches'
 ] as const;
 
 export type BudgicBackupTableName = (typeof BACKUP_TABLE_NAMES)[number];

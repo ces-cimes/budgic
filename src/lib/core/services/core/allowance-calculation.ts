@@ -799,8 +799,12 @@ export async function calculateGlobalAllowance(
 
 	// Get all active accounts
 	const accounts = await accountService.getAccounts();
+	const { accountCountsInNetWorth } = await import('$lib/core/db');
 	const activeAccounts = accounts.filter(
-		(a) => a.isActive && (a.type === 'checking' || a.type === 'savings')
+		(a) =>
+			a.isActive &&
+			(a.type === 'checking' || a.type === 'savings') &&
+			accountCountsInNetWorth(a)
 	);
 
 	if (activeAccounts.length === 0) {
