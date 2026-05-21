@@ -5,7 +5,14 @@
  * import results, progress tracking, and error handling.
  */
 
-import type { Account } from '$lib/core/db';
+import type { Account, PersonExternalKey } from '$lib/core/db';
+
+/** Post-import person-ledger close queue entry (Phase E). */
+export interface PersonLedgerCloseQueueEntry {
+	accountId: string;
+	name: string;
+	externalKeys: PersonExternalKey[];
+}
 
 /** When INOUTCOME row mmUid already exists in DB */
 export type MmTransactionUidConflict = 'skip' | 'replace' | 'merge';
@@ -156,6 +163,8 @@ export interface ImportResult {
 		splitCandidateGroups?: Array<{ groupId: string; transactionIds: string[] }>;
 		/** Account names marked as person tracking at pre-import review */
 		personAccountPreFlaggedNames?: string[];
+		/** Accounts to close via PersonLedgerMigrationWizard after import (Phase E) */
+		personLedgerCloseQueue?: PersonLedgerCloseQueueEntry[];
 	};
 }
 
@@ -193,8 +202,8 @@ export interface ImportOptions {
 	mmCurrencyUidToBudgicCurrencyId?: Record<string, string>;
 	/** MM ASSETS uid → Budgic account type (pre-import accounts review) */
 	mmAccountUidToBudgicType?: Record<string, Account['type']>;
-	/** MM ASSETS uid → user marked person account at pre-import review */
-	mmAccountUidMarkedAsPerson?: Record<string, boolean>;
+	/** MM ASSETS uid → user marked person ledger at pre-import review */
+	externalAccountMarkedAsPersonLedger?: Record<string, boolean>;
 	/** Whether to skip validation (not recommended) */
 	skipValidation?: boolean;
 	/** Callback for progress updates */

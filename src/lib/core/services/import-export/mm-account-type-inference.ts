@@ -3,7 +3,7 @@
  */
 
 import type { Account } from '$lib/core/db';
-import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
+import { isPersonLedgerNameCandidate } from '$lib/utils/person-ledger-heuristics';
 import { getMmCsvTable } from './csv-parser';
 import { isDeleted, mapAccountType } from './money-manager-mapper';
 import type { CSVFile } from './types';
@@ -15,7 +15,7 @@ export interface MmAccountReviewRow {
 	displayName: string;
 	suggestedType: Account['type'];
 	sources: MmAccountTypeSource[];
-	personNameCandidate: boolean;
+	personLedgerCandidate: boolean;
 	mmAccountTypeRaw?: string;
 	mmZdataRaw?: string;
 }
@@ -177,7 +177,7 @@ export function buildMmAccountReviewRows(
 			displayName,
 			suggestedType: inferred.type,
 			sources: inferred.sources,
-			personNameCandidate: isPersonAccountNameCandidate(displayName),
+			personLedgerCandidate: isPersonLedgerNameCandidate(displayName),
 			mmAccountTypeRaw: row.account_type,
 			mmZdataRaw: row.ZDATA
 		});

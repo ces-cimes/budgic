@@ -23,7 +23,7 @@
 		personService
 	} from '$lib/core/services/person-ledger';
 	import type { AutomaticThreshold } from '$lib/core/services/person-ledger';
-	import type { Account } from '$lib/core/db';
+	import type { Account, PersonExternalKey } from '$lib/core/db';
 	import type {
 		MigrationProposal,
 		PersonMigrationMode
@@ -40,9 +40,18 @@
 		onApplied?: () => void;
 		/** Open directly on undo for an already-applied batch */
 		rollbackBatchId?: string | null;
+		/** MM / importer keys for Person resolution during apply */
+		externalKeys?: PersonExternalKey[];
 	}
 
-	let { ledgerAccountId, open, onOpenChange, onApplied, rollbackBatchId = null }: Props = $props();
+	let {
+		ledgerAccountId,
+		open,
+		onOpenChange,
+		onApplied,
+		rollbackBatchId = null,
+		externalKeys = []
+	}: Props = $props();
 
 	let ledgerAccount = $state<Account | null>(null);
 	let selectableAccounts = $state<Account[]>([]);
@@ -321,6 +330,7 @@
 			ledgerAccountId,
 			anchorAccountId,
 			mode: batchMode,
+			externalKeys: externalKeys.length > 0 ? externalKeys : undefined,
 			acceptedProposals: proposals,
 			tailMode: hasResidual ? tailMode : undefined,
 			residualBalances: hasResidual ? balances : undefined
@@ -380,7 +390,8 @@
 			const built = await prepareMigrationBatch({
 				ledgerAccountId,
 				anchorAccountId,
-				mode: mode as Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>
+				mode: mode as Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>,
+				externalKeys: externalKeys.length > 0 ? externalKeys : undefined
 			});
 			const batch = await createAndApplyMigrationBatch(built);
 			appliedBatchId = batch.id;

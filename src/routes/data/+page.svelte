@@ -31,6 +31,7 @@
 		type CSVFile,
 		type MmCurrencyReviewRow,
 		type MmAccountReviewRow,
+		type PersonLedgerCloseQueueEntry,
 		type ImportSourceDetection,
 		exportFullBackup,
 		importFullBackup,
@@ -40,7 +41,11 @@
 	import ImportWizard from '$lib/components/import/ImportWizard.svelte';
 	import ImportCurrencyReviewDialog from '$lib/components/import/ImportCurrencyReviewDialog.svelte';
 	import ImportAccountsReviewDialog from '$lib/components/import/ImportAccountsReviewDialog.svelte';
-	import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
+	import { isPersonLedgerNameCandidate } from '$lib/utils/person-ledger-heuristics';
+	import {
+		createBudgicCurrencyFromMmReview,
+		isMmCurrencyCreateSelection
+	} from '$lib/core/services/import-export/mm-currency-create';
 	import { pickFiles } from '$lib/utils/file-picker-utils';
 	import { formatPercentage } from '$lib/utils/currency-utils';
 	import {
@@ -254,6 +259,8 @@
 	let wizardPersonAccountPanels = $state<
 		Array<{ accountId: string; name: string; txs: Transaction[] }>
 	>([]);
+	let wizardPersonLedgerCloseQueue = $state<PersonLedgerCloseQueueEntry[]>([]);
+	let importWizardStartStep = $state(1);
 
 	// Export format options
 	const exportFormatOptions = [
@@ -460,7 +467,7 @@
 				: {}),
 			...(trimmedTypeOverride ? { mmAccountUidToBudgicType: trimmedTypeOverride } : {}),
 			...(trimmedPersonOverride && Object.keys(trimmedPersonOverride).length > 0
-				? { mmAccountUidMarkedAsPerson: trimmedPersonOverride }
+				? { externalAccountMarkedAsPersonLedger: trimmedPersonOverride }
 				: {}),
 			onProgress: (progress) => {
 				mmProgress = progress;
@@ -510,16 +517,16 @@
 
 		try {
 			const csvFiles = mmCsvFilesReady;
-			const detection = detectMmCurrencyReviewNeeded(csvFiles);
+			const currencies = await db.getActiveCurrencies();
+			const detection = detectMmCurrencyReviewNeeded(csvFiles, {
+				activeCurrencyCodes: currencies.map((c) => c.code)
+			});
 
 			if (detection.needsReview) {
-				const currencies = await db.getActiveCurrencies();
 				const selection: Record<string, string> = {};
 				for (const r of detection.rows) {
 					const match = currencies.find((c) => c.code === r.suggestedCode);
-					const first = currencies[0];
 					if (match) selection[r.mmUid] = match.id;
-					else if (first) selection[r.mmUid] = first.id;
 				}
 				mmCurrencyReviewRows = detection.rows;
 				mmCurrencyReviewCurrencies = currencies;
@@ -545,7 +552,7 @@
 		const persons: Record<string, boolean> = {};
 		for (const r of rows) {
 			types[r.mmUid] = r.suggestedType;
-			persons[r.mmUid] = r.personNameCandidate;
+			persons[r.mmUid] = r.personLedgerCandidate;
 		}
 		mmAccountTypeMap = types;
 		mmAccountPersonMap = persons;
@@ -590,6 +597,29 @@
 		return true;
 	}
 
+	async function resolveMmCurrencyUidMap(
+		files: Map<string, CSVFile>,
+		uidMap: Record<string, string>
+	): Promise<Record<string, string>> {
+		const resolved: Record<string, string> = {};
+		for (const [mmUid, value] of Object.entries(uidMap)) {
+			if (!value?.trim()) continue;
+			if (isMmCurrencyCreateSelection(value)) {
+				const row = mmCurrencyReviewRows.find((r) => r.mmUid === mmUid);
+				if (!row) continue;
+				const created = await createBudgicCurrencyFromMmReview({
+					mmUid,
+					suggestedCode: row.suggestedCode,
+					csvFiles: files
+				});
+				resolved[mmUid] = created.id;
+			} else {
+				resolved[mmUid] = value;
+			}
+		}
+		return resolved;
+	}
+
 	async function confirmMmCurrencyReview() {
 		const files = pendingMmCsvFiles;
 		if (!files) return;
@@ -600,7 +630,9 @@
 		mmProgress = null;
 
 		try {
-			const deferred = await openAccountsReviewIfNeeded(files, mmCurrencyUidMap);
+			const resolvedMap = await resolveMmCurrencyUidMap(files, mmCurrencyUidMap);
+			mmCurrencyReviewCurrencies = await db.getActiveCurrencies();
+			const deferred = await openAccountsReviewIfNeeded(files, resolvedMap);
 			if (!deferred) {
 				mmCurrencyReviewRows = [];
 				mmCurrencyReviewCurrencies = [];
@@ -676,7 +708,7 @@
 
 	async function prepareImportWizardState(result: ImportResult): Promise<void> {
 		const batch = result.importBatch;
-		if (!batch?.transactionIds?.length) {
+		if (!batch) {
 			importWizardOpen = false;
 			return;
 		}
@@ -684,15 +716,13 @@
 		const categories = await db.getActiveCategories();
 		const categoryTierById = Object.fromEntries(categories.map((c) => [c.id, c.waterfallTier]));
 		const txs = (
-			await Promise.all(batch.transactionIds.map((id) => db.transactions.get(id)))
+			await Promise.all((batch.transactionIds ?? []).map((id) => db.transactions.get(id)))
 		).filter((tx): tx is Transaction => !!tx && !tx.deletedAt);
 
 		const breakdown = computeBatchExpenseSpendBreakdown(txs, categoryTierById);
 		const ucCount = countUnclassifiedExpenseTransactions(txs, categoryTierById);
-		if (!shouldOpenImportWizard(breakdown, ucCount)) {
-			importWizardOpen = false;
-			return;
-		}
+		const openClassification =
+			txs.length > 0 && shouldOpenImportWizard(breakdown, ucCount);
 
 		wizardExpenseTxIds = batch.wizardExpenseTransactionIds ?? [];
 		wizardExpenseAbsByTxId = batch.wizardExpenseAbsByTransactionId ?? {};
@@ -713,7 +743,60 @@
 			batch.accountIdsAffected,
 			wizardPersonAccountCandidates
 		);
+		wizardPersonLedgerCloseQueue = await buildPersonLedgerCloseQueue(
+			batch,
+			batch.accountIdsAffected,
+			preFlagged
+		);
+
+		if (!openClassification && wizardPersonLedgerCloseQueue.length === 0) {
+			importWizardOpen = false;
+			return;
+		}
+		importWizardStartStep = openClassification ? 1 : 5;
 		importWizardOpen = true;
+	}
+
+	async function buildPersonLedgerCloseQueue(
+		batch: NonNullable<ImportResult['importBatch']>,
+		accountIdsAffected: string[],
+		preFlaggedNames: string[]
+	): Promise<PersonLedgerCloseQueueEntry[]> {
+		const queue: PersonLedgerCloseQueueEntry[] = [...(batch.personLedgerCloseQueue ?? [])];
+		const seen = new Set(queue.map((e) => e.accountId));
+		const preFlaggedSet = new Set(preFlaggedNames);
+
+		const accounts = (
+			await Promise.all(accountIdsAffected.map((id) => accountService.getAccount(id)))
+		).filter((a): a is Account => !!a);
+
+		for (const account of accounts) {
+			if (seen.has(account.id)) continue;
+			if (account.ledgerRole === 'archived_person') continue;
+			const fromImport = account.ledgerRole === 'person';
+			const heuristic =
+				!preFlaggedSet.has(account.name) && isPersonLedgerNameCandidate(account.name);
+			if (!fromImport && !heuristic) continue;
+
+			if (heuristic) {
+				const txs = await transactionService.getTransactionsByAccount(account.id);
+				const recentCutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+				const recent = txs.filter((tx) => {
+					const ts = Date.parse(tx.clearedDate || tx.plannedDate || tx.createdAt);
+					return !Number.isNaN(ts) && ts >= recentCutoff;
+				});
+				const net = recent.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+				if (Math.abs(net) >= Math.max(50, Math.abs(account.currentBalance) * 0.5)) continue;
+			}
+
+			queue.push({
+				accountId: account.id,
+				name: account.name,
+				externalKeys: []
+			});
+			seen.add(account.id);
+		}
+		return queue;
 	}
 
 	async function loadPersonAccountTransactionPanels(
@@ -802,7 +885,7 @@
 
 		for (const account of accounts) {
 			if (preFlaggedSet.has(account.name)) continue;
-			if (!isPersonAccountNameCandidate(account.name)) continue;
+			if (!isPersonLedgerNameCandidate(account.name)) continue;
 			const txs = await transactionService.getTransactionsByAccount(account.id);
 			const recent = txs.filter((tx) => {
 				const ts = Date.parse(tx.clearedDate || tx.plannedDate || tx.createdAt);
@@ -1566,6 +1649,9 @@
 		personAccountCandidates={wizardPersonAccountCandidates}
 		personAccountPreFlagged={wizardPersonAccountPreFlagged}
 		personAccountPanels={wizardPersonAccountPanels}
+		personLedgerCloseQueue={wizardPersonLedgerCloseQueue}
+		startStep={importWizardStartStep}
+		onPersonLedgerCloseApplied={() => void navigationStore.updateBadges()}
 		onTagPersonTxGift={tagPersonTxAsGift}
 		onTagPersonTxReimbursement={tagPersonTxAsReimbursement}
 		onGoPatterns={() => goto('/insights?tab=patterns')}

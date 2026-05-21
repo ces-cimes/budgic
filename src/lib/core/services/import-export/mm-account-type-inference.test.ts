@@ -62,7 +62,7 @@ describe('buildMmAccountReviewRows', () => {
 		const rows = buildMmAccountReviewRows(new Map([['ASSETS', assets]]), {
 			existingAccountNames: []
 		});
-		expect(rows.find((r) => r.mmUid === 'a2')?.personNameCandidate).toBe(true);
-		expect(rows.find((r) => r.mmUid === 'a1')?.personNameCandidate).toBe(false);
+		expect(rows.find((r) => r.mmUid === 'a2')?.personLedgerCandidate).toBe(true);
+		expect(rows.find((r) => r.mmUid === 'a1')?.personLedgerCandidate).toBe(false);
 	});
 });

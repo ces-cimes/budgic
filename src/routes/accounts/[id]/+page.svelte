@@ -31,7 +31,7 @@
 	import { passiveAccountService } from '$lib/core/services';
 	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
 	import { getLatestAppliedBatchForLedger } from '$lib/core/services/person-ledger';
-	import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
+	import { isPersonLedgerNameCandidate } from '$lib/utils/person-ledger-heuristics';
 	import { planService, negativeAllowanceService } from '$lib/core/services';
 	import { startOfDay } from 'date-fns';
 	import { format } from 'date-fns';
@@ -100,7 +100,7 @@
 	const showPersonLedgerClose = $derived(
 		account != null &&
 			account.ledgerRole !== 'archived_person' &&
-			(account.ledgerRole === 'person' || isPersonAccountNameCandidate(account.name))
+			(account.ledgerRole === 'person' || isPersonLedgerNameCandidate(account.name))
 	);
 
 	onMount(async () => {
@@ -471,6 +471,12 @@
 					class="mb-3 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 				>
 					{account.type} balance
+					{#if account.ledgerRole === 'person'}
+						<span
+							class="ml-2 rounded bg-[var(--color-amber-subtle)] px-2 py-0.5 text-[9px] font-medium tracking-normal text-[var(--color-amber)] normal-case"
+							>Person ledger</span
+						>
+					{/if}
 				</p>
 				<CountUpHero value={account.currentBalance} format={(n) => formatBalance(n, currency)} />
 				{#if account.rateProfile && account.lastConfirmedAt}

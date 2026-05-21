@@ -13,7 +13,7 @@
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import type { AccountCompounding } from '$lib/core/db';
 	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
-	import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
+	import { isPersonLedgerNameCandidate } from '$lib/utils/person-ledger-heuristics';
 
 	let account = $state<Account | null>(null);
 	let postCreateAccount = $state<Account | null>(null);
@@ -36,7 +36,7 @@
 		isEditMode &&
 			account != null &&
 			account.ledgerRole !== 'archived_person' &&
-			(account.ledgerRole === 'person' || isPersonAccountNameCandidate(account.name))
+			(account.ledgerRole === 'person' || isPersonLedgerNameCandidate(account.name))
 	);
 	let pageTitle = $derived(isEditMode ? 'Edit account' : 'New account');
 	let submitButtonText = $derived(

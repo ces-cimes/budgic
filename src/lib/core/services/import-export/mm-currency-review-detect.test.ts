@@ -141,6 +141,27 @@ describe('detectMmCurrencyReviewNeeded', () => {
 		expect(r.rows.find((x) => x.mmUid === 'IN_UID')).toBeUndefined();
 	});
 
+	it('needsReview true when suggested code is missing from active Budgic currencies', () => {
+		const files = new Map<string, CSVFile>([
+			[
+				'INOUTCOME',
+				csv(
+					'INOUTCOME',
+					['DO_TYPE', 'IS_DEL', 'currencyUid', 'uid'],
+					[{ DO_TYPE: '1', IS_DEL: '0', currencyUid: 'RUB_IDR', uid: 't1' }]
+				)
+			],
+			[
+				'CURRENCY',
+				csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [{ uid: 'RUB_IDR', ISO: 'IDR', IS_DEL: '0' }])
+			]
+		]);
+		const r = detectMmCurrencyReviewNeeded(files, { activeCurrencyCodes: ['RUB', 'USD'] });
+		expect(r.needsReview).toBe(true);
+		expect(r.rows[0]?.suggestedCode).toBe('IDR');
+		expect(r.rows[0]?.missingInBudgic).toBe(true);
+	});
+
 	it('sorts rows by txCount descending', () => {
 		const files = new Map<string, CSVFile>([
 			[

@@ -10,6 +10,12 @@ export interface MmCurrencyReviewRow {
 	txCount: number;
 	suggestedCode: string;
 	hasFallback: boolean;
+	/** True when suggested ISO code is not in the user's active Budgic currencies */
+	missingInBudgic?: boolean;
+}
+
+export interface DetectMmCurrencyReviewOptions {
+	activeCurrencyCodes?: Iterable<string>;
 }
 
 export interface MmCurrencyReviewDetection {
@@ -50,8 +56,12 @@ function buildTransferGroups(incomeFile: CSVFile): Map<string, TransferPair> {
  * other rows use their own `currencyUid` (default `RUB_RUB` when missing, matching importer).
  */
 export function detectMmCurrencyReviewNeeded(
-	csvFiles: Map<string, CSVFile>
+	csvFiles: Map<string, CSVFile>,
+	options?: DetectMmCurrencyReviewOptions
 ): MmCurrencyReviewDetection {
+	const activeCodes = options?.activeCurrencyCodes
+		? new Set([...options.activeCurrencyCodes].map((c) => c.toUpperCase()))
+		: null;
 	const incomeFile = csvFiles.get('INOUTCOME');
 	const currencyFile = csvFiles.get('CURRENCY');
 	if (!incomeFile) {
@@ -94,11 +104,13 @@ export function detectMmCurrencyReviewNeeded(
 	for (const [mmUid, txCount] of counts) {
 		const q = extractCurrencyCodeWithQuality(mmUid, currencyFile);
 		const hasFallback = Boolean(q.importQuality?.currencyFallback);
+		const missingInBudgic = activeCodes ? !activeCodes.has(q.code.toUpperCase()) : false;
 		rows.push({
 			mmUid,
 			txCount,
 			suggestedCode: q.code,
-			hasFallback
+			hasFallback,
+			missingInBudgic
 		});
 	}
 
@@ -106,7 +118,8 @@ export function detectMmCurrencyReviewNeeded(
 
 	const distinct = rows.length;
 	const anyFallback = rows.some((r) => r.hasFallback);
-	const needsReview = distinct >= 2 || anyFallback;
+	const anyMissing = rows.some((r) => r.missingInBudgic);
+	const needsReview = distinct >= 2 || anyFallback || anyMissing;
 
 	return { needsReview, rows };
 }

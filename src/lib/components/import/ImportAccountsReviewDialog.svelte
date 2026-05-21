@@ -90,7 +90,7 @@
 							<th class="px-3 py-2 font-semibold">Account</th>
 							<th class="px-3 py-2 font-semibold">Inferred</th>
 							<th class="px-3 py-2 font-semibold">Budgic type</th>
-							<th class="px-3 py-2 font-semibold">Person</th>
+							<th class="px-3 py-2 font-semibold">Person ledger</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-[var(--color-border)]">
@@ -138,7 +138,7 @@
 											checked={personSelection[row.mmUid] ?? false}
 											onCheckedChange={(v) => onPersonChange(row.mmUid, v === true)}
 										/>
-										<span>Person</span>
+										<span>Person ledger</span>
 									</label>
 								</td>
 							</tr>

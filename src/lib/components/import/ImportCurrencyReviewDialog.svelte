@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Currency } from '$lib/core/db';
 	import type { MmCurrencyReviewRow } from '$lib/core/services/import-export';
+	import { mmCurrencyCreateSelectionKey } from '$lib/core/services/import-export/mm-currency-create';
 
 	interface Props {
 		open: boolean;
@@ -15,7 +16,29 @@
 	let { open, rows, currencies, selection, onSelectionChange, onConfirm, onCancel }: Props =
 		$props();
 
-	const canConfirm = $derived(currencies.length > 0 && rows.length > 0);
+	const canConfirm = $derived(
+		rows.length > 0 &&
+			rows.every((r) => {
+				const sel = selection[r.mmUid];
+				if (!sel || sel.trim() === '') return false;
+				if (sel.startsWith('__budgic_create__:')) return true;
+				return currencies.some((c) => c.id === sel);
+			})
+	);
+
+	function optionsForRow(row: MmCurrencyReviewRow): Array<{ value: string; label: string }> {
+		const opts = currencies.map((c) => ({
+			value: c.id,
+			label: `${c.code} — ${c.name}`
+		}));
+		if (row.missingInBudgic) {
+			opts.unshift({
+				value: mmCurrencyCreateSelectionKey(row.suggestedCode),
+				label: `Create ${row.suggestedCode}`
+			});
+		}
+		return opts;
+	}
 </script>
 
 {#if open}
@@ -43,15 +66,17 @@
 			</div>
 
 			<p class="text-sm text-[var(--color-text-secondary)]">
-				Map each Money Manager currency UID to a Budgic currency before data is written. Rows are
-				from your INOUTCOME export (transfer pairs use the transfer-out row).
+				Map each Money Manager currency UID to a Budgic currency before data is written. Use
+				<strong>Create [code]</strong> when Budgic does not have that currency yet. Rows are from your
+				INOUTCOME export (transfer pairs use the transfer-out row).
 			</p>
 
-			{#if currencies.length === 0}
+			{#if currencies.length === 0 && !rows.some((r) => r.missingInBudgic)}
 				<p
 					class="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-text-primary)]"
 				>
-					No active currencies in Budgic. Add at least one currency in Settings, then try again.
+					No active currencies in Budgic. Add at least one currency in Settings, or create one
+					below.
 				</p>
 			{:else}
 				<div class="overflow-x-auto rounded-xl border border-[var(--color-border)]">
@@ -81,6 +106,12 @@
 												>fallback</span
 											>
 										{/if}
+										{#if row.missingInBudgic}
+											<span
+												class="ml-1 rounded bg-[var(--color-info)]/20 px-1.5 py-0.5 text-[10px] font-medium text-[var(--color-info)]"
+												>not in Budgic</span
+											>
+										{/if}
 									</td>
 									<td class="px-3 py-2">
 										<label class="sr-only" for={`mm-curr-${row.mmUid}`}
@@ -93,8 +124,9 @@
 											onchange={(e) =>
 												onSelectionChange(row.mmUid, (e.currentTarget as HTMLSelectElement).value)}
 										>
-											{#each currencies as c (c.id)}
-												<option value={c.id}>{c.code} — {c.name}</option>
+											<option value="" disabled>Select currency…</option>
+											{#each optionsForRow(row) as opt (opt.value)}
+												<option value={opt.value}>{opt.label}</option>
 											{/each}
 										</select>
 									</td>

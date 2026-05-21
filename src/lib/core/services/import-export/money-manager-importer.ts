@@ -6,7 +6,15 @@
  */
 
 import { db, generateUUID } from '$lib/core/db';
-import type { Account, Category, Currency, ImportQuality, Transaction } from '$lib/core/db';
+import type {
+	Account,
+	Category,
+	Currency,
+	ImportQuality,
+	PersonExternalKey,
+	Transaction
+} from '$lib/core/db';
+import { personService } from '../person-ledger/person-service';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { automationDetector } from '../intelligence/automation-detector';
@@ -34,7 +42,8 @@ import type {
 	CSVFile,
 	IdMapping,
 	TransferPair,
-	MmUidConflictReportEntry
+	MmUidConflictReportEntry,
+	PersonLedgerCloseQueueEntry
 } from './types';
 import { inferMmAccountType } from './mm-account-type-inference';
 import {
@@ -105,6 +114,7 @@ export class MoneyManagerImporter extends BaseImporter {
 	private essentialCandidates: ClassificationCandidate[] = [];
 	private mmUidConflictReport: MmUidConflictReportEntry[] = [];
 	private personAccountPreFlaggedNames: string[] = [];
+	private personLedgerCloseQueue: PersonLedgerCloseQueueEntry[] = [];
 
 	/**
 	 * Execute the import process
@@ -120,6 +130,7 @@ export class MoneyManagerImporter extends BaseImporter {
 		this.essentialCandidates = [];
 		this.mmUidConflictReport = [];
 		this.personAccountPreFlaggedNames = [];
+		this.personLedgerCloseQueue = [];
 
 		// Validate options
 		const validation = this.validateOptions();
@@ -361,11 +372,13 @@ export class MoneyManagerImporter extends BaseImporter {
 				const accountTypeOverride = this.options.mmAccountUidToBudgicType?.[accountUid];
 				const resolvedType = accountTypeOverride ?? inferMmAccountType(row).type;
 
-				if (this.options.mmAccountUidMarkedAsPerson?.[accountUid]) {
+				const markedPersonLedger =
+					this.options.externalAccountMarkedAsPersonLedger?.[accountUid] === true;
+				if (markedPersonLedger) {
 					this.personAccountPreFlaggedNames.push(accountName);
 				}
 
-				// Create account
+				// Phase E interim path: person ledger wallet until close wizard (Phase F supersedes for opt-in).
 				const account: Account = {
 					id: generateUUID(),
 					name: accountName,
@@ -375,12 +388,32 @@ export class MoneyManagerImporter extends BaseImporter {
 					currentBalance: 0, // Will be calculated from transactions
 					isActive: true,
 					metadata: undefined,
+					ledgerRole: markedPersonLedger ? 'person' : undefined,
+					personId: undefined,
 					createdAt: parseTimestamp(row.A_UTIME),
 					updatedAt: parseTimestamp(row.A_UTIME),
 					deletedAt: null
 				};
 
 				await db.accounts.add(account);
+
+				if (markedPersonLedger) {
+					const externalKeys: PersonExternalKey[] = [
+						{ source: 'money-manager', entity: 'account', key: accountUid }
+					];
+					const person = await personService.resolvePersonForLedgerAccount(account, externalKeys);
+					await db.accounts.update(account.id, {
+						personId: person.id,
+						updatedAt: new Date().toISOString()
+					});
+					account.personId = person.id;
+					this.personLedgerCloseQueue.push({
+						accountId: account.id,
+						name: accountName,
+						externalKeys
+					});
+				}
+
 				this.accountMappings.set(accountUid, account.id);
 				this.statistics.accountsImported++;
 			} catch (error) {
@@ -1123,6 +1156,26 @@ export class MoneyManagerImporter extends BaseImporter {
 
 	private async buildImportBatchMetadata(): Promise<ImportResult['importBatch'] | undefined> {
 		if (!this.importedTransactionIds.length) {
+			if (
+				this.personLedgerCloseQueue.length > 0 ||
+				this.personAccountPreFlaggedNames.length > 0
+			) {
+				return {
+					transactionIds: [],
+					unclassifiedTransactionIds: [],
+					accountIdsAffected: Array.from(this.importedAccountIds),
+					...(this.personAccountPreFlaggedNames.length > 0
+						? {
+								personAccountPreFlaggedNames: [
+									...new Set(this.personAccountPreFlaggedNames)
+								]
+							}
+						: {}),
+					...(this.personLedgerCloseQueue.length > 0
+						? { personLedgerCloseQueue: [...this.personLedgerCloseQueue] }
+						: {})
+				};
+			}
 			return undefined;
 		}
 
@@ -1283,6 +1336,9 @@ export class MoneyManagerImporter extends BaseImporter {
 				? {
 						personAccountPreFlaggedNames: [...new Set(this.personAccountPreFlaggedNames)]
 					}
+				: {}),
+			...(this.personLedgerCloseQueue.length > 0
+				? { personLedgerCloseQueue: [...this.personLedgerCloseQueue] }
 				: {})
 		};
 	}

@@ -96,8 +96,19 @@ export { MoneyManagerImporter } from './money-manager-importer';
 export {
 	detectMmCurrencyReviewNeeded,
 	type MmCurrencyReviewDetection,
-	type MmCurrencyReviewRow
+	type MmCurrencyReviewRow,
+	type DetectMmCurrencyReviewOptions
 } from './mm-currency-review-detect';
+
+export {
+	createBudgicCurrencyFromMmReview,
+	mmCurrencyCreateSelectionKey,
+	isMmCurrencyCreateSelection,
+	codeFromMmCurrencyCreateSelection,
+	MM_CURRENCY_CREATE_PREFIX
+} from './mm-currency-create';
+
+export type { PersonLedgerCloseQueueEntry } from './types';
 
 export {
 	buildMmAccountReviewRows,

@@ -20,6 +20,8 @@
 		personAccountPanels?: PersonAccountTxPanel[];
 		onTagPersonTxGift?: (transactionId: string) => void;
 		onTagPersonTxReimbursement?: (transactionId: string, personName: string) => void;
+		/** Step 5 will run PersonLedgerMigrationWizard when true */
+		hasPersonLedgerCloseStep?: boolean;
 		onNext: () => void;
 		onSkip: () => void;
 	}
@@ -37,6 +39,7 @@
 		personAccountPanels = [],
 		onTagPersonTxGift,
 		onTagPersonTxReimbursement,
+		hasPersonLedgerCloseStep = false,
 		onNext,
 		onSkip
 	}: Props = $props();
@@ -88,7 +91,7 @@
 		<div
 			class="space-y-2 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] p-4"
 		>
-			<p class="text-sm font-medium text-[var(--color-text-primary)]">Possible person accounts</p>
+			<p class="text-sm font-medium text-[var(--color-text-primary)]">Person ledgers</p>
 			<p class="text-xs text-[var(--color-text-secondary)]">
 				{#if personAccountPreFlagged.length > 0}
 					Marked at import: {personAccountPreFlagged.join(', ')}.
@@ -100,8 +103,13 @@
 				{/if}
 			</p>
 			<p class="text-xs text-[var(--color-text-tertiary)]">
-				Tag recent activity as gift (lifestyle) or reimbursement, or run balance migration to close
-				the ledger on those accounts.
+				Tag recent activity as gift (lifestyle) or reimbursement.
+				{#if hasPersonLedgerCloseStep}
+					A later wizard step will close each person ledger (single total, forgive, guided, or
+					automatic).
+				{:else}
+					Close these from the account page when you are ready.
+				{/if}
 			</p>
 			{#each personAccountPanels as panel (panel.accountId)}
 				<div
