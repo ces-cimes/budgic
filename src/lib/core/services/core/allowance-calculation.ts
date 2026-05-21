@@ -12,6 +12,7 @@ import { budgetService, type AllowanceProjection } from './budget-service';
 import { getBufferAmount, calculateRecommendedBuffer } from '$lib/utils/account-metadata-utils';
 import { accountService } from './account-service';
 import { transactionService } from './transaction-service';
+import { userService } from './user-service';
 
 /**
  * Allowance calculation result
@@ -264,6 +265,80 @@ export async function computeDailyAllowance(
 		periodEnd: end,
 		recommendations,
 		projection: null
+	};
+}
+
+/** Default lifestyle headroom ratio for savings-hint suppression (`at_floor` when below). */
+export const DEFAULT_SAVINGS_HINT_LIFESTYLE_FLOOR_RATIO = 0.1;
+
+export type DiscretionaryBinding = 'at_floor' | 'has_room' | 'unknown';
+
+/** Allowance binding context for savings variability insights (approach A). */
+export interface SavingsHintAllowanceContext {
+	discretionaryBinding: DiscretionaryBinding;
+	/** 0–1 confidence from household allowance computation */
+	confidence: number;
+	asOf: string;
+	/** When true, lifestyle-tier savings hints should be excluded from top rankings */
+	suppressLifestyleHints: boolean;
+}
+
+export type GetSavingsHintAllowanceContextOptions = {
+	floorRatio?: number;
+	/** Milestone F: when true, always suppress lifestyle-tier savings hints (recovery mode). */
+	forceSuppressLifestyleHints?: boolean;
+};
+
+/**
+ * Lifestyle headroom snapshot for savings hint ranking.
+ * Uses the same `computeDailyAllowance` path as Plan → Allowance.
+ */
+export async function getSavingsHintAllowanceContext(
+	options?: GetSavingsHintAllowanceContextOptions
+): Promise<SavingsHintAllowanceContext> {
+	const { inputs } = await budgetService.getLifestyleCategorySpendInputs();
+	const prefs = await userService.getUserPreferences();
+	const floorRatio =
+		options?.floorRatio ??
+		prefs.savingsHintLifestyleFloorRatio ??
+		DEFAULT_SAVINGS_HINT_LIFESTYLE_FLOOR_RATIO;
+	const asOf = new Date().toISOString();
+
+	if (inputs.length === 0) {
+		return {
+			discretionaryBinding: 'unknown',
+			confidence: 0.3,
+			asOf,
+			suppressLifestyleHints: false
+		};
+	}
+
+	const lifestyleBudget = inputs.reduce((s, r) => s + r.budgetAmount, 0);
+	const lifestyleRemaining = inputs.reduce((s, r) => s + r.remainingAmount, 0);
+	const confidence = lifestyleBudget > 0 ? Math.min(1, inputs.length / 3) : 0.3;
+
+	if (lifestyleBudget <= 0) {
+		return {
+			discretionaryBinding: 'unknown',
+			confidence,
+			asOf,
+			suppressLifestyleHints: false
+		};
+	}
+
+	const headroomRatio = lifestyleRemaining / lifestyleBudget;
+	const discretionaryBinding: DiscretionaryBinding =
+		headroomRatio < floorRatio ? 'at_floor' : 'has_room';
+	const confidenceSufficient = inputs.length > 0;
+	const suppressLifestyleHints =
+		options?.forceSuppressLifestyleHints === true ||
+		(discretionaryBinding === 'at_floor' && confidenceSufficient);
+
+	return {
+		discretionaryBinding,
+		confidence,
+		asOf,
+		suppressLifestyleHints
 	};
 }
 

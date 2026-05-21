@@ -459,3 +459,51 @@ describe('budgetService.getAllowanceProjection', () => {
 		expect(proj.periodIncome).toBe(50_000);
 	});
 });
+
+describe('budgetService lifestyle spend aggregation scale', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.mocked(db.getActiveCategories).mockResolvedValue(
+			Array.from({ length: 8 }, (_, i) => ({
+				id: `lifestyle-${i}`,
+				name: `Lifestyle ${i}`,
+				waterfallTier: 'lifestyle',
+				budgetAmount: 500,
+				budgetPeriod: 'monthly',
+				priority: i
+			})) as any
+		);
+		vi.mocked(db.getActiveAccounts).mockResolvedValue([
+			{ id: 'checking-1', type: 'checking' }
+		] as any);
+		vi.mocked(db.userPreferences.toCollection).mockReturnValue({
+			first: vi
+				.fn()
+				.mockResolvedValue({ currency: 'USD', reimbursementAllowanceMode: 'conservative' })
+		} as any);
+	});
+
+	it('aggregates 5000 cleared expenses within 2s (synthetic bench)', async () => {
+		const clearedDate = '2026-05-15T12:00:00.000Z';
+		const txs = Array.from({ length: 5000 }, (_, i) => ({
+			id: `tx-${i}`,
+			type: 'expense',
+			status: 'cleared',
+			amount: -(10 + (i % 50)),
+			currency: 'USD',
+			categoryId: `lifestyle-${i % 8}`,
+			clearedDate,
+			createdAt: clearedDate,
+			updatedAt: clearedDate,
+			deletedAt: null
+		}));
+		vi.mocked(db.getActiveTransactions).mockResolvedValue(txs as any);
+
+		const t0 = performance.now();
+		const { inputs } = await budgetService.getLifestyleCategorySpendInputs();
+		const elapsed = performance.now() - t0;
+
+		expect(inputs).toHaveLength(8);
+		expect(elapsed).toBeLessThan(2000);
+	});
+});

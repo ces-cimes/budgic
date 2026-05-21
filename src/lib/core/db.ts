@@ -1424,6 +1424,8 @@ const UserPreferencesSchema = BaseSchema.extend({
 
 	// Savings opportunity detection (Phase 2.2) – min surplus to suggest contributing to goals
 	savingsOpportunityMinSurplus: z.number().min(0).optional(),
+	/** Lifestyle headroom ratio below which savings hints suppress lifestyle tier (default 0.10 in code) */
+	savingsHintLifestyleFloorRatio: z.number().min(0).max(1).optional(),
 
 	// Sidebar footer info cards (desktop): which cards to show and in what order
 	sidebarFooterCards: z.array(z.string()).default(['total_balance', 'today_allowance']),

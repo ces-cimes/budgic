@@ -15,6 +15,7 @@ import { recurringTransactionIntelligenceService } from '../analytics/recurring-
 import { passiveAccountService } from './passive-account-service';
 import {
 	absAnalyticsTierPortion,
+	categoryIdsWithSpendShare,
 	effectiveAmountForCategory,
 	tierAmounts
 } from '$lib/utils/category-utils';
@@ -1054,19 +1055,25 @@ class BudgetService {
 		const reimbursementAllowanceMode =
 			prefs?.reimbursementAllowanceMode === 'optimistic' ? 'optimistic' : 'conservative';
 		const creditPaymentTransferIds = this.detectCreditPaymentTransfers(transactions, accounts);
+		const periodByCategoryId = new Map(
+			lifestyle.map((category) => [
+				category.id,
+				getCategoryBudgetPeriodStart(now, category.budgetPeriod)
+			])
+		);
+		const spentByCategoryId = await this.aggregateSpendingForCategoryIds(
+			[...periodByCategoryId.entries()],
+			transactions,
+			creditPaymentTransferIds,
+			mainCurrency,
+			reimbursementAllowanceMode
+		);
 		const inputs: LifestyleCategorySpendInput[] = [];
 
 		for (const category of lifestyle) {
-			const periodStart = getCategoryBudgetPeriodStart(now, category.budgetPeriod);
+			const periodStart = periodByCategoryId.get(category.id)!;
 			const periodEnd = getCategoryBudgetPeriodEnd(now, category.budgetPeriod);
-			const { sum: spentAmount } = await this.sumCategorySpending(
-				category.id,
-				transactions,
-				creditPaymentTransferIds,
-				mainCurrency,
-				periodStart,
-				reimbursementAllowanceMode
-			);
+			const spentAmount = spentByCategoryId.get(category.id) ?? 0;
 			const budgetAmount = category.budgetAmount ?? 0;
 			const remainingAmount = Math.max(0, budgetAmount - spentAmount);
 			inputs.push({
@@ -1083,6 +1090,69 @@ class BudgetService {
 		}
 
 		return { inputs, mainCurrency };
+	}
+
+	/**
+	 * Single-pass attributed spend for multiple categories (Plan allowance hot path).
+	 */
+	private async aggregateSpendingForCategoryIds(
+		categoryPeriodStarts: Array<[string, Date]>,
+		transactions: Transaction[],
+		excludedIds: Set<string>,
+		mainCurrency: string,
+		reimbursementMode: 'conservative' | 'optimistic'
+	): Promise<Map<string, number>> {
+		const periodById = new Map(categoryPeriodStarts);
+		const targets = new Set(periodById.keys());
+		const sums = new Map<string, number>();
+		if (targets.size === 0) return sums;
+
+		const now = new Date();
+		const { exchangeRateService } = await import('$lib/core/services');
+		const fxCache = new Map<string, number>();
+
+		for (const tx of transactions) {
+			if (excludedIds.has(tx.id)) continue;
+			if (tx.type !== 'expense' || tx.status !== 'cleared') continue;
+			if (!transactionAutomationCountsInAnalytics(tx)) continue;
+			if (!tx.clearedDate) continue;
+			const cd = new Date(tx.clearedDate);
+
+			for (const categoryId of categoryIdsWithSpendShare(tx)) {
+				if (!targets.has(categoryId)) continue;
+				const periodStart = periodById.get(categoryId)!;
+				if (cd < periodStart || cd > now) continue;
+
+				let slice = Math.abs(effectiveAmountForCategory(tx, categoryId));
+				if (slice < 1e-9) continue;
+				if (reimbursementMode === 'optimistic' && tx.reimbursements?.length) {
+					const openExpected = tx.reimbursements
+						.filter((r) => r.direction === 'lending' && r.status === 'expecting')
+						.reduce((s, r) => s + r.amount, 0);
+					const fullAbs = Math.abs(tx.amount || 0);
+					if (openExpected > 0 && fullAbs > 0) {
+						slice = Math.max(0, slice - openExpected * (slice / fullAbs));
+					}
+				}
+
+				const txCurrency = tx.currency ?? mainCurrency;
+				const fxKey = `${txCurrency}|${cd.toISOString().slice(0, 10)}|${slice}`;
+				let converted = fxCache.get(fxKey);
+				if (converted === undefined) {
+					const conv = await exchangeRateService.convertAmountWithQuality(
+						slice,
+						txCurrency,
+						mainCurrency,
+						cd
+					);
+					converted = conv.value;
+					fxCache.set(fxKey, converted);
+				}
+				sums.set(categoryId, (sums.get(categoryId) ?? 0) + converted);
+			}
+		}
+
+		return sums;
 	}
 
 	/**

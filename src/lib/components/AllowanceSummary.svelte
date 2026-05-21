@@ -1,4 +1,5 @@
 <script lang="ts">
+	/** Milestone E: tier-coloured segmented bar can use `tierRows` + D attribution (May 2026). */
 	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,

@@ -39,6 +39,7 @@ import {
 	type SavingsVariabilityHintResult
 } from '$lib/utils/category-savings-variability';
 import type { SavingsVariabilityCategoryRow } from './prediction-service';
+import { getSavingsHintAllowanceContext } from '../core/allowance-calculation';
 
 interface CrossRouteInsightData {
 	goals: Goal[];
@@ -1178,6 +1179,7 @@ class InsightsService {
 		const prefs = await userService.getUserPreferences();
 		const minSurplus = prefs?.savingsOpportunityMinSurplus;
 		const mainCurrency = await getUserMainCurrency();
+		const allowanceContext = await getSavingsHintAllowanceContext();
 
 		type Scored = { row: SavingsVariabilityCategoryRow; hint: SavingsVariabilityHintResult };
 		const scored: Scored[] = [];
@@ -1192,7 +1194,11 @@ class InsightsService {
 			if (hint) scored.push({ row, hint });
 		}
 
-		scored.sort((a, b) => {
+		const rankedSource = allowanceContext.suppressLifestyleHints
+			? scored.filter((s) => String(s.row.waterfallTier) !== 'lifestyle')
+			: scored;
+
+		rankedSource.sort((a, b) => {
 			const td =
 				this.tierRankForSavingsHint(String(a.row.waterfallTier)) -
 				this.tierRankForSavingsHint(String(b.row.waterfallTier));
@@ -1200,7 +1206,7 @@ class InsightsService {
 			return b.hint.rankingScore - a.hint.rankingScore;
 		});
 
-		const top = scored.slice(0, 5);
+		const top = rankedSource.slice(0, 5);
 		const keepIds = new Set(top.map((t) => t.row.categoryId));
 		await this.pruneStaleSavingsOpportunityInsights(keepIds, top.length > 0);
 
@@ -1229,7 +1235,9 @@ class InsightsService {
 					predictedSpend: row.predictedMonthlySpend,
 					budgetAmount: row.budgetAmount,
 					monthCount: hint.monthCount,
-					waterfallTier: row.waterfallTier
+					waterfallTier: row.waterfallTier,
+					allowanceBinding: allowanceContext.discretionaryBinding,
+					suppressLifestyleHints: allowanceContext.suppressLifestyleHints
 				}),
 				isActive: true,
 				createdAt: nowIso,
@@ -1256,7 +1264,9 @@ class InsightsService {
 				actionUrl: '/plan?tab=budget',
 				metadata: JSON.stringify({
 					algorithm: 'Savings variability summary',
-					categoryIds: top.map((t) => t.row.categoryId)
+					categoryIds: top.map((t) => t.row.categoryId),
+					allowanceBinding: allowanceContext.discretionaryBinding,
+					suppressLifestyleHints: allowanceContext.suppressLifestyleHints
 				}),
 				isActive: true,
 				createdAt: nowIso,

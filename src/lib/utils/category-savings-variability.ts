@@ -2,6 +2,10 @@
  * Pure helpers for "savings hints from variability" (CV + headroom vs budget).
  * Data loading and tier / divergence filters live in services; this module stays testable without DB.
  *
+ * **Allowance binding (approach A):** lifestyle headroom suppression is applied in
+ * `insights-service.generateSavingsVariabilityInsights` via `getSavingsHintAllowanceContext`
+ * (`allowance-calculation.ts`) — not in this module.
+ *
  * **Calendar-month caveat:** two recurring payments in one month (e.g. rent on 1st and 30th) can
  * inflate monthly totals and CV; v1 does not normalize billing periods (see `docs/analysis/allowance-signals-and-savings-hints.md`).
  */
