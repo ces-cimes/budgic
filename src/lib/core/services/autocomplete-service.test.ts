@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-	transactionsToArray: vi.fn(),
+	getActiveTransactions: vi.fn(),
 	autocompleteUsageToArray: vi.fn(),
 	tagsToArray: vi.fn()
 }));
 
 vi.mock('$lib/core/db', () => ({
 	db: {
+		getActiveTransactions: mocks.getActiveTransactions,
 		transactions: {
-			toArray: mocks.transactionsToArray
+			toArray: mocks.getActiveTransactions
 		},
 		autocompleteUsage: {
 			where: vi.fn((fieldKey: string) => ({
@@ -34,6 +35,7 @@ import { autocompleteService } from './autocomplete-service';
 describe('autocompleteService intelligence helpers', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		autocompleteService.clearCache();
 	});
 
 	it('ranks tag suggestions by frequency for prefix', async () => {
@@ -48,7 +50,7 @@ describe('autocompleteService intelligence helpers', () => {
 	});
 
 	it('suggests transfer destinations by usage and median amount', async () => {
-		mocks.transactionsToArray.mockResolvedValue([
+		mocks.getActiveTransactions.mockResolvedValue([
 			{
 				id: 'tx1',
 				type: 'transfer',

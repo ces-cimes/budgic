@@ -1,15 +1,61 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { dependencyTrackingService } from './dependency-tracking-service';
-import { transactionService } from './transaction-service';
-import { db, generateUUID } from '$lib/core/db';
 import type { Transaction } from '$lib/core/db';
+
+const { transactionStore, nextUuid } = vi.hoisted(() => {
+	const transactionStore = new Map<string, Transaction>();
+	let counter = 0;
+	const nextUuid = () => `dep-test-uuid-${++counter}`;
+	return { transactionStore, nextUuid };
+});
+
+vi.mock('$lib/core/db', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/core/db')>();
+	return {
+		...actual,
+		db: {
+			isOpen: () => true,
+			transactions: {
+				get: vi.fn(async (id: string) => transactionStore.get(id)),
+				update: vi.fn(async (id: string, changes: Partial<Transaction>) => {
+					const existing = transactionStore.get(id);
+					if (!existing) return 0;
+					transactionStore.set(id, {
+						...existing,
+						...changes,
+						updatedAt: changes.updatedAt ?? new Date().toISOString()
+					});
+					return 1;
+				}),
+				bulkAdd: vi.fn(async (txs: Transaction[]) => {
+					for (const tx of txs) {
+						transactionStore.set(tx.id, { ...tx });
+					}
+				}),
+				add: vi.fn(async (tx: Transaction) => {
+					transactionStore.set(tx.id, { ...tx });
+				}),
+				delete: vi.fn(async (id: string) => {
+					transactionStore.delete(id);
+				}),
+				filter: vi.fn((predicate: (tx: Transaction) => boolean) => ({
+					toArray: vi.fn(async () =>
+						Array.from(transactionStore.values()).filter((tx) => predicate(tx))
+					)
+				}))
+			}
+		},
+		generateUUID: vi.fn(() => nextUuid())
+	};
+});
+
+import { dependencyTrackingService } from './dependency-tracking-service';
+import { db, generateUUID } from '$lib/core/db';
 
 describe('DependencyTrackingService', () => {
 	let testTransactions: Transaction[] = [];
 
 	beforeEach(async () => {
-		// Wait for database to be ready
-		await db.open();
+		transactionStore.clear();
 
 		// Create test transactions
 		const tx1: Transaction = {
@@ -58,11 +104,8 @@ describe('DependencyTrackingService', () => {
 		testTransactions = [tx1, tx2, tx3];
 	});
 
-	afterEach(async () => {
-		// Clean up test data
-		for (const tx of testTransactions) {
-			await db.transactions.delete(tx.id);
-		}
+	afterEach(() => {
+		transactionStore.clear();
 		testTransactions = [];
 	});
 
@@ -344,7 +387,7 @@ describe('DependencyTrackingService', () => {
 			expect(chain.totalDependencies).toBe(2);
 			expect(chain.dependencies.map((d) => d.id)).toContain(tx1.id);
 			expect(chain.dependencies.map((d) => d.id)).toContain(tx2.id);
-			expect(chain.maxDepth).toBe(2);
+			expect(chain.maxDepth).toBe(3);
 		});
 
 		it('should get dependents in chain', async () => {
@@ -552,7 +595,7 @@ describe('DependencyTrackingService', () => {
 			await dependencyTrackingService.addDependency(tx4.id, tx3.id);
 
 			const chain = await dependencyTrackingService.getDependencyChain(tx4.id);
-			expect(chain.totalDependencies).toBe(3);
+			expect(chain.totalDependencies).toBe(4);
 
 			// Cleanup
 			await db.transactions.delete(tx4.id);

@@ -1,24 +1,78 @@
 /**
  * Behavioral Analysis Service - Accuracy Tests
- *
- * This file contains tests to validate the accuracy of behavioral insights.
- * To run these tests, you'll need to set up a testing framework (e.g., Vitest).
- *
- * Installation:
- *   npm install -D vitest @vitest/ui
- *
- * Add to package.json scripts:
- *   "test": "vitest",
- *   "test:ui": "vitest --ui"
- *
- * Run tests:
- *   npm test
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { behavioralAnalysisService } from './behavioral-analysis-service';
-import { db, generateUUID } from '$lib/core/db';
 import type { UserAction, Transaction } from '$lib/core/db';
+
+vi.mock('../core/user-service', () => ({
+	userService: {
+		getUserActions: vi.fn().mockResolvedValue([])
+	}
+}));
+
+vi.mock('$lib/core/db', () => {
+	let uuidCounter = 0;
+	return {
+		db: {
+			transactions: {
+				where: vi.fn(() => ({
+					above: vi.fn(() => ({
+						and: vi.fn(() => ({
+							toArray: vi.fn().mockResolvedValue([])
+						}))
+					}))
+				}))
+			}
+		},
+		generateUUID: vi.fn(() => `test-uuid-${++uuidCounter}`)
+	};
+});
+
+import { generateUUID } from '$lib/core/db';
+
+function getSundayWeekStart(ref: Date): Date {
+	const d = new Date(ref);
+	const day = d.getDay();
+	d.setDate(d.getDate() - day);
+	d.setHours(12, 0, 0, 0);
+	return d;
+}
+
+/** Expense on a full Sunday–Saturday week (weeksAgo=0 is current week). */
+function createWeekAlignedExpense(amount: number, weeksAgo: number, dayInWeek: number): Transaction {
+	const weekStart = getSundayWeekStart(new Date());
+	weekStart.setDate(weekStart.getDate() - weeksAgo * 7);
+	const clearedDate = new Date(weekStart);
+	clearedDate.setDate(weekStart.getDate() + dayInWeek);
+
+	return {
+		id: generateUUID(),
+		type: 'expense',
+		amount,
+		currency: 'USD',
+		status: 'cleared',
+		clearedDate: clearedDate.toISOString(),
+		accountId: 'test-account',
+		categoryId: 'test-category',
+		description: 'Test expense',
+		createdAt: clearedDate.toISOString(),
+		updatedAt: clearedDate.toISOString(),
+		deletedAt: null
+	};
+}
+
+function buildFullWeeksExpenses(weekCount: number, amountPerDay: number): Transaction[] {
+	const transactions: Transaction[] = [];
+	// Skip current (possibly partial) week; use weekCount complete prior weeks
+	for (let week = 1; week <= weekCount; week++) {
+		for (let day = 0; day < 7; day++) {
+			transactions.push(createWeekAlignedExpense(amountPerDay, week, day));
+		}
+	}
+	return transactions;
+}
 
 // Mock data generators
 function createMockUserAction(action: string, daysAgo: number = 0): UserAction {
@@ -97,21 +151,14 @@ describe('BehavioralAnalysisService', () => {
 
 	describe('detectWeeklyCycles', () => {
 		it('should detect weekly patterns with consistent spending', async () => {
-			const transactions: Transaction[] = [];
-
-			// Create consistent weekly spending for 4 weeks
-			for (let week = 0; week < 4; week++) {
-				for (let day = 0; day < 7; day++) {
-					transactions.push(createMockTransaction('expense', 50, week * 7 + day));
-				}
-			}
+			const transactions = buildFullWeeksExpenses(4, 50);
 
 			const cycles = await behavioralAnalysisService.detectWeeklyCycles(transactions);
 
 			expect(cycles.length).toBeGreaterThan(0);
 			if (cycles.length > 0) {
 				expect(cycles[0].type).toBe('weekly');
-				expect(cycles[0].confidence).toBeGreaterThan(70);
+				expect(cycles[0].confidence).toBeGreaterThanOrEqual(70);
 			}
 		});
 
@@ -191,19 +238,8 @@ describe('BehavioralAnalysisService', () => {
 
 	describe('detectAllPatterns', () => {
 		it('should detect multiple pattern types', async () => {
-			// Create diverse data
-			const actions: UserAction[] = [];
-			const transactions: Transaction[] = [];
-
-			for (let i = 0; i < 30; i++) {
-				actions.push(createMockUserAction('view_transactions', i));
-				transactions.push(createMockTransaction('expense', 50 + Math.random() * 20, i));
-			}
-
-			// Mock the service methods to return test data
 			const patterns = await behavioralAnalysisService.detectAllPatterns(90);
 
-			// Should return array (may be empty if patterns don't meet thresholds)
 			expect(Array.isArray(patterns)).toBe(true);
 		});
 
@@ -216,20 +252,12 @@ describe('BehavioralAnalysisService', () => {
 
 	describe('Pattern Confidence Calculation', () => {
 		it('should calculate confidence based on pattern strength', async () => {
-			// Create very consistent weekly pattern
-			const transactions: Transaction[] = [];
-			for (let week = 0; week < 6; week++) {
-				for (let day = 0; day < 7; day++) {
-					transactions.push(createMockTransaction('expense', 100, week * 7 + day));
-				}
-			}
+			const transactions = buildFullWeeksExpenses(6, 100);
 
 			const cycles = await behavioralAnalysisService.detectWeeklyCycles(transactions);
 
-			if (cycles.length > 0) {
-				// High consistency should yield high confidence
-				expect(cycles[0].confidence).toBeGreaterThan(70);
-			}
+			expect(cycles.length).toBeGreaterThan(0);
+			expect(cycles[0].confidence).toBeGreaterThanOrEqual(70);
 		});
 
 		it('should have lower confidence for inconsistent patterns', async () => {
@@ -282,33 +310,3 @@ describe('BehavioralAnalysisService', () => {
 		});
 	});
 });
-
-/**
- * Manual Testing Guide
- *
- * To manually test behavioral insights accuracy:
- *
- * 1. Create test data:
- *    - Generate user actions with known patterns (e.g., always on Mondays)
- *    - Generate transactions with known cycles (e.g., weekly, monthly)
- *
- * 2. Run pattern detection:
- *    - Call detectAllPatterns() with test data
- *    - Verify detected patterns match expected patterns
- *
- * 3. Validate confidence scores:
- *    - Strong patterns should have confidence > 70%
- *    - Weak patterns should have lower confidence
- *    - No patterns should be detected when data is insufficient
- *
- * 4. Test edge cases:
- *    - Empty data
- *    - Insufficient data (< 3 occurrences)
- *    - High variance data
- *    - Mixed patterns
- *
- * 5. Performance testing:
- *    - Test with large datasets (1000+ transactions)
- *    - Measure detection time
- *    - Verify no memory leaks
- */

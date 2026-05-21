@@ -16,6 +16,19 @@ import { transactionService } from '../core/transaction-service';
 vi.mock('../core/account-service');
 vi.mock('../core/transaction-service');
 vi.mock('./balance-projection-service');
+vi.mock('$lib/core/db', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$lib/core/db')>();
+	return {
+		...actual,
+		db: {
+			transactions: {
+				get: vi.fn(),
+				update: vi.fn()
+			}
+		},
+		generateUUID: vi.fn(() => 'test-fee-risk-id')
+	};
+});
 
 describe('FeeAvoidanceService', () => {
 	// Test data
@@ -118,6 +131,39 @@ describe('FeeAvoidanceService', () => {
 			expect(risks[0].feeType).toBe('overdraft');
 			expect(risks[0].estimatedAmount).toBe(35);
 			expect(risks[0].likelihood).toBe('imminent');
+		});
+
+		it('should emit only minimum_balance when projected balance is low but non-negative', async () => {
+			const lowBalanceAccount = { ...mockCheckingAccount, currentBalance: 50 };
+			vi.mocked(accountService.getAccounts).mockResolvedValue([lowBalanceAccount]);
+			vi.mocked(balanceProjectionService.generateProjections).mockResolvedValue([
+				{
+					accountId: 'checking-1',
+					accountName: 'Checking Account',
+					currency: 'USD',
+					startBalance: 50,
+					projections: [
+						{
+							date: new Date(Date.now() + 86400000),
+							balance: 50,
+							bufferAmount: 200,
+							bufferStatus: 'critical',
+							transactions: [],
+							isLowBalance: true,
+							isBelowBuffer: true
+						}
+					],
+					lowBalanceDays: 1,
+					belowBufferDays: 1,
+					minimumBalance: 50,
+					minimumBalanceDate: new Date(Date.now() + 86400000)
+				}
+			]);
+
+			const risks = await feeAvoidanceService.detectFeeRisks();
+
+			expect(risks).toHaveLength(1);
+			expect(risks[0].feeType).toBe('minimum_balance');
 		});
 
 		it('should detect minimum balance fee risks', async () => {
@@ -330,6 +376,7 @@ describe('FeeAvoidanceService', () => {
 		});
 
 		it('should generate reschedule recommendations', async () => {
+			const riskDate = new Date(Date.now() + 86400000);
 			const mockTransaction: Transaction = {
 				id: 'tx-1',
 				type: 'expense',
@@ -339,7 +386,7 @@ describe('FeeAvoidanceService', () => {
 				amount: -200,
 				currency: 'USD',
 				description: 'Rent',
-				plannedDate: new Date(Date.now() + 86400000).toISOString(),
+				plannedDate: new Date().toISOString(),
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null
@@ -357,14 +404,14 @@ describe('FeeAvoidanceService', () => {
 					startBalance: 100,
 					projections: [
 						{
-							date: new Date(Date.now() + 86400000),
+							date: riskDate,
 							balance: -100,
 							bufferAmount: 200,
 							bufferStatus: 'critical',
 							transactions: [
 								{
 									id: 'tx-1',
-									date: new Date(Date.now() + 86400000),
+									date: riskDate,
 									amount: -200,
 									type: 'expense',
 									accountId: 'checking-1',
@@ -378,7 +425,7 @@ describe('FeeAvoidanceService', () => {
 					lowBalanceDays: 1,
 					belowBufferDays: 1,
 					minimumBalance: -100,
-					minimumBalanceDate: new Date(Date.now() + 86400000)
+					minimumBalanceDate: riskDate
 				}
 			]);
 
@@ -545,6 +592,7 @@ describe('FeeAvoidanceService', () => {
 		});
 
 		it('should identify auto-adjustable transactions', async () => {
+			const riskDate = new Date(Date.now() + 86400000);
 			const mockTransaction: Transaction = {
 				id: 'tx-1',
 				type: 'expense',
@@ -554,7 +602,7 @@ describe('FeeAvoidanceService', () => {
 				amount: -200,
 				currency: 'USD',
 				description: 'Rent',
-				plannedDate: new Date(Date.now() + 86400000).toISOString(),
+				plannedDate: new Date().toISOString(),
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null
@@ -572,14 +620,14 @@ describe('FeeAvoidanceService', () => {
 					startBalance: 100,
 					projections: [
 						{
-							date: new Date(Date.now() + 86400000),
+							date: riskDate,
 							balance: -100,
 							bufferAmount: 200,
 							bufferStatus: 'critical',
 							transactions: [
 								{
 									id: 'tx-1',
-									date: new Date(Date.now() + 86400000),
+									date: riskDate,
 									amount: -200,
 									type: 'expense',
 									accountId: 'checking-1',
@@ -593,7 +641,7 @@ describe('FeeAvoidanceService', () => {
 					lowBalanceDays: 1,
 					belowBufferDays: 1,
 					minimumBalance: -100,
-					minimumBalanceDate: new Date(Date.now() + 86400000)
+					minimumBalanceDate: riskDate
 				}
 			]);
 

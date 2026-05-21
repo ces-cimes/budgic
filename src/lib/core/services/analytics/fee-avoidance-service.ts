@@ -242,7 +242,43 @@ class FeeAvoidanceService {
 			risks.push(...(await this.detectTransferLimitRisks(account)));
 		}
 
-		return risks;
+		return this.deduplicateAccountRisks(risks);
+	}
+
+	/**
+	 * One liquidity-class risk per account per calendar day (avoids triple-counting overdraft/NSF/min).
+	 */
+	private deduplicateAccountRisks(risks: FeeRisk[]): FeeRisk[] {
+		const liquidityTypes = new Set<FeeType>(['overdraft', 'insufficient_funds', 'minimum_balance']);
+		const liquidityPriority: Partial<Record<FeeType, number>> = {
+			overdraft: 3,
+			insufficient_funds: 2,
+			minimum_balance: 1
+		};
+
+		const liquidityByDay = new Map<string, FeeRisk>();
+		const other: FeeRisk[] = [];
+
+		for (const risk of risks) {
+			if (!liquidityTypes.has(risk.feeType)) {
+				other.push(risk);
+				continue;
+			}
+			if (risk.occurrenceDate == null) {
+				other.push(risk);
+				continue;
+			}
+			const dayKey = format(risk.occurrenceDate, 'yyyy-MM-dd');
+			const key = `${risk.accountId}:${dayKey}`;
+			const existing = liquidityByDay.get(key);
+			const priority = liquidityPriority[risk.feeType] ?? 0;
+			const existingPriority = existing ? (liquidityPriority[existing.feeType] ?? 0) : -1;
+			if (!existing || priority > existingPriority) {
+				liquidityByDay.set(key, risk);
+			}
+		}
+
+		return [...other, ...liquidityByDay.values()];
 	}
 
 	/**
@@ -310,7 +346,8 @@ class FeeAvoidanceService {
 		let firstViolationDate: Date | null = null;
 
 		for (const daily of projection.projections) {
-			if (daily.balance < minimumBalance) {
+			// Maintenance-fee scenario only when balance is low but not already negative
+			if (daily.balance >= 0 && daily.balance < minimumBalance) {
 				consecutiveDaysBelow++;
 				if (!firstViolationDate) {
 					firstViolationDate = daily.date;
