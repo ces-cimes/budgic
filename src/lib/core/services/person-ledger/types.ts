@@ -26,3 +26,34 @@ export type CreatePersonMigrationBatchInput = {
 	operations?: import('$lib/core/db').MigrationOperation[];
 	status?: PersonMigrationBatchStatus;
 };
+
+export type ProposalConfidence = 'high' | 'medium' | 'low';
+
+export type ProposalKind =
+	| 'collapse_transfer_to_ledger'
+	| 'collapse_transfer_from_ledger'
+	| 'reattach_ledger_expense'
+	| 'reattach_ledger_income';
+
+export type SettlementCandidate = {
+	transactionId: string;
+	reimbursementId: string;
+	label: string;
+	clearedDate: string;
+};
+
+export type MigrationProposal = {
+	id: string;
+	kind: ProposalKind;
+	confidence: ProposalConfidence;
+	sourceTransactionIds: string[];
+	groupId?: string;
+	summary: string;
+	settlementCandidates?: SettlementCandidate[];
+	/** `transactionId::reimbursementId` */
+	selectedSettlementKey?: string;
+	linkExistingReimbursementId?: string;
+	linkExistingTransactionId?: string;
+	conflict?: string;
+	walletTransactionId?: string;
+};

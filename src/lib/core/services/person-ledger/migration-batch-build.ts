@@ -7,7 +7,7 @@ import type {
 	PersonMigrationBatch,
 	ReimbursementEntry
 } from '$lib/core/db';
-import type { PersonMigrationMode } from './types';
+import type { MigrationProposal, PersonMigrationMode } from './types';
 import { accountService } from '$lib/core/services/core/account-service';
 import { transactionService } from '$lib/core/services/core/transaction-service';
 import { personService } from './person-service';
@@ -84,28 +84,267 @@ export async function buildForgiveArchiveBatch(
 	return buildCloseBatch({ ...input, forgive: true });
 }
 
-async function buildCloseBatch(
-	input: BuildMigrationBatchInput & { forgive: boolean }
-): Promise<BuiltMigrationBatch> {
-	const { ledgerAccount, person, anchorAccountId, mode, batchId, forgive } = input;
-	const operations: MigrationOperation[] = [];
-	const balances = await ledgerBalancesByCurrency(ledgerAccount.id);
-	const currencies = Object.keys(balances).filter((c) => Math.abs(balances[c] ?? 0) > 0.001);
+function parseSettlementKey(key: string | undefined): {
+	transactionId: string;
+	reimbursementId: string;
+} | null {
+	if (!key || !key.includes('::')) return null;
+	const [transactionId, reimbursementId] = key.split('::');
+	if (!transactionId || !reimbursementId) return null;
+	return { transactionId, reimbursementId };
+}
 
-	const ledgerBefore = {
-		ledgerRole: ledgerAccount.ledgerRole,
-		personId: ledgerAccount.personId,
-		isActive: ledgerAccount.isActive
+function softDeleteOp(tx: import('$lib/core/db').Transaction): MigrationOperation {
+	return {
+		op: 'soft_delete_transaction',
+		transactionId: tx.id,
+		payload: { before: { ...tx } }
 	};
+}
 
-	operations.push({
-		op: 'update_account',
-		accountId: ledgerAccount.id,
-		payload: {
-			before: ledgerBefore,
-			after: { ledgerRole: 'person', personId: person.id }
+function newExpectingReimbursement(
+	amount: number,
+	currency: string,
+	person: Person
+): ReimbursementEntry {
+	const now = new Date().toISOString();
+	return personService.linkReimbursementPerson(
+		{
+			id: generateUUID(),
+			direction: 'lending',
+			amount: Math.abs(amount),
+			currency,
+			person: person.displayName,
+			personId: person.id,
+			status: 'expecting',
+			createdAt: now,
+			updatedAt: now
+		},
+		person
+	);
+}
+
+export type CompileProposalsContext = {
+	ledgerAccount: Account;
+	person: Person;
+	anchorAccountId: string;
+};
+
+export async function compileAcceptedProposalsToOperations(
+	proposals: MigrationProposal[],
+	ctx: CompileProposalsContext
+): Promise<MigrationOperation[]> {
+	const operations: MigrationOperation[] = [];
+	const { person, anchorAccountId } = ctx;
+
+	for (const proposal of proposals) {
+		const sourceTxs = (
+			await Promise.all(
+				proposal.sourceTransactionIds.map((id) => transactionService.getTransaction(id))
+			)
+		).filter((t): t is NonNullable<typeof t> => t != null);
+
+		if (sourceTxs.length === 0) continue;
+
+		const primary = sourceTxs[0];
+		const clearedDate = primary.clearedDate || primary.createdAt;
+		const amount = Math.abs(
+			primary.transferDetails?.transferAmount ?? primary.amount ?? 0
+		);
+
+		if (proposal.kind === 'collapse_transfer_to_ledger') {
+			if (!proposal.linkExistingReimbursementId) {
+				const anchorTxId = generateUUID();
+				operations.push({
+					op: 'create_transaction',
+					transactionId: anchorTxId,
+					payload: {
+						after: {
+							type: 'expense',
+							status: 'cleared',
+							accountId: anchorAccountId,
+							amount: -amount,
+							currency: primary.currency,
+							description:
+								primary.description || `From person ledger: ${person.displayName}`,
+							categoryId: primary.categoryId,
+							reimbursements: [newExpectingReimbursement(amount, primary.currency, person)],
+							clearedDate
+						}
+					}
+				});
+			}
+		} else if (proposal.kind === 'collapse_transfer_from_ledger') {
+			const settlement = parseSettlementKey(proposal.selectedSettlementKey);
+			if (settlement) {
+				const anchorTx = await transactionService.getTransaction(settlement.transactionId);
+				if (anchorTx?.reimbursements) {
+					const incomeTxId = generateUUID();
+					operations.push({
+						op: 'create_transaction',
+						transactionId: incomeTxId,
+						payload: {
+							after: {
+								type: 'income',
+								status: 'cleared',
+								accountId: anchorAccountId,
+								amount,
+								currency: primary.currency,
+								description:
+									primary.description || `Repayment: ${person.displayName}`,
+								clearedDate
+							}
+						}
+					});
+					const updatedReimbursements = anchorTx.reimbursements.map((r) => {
+						if (r.id !== settlement.reimbursementId) return r;
+						return personService.linkReimbursementPerson(
+							{
+								...r,
+								status: 'settled',
+								settledTransactionId: incomeTxId,
+								updatedAt: new Date().toISOString()
+							},
+							person
+						);
+					});
+					operations.push({
+						op: 'update_transaction',
+						transactionId: settlement.transactionId,
+						payload: {
+							before: { reimbursements: anchorTx.reimbursements },
+							after: { reimbursements: updatedReimbursements }
+						}
+					});
+				}
+			} else {
+				const anchorTxId = generateUUID();
+				operations.push({
+					op: 'create_transaction',
+					transactionId: anchorTxId,
+					payload: {
+						after: {
+							type: 'income',
+							status: 'cleared',
+							accountId: anchorAccountId,
+							amount,
+							currency: primary.currency,
+							description:
+								primary.description || `Repayment: ${person.displayName}`,
+							clearedDate
+						}
+					}
+				});
+			}
+		} else if (proposal.kind === 'reattach_ledger_expense') {
+			if (!proposal.linkExistingReimbursementId) {
+				const anchorTxId = generateUUID();
+				operations.push({
+					op: 'create_transaction',
+					transactionId: anchorTxId,
+					payload: {
+						after: {
+							type: 'expense',
+							status: 'cleared',
+							accountId: anchorAccountId,
+							amount: primary.amount,
+							currency: primary.currency,
+							description: primary.description,
+							categoryId: primary.categoryId,
+							memo: primary.memo,
+							reimbursements: [newExpectingReimbursement(amount, primary.currency, person)],
+							clearedDate
+						}
+					}
+				});
+			}
+		} else if (proposal.kind === 'reattach_ledger_income') {
+			const settlement = parseSettlementKey(proposal.selectedSettlementKey);
+			if (settlement) {
+				const anchorTx = await transactionService.getTransaction(settlement.transactionId);
+				if (anchorTx?.reimbursements) {
+					const incomeTxId = generateUUID();
+					operations.push({
+						op: 'create_transaction',
+						transactionId: incomeTxId,
+						payload: {
+							after: {
+								type: 'income',
+								status: 'cleared',
+								accountId: anchorAccountId,
+								amount,
+								currency: primary.currency,
+								description: primary.description,
+								clearedDate
+							}
+						}
+					});
+					const updatedReimbursements = anchorTx.reimbursements.map((r) => {
+						if (r.id !== settlement.reimbursementId) return r;
+						return personService.linkReimbursementPerson(
+							{
+								...r,
+								status: 'settled',
+								settledTransactionId: incomeTxId,
+								updatedAt: new Date().toISOString()
+							},
+							person
+						);
+					});
+					operations.push({
+						op: 'update_transaction',
+						transactionId: settlement.transactionId,
+						payload: {
+							before: { reimbursements: anchorTx.reimbursements },
+							after: { reimbursements: updatedReimbursements }
+						}
+					});
+				}
+			} else {
+				const anchorTxId = generateUUID();
+				operations.push({
+					op: 'create_transaction',
+					transactionId: anchorTxId,
+					payload: {
+						after: {
+							type: 'income',
+							status: 'cleared',
+							accountId: anchorAccountId,
+							amount: primary.amount,
+							currency: primary.currency,
+							description: primary.description,
+							clearedDate
+						}
+					}
+				});
+			}
 		}
-	});
+
+		for (const tx of sourceTxs) {
+			operations.push(softDeleteOp(tx));
+		}
+		if (proposal.walletTransactionId) {
+			const walletTx = await transactionService.getTransaction(proposal.walletTransactionId);
+			if (walletTx) operations.push(softDeleteOp(walletTx));
+		}
+	}
+
+	return operations;
+}
+
+async function appendCloseTailOperations(
+	operations: MigrationOperation[],
+	params: {
+		ledgerAccount: Account;
+		person: Person;
+		anchorAccountId: string;
+		batchId: string;
+		forgive: boolean;
+		balances: Record<string, number>;
+	}
+): Promise<void> {
+	const { ledgerAccount, person, anchorAccountId, batchId, forgive, balances } = params;
+	const currencies = Object.keys(balances).filter((c) => Math.abs(balances[c] ?? 0) > 0.001);
 
 	for (const currency of currencies) {
 		const balance = balances[currency] ?? 0;
@@ -181,6 +420,142 @@ async function buildCloseBatch(
 			});
 		}
 	}
+}
+
+export type BuildGuidedMigrationBatchInput = {
+	ledgerAccount: Account;
+	person: Person;
+	anchorAccountId: string;
+	batchId: string;
+	acceptedProposals: MigrationProposal[];
+	tailMode?: Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>;
+	residualBalances?: Record<string, number>;
+};
+
+export async function buildGuidedMigrationBatch(
+	input: BuildGuidedMigrationBatchInput
+): Promise<BuiltMigrationBatch> {
+	const {
+		ledgerAccount,
+		person,
+		anchorAccountId,
+		batchId,
+		acceptedProposals,
+		tailMode,
+		residualBalances
+	} = input;
+
+	const operations: MigrationOperation[] = [];
+	const ledgerBefore = {
+		ledgerRole: ledgerAccount.ledgerRole,
+		personId: ledgerAccount.personId,
+		isActive: ledgerAccount.isActive
+	};
+
+	operations.push({
+		op: 'update_account',
+		accountId: ledgerAccount.id,
+		payload: {
+			before: ledgerBefore,
+			after: { ledgerRole: 'person', personId: person.id }
+		}
+	});
+
+	const proposalOps = await compileAcceptedProposalsToOperations(acceptedProposals, {
+		ledgerAccount,
+		person,
+		anchorAccountId
+	});
+	operations.push(...proposalOps);
+
+	if (tailMode && residualBalances) {
+		await appendCloseTailOperations(operations, {
+			ledgerAccount,
+			person,
+			anchorAccountId,
+			batchId,
+			forgive: tailMode === 'forgive_archive',
+			balances: residualBalances
+		});
+	}
+
+	const personBefore = {
+		preferredAnchorAccountId: person.preferredAnchorAccountId,
+		migrationHistory: person.migrationHistory,
+		openBalancesByCurrency: person.openBalancesByCurrency
+	};
+
+	operations.push({
+		op: 'update_person',
+		personId: person.id,
+		payload: {
+			before: personBefore,
+			after: {
+				preferredAnchorAccountId: anchorAccountId,
+				migrationHistory: [
+					...(person.migrationHistory ?? []),
+					{
+						batchId,
+						ledgerAccountId: ledgerAccount.id,
+						migratedAt: new Date().toISOString(),
+						mode: 'guided' as const
+					}
+				],
+				openBalancesByCurrency: {}
+			}
+		}
+	});
+
+	operations.push({
+		op: 'archive_account',
+		accountId: ledgerAccount.id,
+		payload: {
+			before: { ...ledgerBefore, ledgerRole: 'person', personId: person.id },
+			after: { ledgerRole: 'archived_person', personId: person.id, isActive: false }
+		}
+	});
+
+	return {
+		id: batchId,
+		status: 'draft',
+		ledgerAccountId: ledgerAccount.id,
+		personId: person.id,
+		anchorAccountId,
+		mode: 'guided',
+		operations
+	};
+}
+
+async function buildCloseBatch(
+	input: BuildMigrationBatchInput & { forgive: boolean }
+): Promise<BuiltMigrationBatch> {
+	const { ledgerAccount, person, anchorAccountId, mode, batchId, forgive } = input;
+	const operations: MigrationOperation[] = [];
+	const balances = await ledgerBalancesByCurrency(ledgerAccount.id);
+
+	const ledgerBefore = {
+		ledgerRole: ledgerAccount.ledgerRole,
+		personId: ledgerAccount.personId,
+		isActive: ledgerAccount.isActive
+	};
+
+	operations.push({
+		op: 'update_account',
+		accountId: ledgerAccount.id,
+		payload: {
+			before: ledgerBefore,
+			after: { ledgerRole: 'person', personId: person.id }
+		}
+	});
+
+	await appendCloseTailOperations(operations, {
+		ledgerAccount,
+		person,
+		anchorAccountId,
+		batchId,
+		forgive,
+		balances
+	});
 
 	const personBefore = {
 		preferredAnchorAccountId: person.preferredAnchorAccountId,
@@ -232,8 +607,11 @@ async function buildCloseBatch(
 export async function prepareMigrationBatch(params: {
 	ledgerAccountId: string;
 	anchorAccountId: string;
-	mode: Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>;
+	mode: PersonMigrationMode;
 	externalKeys?: PersonExternalKey[];
+	acceptedProposals?: MigrationProposal[];
+	tailMode?: Extract<PersonMigrationMode, 'single_total' | 'forgive_archive'>;
+	residualBalances?: Record<string, number>;
 }): Promise<BuiltMigrationBatch> {
 	const ledgerAccount = await accountService.getAccount(params.ledgerAccountId);
 	if (!ledgerAccount) {
@@ -249,6 +627,18 @@ export async function prepareMigrationBatch(params: {
 	);
 	const batchId = generateUUID();
 
+	if (params.mode === 'guided') {
+		return buildGuidedMigrationBatch({
+			ledgerAccount,
+			person,
+			anchorAccountId: params.anchorAccountId,
+			batchId,
+			acceptedProposals: params.acceptedProposals ?? [],
+			tailMode: params.tailMode,
+			residualBalances: params.residualBalances
+		});
+	}
+
 	const input: BuildMigrationBatchInput = {
 		ledgerAccount,
 		person,
@@ -260,5 +650,8 @@ export async function prepareMigrationBatch(params: {
 	if (params.mode === 'forgive_archive') {
 		return buildForgiveArchiveBatch(input);
 	}
-	return buildSingleTotalBatch(input);
+	if (params.mode === 'single_total') {
+		return buildSingleTotalBatch(input);
+	}
+	throw new Error(`Unsupported migration mode: ${params.mode}`);
 }

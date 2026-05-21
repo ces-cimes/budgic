@@ -869,6 +869,12 @@
 				}
 			}
 
+			for (const p of knownPeople) {
+				personValues.add(p.displayName);
+				for (const alias of p.aliases ?? []) {
+					if (alias.trim()) personValues.add(alias.trim());
+				}
+			}
 			reimbursementPersonSuggestions = Array.from(personValues).sort((a, b) => a.localeCompare(b));
 			settlementOptions = settlementCandidates;
 
@@ -2284,6 +2290,12 @@
 								list="reimbursement-person-options"
 								bind:value={reimbursementPerson}
 								onfocus={handleInputFocus}
+								oninput={() => {
+									reimbursementPersonId = resolveReimbursementPersonId(
+										reimbursementPerson,
+										reimbursementPersonId
+									);
+								}}
 							/>
 							<datalist id="reimbursement-person-options">
 								{#each reimbursementPersonSuggestions as person}

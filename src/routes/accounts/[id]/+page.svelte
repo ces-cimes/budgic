@@ -30,6 +30,7 @@
 	import UpdateBalanceSheet from '$lib/components/accounts/UpdateBalanceSheet.svelte';
 	import { passiveAccountService } from '$lib/core/services';
 	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
+	import { getLatestAppliedBatchForLedger } from '$lib/core/services/person-ledger';
 	import { isPersonAccountNameCandidate } from '$lib/utils/person-account-heuristics';
 	import { planService, negativeAllowanceService } from '$lib/core/services';
 	import { startOfDay } from 'date-fns';
@@ -64,6 +65,8 @@
 	let repaymentChip = $state<string | null>(null);
 	let updateBalanceOpen = $state(false);
 	let personLedgerWizardOpen = $state(false);
+	let migrationUndoBatchId = $state<string | null>(null);
+	let latestAppliedMigrationBatchId = $state<string | null>(null);
 	let taxWithheldYtd = $state<number | null>(null);
 
 	/** Phase 8 — cached surface intelligence (no per-render DB reads in template). */
@@ -142,6 +145,12 @@
 					taxWithheldYtd = await accountService.getTaxWithheldYtdForAccount(accountId);
 				} catch {
 					taxWithheldYtd = null;
+				}
+				if (accountData?.ledgerRole === 'archived_person') {
+					const batch = await getLatestAppliedBatchForLedger(accountId);
+					latestAppliedMigrationBatchId = batch?.id ?? null;
+				} else {
+					latestAppliedMigrationBatchId = null;
 				}
 			}
 		} catch (error) {
@@ -489,9 +498,31 @@
 						<Button.Root
 							variant="outline"
 							size="sm"
-							onclick={() => (personLedgerWizardOpen = true)}
+							onclick={() => {
+								migrationUndoBatchId = null;
+								personLedgerWizardOpen = true;
+							}}
 						>
 							Close person account
+						</Button.Root>
+					</div>
+				{/if}
+				{#if latestAppliedMigrationBatchId}
+					<div
+						class="mt-4 flex flex-col items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-4 py-3"
+					>
+						<p class="text-center text-sm text-[var(--color-text-secondary)]">
+							Person ledger migration applied. You can undo the latest batch.
+						</p>
+						<Button.Root
+							variant="outline"
+							size="sm"
+							onclick={() => {
+								migrationUndoBatchId = latestAppliedMigrationBatchId;
+								personLedgerWizardOpen = true;
+							}}
+						>
+							Undo migration
 						</Button.Root>
 					</div>
 				{/if}
@@ -843,11 +874,15 @@
 		onOpenChange={(v) => (updateBalanceOpen = v)}
 		onSuccess={afterBalanceUpdate}
 	/>
-	{#if accountId && showPersonLedgerClose}
+	{#if accountId && (showPersonLedgerClose || latestAppliedMigrationBatchId)}
 		<PersonLedgerMigrationWizard
 			ledgerAccountId={accountId}
 			open={personLedgerWizardOpen}
-			onOpenChange={(v) => (personLedgerWizardOpen = v)}
+			onOpenChange={(v) => {
+				personLedgerWizardOpen = v;
+				if (!v) migrationUndoBatchId = null;
+			}}
+			rollbackBatchId={migrationUndoBatchId}
 			onApplied={afterBalanceUpdate}
 		/>
 	{/if}

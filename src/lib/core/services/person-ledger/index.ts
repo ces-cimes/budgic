@@ -5,8 +5,15 @@ export {
 	ledgerBalancesByCurrency,
 	buildSingleTotalBatch,
 	buildForgiveArchiveBatch,
+	buildGuidedMigrationBatch,
+	compileAcceptedProposalsToOperations,
 	prepareMigrationBatch
 } from './migration-batch-build';
+export {
+	inferProposalsForLedger,
+	groupProposalsByConfidence,
+	estimateResidualBalances
+} from './migration-inference';
 export { applyPersonMigrationBatch, createAndApplyMigrationBatch } from './migration-apply';
 export {
 	rollbackPersonMigrationBatch,
@@ -20,5 +27,9 @@ export type {
 	PersonMigrationMode,
 	PersonMigrationBatchStatus,
 	CreatePersonInput,
-	CreatePersonMigrationBatchInput
+	CreatePersonMigrationBatchInput,
+	MigrationProposal,
+	ProposalConfidence,
+	ProposalKind,
+	SettlementCandidate
 } from './types';

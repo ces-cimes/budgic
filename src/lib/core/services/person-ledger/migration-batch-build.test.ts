@@ -1,10 +1,19 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { buildForgiveArchiveBatch, buildSingleTotalBatch } from './migration-batch-build';
+import {
+	buildForgiveArchiveBatch,
+	buildGuidedMigrationBatch,
+	buildSingleTotalBatch,
+	compileAcceptedProposalsToOperations
+} from './migration-batch-build';
+import type { MigrationProposal } from './types';
 import type { Account, Person } from '$lib/core/db';
+
+const txStore = new Map<string, import('$lib/core/db').Transaction>();
 
 vi.mock('$lib/core/services/core/transaction-service', () => ({
 	transactionService: {
-		getTransactionsByAccount: vi.fn(async () => [])
+		getTransactionsByAccount: vi.fn(async () => []),
+		getTransaction: vi.fn(async (id: string) => txStore.get(id) ?? null)
 	}
 }));
 
@@ -39,6 +48,7 @@ const person: Person = {
 describe('migration-batch-build', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		txStore.clear();
 	});
 
 	it('buildSingleTotalBatch includes anchor and ledger adjustments', async () => {
@@ -109,5 +119,56 @@ describe('migration-batch-build', () => {
 		};
 		expect(reimbUpdate.after?.reimbursements?.[0]?.status).toBe('forgiven');
 		expect(reimbUpdate.after?.reimbursements?.[0]?.personId).toBe('person-1');
+	});
+
+	it('compileAcceptedProposalsToOperations soft-deletes ledger source txs', async () => {
+		txStore.set('ledger-exp', {
+			id: 'ledger-exp',
+			type: 'expense',
+			status: 'cleared',
+			accountId: 'ledger-1',
+			amount: -25,
+			currency: 'USD',
+			createdAt: '2026-01-01T00:00:00.000Z',
+			updatedAt: '2026-01-01T00:00:00.000Z',
+			deletedAt: null
+		} as import('$lib/core/db').Transaction);
+
+		const proposal: MigrationProposal = {
+			id: 'p1',
+			kind: 'reattach_ledger_expense',
+			confidence: 'medium',
+			sourceTransactionIds: ['ledger-exp'],
+			summary: 'reattach'
+		};
+
+		const ops = await compileAcceptedProposalsToOperations([proposal], {
+			ledgerAccount: ledger,
+			person,
+			anchorAccountId: 'anchor-1'
+		});
+
+		expect(ops.some((o) => o.op === 'create_transaction')).toBe(true);
+		expect(ops.some((o) => o.op === 'soft_delete_transaction' && o.transactionId === 'ledger-exp')).toBe(
+			true
+		);
+	});
+
+	it('buildGuidedMigrationBatch merges proposal ops, tail, and archive', async () => {
+		const batch = await buildGuidedMigrationBatch({
+			ledgerAccount: ledger,
+			person,
+			anchorAccountId: 'anchor-1',
+			batchId: 'batch-guided',
+			acceptedProposals: [],
+			tailMode: 'single_total',
+			residualBalances: { USD: 50 }
+		});
+
+		expect(batch.mode).toBe('guided');
+		expect(batch.operations.some((o) => o.op === 'archive_account')).toBe(true);
+		expect(
+			batch.operations.filter((o) => o.op === 'create_transaction').length
+		).toBeGreaterThanOrEqual(2);
 	});
 });

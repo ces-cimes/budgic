@@ -3,6 +3,7 @@
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { transactionService } from '$lib/core/services';
+	import { personService } from '$lib/core/services/person-ledger';
 	import type { ReimbursementEntry, Transaction } from '$lib/core/db';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 
@@ -22,6 +23,15 @@
 	let selectedSettlementTx = $state('');
 	let settlementCandidates = $state<Transaction[]>([]);
 	let error = $state<string | null>(null);
+	let peopleById = $state<Map<string, string>>(new Map());
+
+	function personLabel(reimbursement: ReimbursementEntry): string {
+		if (reimbursement.personId) {
+			const fromPerson = peopleById.get(reimbursement.personId);
+			if (fromPerson) return fromPerson;
+		}
+		return reimbursement.person || 'Unknown person';
+	}
 
 	const expectingItems = $derived(
 		items.filter((item) => item.reimbursement.status === 'expecting')
@@ -68,7 +78,11 @@
 	async function loadData(): Promise<void> {
 		error = null;
 		try {
-			const allTransactions = await transactionService.getAllTransactions();
+			const [allTransactions, people] = await Promise.all([
+				transactionService.getAllTransactions(),
+				personService.listPeople()
+			]);
+			peopleById = new Map(people.map((p) => [p.id, p.displayName]));
 			items = buildOutstandingItems(allTransactions);
 			settlementCandidates = allTransactions
 				.filter((tx) => tx.type === 'income' && tx.status === 'cleared')
@@ -164,7 +178,7 @@
 					>
 						<div class="flex items-start justify-between gap-2">
 							<div>
-								<p class="text-sm font-medium">{item.reimbursement.person || 'Unknown person'}</p>
+								<p class="text-sm font-medium">{personLabel(item.reimbursement)}</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									{item.transactionDescription}
 								</p>
@@ -225,7 +239,7 @@
 					>
 						<div class="flex items-start justify-between gap-2">
 							<div>
-								<p class="text-sm font-medium">{item.reimbursement.person || 'Unknown person'}</p>
+								<p class="text-sm font-medium">{personLabel(item.reimbursement)}</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									{item.transactionDescription}
 								</p>
