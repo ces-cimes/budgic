@@ -12,6 +12,16 @@ vi.mock('$lib/core/db', async (importOriginal) => {
 		...actual,
 		generateUUID: vi.fn(() => `uuid-${transactionsStore.size + batchesStore.size}`),
 		db: {
+			softDeleteTransaction: vi.fn(async (id: string) => {
+				const tx = transactionsStore.get(id);
+				if (tx) {
+					transactionsStore.set(id, {
+						...tx,
+						deletedAt: new Date().toISOString(),
+						updatedAt: new Date().toISOString()
+					});
+				}
+			}),
 			transaction: vi.fn(async (...args: unknown[]) => {
 				const fn = args[args.length - 1];
 				if (typeof fn === 'function') await (fn as () => Promise<void>)();

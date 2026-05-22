@@ -7,8 +7,6 @@ import type {
 	Transaction
 } from '$lib/core/db';
 import { accountService } from '$lib/core/services/core/account-service';
-import { transactionService } from '$lib/core/services/core/transaction-service';
-import { personService } from './person-service';
 import { personMigrationBatchService } from './person-migration-batch-service';
 
 type OpPayload = Record<string, unknown>;
@@ -17,38 +15,64 @@ function getBefore(payload: OpPayload): OpPayload | undefined {
 	return payload.before as OpPayload | undefined;
 }
 
-function getAfter(payload: OpPayload): OpPayload | undefined {
-	return payload.after as OpPayload | undefined;
-}
-
-async function rollbackCreateTransaction(
-	op: Extract<MigrationOperation, { op: 'create_transaction' }>
-): Promise<void> {
-	const id = op.transactionId;
-	if (!id) return;
-	const existing = await transactionService.getTransaction(id);
-	if (existing) {
-		await transactionService.deleteTransaction(id);
+function collectAffectedAccountIds(
+	tx: Pick<Transaction, 'accountId' | 'type' | 'transferDetails'>,
+	into: Set<string>
+): void {
+	if (tx.accountId) into.add(tx.accountId);
+	if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+		into.add(tx.transferDetails.toAccountId);
+	}
+	if (tx.transferDetails?.feeAccountId) {
+		into.add(tx.transferDetails.feeAccountId);
 	}
 }
 
+async function rollbackCreateTransaction(
+	op: Extract<MigrationOperation, { op: 'create_transaction' }>,
+	affectedAccountIds: Set<string>
+): Promise<void> {
+	const id = op.transactionId;
+	if (!id) return;
+	const existing = await db.transactions.get(id);
+	if (!existing) return;
+	await db.softDeleteTransaction(id);
+	collectAffectedAccountIds(existing, affectedAccountIds);
+}
+
 async function rollbackUpdateTransaction(
-	op: Extract<MigrationOperation, { op: 'update_transaction' }>
+	op: Extract<MigrationOperation, { op: 'update_transaction' }>,
+	affectedAccountIds: Set<string>
 ): Promise<void> {
 	const before = getBefore(op.payload as OpPayload);
 	if (!before) return;
-	await transactionService.updateTransaction(op.transactionId, before as Partial<Transaction>);
+	const existing = await db.transactions.get(op.transactionId);
+	if (!existing) return;
+	const restored: Transaction = {
+		...existing,
+		...(before as Partial<Transaction>),
+		updatedAt: new Date().toISOString()
+	};
+	await db.transactions.update(op.transactionId, restored);
+	collectAffectedAccountIds(existing, affectedAccountIds);
+	collectAffectedAccountIds(restored, affectedAccountIds);
 }
 
 async function rollbackSoftDeleteTransaction(
-	op: Extract<MigrationOperation, { op: 'soft_delete_transaction' }>
+	op: Extract<MigrationOperation, { op: 'soft_delete_transaction' }>,
+	affectedAccountIds: Set<string>
 ): Promise<void> {
 	const before = getBefore(op.payload as OpPayload);
 	if (!before) return;
-	await transactionService.updateTransaction(op.transactionId, {
+	const existing = await db.transactions.get(op.transactionId);
+	const restored: Transaction = {
+		...(existing ?? (before as Transaction)),
+		...(before as Partial<Transaction>),
 		deletedAt: null,
-		...(before as Partial<Transaction>)
-	});
+		updatedAt: new Date().toISOString()
+	};
+	await db.transactions.put(restored);
+	collectAffectedAccountIds(restored, affectedAccountIds);
 }
 
 async function rollbackUpdateAccount(
@@ -56,15 +80,20 @@ async function rollbackUpdateAccount(
 ): Promise<void> {
 	const before = getBefore(op.payload as OpPayload);
 	if (!before) return;
-	await accountService.updateAccount(op.accountId, before as Partial<Account>);
+	const existing = await db.accounts.get(op.accountId);
+	if (!existing) return;
+	const restored: Account = {
+		...existing,
+		...(before as Partial<Account>),
+		updatedAt: new Date().toISOString()
+	};
+	await db.accounts.update(op.accountId, restored);
 }
 
 async function rollbackArchiveAccount(
 	op: Extract<MigrationOperation, { op: 'archive_account' }>
 ): Promise<void> {
-	const before = getBefore(op.payload as OpPayload);
-	if (!before) return;
-	await accountService.updateAccount(op.accountId, before as Partial<Account>);
+	await rollbackUpdateAccount(op);
 }
 
 async function rollbackCreatePerson(
@@ -72,10 +101,12 @@ async function rollbackCreatePerson(
 ): Promise<void> {
 	const id = op.personId;
 	if (!id) return;
-	const person = await personService.getPerson(id);
-	if (person) {
-		await personService.deletePerson(id);
-	}
+	const person = await db.people.get(id);
+	if (!person) return;
+	await db.people.update(id, {
+		deletedAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString()
+	});
 }
 
 async function rollbackUpdatePerson(
@@ -83,19 +114,29 @@ async function rollbackUpdatePerson(
 ): Promise<void> {
 	const before = getBefore(op.payload as OpPayload);
 	if (!before) return;
-	await personService.updatePerson(op.personId, before as Partial<Person>);
+	const existing = await db.people.get(op.personId);
+	if (!existing) return;
+	const restored: Person = {
+		...existing,
+		...(before as Partial<Person>),
+		updatedAt: new Date().toISOString()
+	};
+	await db.people.put(restored);
 }
 
-async function rollbackOperation(op: MigrationOperation): Promise<void> {
+async function rollbackOperation(
+	op: MigrationOperation,
+	affectedAccountIds: Set<string>
+): Promise<void> {
 	switch (op.op) {
 		case 'create_transaction':
-			await rollbackCreateTransaction(op);
+			await rollbackCreateTransaction(op, affectedAccountIds);
 			break;
 		case 'update_transaction':
-			await rollbackUpdateTransaction(op);
+			await rollbackUpdateTransaction(op, affectedAccountIds);
 			break;
 		case 'soft_delete_transaction':
-			await rollbackSoftDeleteTransaction(op);
+			await rollbackSoftDeleteTransaction(op, affectedAccountIds);
 			break;
 		case 'update_account':
 			await rollbackUpdateAccount(op);
@@ -116,6 +157,24 @@ async function rollbackOperation(op: MigrationOperation): Promise<void> {
 	}
 }
 
+async function markBatchRolledBack(batchId: string): Promise<void> {
+	const existing = await db.personMigrationBatches.get(batchId);
+	if (!existing) {
+		throw new Error(`Person migration batch ${batchId} not found`);
+	}
+	await db.personMigrationBatches.put({
+		...existing,
+		status: 'rolled_back',
+		updatedAt: new Date().toISOString()
+	});
+}
+
+async function recalculateAffectedBalances(affectedAccountIds: Set<string>): Promise<void> {
+	for (const accountId of affectedAccountIds) {
+		await accountService.recalculateAccountBalance(accountId);
+	}
+}
+
 export async function rollbackPersonMigrationBatch(batchId: string): Promise<PersonMigrationBatch> {
 	const batch = await personMigrationBatchService.getBatch(batchId);
 	if (!batch) {
@@ -126,6 +185,7 @@ export async function rollbackPersonMigrationBatch(batchId: string): Promise<Per
 	}
 
 	const reversed = [...batch.operations].reverse();
+	const affectedAccountIds = new Set<string>();
 
 	await db.transaction(
 		'rw',
@@ -135,11 +195,13 @@ export async function rollbackPersonMigrationBatch(batchId: string): Promise<Per
 		db.personMigrationBatches,
 		async () => {
 			for (const op of reversed) {
-				await rollbackOperation(op);
+				await rollbackOperation(op, affectedAccountIds);
 			}
-			await personMigrationBatchService.updateBatch(batchId, { status: 'rolled_back' });
+			await markBatchRolledBack(batchId);
 		}
 	);
+
+	await recalculateAffectedBalances(affectedAccountIds);
 
 	const updated = await personMigrationBatchService.getBatch(batchId);
 	if (!updated) throw new Error('Batch missing after rollback');

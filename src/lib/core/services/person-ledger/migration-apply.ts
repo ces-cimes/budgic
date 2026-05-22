@@ -7,7 +7,6 @@ import type {
 	Transaction
 } from '$lib/core/db';
 import { accountService } from '$lib/core/services/core/account-service';
-import { transactionService } from '$lib/core/services/core/transaction-service';
 import { personMigrationBatchService } from './person-migration-batch-service';
 import type { BuiltMigrationBatch } from './migration-batch-build';
 
@@ -21,8 +20,22 @@ function getAfter(payload: OpPayload): OpPayload | undefined {
 	return payload.after as OpPayload | undefined;
 }
 
+function collectAffectedAccountIds(
+	tx: Pick<Transaction, 'accountId' | 'type' | 'transferDetails'>,
+	into: Set<string>
+): void {
+	if (tx.accountId) into.add(tx.accountId);
+	if (tx.type === 'transfer' && tx.transferDetails?.toAccountId) {
+		into.add(tx.transferDetails.toAccountId);
+	}
+	if (tx.transferDetails?.feeAccountId) {
+		into.add(tx.transferDetails.feeAccountId);
+	}
+}
+
 async function applyCreateTransaction(
-	op: Extract<MigrationOperation, { op: 'create_transaction' }>
+	op: Extract<MigrationOperation, { op: 'create_transaction' }>,
+	affectedAccountIds: Set<string>
 ): Promise<string> {
 	const after = getAfter(op.payload as OpPayload);
 	if (!after) throw new Error('create_transaction missing after payload');
@@ -37,22 +50,40 @@ async function applyCreateTransaction(
 		deletedAt: null
 	};
 	await db.transactions.add(transaction);
-	if (transaction.accountId) {
-		await accountService.recalculateAccountBalance(transaction.accountId);
-	}
+	collectAffectedAccountIds(transaction, affectedAccountIds);
 	return id;
 }
 
 async function applyUpdateTransaction(
-	op: Extract<MigrationOperation, { op: 'update_transaction' }>
+	op: Extract<MigrationOperation, { op: 'update_transaction' }>,
+	affectedAccountIds: Set<string>
 ): Promise<void> {
 	const after = getAfter(op.payload as OpPayload);
 	if (!after) throw new Error('update_transaction missing after payload');
-	await transactionService.updateTransaction(op.transactionId, after);
+	const existing = await db.transactions.get(op.transactionId);
+	if (!existing) {
+		throw new Error(`Transaction ${op.transactionId} not found`);
+	}
+	const updated: Transaction = {
+		...existing,
+		...(after as Partial<Transaction>),
+		updatedAt: new Date().toISOString()
+	};
+	await db.transactions.update(op.transactionId, updated);
+	collectAffectedAccountIds(existing, affectedAccountIds);
+	collectAffectedAccountIds(updated, affectedAccountIds);
 }
 
-async function applySoftDeleteTransaction(transactionId: string): Promise<void> {
-	await transactionService.deleteTransaction(transactionId);
+async function applySoftDeleteTransaction(
+	transactionId: string,
+	affectedAccountIds: Set<string>
+): Promise<void> {
+	const existing = await db.transactions.get(transactionId);
+	if (!existing) {
+		throw new Error(`Transaction ${transactionId} not found`);
+	}
+	await db.softDeleteTransaction(transactionId);
+	collectAffectedAccountIds(existing, affectedAccountIds);
 }
 
 async function applyUpdateAccount(
@@ -60,15 +91,22 @@ async function applyUpdateAccount(
 ): Promise<void> {
 	const after = getAfter(op.payload as OpPayload);
 	if (!after) throw new Error('update_account missing after payload');
-	await accountService.updateAccount(op.accountId, after as Partial<Account>);
+	const existing = await db.accounts.get(op.accountId);
+	if (!existing) {
+		throw new Error(`Account ${op.accountId} not found`);
+	}
+	const updated: Account = {
+		...existing,
+		...(after as Partial<Account>),
+		updatedAt: new Date().toISOString()
+	};
+	await db.accounts.update(op.accountId, updated);
 }
 
 async function applyArchiveAccount(
 	op: Extract<MigrationOperation, { op: 'archive_account' }>
 ): Promise<void> {
-	const after = getAfter(op.payload as OpPayload);
-	if (!after) throw new Error('archive_account missing after payload');
-	await accountService.updateAccount(op.accountId, after as Partial<Account>);
+	await applyUpdateAccount(op);
 }
 
 async function applyCreatePerson(
@@ -76,11 +114,17 @@ async function applyCreatePerson(
 ): Promise<string> {
 	const after = getAfter(op.payload as OpPayload);
 	if (!after) throw new Error('create_person missing after payload');
-	const { personService } = await import('./person-service');
-	const person = await personService.createPerson(
-		after as Parameters<typeof personService.createPerson>[0]
-	);
-	return person.id;
+	const id = op.personId ?? generateUUID();
+	const now = new Date().toISOString();
+	const person: Person = {
+		id,
+		...(after as Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>),
+		createdAt: now,
+		updatedAt: now,
+		deletedAt: null
+	};
+	await db.people.add(person);
+	return id;
 }
 
 async function applyUpdatePerson(
@@ -88,20 +132,31 @@ async function applyUpdatePerson(
 ): Promise<void> {
 	const after = getAfter(op.payload as OpPayload);
 	if (!after) throw new Error('update_person missing after payload');
-	const { personService } = await import('./person-service');
-	await personService.updatePerson(op.personId, after as Partial<Person>);
+	const existing = await db.people.get(op.personId);
+	if (!existing) {
+		throw new Error(`Person ${op.personId} not found`);
+	}
+	const updated: Person = {
+		...existing,
+		...(after as Partial<Person>),
+		updatedAt: new Date().toISOString()
+	};
+	await db.people.put(updated);
 }
 
-async function executeOperation(op: MigrationOperation): Promise<void> {
+async function executeOperation(
+	op: MigrationOperation,
+	affectedAccountIds: Set<string>
+): Promise<void> {
 	switch (op.op) {
 		case 'create_transaction':
-			await applyCreateTransaction(op);
+			await applyCreateTransaction(op, affectedAccountIds);
 			break;
 		case 'update_transaction':
-			await applyUpdateTransaction(op);
+			await applyUpdateTransaction(op, affectedAccountIds);
 			break;
 		case 'soft_delete_transaction':
-			await applySoftDeleteTransaction(op.transactionId);
+			await applySoftDeleteTransaction(op.transactionId, affectedAccountIds);
 			break;
 		case 'update_account':
 			await applyUpdateAccount(op);
@@ -122,6 +177,24 @@ async function executeOperation(op: MigrationOperation): Promise<void> {
 	}
 }
 
+async function markBatchApplied(batchId: string): Promise<void> {
+	const existing = await db.personMigrationBatches.get(batchId);
+	if (!existing) {
+		throw new Error(`Person migration batch ${batchId} not found`);
+	}
+	await db.personMigrationBatches.put({
+		...existing,
+		status: 'applied',
+		updatedAt: new Date().toISOString()
+	});
+}
+
+async function recalculateAffectedBalances(affectedAccountIds: Set<string>): Promise<void> {
+	for (const accountId of affectedAccountIds) {
+		await accountService.recalculateAccountBalance(accountId);
+	}
+}
+
 export async function applyPersonMigrationBatch(batchId: string): Promise<PersonMigrationBatch> {
 	const batch = await personMigrationBatchService.getBatch(batchId);
 	if (!batch) {
@@ -131,6 +204,10 @@ export async function applyPersonMigrationBatch(batchId: string): Promise<Person
 		throw new Error(`Batch ${batchId} is not draft (status: ${batch.status})`);
 	}
 
+	const affectedAccountIds = new Set<string>();
+
+	// Dexie transaction: only direct db.* writes. Full services (transactionService, etc.)
+	// touch other stores and async side effects, which commits the transaction too early.
 	await db.transaction(
 		'rw',
 		db.transactions,
@@ -139,11 +216,13 @@ export async function applyPersonMigrationBatch(batchId: string): Promise<Person
 		db.personMigrationBatches,
 		async () => {
 			for (const op of batch.operations) {
-				await executeOperation(op);
+				await executeOperation(op, affectedAccountIds);
 			}
-			await personMigrationBatchService.updateBatch(batchId, { status: 'applied' });
+			await markBatchApplied(batchId);
 		}
 	);
+
+	await recalculateAffectedBalances(affectedAccountIds);
 
 	const updated = await personMigrationBatchService.getBatch(batchId);
 	if (!updated) throw new Error('Batch missing after apply');
