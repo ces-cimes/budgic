@@ -66,6 +66,34 @@ export interface TransferDestinationSuggestion {
 
 export type BoundedAutocompleteFieldKey = 'transaction.account' | 'transaction.category';
 
+export interface AutocompleteTxFilter {
+	type?: Transaction['type'];
+	status?: Transaction['status'];
+}
+
+export function autocompleteFilterFromContext(
+	context?: Record<string, unknown>
+): AutocompleteTxFilter | undefined {
+	const type = context?.['transactionType'];
+	const status = context?.['status'];
+	if (typeof type !== 'string' && typeof status !== 'string') return undefined;
+
+	const filter: AutocompleteTxFilter = {};
+	if (type === 'income' || type === 'expense' || type === 'transfer' || type === 'adjustment') {
+		filter.type = type;
+	}
+	if (
+		status === 'planned' ||
+		status === 'pending' ||
+		status === 'cleared' ||
+		status === 'cancelled'
+	) {
+		filter.status = status;
+	}
+	if (filter.type === undefined && filter.status === undefined) return undefined;
+	return filter;
+}
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
 const ONE_EIGHTY_DAYS_MS = 180 * 24 * 60 * 60 * 1000;
@@ -81,11 +109,15 @@ class AutocompleteService {
 	private cleanupPromise: Promise<void> | null = null;
 	private cleanupDone = false;
 
-	async getSuggestionsForDescription(partial: string, limit = 8): Promise<DescriptionSuggestion[]> {
+	async getSuggestionsForDescription(
+		partial: string,
+		limit = 8,
+		filter?: AutocompleteTxFilter
+	): Promise<DescriptionSuggestion[]> {
 		await this.ensureSelectionDataPruned();
 
 		const normalizedPartial = partial.trim().toLowerCase();
-		const cacheKey = `${normalizedPartial}|${limit}`;
+		const cacheKey = `${normalizedPartial}|${limit}${this.buildFilterCacheSuffix(filter)}`;
 		const cached = this.suggestionCache.get(cacheKey);
 		if (cached && cached.expiresAt > Date.now()) {
 			return cached.value;
@@ -104,6 +136,7 @@ class AutocompleteService {
 		for (const tx of transactions) {
 			if (!tx) continue;
 			if (tx.type === 'transfer') continue;
+			if (!this.matchesTxFilter(tx, filter)) continue;
 			const description = this.normalizeDescription(tx.description);
 			if (!description) continue;
 
@@ -234,15 +267,19 @@ class AutocompleteService {
 		this.suggestionCache.clear();
 	}
 
-	async getDescriptionIntelligence(description: string): Promise<DescriptionIntelligence | null> {
+	async getDescriptionIntelligence(
+		description: string,
+		filter?: AutocompleteTxFilter
+	): Promise<DescriptionIntelligence | null> {
 		const normalizedDescription = this.normalizeDescription(description);
 		if (!normalizedDescription) return null;
 
 		const merchantKey = normaliseMerchantKey(normalizedDescription);
-		const stats = await this.getAmountStatsForMerchant(merchantKey, normalizedDescription);
+		const stats = await this.getAmountStatsForMerchant(merchantKey, normalizedDescription, filter);
 		const dateInference = await this.getDateInferenceForMerchant(
 			merchantKey,
-			normalizedDescription
+			normalizedDescription,
+			filter
 		);
 
 		return {
@@ -398,7 +435,8 @@ class AutocompleteService {
 	 * Uses the same weighting as description suggestions: 0.6 DB + 0.4 selection×recency.
 	 */
 	async getBlendedBoundedFieldScores(
-		fieldKey: BoundedAutocompleteFieldKey
+		fieldKey: BoundedAutocompleteFieldKey,
+		filter?: AutocompleteTxFilter
 	): Promise<Map<string, number>> {
 		await this.ensureSelectionDataPruned();
 
@@ -414,6 +452,7 @@ class AutocompleteService {
 
 		for (const tx of transactions) {
 			if (!tx) continue;
+			if (!this.matchesTxFilter(tx, filter)) continue;
 			const rawId =
 				fieldKey === 'transaction.account'
 					? tx.accountId
@@ -666,13 +705,15 @@ class AutocompleteService {
 
 	private async getAmountStatsForMerchant(
 		merchantKey: string,
-		fallbackDescription: string
+		fallbackDescription: string,
+		filter?: AutocompleteTxFilter
 	): Promise<AmountStats | null> {
 		const transactions = await this.getTransactionsSnapshot();
 		const amounts: number[] = [];
 		for (const tx of transactions) {
 			if (!tx) continue;
 			if (tx.type === 'transfer') continue;
+			if (!this.matchesTxFilter(tx, filter)) continue;
 			if (tx.status !== 'cleared') continue;
 			const normalized = this.normalizeDescription(tx.description);
 			if (!normalized) continue;
@@ -693,7 +734,8 @@ class AutocompleteService {
 
 	private async getDateInferenceForMerchant(
 		merchantKey: string,
-		fallbackDescription: string
+		fallbackDescription: string,
+		filter?: AutocompleteTxFilter
 	): Promise<DateInference | null> {
 		try {
 			const patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
@@ -723,6 +765,7 @@ class AutocompleteService {
 		for (const tx of transactions) {
 			if (!tx) continue;
 			if (tx.type === 'transfer') continue;
+			if (!this.matchesTxFilter(tx, filter)) continue;
 			const normalized = this.normalizeDescription(tx.description);
 			if (!normalized) continue;
 			const key = normaliseMerchantKey(normalized) || normalized.toLowerCase();
@@ -767,6 +810,18 @@ class AutocompleteService {
 	private resolveTypicalAmount(context?: Record<string, unknown>): number | null {
 		const raw = context?.['typicalAmount'];
 		return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+	}
+
+	private matchesTxFilter(tx: Transaction, filter?: AutocompleteTxFilter): boolean {
+		if (!filter) return true;
+		if (filter.type !== undefined && tx.type !== filter.type) return false;
+		if (filter.status !== undefined && tx.status !== filter.status) return false;
+		return true;
+	}
+
+	private buildFilterCacheSuffix(filter?: AutocompleteTxFilter): string {
+		if (!filter?.type && !filter?.status) return '';
+		return `|${filter.type ?? ''}|${filter.status ?? ''}`;
 	}
 
 	private computeMedian(values: number[]): number | null {

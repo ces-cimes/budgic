@@ -86,11 +86,11 @@ async function applySoftDeleteTransaction(
 	collectAffectedAccountIds(existing, affectedAccountIds);
 }
 
-async function applyUpdateAccount(
-	op: Extract<MigrationOperation, { op: 'update_account' }>
+async function applyAccountMutation(
+	op: Extract<MigrationOperation, { op: 'update_account' | 'archive_account' }>
 ): Promise<void> {
 	const after = getAfter(op.payload as OpPayload);
-	if (!after) throw new Error('update_account missing after payload');
+	if (!after) throw new Error(`${op.op} missing after payload`);
 	const existing = await db.accounts.get(op.accountId);
 	if (!existing) {
 		throw new Error(`Account ${op.accountId} not found`);
@@ -103,10 +103,16 @@ async function applyUpdateAccount(
 	await db.accounts.update(op.accountId, updated);
 }
 
+async function applyUpdateAccount(
+	op: Extract<MigrationOperation, { op: 'update_account' }>
+): Promise<void> {
+	await applyAccountMutation(op);
+}
+
 async function applyArchiveAccount(
 	op: Extract<MigrationOperation, { op: 'archive_account' }>
 ): Promise<void> {
-	await applyUpdateAccount(op);
+	await applyAccountMutation(op);
 }
 
 async function applyCreatePerson(

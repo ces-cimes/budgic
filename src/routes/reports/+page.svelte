@@ -5,7 +5,14 @@
 	import { periodStore } from '$lib/stores/period-store';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import { BarChart3, TrendingUp, PieChart, GitCompare, FileText } from '@lucide/svelte';
+	import {
+		BarChart3,
+		TrendingUp,
+		PieChart,
+		GitCompare,
+		FileText,
+		AlertTriangle
+	} from '@lucide/svelte';
 
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
 
@@ -36,6 +43,7 @@
 
 	let activeTab = $state('overview');
 	let isLoading = $state(true);
+	let loadError = $state<string | null>(null);
 	let userCurrency = $state<string>('USD');
 	let timeRange = $state<'week' | 'month' | 'quarter' | 'year'>('month');
 	let insights = $state<Insight[]>([]);
@@ -75,8 +83,9 @@
 			const preferences = await userService.getUserPreferences();
 			userCurrency = preferences?.currency || 'USD';
 			await loadData();
-		} catch (error) {
-			console.error('Error loading reports data:', error);
+		} catch (err) {
+			console.error('Error loading reports data:', err);
+			loadError = 'We could not load your reports right now. Please try again.';
 		} finally {
 			isLoading = false;
 		}
@@ -99,6 +108,7 @@
 
 	async function loadData() {
 		try {
+			loadError = null;
 			insights = await analyzeService.loadInsights();
 			transactions = await analyzeService.loadTransactions();
 			analytics = await analyzeService.loadAnalytics(timeRange);
@@ -151,8 +161,18 @@
 					generatedAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
 				}
 			];
-		} catch (error) {
-			console.error('Error loading reports data:', error);
+		} catch (err) {
+			console.error('Error loading reports data:', err);
+			loadError = 'We could not load your reports right now. Please try again.';
+		}
+	}
+
+	async function handleRetryLoad() {
+		isLoading = true;
+		try {
+			await loadData();
+		} finally {
+			isLoading = false;
 		}
 	}
 
@@ -205,53 +225,75 @@
 	{/snippet}
 
 	{#snippet children()}
-		<TabContentWrapper tabs={reportTabs} {activeTab} onTabChange={handleTabChange}>
-			{#snippet children()}
-				<TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={reportTabs}>
-					<OverviewTab
-						totalSpending={totalSpending()}
-						savingsRate={savingsRate()}
-						{timeRange}
-						{insights}
-						{userCurrency}
-						onExportReport={handleExportReport}
-						onSetReminder={handleSetReminder}
-					/>
-				</TabContent>
+		{#if loadError}
+			<div class="py-12 text-center" role="alert">
+				<div
+					class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20"
+				>
+					<AlertTriangle class="h-8 w-8 text-red-600 dark:text-red-400" aria-hidden="true" />
+				</div>
+				<h2 class="text-foreground mb-2 text-lg font-semibold">Could not load reports</h2>
+				<p class="text-muted-foreground mb-4">{loadError}</p>
+				<button
+					type="button"
+					onclick={handleRetryLoad}
+					disabled={isLoading}
+					class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
+				>
+					Retry
+				</button>
+			</div>
+		{:else}
+			<TabContentWrapper tabs={reportTabs} {activeTab} onTabChange={handleTabChange}>
+				{#snippet children()}
+					<TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={reportTabs}>
+						<OverviewTab
+							totalSpending={totalSpending()}
+							savingsRate={savingsRate()}
+							{timeRange}
+							{insights}
+							{userCurrency}
+							onExportReport={handleExportReport}
+							onSetReminder={handleSetReminder}
+						/>
+					</TabContent>
 
-				<TabContent tabId="trends" isActive={activeTab === 'trends'} tabs={reportTabs}>
-					<TrendsTab
-						{timeRange}
-						onTimeRangeChange={(range) => (timeRange = range as typeof timeRange)}
-						{analytics}
-						{userCurrency}
-					/>
-				</TabContent>
+					<TabContent tabId="trends" isActive={activeTab === 'trends'} tabs={reportTabs}>
+						<TrendsTab
+							{timeRange}
+							onTimeRangeChange={(range) => (timeRange = range as typeof timeRange)}
+							{analytics}
+							{userCurrency}
+						/>
+					</TabContent>
 
-				<TabContent tabId="categories" isActive={activeTab === 'categories'} tabs={reportTabs}>
-					<CategoriesTab {categoryData} {userCurrency} {timeRange} />
-				</TabContent>
+					<TabContent tabId="categories" isActive={activeTab === 'categories'} tabs={reportTabs}>
+						<CategoriesTab {categoryData} {userCurrency} {timeRange} />
+					</TabContent>
 
-				<TabContent tabId="compare" isActive={activeTab === 'compare'} tabs={reportTabs}>
-					<CompareTab
-						timeRange={timeRange === 'week' ? 'month' : (timeRange as 'month' | 'quarter' | 'year')}
-						onTimeRangeChange={(range) => (timeRange = range as 'month' | 'quarter' | 'year')}
-						{currentPeriodData}
-						{previousPeriodData}
-						{userCurrency}
-					/>
-				</TabContent>
+					<TabContent tabId="compare" isActive={activeTab === 'compare'} tabs={reportTabs}>
+						<CompareTab
+							timeRange={timeRange === 'week'
+								? 'month'
+								: (timeRange as 'month' | 'quarter' | 'year')}
+							onTimeRangeChange={(range) => (timeRange = range as 'month' | 'quarter' | 'year')}
+							{currentPeriodData}
+							{previousPeriodData}
+							{userCurrency}
+						/>
+					</TabContent>
 
-				<TabContent tabId="saved" isActive={activeTab === 'saved'} tabs={reportTabs}>
-					<ReportsTab
-						{recentReports}
-						onGenerateReport={handleGenerateReport}
-						onDownloadReport={handleDownloadReport}
-						settings={reportSettings}
-						onUpdateSettings={handleUpdateSettings}
-					/>
-				</TabContent>
-			{/snippet}
-		</TabContentWrapper>
+					<TabContent tabId="saved" isActive={activeTab === 'saved'} tabs={reportTabs}>
+						<ReportsTab
+							{recentReports}
+							onGenerateReport={handleGenerateReport}
+							onDownloadReport={handleDownloadReport}
+							settings={reportSettings}
+							onUpdateSettings={handleUpdateSettings}
+						/>
+					</TabContent>
+				{/snippet}
+			</TabContentWrapper>
+		{/if}
 	{/snippet}
 </PageLayout>

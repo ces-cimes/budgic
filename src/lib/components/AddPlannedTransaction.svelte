@@ -46,7 +46,7 @@
 
 	let amount = $state('');
 	let description = $state('');
-	let transactionType = $state('expense');
+	let transactionType = $state<Transaction['type']>('expense');
 	let toAccountId = $state('');
 	let plannedDate = $state('');
 	let confidence = $state('confirmed');
@@ -261,9 +261,32 @@
 				<DescriptionAutocomplete
 					bind:value={description}
 					placeholder="e.g., Groceries, Salary"
+					fieldKey={transactionType === 'transfer'
+						? 'transaction.transfer.memo'
+						: 'transaction.description'}
+					suggestionFetcher={transactionType === 'transfer'
+						? async (partial, limit) => {
+								if (!toAccountId) return [];
+								const ranked = await autocompleteService.getTransferMemoSuggestions(
+									accountId,
+									toAccountId,
+									partial,
+									limit
+								);
+								return ranked.map((entry) => ({
+									value: entry.value,
+									frequency: entry.selectionFrequency,
+									lastUsed: entry.lastSelected ?? new Date(),
+									typicalAmount: null
+								}));
+							}
+						: undefined}
 					selectionContext={{
 						accountId,
-						transactionType
+						transactionType,
+						status: 'planned',
+						fromAccountId: accountId,
+						toAccountId: toAccountId || undefined
 					}}
 				/>
 			</div>
@@ -290,6 +313,11 @@
 						bind:value={toAccountId}
 						options={destinationAccountOptions}
 						placeholder="Select destination"
+						selectionContext={{
+							transactionType,
+							status: 'planned',
+							accountId
+						}}
 					/>
 				</div>
 			{/if}

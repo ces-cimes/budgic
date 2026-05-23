@@ -650,6 +650,19 @@
 			}));
 	});
 
+	$effect(() => {
+		const filter = { type: transactionType, status };
+		let cancelled = false;
+		autocompleteService
+			.getBlendedBoundedFieldScores('transaction.category', filter)
+			.then((scores) => {
+				if (!cancelled) categoryBlendScores = scores;
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	onMount(async () => {
 		try {
 			[accounts, knownPeople, categories] = await Promise.all([
@@ -657,10 +670,8 @@
 				personService.listPeople(),
 				db.getActiveCategories()
 			]);
-			[accountBlendScores, categoryBlendScores] = await Promise.all([
-				autocompleteService.getBlendedBoundedFieldScores('transaction.account'),
-				autocompleteService.getBlendedBoundedFieldScores('transaction.category')
-			]);
+			accountBlendScores =
+				await autocompleteService.getBlendedBoundedFieldScores('transaction.account');
 			categoryUsageById = await budgetService.getCategoryUsage();
 
 			// Load available currencies
@@ -924,21 +935,26 @@
 			return;
 		}
 		let cancelled = false;
-		autocompleteService.getDescriptionIntelligence(nextDescription).then((value) => {
-			if (cancelled) return;
-			descriptionIntelligence = value;
-			if (
-				status === 'planned' &&
-				!plannedDate &&
-				!plannedDateManuallyTouched &&
-				value?.dateInference &&
-				value.dateInference.confidence > 0.75
-			) {
-				suggestedPlannedDate = dateUtils.toLocalDateTimeInput(value.dateInference.nextDate);
-			} else if (plannedDate) {
-				suggestedPlannedDate = '';
-			}
-		});
+		autocompleteService
+			.getDescriptionIntelligence(nextDescription, {
+				type: transactionType,
+				status
+			})
+			.then((value) => {
+				if (cancelled) return;
+				descriptionIntelligence = value;
+				if (
+					status === 'planned' &&
+					!plannedDate &&
+					!plannedDateManuallyTouched &&
+					value?.dateInference &&
+					value.dateInference.confidence > 0.75
+				) {
+					suggestedPlannedDate = dateUtils.toLocalDateTimeInput(value.dateInference.nextDate);
+				} else if (plannedDate) {
+					suggestedPlannedDate = '';
+				}
+			});
 		return () => {
 			cancelled = true;
 		};
@@ -1826,6 +1842,7 @@
 							accountId: selectedAccount || undefined,
 							categoryId: selectedCategory || undefined,
 							transactionType,
+							status,
 							fromAccountId: selectedAccount || undefined,
 							toAccountId: toAccountId || undefined,
 							typicalAmount: suggestedAmount ?? undefined

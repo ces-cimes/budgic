@@ -75,8 +75,8 @@ async function rollbackSoftDeleteTransaction(
 	collectAffectedAccountIds(restored, affectedAccountIds);
 }
 
-async function rollbackUpdateAccount(
-	op: Extract<MigrationOperation, { op: 'update_account' }>
+async function rollbackAccountMutation(
+	op: Extract<MigrationOperation, { op: 'update_account' | 'archive_account' }>
 ): Promise<void> {
 	const before = getBefore(op.payload as OpPayload);
 	if (!before) return;
@@ -90,10 +90,16 @@ async function rollbackUpdateAccount(
 	await db.accounts.update(op.accountId, restored);
 }
 
+async function rollbackUpdateAccount(
+	op: Extract<MigrationOperation, { op: 'update_account' }>
+): Promise<void> {
+	await rollbackAccountMutation(op);
+}
+
 async function rollbackArchiveAccount(
 	op: Extract<MigrationOperation, { op: 'archive_account' }>
 ): Promise<void> {
-	await rollbackUpdateAccount(op);
+	await rollbackAccountMutation(op);
 }
 
 async function rollbackCreatePerson(

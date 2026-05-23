@@ -2,6 +2,7 @@
 	import * as Input from '$lib/components/ui/input/index.ts';
 	import {
 		autocompleteService,
+		autocompleteFilterFromContext,
 		type DescriptionSuggestion
 	} from '$lib/core/services/autocomplete-service';
 
@@ -49,6 +50,7 @@
 	$effect(() => {
 		const query = value.trim();
 		const focused = isFocused;
+		const txFilter = autocompleteFilterFromContext(selectionContext);
 
 		if (!focused || disabled) {
 			suggestions = [];
@@ -61,7 +63,11 @@
 			try {
 				const nextSuggestions = suggestionFetcher
 					? await suggestionFetcher(query, SUGGESTION_LIMIT)
-					: await autocompleteService.getSuggestionsForDescription(query, SUGGESTION_LIMIT);
+					: await autocompleteService.getSuggestionsForDescription(
+							query,
+							SUGGESTION_LIMIT,
+							txFilter
+						);
 				if (!cancelled) {
 					suggestions = nextSuggestions;
 					highlightedIndex = nextSuggestions.length > 0 ? 0 : -1;
