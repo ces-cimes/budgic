@@ -17,7 +17,18 @@
 	let theme = $state<'light' | 'dark'>('dark');
 	let language = $state<'en' | 'ru'>('en');
 	let currency = $state('USD');
+	let weekStartsOn = $state(0);
 	let currencyOptions = $state<Array<{ value: string; label: string; symbol: string }>>([]);
+
+	const weekStartOptions = [
+		{ value: 0, label: 'Sunday' },
+		{ value: 1, label: 'Monday' },
+		{ value: 2, label: 'Tuesday' },
+		{ value: 3, label: 'Wednesday' },
+		{ value: 4, label: 'Thursday' },
+		{ value: 5, label: 'Friday' },
+		{ value: 6, label: 'Saturday' }
+	];
 
 	// Language options
 	const languageOptions = [
@@ -58,6 +69,7 @@
 				if (preferences.currency) {
 					const currencyExists = currencyOptions.some((c) => c.value === preferences.currency);
 					currency = currencyExists ? preferences.currency : currencyOptions[0]?.value || currency;
+					weekStartsOn = preferences.weekStartsOn ?? 0;
 				} else if (currencyOptions.length > 0) {
 					currency = currencyOptions[0].value;
 				}
@@ -85,7 +97,8 @@
 			await userService.updateUserPreferences({
 				theme,
 				language,
-				currency
+				currency,
+				weekStartsOn
 			});
 			success = 'Saved';
 		} catch (err) {
@@ -172,6 +185,31 @@
 									<option value={option.value}>{option.label}</option>
 								{/each}
 							</select>
+						</div>
+					</div>
+					<div class="space-y-3 px-5 py-4">
+						<h2
+							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							Calendar
+						</h2>
+						<div class="space-y-1.5">
+							<label
+								for="week-start-select"
+								class="text-sm font-medium text-[var(--color-text-primary)]">Week starts on</label
+							>
+							<select
+								id="week-start-select"
+								bind:value={weekStartsOn}
+								class="border-border w-full max-w-xs rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+							>
+								{#each weekStartOptions as option}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</select>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								Used for Home spending pace, Plan week view, and week grouping
+							</p>
 						</div>
 					</div>
 					<div class="space-y-3 px-5 py-4">

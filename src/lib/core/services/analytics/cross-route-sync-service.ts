@@ -413,7 +413,8 @@ class CrossRouteSyncService {
 				percentage: insight.percentage,
 				confidence: insight.confidence,
 				actionable: insight.actionable,
-				actionText: insight.actionText
+				actionText: insight.actionText,
+				actionUrl: insight.actionUrl
 			});
 		}
 	}
@@ -512,7 +513,8 @@ class CrossRouteSyncService {
 				threshold: warnAt,
 				confidence: 95,
 				actionable: true,
-				actionText: 'Review Budget'
+				actionText: 'Review budget',
+				actionUrl: '/plan?tab=budget'
 			});
 		}
 
@@ -527,7 +529,8 @@ class CrossRouteSyncService {
 				threshold: critAt,
 				confidence: 100,
 				actionable: true,
-				actionText: 'Adjust Budget'
+				actionText: 'Adjust budget',
+				actionUrl: '/plan?tab=budget'
 			});
 		}
 	}

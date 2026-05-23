@@ -195,7 +195,7 @@ class NavigationStore {
 					id: 'insights',
 					label: 'Insights',
 					path: '/insights',
-					icon: 'bell',
+					icon: 'sparkles',
 					group: 'main',
 					tabs: insightsNavTabs,
 					visible: true,

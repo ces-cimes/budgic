@@ -31,6 +31,9 @@
 	} from '$lib/core/services/core/negative-allowance-service';
 	import type { Insight } from '$lib/core/db';
 	import { tierRowsFromBudgetSummary, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
+	import { alertActionUrlForInsight } from '$lib/utils/alert-tiers';
+	import { notificationsService } from '$lib/core/services';
+	import { dateUtils } from '$lib/utils/date-utils';
 
 	const { data } = $props<{ data: any }>();
 
@@ -51,8 +54,9 @@
 		totalSpend: number;
 	} | null>(null);
 	let allowanceTierRows = $state<AllowanceTierRow[]>([]);
-	/** Critical tier alerts for "Needs attention" (Phase 5: unified alerts, 2–3 max) */
-	let criticalAlerts = $state<Insight[]>([]);
+	/** Panel-tier alert groups for "Needs attention" (Critical + High, grouped, ~3 max) */
+	let attentionGroups = $state<Insight[][]>([]);
+	let weekStartsOn = $state(0);
 	let isLoaded = $state(false);
 	let activeGoals = $state<any[]>([]);
 	let thisWeekSpent = $state<number>(0);
@@ -65,6 +69,7 @@
 			const preferences = await userService.getUserPreferences();
 			userCurrency = preferences?.currency || 'USD';
 			username = preferences?.username || '';
+			weekStartsOn = preferences.weekStartsOn ?? 0;
 			firstRunChecklistComplete =
 				(preferences as { firstRunChecklistComplete?: boolean })?.firstRunChecklistComplete ??
 				false;
@@ -94,7 +99,7 @@
 			);
 
 			await loadGlobalAllowance();
-			criticalAlerts = await insightsService.getCriticalAlertsForHome(3);
+			attentionGroups = await insightsService.getPanelAlertGroupsForHome(3);
 			await loadGoalsAndThisWeek();
 		} catch (error) {
 			console.error('Error loading dashboard data:', error);
@@ -178,11 +183,8 @@
 
 			const allTx = await transactionService.getAllTransactions();
 			const now = new Date();
-			const weekStart = new Date(now);
-			weekStart.setDate(now.getDate() - now.getDay());
-			weekStart.setHours(0, 0, 0, 0);
-			const weekEnd = new Date(weekStart);
-			weekEnd.setDate(weekStart.getDate() + 7);
+			const weekStart = dateUtils.getWeekStart(weekStartsOn, now);
+			const weekEnd = dateUtils.getWeekEnd(weekStartsOn, now);
 
 			const weekTransactions = allTx.filter((t: any) => {
 				if (!t || t.deletedAt) return false;
@@ -204,6 +206,26 @@
 	}
 
 	const currencyFormat = useCurrencyFormatting();
+
+	async function handleAttentionGroupClick(group: Insight[]) {
+		const primary = group[0];
+		const url = alertActionUrlForInsight(primary);
+		for (const i of group) {
+			await notificationsService.markAsRead(i.id);
+		}
+		window.dispatchEvent(new CustomEvent('alerts-updated'));
+		if (url) {
+			await goto(url);
+		} else {
+			window.dispatchEvent(new CustomEvent('open-alerts-panel'));
+		}
+	}
+
+	function attentionCtaLabel(insight: Insight): string {
+		if (insight.actionText) return insight.actionText;
+		const url = alertActionUrlForInsight(insight);
+		return url ? 'View →' : 'External step';
+	}
 
 	/** Time-aware greeting per UX_SPEC §3.1 (Good morning / afternoon / evening) */
 	function timeGreeting(): string {
@@ -341,7 +363,7 @@
 			</section>
 
 			<!-- ── Needs attention: Critical tier only, 2–3 max (Phase 5 unified alerts) ── -->
-			{#if criticalAlerts.length > 0}
+			{#if attentionGroups.length > 0}
 				<section class="animate-card-enter" style="animation-delay: 120ms">
 					<div class="mb-3 flex items-center justify-between">
 						<h2
@@ -359,44 +381,55 @@
 						</button>
 					</div>
 					<div class="space-y-2">
-						{#each criticalAlerts as alert (alert.id)}
-							<a
-								href={alert.actionUrl || '#'}
-								class="squircle-2xl squircle-border flex items-center justify-between px-4 py-3 transition-colors hover:opacity-90"
+						{#each attentionGroups as group (group.map((i) => i.id).join('-'))}
+							{@const alert = group[0]}
+							<button
+								type="button"
+								class="squircle-2xl squircle-border flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:opacity-90"
 								style="--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);"
+								onclick={() => handleAttentionGroupClick(group)}
 							>
 								<div class="min-w-0 flex-1">
 									<div class="truncate text-sm font-medium text-[var(--color-warm-coral)]">
 										{alert.title}
+										{#if group.length > 1}
+											<span class="text-muted-foreground font-normal"
+												>· +{group.length - 1} similar</span
+											>
+										{/if}
 									</div>
 									<div class="text-muted-foreground truncate text-xs">{alert.message}</div>
 								</div>
-								{#if alert.actionUrl}
-									<span class="text-muted-foreground ml-2 shrink-0 text-xs">View →</span>
-								{/if}
-							</a>
+								<span class="text-muted-foreground ml-2 shrink-0 text-xs"
+									>{attentionCtaLabel(alert)}</span
+								>
+							</button>
 						{/each}
 					</div>
 				</section>
 			{/if}
 
-			<!-- ── This week ── -->
+			<!-- ── Spending pace (weekly plan slice, not daily allowance) ── -->
 			<section class="animate-card-enter" style="animation-delay: 140ms">
 				<h2 class="text-muted-foreground mb-3 text-xs font-semibold tracking-widest uppercase">
-					This week
+					Spending pace
 				</h2>
 				<div class="squircle-4xl squircle-border bg-card px-4 py-4">
 					<div class="flex items-center justify-between gap-3">
 						<div>
 							<p class="text-sm font-medium">
-								{formatAmount(thisWeekSpent, userCurrency)} spent
+								{formatAmount(thisWeekSpent, userCurrency)} spent this week
 							</p>
 							{#if thisWeekPlanned != null}
 								<p class="text-muted-foreground mt-0.5 text-xs">
-									{thisWeekSpent <= thisWeekPlanned ? 'On track' : 'Over your weekly plan'}
+									{thisWeekSpent <= thisWeekPlanned
+										? 'On track vs your weekly plan slice'
+										: 'Over your weekly plan slice'}
 								</p>
 							{:else}
-								<p class="text-muted-foreground mt-0.5 text-xs">Set a plan to compare</p>
+								<p class="text-muted-foreground mt-0.5 text-xs">
+									Set a plan to compare weekly pace
+								</p>
 							{/if}
 						</div>
 						{#if thisWeekPlanned != null && thisWeekPlanned > 0}

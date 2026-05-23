@@ -229,11 +229,22 @@ class InsightsService {
 
 	/**
 	 * Get Critical tier alerts for Home "Needs attention" block (UX_SPEC Phase 5).
-	 * Returns up to `limit` unread insights with severity === 'alert'. Low tier never included.
+	 * @deprecated Use getPanelAlertGroupsForHome for grouped Critical + High panel tiers.
 	 */
 	async getCriticalAlertsForHome(limit = 3): Promise<Insight[]> {
 		const critical = await this.getUnreadBySeverity('alert');
 		return critical.slice(0, limit);
+	}
+
+	/**
+	 * Panel-tier unread groups for Home "Needs attention" (Critical first, then High).
+	 */
+	async getPanelAlertGroupsForHome(limit = 3): Promise<Insight[][]> {
+		const { groupPanelAlertsForDisplay, splitByTier } = await import('$lib/utils/alert-tiers');
+		const unread = await this.getUnreadInsights();
+		const { critical, high } = splitByTier(unread);
+		const groups = [...groupPanelAlertsForDisplay(critical), ...groupPanelAlertsForDisplay(high)];
+		return groups.slice(0, limit);
 	}
 
 	/**
@@ -327,12 +338,7 @@ class InsightsService {
 			const goalInsights = await this.generateGoalInsights(crossRouteData.goals);
 			newInsights.push(...goalInsights);
 
-			// Budget insights
-			const budgetInsights = await this.generateBudgetInsights(
-				crossRouteData.budgetData,
-				crossRouteData.categories
-			);
-			newInsights.push(...budgetInsights);
+			// Budget insights: per-category alerts via cross-route-sync updateBudgetAlerts (real spend).
 
 			// Analytics insights
 			const analyticsInsights = await this.generateAnalyticsInsights(
@@ -565,7 +571,8 @@ class InsightsService {
 							percentage: progress * 100,
 							confidence: 85,
 							actionable: true,
-							actionText: 'Adjust Goal Timeline',
+							actionText: 'Review goal',
+							actionUrl: '/plan?tab=goals',
 							isActive: true,
 							createdAt: new Date().toISOString(),
 							updatedAt: new Date().toISOString(),
@@ -1104,12 +1111,13 @@ class InsightsService {
 			insights.push({
 				id: generateUUID(),
 				type: 'behavioral',
-				severity: 'warning',
+				severity: 'info',
 				title: 'Unusual Spending Pattern Detected',
 				message: spendingPatterns.message,
 				confidence: spendingPatterns.confidence,
 				actionable: true,
-				actionText: 'Review Transactions',
+				actionText: 'Review transactions',
+				actionUrl: '/transactions',
 				metadata: JSON.stringify(spendingPatterns.metadata),
 				isActive: true,
 				createdAt: new Date().toISOString(),

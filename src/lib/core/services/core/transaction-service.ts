@@ -107,6 +107,9 @@ class TransactionService {
 		message: string;
 		severity?: 'info' | 'warning' | 'alert' | 'success';
 		amount?: number;
+		actionUrl?: string;
+		actionText?: string;
+		metadata?: Record<string, unknown>;
 	}): Promise<void> {
 		const existing = await db.insights
 			.where('type')
@@ -114,12 +117,16 @@ class TransactionService {
 			.filter((insight) => insight.isActive && !insight.deletedAt)
 			.first();
 		const now = new Date().toISOString();
+		const meta = payload.metadata ? JSON.stringify(payload.metadata) : undefined;
 		if (existing) {
 			await db.insights.update(existing.id, {
 				title: payload.title,
 				message: payload.message,
 				severity: payload.severity ?? 'warning',
 				amount: payload.amount,
+				actionUrl: payload.actionUrl,
+				actionText: payload.actionText,
+				metadata: meta,
 				updatedAt: now
 			});
 			return;
@@ -132,6 +139,9 @@ class TransactionService {
 			message: payload.message,
 			amount: payload.amount,
 			actionable: true,
+			actionText: payload.actionText,
+			actionUrl: payload.actionUrl,
+			metadata: meta,
 			isActive: true,
 			createdAt: now,
 			updatedAt: now,
@@ -152,7 +162,10 @@ class TransactionService {
 				title: 'Overdraft grace period expired',
 				message: `${account.name} remains below zero past the overdraft grace period.`,
 				severity: 'alert',
-				amount: Math.abs(account.currentBalance)
+				amount: Math.abs(account.currentBalance),
+				actionText: 'View account',
+				actionUrl: `/accounts/${accountId}`,
+				metadata: { accountId }
 			});
 		}
 	}
@@ -229,9 +242,11 @@ class TransactionService {
 		await this.upsertInsight({
 			type: 'repayment_overdue',
 			title: 'Repayment overdue',
-			message: `You have ${overdue.length} overdue repayment(s).`,
+			message: `You have ${overdue.length} overdue repayment(s). Pay from your checking account when ready.`,
 			severity: 'alert',
-			amount
+			amount,
+			actionText: 'Review planned repayments',
+			actionUrl: '/transactions?status=planned'
 		});
 	}
 	/**

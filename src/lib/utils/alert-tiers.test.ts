@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Insight } from '$lib/core/db';
 import {
+	alertActionUrlForInsight,
+	formatFeeAlertTitle,
+	getPanelAlerts,
 	getPanelGroupedBadgeCount,
 	getPanelUnreadCount,
 	panelInsightGroupKey
@@ -40,5 +43,27 @@ describe('alert-tiers panel badge grouping', () => {
 		const critical = { ...shared, id: 'c', severity: 'alert' as const };
 
 		expect(getPanelGroupedBadgeCount([shared, otherTitle, critical])).toBe(3);
+	});
+
+	it('excludes unusual behavioral insights from panel', () => {
+		const unusual = makeInsight('u', '2026-05-23T12:00:00.000Z');
+		unusual.type = 'behavioral';
+		unusual.title = 'Unusual Spending Pattern Detected';
+		unusual.severity = 'warning';
+
+		expect(getPanelAlerts([unusual])).toHaveLength(0);
+	});
+
+	it('formatFeeAlertTitle uses account name', () => {
+		expect(formatFeeAlertTitle('Checking', 'min_balance')).toBe('Possible fee: Checking');
+	});
+
+	it('alertActionUrlForInsight resolves overdraft account from metadata', () => {
+		const insight = makeInsight('od', '2026-05-23T12:00:00.000Z');
+		insight.type = 'overdraft_overdue';
+		insight.severity = 'alert';
+		insight.metadata = JSON.stringify({ accountId: 'acct-1' });
+
+		expect(alertActionUrlForInsight(insight)).toBe('/accounts/acct-1');
 	});
 });

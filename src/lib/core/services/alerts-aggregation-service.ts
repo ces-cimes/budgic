@@ -12,6 +12,7 @@ import { userService } from './core/user-service';
 import { accountService } from './core/account-service';
 import { reconciliationService } from './core/reconciliation-service';
 import { accountNeedsReconciliationCheckup } from '$lib/utils/reconciliation-attention';
+import { formatFeeAlertTitle } from '$lib/utils/alert-tiers';
 
 const NEGATIVE_ALLOWANCE_INSIGHT_TITLE = 'Allowance overspent';
 export const RECONCILIATION_DUE_INSIGHT_TITLE = 'Time to reconcile accounts';
@@ -82,8 +83,8 @@ export async function refreshFeeAndNegativeAllowanceInsights(): Promise<void> {
 			await insightsService.createInsight({
 				type: 'savings_opportunity',
 				severity,
-				title: risk.triggerCondition,
-				message: `${risk.accountName}: estimated ${risk.estimatedAmount} ${risk.currency} fee.`,
+				title: formatFeeAlertTitle(risk.accountName, risk.triggerCondition),
+				message: `${risk.triggerCondition}: estimated ${risk.estimatedAmount} ${risk.currency} fee for ${risk.accountName}.`,
 				amount: risk.estimatedAmount,
 				actionable: true,
 				actionText: 'View account',

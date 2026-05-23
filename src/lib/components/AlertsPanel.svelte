@@ -111,6 +111,14 @@
 		isLoading = false;
 	}
 
+	async function handleMarkAsReadGroup(group: Insight[]) {
+		for (const i of group) {
+			await notificationsService.markAsRead(i.id);
+		}
+		await refreshData();
+		window.dispatchEvent(new CustomEvent('alerts-updated'));
+	}
+
 	async function handleInsightClickGroup(group: Insight[]) {
 		const primary = group[0];
 		for (const i of group) {
@@ -268,7 +276,8 @@
 									>
 										<p class="text-foreground mb-1 font-medium">How alerts work</p>
 										<p>
-											<strong>Tap the alert</strong> to mark read and open the linked screen.
+											When an alert stays visible for about a second, it is marked read.
+											<strong>Tap the alert</strong> or its CTA to open the linked screen.
 											<strong>Details</strong> expands the full message when there is more to read.
 											<strong>Swipe left</strong> to dismiss, <strong>swipe right</strong> to snooze
 											for 24 hours.
@@ -295,6 +304,7 @@
 											displayCurrency={alertsCurrency}
 											numberLocale={alertsNumberLocale}
 											onClick={handleInsightClickGroup}
+											onMarkAsRead={() => handleMarkAsReadGroup(group)}
 											onDismiss={handleDismissGroup}
 											onSnooze={handleSnoozeGroup}
 										/>
@@ -314,6 +324,7 @@
 										displayCurrency={alertsCurrency}
 										numberLocale={alertsNumberLocale}
 										onClick={handleInsightClickGroup}
+										onMarkAsRead={() => handleMarkAsReadGroup(group)}
 										onDismiss={handleDismissGroup}
 										onSnooze={handleSnoozeGroup}
 									/>

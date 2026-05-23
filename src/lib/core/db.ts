@@ -1374,6 +1374,8 @@ const UserPreferencesSchema = BaseSchema.extend({
 	theme: z.enum(['light', 'dark']).default('dark'),
 	language: z.enum(['en', 'ru']).default('en'),
 	currency: z.string().min(3).max(3), // No default - will be detected from locale or user selection
+	/** First day of week for Home pace, Plan week strip, and grouping (0 = Sunday … 6 = Saturday) */
+	weekStartsOn: z.number().int().min(0).max(6).default(0),
 
 	// User Maturity and Onboarding
 	userMaturityLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).default('beginner'),

@@ -1,6 +1,8 @@
 // Date grouping utilities for transaction display
 // This logic is used by TransactionList and other components that need to group transactions by date
 
+import { dateUtils } from '$lib/utils/date-utils';
+
 export interface DateGroup {
 	key: string;
 	date: Date;
@@ -185,10 +187,9 @@ export function getSmartGroupLabel(groupKey: string): string {
 	}
 }
 
-export function getWeekStart(date: Date): Date {
-	const day = date.getDay();
-	const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-	return new Date(date.getFullYear(), date.getMonth(), diff);
+/** @param weekStartsOn 0 = Sunday … 6 = Saturday (default 1 = Monday for transaction list grouping) */
+export function getWeekStart(date: Date, weekStartsOn: number = 1): Date {
+	return dateUtils.getWeekStart(weekStartsOn, date);
 }
 
 export function isInCurrentWeek(date: Date): boolean {

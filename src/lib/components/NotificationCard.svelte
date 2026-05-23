@@ -15,7 +15,7 @@
 		/** Swipe right (and underlay hint); panel only. */
 		onSnooze?: (insights: Insight[]) => void;
 		onClick?: (insights: Insight[]) => void;
-		/** When provided, card will auto-mark as read after 1s in viewport (single insight only). */
+		/** When provided, panel marks the group read after ~1s viewport dwell (≥50% visible). */
 		onMarkAsRead?: (insight: Insight) => void;
 		categoryLabel?: string;
 		goalLabel?: string;
@@ -315,7 +315,7 @@
 	$effect(() => {
 		const el = cardRootElement;
 		const callback = onMarkAsRead;
-		if (!el || !callback || hasFiredMarkAsRead || insights.length !== 1) return;
+		if (!el || !callback || hasFiredMarkAsRead) return;
 
 		let timeoutId: ReturnType<typeof setTimeout> | null = null;
 		const observer = new IntersectionObserver(

@@ -113,6 +113,7 @@
 	/** True while allowance / planning data is being fetched (shows skeleton on Allowance tab) */
 	let isPlanDataLoading = $state(true);
 	let userCurrency = $state<string>('USD');
+	let weekStartsOn = $state(0);
 	let selectedAccountId = $state<string>('');
 	let dailyAllowance = $state<DailyAllowance | null>(null);
 	let enhancedAllowance = $state<EnhancedAllowance | null>(null);
@@ -159,6 +160,7 @@
 	onMount(async () => {
 		try {
 			const preferences = await userService.getUserPreferences();
+			weekStartsOn = preferences.weekStartsOn ?? 0;
 			userCurrency = preferences?.currency || 'USD';
 			nudgeClassifyDismissed = preferences?.nudgeClassifyDismissed ?? false;
 			const accounts = await planService.getAccounts();
@@ -279,7 +281,9 @@
 						txType: p.metadata?.type
 					}));
 					const now = new Date();
-					const ws = startOfWeek(now, { weekStartsOn: 1 });
+					const ws = startOfWeek(now, {
+						weekStartsOn: weekStartsOn as 0 | 1 | 2 | 3 | 4 | 5 | 6
+					});
 					const ann: Record<string, string> = {};
 					for (let i = 0; i < 7; i++) {
 						const d = addDays(ws, i);

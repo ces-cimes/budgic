@@ -105,7 +105,11 @@ class UserService {
 				(prefs.postAddSplitDismissals as UserPreferences['postAddSplitDismissals']) ?? undefined,
 			reviewSessionQueueIds: (prefs.reviewSessionQueueIds as string[] | undefined) ?? undefined,
 			reviewSessionIndex:
-				typeof prefs.reviewSessionIndex === 'number' ? prefs.reviewSessionIndex : undefined
+				typeof prefs.reviewSessionIndex === 'number' ? prefs.reviewSessionIndex : undefined,
+			weekStartsOn:
+				typeof prefs.weekStartsOn === 'number' && prefs.weekStartsOn >= 0 && prefs.weekStartsOn <= 6
+					? prefs.weekStartsOn
+					: 0
 		} as UserPreferences;
 	}
 
@@ -169,6 +173,7 @@ class UserService {
 				balanceUpdateAutoResolveThreshold: 5,
 				reconciliationCheckupIntervalDays: 30,
 				insightsShadowCategoryBreakdown: false,
+				weekStartsOn: updates.weekStartsOn ?? 0,
 				...updates,
 				suggestSplitsAfterAdd: updates.suggestSplitsAfterAdd ?? true,
 				createdAt: new Date().toISOString(),
@@ -532,6 +537,7 @@ class UserService {
 			reconciliationCheckupIntervalDays: 30,
 			insightsShadowCategoryBreakdown: false,
 			suggestSplitsAfterAdd: true,
+			weekStartsOn: 0,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null
