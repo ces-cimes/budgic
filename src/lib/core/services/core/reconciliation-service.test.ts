@@ -294,13 +294,17 @@ describe('ReconciliationService', () => {
 	describe('Automatic Reconciliation', () => {
 		beforeEach(() => {
 			vi.mocked(accountService.getAccount).mockResolvedValue(mockAccount);
-			vi.mocked(accountService.recalculateAccountBalance).mockResolvedValue(1250);
+			vi.mocked(db.getTransactionsByAccount).mockResolvedValue(mockTransactions);
+			vi.mocked(accountService.getTransactionImpact).mockImplementation(
+				(tx: Transaction) => tx.amount ?? 0
+			);
+			vi.mocked(db.reconciliationRecords.add).mockResolvedValue('record-1');
 		});
 
 		it('should perform automatic reconciliation', async () => {
 			const result = await reconciliationService.performAutomaticReconciliation('account-1');
 
-			expect(result.reconciliationType).toBe('manual'); // Note: This would be 'automatic' in full implementation
+			expect(result.reconciliationType).toBe('automatic');
 			expect(result.statementBalance).toBe(1250);
 			expect(result.calculatedBalance).toBe(1250);
 			expect(result.discrepancy).toBe(0);
@@ -312,6 +316,62 @@ describe('ReconciliationService', () => {
 			await expect(
 				reconciliationService.performAutomaticReconciliation('non-existent')
 			).rejects.toThrow('Account non-existent not found');
+		});
+	});
+
+	describe('Skip and bootstrap', () => {
+		beforeEach(() => {
+			vi.mocked(accountService.getAccount).mockResolvedValue(mockAccount);
+			vi.mocked(db.getTransactionsByAccount).mockResolvedValue(mockTransactions);
+			vi.mocked(accountService.getTransactionImpact).mockImplementation(
+				(tx: Transaction) => tx.amount ?? 0
+			);
+			vi.mocked(db.reconciliationRecords.add).mockResolvedValue('record-1');
+		});
+
+		it('skipReconciliationForNow creates 0-delta skipped record', async () => {
+			const result = await reconciliationService.skipReconciliationForNow('account-1', 'Not now');
+
+			expect(result).toMatchObject({
+				accountId: 'account-1',
+				discrepancy: 0,
+				reconciliationType: 'skipped',
+				notes: 'Not now'
+			});
+			expect(db.reconciliationDiscrepancies.add).not.toHaveBeenCalled();
+		});
+
+		it('bootstrapReconciliationForAccount is idempotent when already reconciled', async () => {
+			const bootstrapped = await reconciliationService.bootstrapReconciliationForAccount(
+				'account-1',
+				'create'
+			);
+			expect(bootstrapped).toBeNull();
+		});
+
+		it('bootstrapReconciliationForAccount creates automatic baseline', async () => {
+			const freshAccount = { ...mockAccount, metadata: undefined };
+			vi.mocked(accountService.getAccount).mockResolvedValue(freshAccount);
+			vi.mocked(db.reconciliationRecords.where).mockReturnValue({
+				equals: vi.fn(() => ({
+					and: vi.fn(() => ({
+						reverse: vi.fn(() => ({
+							sortBy: vi.fn(() => Promise.resolve([]))
+						}))
+					}))
+				}))
+			} as any);
+
+			const result = await reconciliationService.bootstrapReconciliationForAccount(
+				'account-1',
+				'import'
+			);
+
+			expect(result).toMatchObject({
+				accountId: 'account-1',
+				discrepancy: 0,
+				reconciliationType: 'automatic'
+			});
 		});
 	});
 
@@ -484,6 +544,10 @@ describe('ReconciliationService', () => {
 	describe('Reconciliation Summary', () => {
 		beforeEach(() => {
 			vi.mocked(accountService.getAccount).mockResolvedValue(mockAccount);
+			vi.mocked(db.getTransactionsByAccount).mockResolvedValue(mockTransactions);
+			vi.mocked(accountService.getTransactionImpact).mockImplementation(
+				(tx: Transaction) => tx.amount ?? 0
+			);
 			vi.mocked(db.reconciliationRecords.where).mockReturnValue({
 				equals: vi.fn(() => ({
 					and: vi.fn(() => ({

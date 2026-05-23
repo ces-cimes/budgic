@@ -203,6 +203,8 @@ export class MoneyManagerImporter extends BaseImporter {
 				await this.recalculateBalances();
 			}
 
+			await this.bootstrapImportedAccountReconciliation();
+
 			const importBatch = await this.buildImportBatchMetadata();
 			return this.createResult(true, importBatch);
 		} catch (error) {
@@ -1150,6 +1152,21 @@ export class MoneyManagerImporter extends BaseImporter {
 				await accountService.recalculateAccountBalance(accountId);
 			} catch (error) {
 				this.addWarning(`Failed to recalculate balance for account ${accountId}`);
+			}
+		}
+	}
+
+	private async bootstrapImportedAccountReconciliation(): Promise<void> {
+		for (const accountId of this.importedAccountIds) {
+			try {
+				const account = await db.accounts.get(accountId);
+				if (!account || account.deletedAt || account.metadata?.lastReconciledDate) {
+					continue;
+				}
+				const { reconciliationService } = await import('../core/reconciliation-service');
+				await reconciliationService.bootstrapReconciliationForAccount(accountId, 'import');
+			} catch {
+				this.addWarning(`Failed to bootstrap reconciliation for account ${accountId}`);
 			}
 		}
 	}

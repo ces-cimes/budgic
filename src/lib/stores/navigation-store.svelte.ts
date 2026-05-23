@@ -5,7 +5,7 @@ import {
 	notificationsService,
 	userService
 } from '$lib/core/services';
-import { accountNeedsReconciliationAttention } from '$lib/utils/reconciliation-attention';
+import { accountHasOpenReconciliationIssues } from '$lib/utils/reconciliation-attention';
 import { scheduler } from '$lib/utils/scheduler';
 import { planTabs, insightsNavTabsForMaturity, reportsTabs } from '$lib/config/nav-tabs';
 
@@ -362,16 +362,22 @@ class NavigationStore {
 				this._alertsBadgeVariant = null;
 			}
 
-			// Reconciliation attention badge (Data hub — at most one count per account)
+			// Reconciliation badge: open issues only (unresolved discrepancies / material balance gap)
 			try {
 				const accounts = await accountService.getAccounts();
-				let needsReconciliation = 0;
+				let openIssues = 0;
 
 				const summaryPromises = accounts.map(async (account) => {
 					try {
 						const summary = await reconciliationService.getReconciliationSummary(account.id);
-						if (accountNeedsReconciliationAttention(account, summary)) {
-							needsReconciliation++;
+						if (
+							accountHasOpenReconciliationIssues(
+								summary,
+								summary.ledgerBalance,
+								summary.currentBalance
+							)
+						) {
+							openIssues++;
 						}
 					} catch (err) {
 						console.debug(`Failed to get reconciliation summary for account ${account.name}:`, err);
@@ -379,7 +385,7 @@ class NavigationStore {
 				});
 
 				await Promise.all(summaryPromises);
-				this.setBadge('reconciliation', needsReconciliation);
+				this.setBadge('reconciliation', openIssues);
 			} catch (error) {
 				// If reconciliation service fails, set badge to 0
 				this.setBadge('reconciliation', 0);

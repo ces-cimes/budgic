@@ -29,10 +29,16 @@
 	interface Props {
 		selectedAccountId?: string;
 		onReconcileClick?: (accountId: string) => void;
+		embedded?: boolean;
 		className?: string;
 	}
 
-	const { selectedAccountId = '', onReconcileClick = () => {}, className = '' }: Props = $props();
+	const {
+		selectedAccountId = '',
+		onReconcileClick = () => {},
+		embedded = false,
+		className = ''
+	}: Props = $props();
 
 	// State variables
 	let accounts = $state<Account[]>([]);
@@ -247,17 +253,18 @@
 </script>
 
 <div class="space-y-6 {className}">
-	<!-- Header and Filters -->
-	<div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-		<div>
-			<h1 class="text-2xl font-bold">Reconciliation History</h1>
-			<p class="text-muted-foreground">Track balance reconciliations and resolve discrepancies</p>
+	{#if !embedded}
+		<div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+			<div>
+				<h1 class="text-2xl font-bold">Reconciliation History</h1>
+				<p class="text-muted-foreground">Track balance reconciliations and resolve discrepancies</p>
+			</div>
+			<Button onclick={() => onReconcileClick('')}>
+				<TrendingUp class="mr-2 h-4 w-4" />
+				New Reconciliation
+			</Button>
 		</div>
-		<Button onclick={() => onReconcileClick('')}>
-			<TrendingUp class="mr-2 h-4 w-4" />
-			New Reconciliation
-		</Button>
-	</div>
+	{/if}
 
 	<!-- Filters -->
 	<Card>

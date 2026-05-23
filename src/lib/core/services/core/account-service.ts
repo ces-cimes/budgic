@@ -108,6 +108,17 @@ class AccountService {
 		if (account.type === 'loan' && account.loanDetails) {
 			await loanAmortizationService.generateSchedule(account);
 		}
+
+		void import('./reconciliation-service')
+			.then(async ({ reconciliationService }) => {
+				await reconciliationService.bootstrapReconciliationForAccount(account.id, 'create');
+				const { navigationStore } = await import('$lib/stores/navigation-store.svelte');
+				void navigationStore.updateBadges();
+			})
+			.catch((err) => {
+				console.error('Bootstrap reconciliation failed for new account:', err);
+			});
+
 		return account;
 	}
 

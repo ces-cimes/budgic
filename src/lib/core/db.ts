@@ -1467,6 +1467,8 @@ const UserPreferencesSchema = BaseSchema.extend({
 	includeAccruedInNetWorth: z.boolean().default(false),
 	/** Phase 10.8 — max absolute ledger gap (account currency) for silent auto-resolve in Update balance */
 	balanceUpdateAutoResolveThreshold: z.number().min(0).max(500).default(5),
+	/** Reconciliation check-up interval (days) before a medium-priority bell alert */
+	reconciliationCheckupIntervalDays: z.number().int().min(7).max(365).default(30),
 
 	/** Phase 9.8 — Insights aggregate-only estimated category breakdown from merchant profiles */
 	insightsShadowCategoryBreakdown: z.boolean().default(false),
@@ -1583,7 +1585,8 @@ const InsightSchema = BaseSchema.extend({
 		'credit_utilization',
 		'emergency_fund',
 		'overdraft_overdue',
-		'repayment_overdue'
+		'repayment_overdue',
+		'reconciliation_due'
 	]),
 	severity: z.enum(['info', 'warning', 'alert', 'success']),
 	title: z.string().min(1),
@@ -1669,7 +1672,7 @@ const ReconciliationRecordSchema = BaseSchema.extend({
 	statementBalance: z.number().finite(),
 	calculatedBalance: z.number().finite(),
 	discrepancy: z.number().finite(),
-	reconciliationType: z.enum(['manual', 'automatic']),
+	reconciliationType: z.enum(['manual', 'automatic', 'skipped']),
 	transactionCount: z.number().int().min(0),
 	reconciledTransactionIds: z.array(z.string()),
 	unreconciledTransactionIds: z.array(z.string()),

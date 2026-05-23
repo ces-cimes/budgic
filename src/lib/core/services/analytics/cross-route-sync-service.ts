@@ -360,9 +360,10 @@ class CrossRouteSyncService {
 			includeBehavioral: true
 		});
 		// Phase 5: refresh fee-risk and negative-allowance alerts into unified Insight store
-		const { refreshFeeAndNegativeAllowanceInsights } =
+		const { refreshFeeAndNegativeAllowanceInsights, refreshReconciliationDueInsights } =
 			await import('../alerts-aggregation-service');
 		await refreshFeeAndNegativeAllowanceInsights();
+		await refreshReconciliationDueInsights();
 	}
 
 	/**

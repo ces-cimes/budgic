@@ -9,8 +9,12 @@ import { planningService } from './pages/planning-service';
 import { negativeAllowanceService } from './core/negative-allowance-service';
 import { feeAvoidanceService } from './analytics/fee-avoidance-service';
 import { userService } from './core/user-service';
+import { accountService } from './core/account-service';
+import { reconciliationService } from './core/reconciliation-service';
+import { accountNeedsReconciliationCheckup } from '$lib/utils/reconciliation-attention';
 
 const NEGATIVE_ALLOWANCE_INSIGHT_TITLE = 'Allowance overspent';
+export const RECONCILIATION_DUE_INSIGHT_TITLE = 'Time to reconcile accounts';
 
 /**
  * Refresh fee-risk and negative-allowance insights and persist them as Insights.
@@ -90,5 +94,57 @@ export async function refreshFeeAndNegativeAllowanceInsights(): Promise<void> {
 		}
 	} catch (error) {
 		console.error('[AlertsAggregation] refreshFeeAndNegativeAllowanceInsights:', error);
+	}
+}
+
+/**
+ * Refresh reconciliation check-up insight (medium-priority bell alert, not Data badge).
+ */
+export async function refreshReconciliationDueInsights(): Promise<void> {
+	try {
+		const [accounts, prefs] = await Promise.all([
+			accountService.getAccounts(),
+			userService.getUserPreferences()
+		]);
+		const intervalDays = prefs.reconciliationCheckupIntervalDays ?? 30;
+
+		let dueCount = 0;
+		for (const account of accounts) {
+			try {
+				const summary = await reconciliationService.getReconciliationSummary(account.id);
+				if (accountNeedsReconciliationCheckup(account, summary, intervalDays)) {
+					dueCount++;
+				}
+			} catch {
+				// Skip accounts that fail summary load
+			}
+		}
+
+		const anyExisting = await insightsService.getInsightsByTypeAndTitle(
+			'reconciliation_due',
+			RECONCILIATION_DUE_INSIGHT_TITLE
+		);
+		const existingUnread = anyExisting.find((i) => !i.readAt && !i.dismissedAt && i.isActive);
+
+		if (dueCount > 0) {
+			if (anyExisting.length === 0) {
+				await insightsService.createInsight({
+					type: 'reconciliation_due',
+					severity: 'warning',
+					title: RECONCILIATION_DUE_INSIGHT_TITLE,
+					message:
+						dueCount === 1
+							? '1 account has not been reconciled within your check-up interval.'
+							: `${dueCount} accounts have not been reconciled within your check-up interval.`,
+					actionable: true,
+					actionText: 'Reconcile accounts',
+					actionUrl: '/data?tab=reconcile'
+				});
+			}
+		} else if (existingUnread) {
+			await insightsService.markAsRead(existingUnread.id);
+		}
+	} catch (error) {
+		console.error('[AlertsAggregation] refreshReconciliationDueInsights:', error);
 	}
 }

@@ -92,6 +92,10 @@ class UserService {
 				typeof prefs.balanceUpdateAutoResolveThreshold === 'number'
 					? prefs.balanceUpdateAutoResolveThreshold
 					: 5,
+			reconciliationCheckupIntervalDays:
+				typeof prefs.reconciliationCheckupIntervalDays === 'number'
+					? prefs.reconciliationCheckupIntervalDays
+					: 30,
 			insightsShadowCategoryBreakdown: prefs.insightsShadowCategoryBreakdown ?? false,
 			goalRelativePrecisionDismissals:
 				(prefs.goalRelativePrecisionDismissals as UserPreferences['goalRelativePrecisionDismissals']) ??
@@ -163,6 +167,7 @@ class UserService {
 				sidebarFooterCards: ['total_balance', 'today_allowance'],
 				includeAccruedInNetWorth: false,
 				balanceUpdateAutoResolveThreshold: 5,
+				reconciliationCheckupIntervalDays: 30,
 				insightsShadowCategoryBreakdown: false,
 				...updates,
 				suggestSplitsAfterAdd: updates.suggestSplitsAfterAdd ?? true,
@@ -524,6 +529,7 @@ class UserService {
 			sidebarFooterCards: ['total_balance', 'today_allowance'],
 			includeAccruedInNetWorth: false,
 			balanceUpdateAutoResolveThreshold: 5,
+			reconciliationCheckupIntervalDays: 30,
 			insightsShadowCategoryBreakdown: false,
 			suggestSplitsAfterAdd: true,
 			createdAt: new Date().toISOString(),

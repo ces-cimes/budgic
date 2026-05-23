@@ -13,8 +13,10 @@
 	let isLoading = $state(true);
 	let includeAccrued = $state(false);
 	let balanceUpdateAutoResolveThreshold = $state(5);
+	let reconciliationCheckupIntervalDays = $state(30);
 	let isSaving = $state(false);
 	let isSavingThreshold = $state(false);
+	let isSavingCheckupInterval = $state(false);
 	let passiveQueue = $state<Account[]>([]);
 	let updateOpen = $state(false);
 	let activeUpdateAccount = $state<Account | null>(null);
@@ -24,6 +26,7 @@
 			const prefs = await userService.getUserPreferences();
 			includeAccrued = prefs.includeAccruedInNetWorth ?? false;
 			balanceUpdateAutoResolveThreshold = prefs.balanceUpdateAutoResolveThreshold ?? 5;
+			reconciliationCheckupIntervalDays = prefs.reconciliationCheckupIntervalDays ?? 30;
 		} finally {
 			isLoading = false;
 		}
@@ -55,6 +58,23 @@
 			balanceUpdateAutoResolveThreshold = clamped;
 		} finally {
 			isSavingThreshold = false;
+		}
+	}
+
+	async function persistCheckupInterval(raw: string) {
+		const n = Number(raw);
+		if (!Number.isFinite(n)) return;
+		const clamped = Math.min(365, Math.max(7, Math.round(n)));
+		isSavingCheckupInterval = true;
+		try {
+			const cur = await userService.getUserPreferences();
+			await userService.updateUserPreferences({
+				...cur,
+				reconciliationCheckupIntervalDays: clamped
+			});
+			reconciliationCheckupIntervalDays = clamped;
+		} finally {
+			isSavingCheckupInterval = false;
 		}
 	}
 
@@ -144,6 +164,32 @@
 						max={500}
 						disabled={isSavingThreshold}
 						onblur={() => persistAutoResolveThreshold(String(balanceUpdateAutoResolveThreshold))}
+					/>
+				</div>
+			</section>
+
+			<section
+				class="squircle-2xl squircle-border space-y-3 bg-[var(--color-bg-tertiary)] px-5 py-4"
+			>
+				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Reconciliation</h2>
+				<p class="text-xs text-[var(--color-text-secondary)]">
+					After this many days without a reconciliation session, Budgic shows a medium-priority bell
+					alert (not a persistent Data badge). Open issues still appear on the Data tab.
+				</p>
+				<div class="space-y-2">
+					<Label for="checkup-interval" class="text-sm text-[var(--color-text-primary)]">
+						Reconciliation check-up interval (days)
+					</Label>
+					<CalcExpressionInput
+						id="checkup-interval"
+						class="max-w-[12rem]"
+						value={reconciliationCheckupIntervalDays}
+						onValueChange={(n) => (reconciliationCheckupIntervalDays = n)}
+						decimalPlaces={0}
+						min={7}
+						max={365}
+						disabled={isSavingCheckupInterval}
+						onblur={() => persistCheckupInterval(String(reconciliationCheckupIntervalDays))}
 					/>
 				</div>
 			</section>

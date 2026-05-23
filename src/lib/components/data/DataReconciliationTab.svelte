@@ -5,11 +5,16 @@
 	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import { History } from '@lucide/svelte';
 	import type { ReconciliationRecord } from '$lib/core/db';
-	import { reconciliationService, accountService } from '$lib/core/services';
+	import {
+		reconciliationService,
+		accountService,
+		userService,
+		refreshReconciliationDueInsights
+	} from '$lib/core/services';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
 	import {
-		accountNeedsReconciliationAttention,
-		isAccountWithinReconciliationGrace
+		accountNeedsReconciliationCheckup,
+		accountHasOpenReconciliationIssues
 	} from '$lib/utils/reconciliation-attention';
 	import { onMount } from 'svelte';
 
@@ -17,20 +22,21 @@
 	let selectedAccountId = $state('');
 	let reconciliationStats = $state({
 		totalAccounts: 0,
-		needsReconciliation: 0,
-		hasDiscrepancies: 0,
+		needsCheckup: 0,
+		openIssues: 0,
 		lastReconciled: null as string | null
 	});
+	let checkupIntervalDays = $state(30);
 	let isLoadingStats = $state(true);
 	let statsError = $state<string | null>(null);
 
-	const needReviewCardStyle = $derived(
-		reconciliationStats.needsReconciliation >= 1
+	const needsCheckupCardStyle = $derived(
+		reconciliationStats.needsCheckup >= 1
 			? '--squircle-border-color: color-mix(in oklch, var(--color-amber) 30%, transparent); --squircle-fill: var(--color-amber-subtle);'
 			: '--squircle-fill: var(--color-bg-tertiary);'
 	);
-	const discrepanciesCardStyle = $derived(
-		reconciliationStats.hasDiscrepancies >= 1
+	const openIssuesCardStyle = $derived(
+		reconciliationStats.openIssues >= 1
 			? '--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent); --squircle-fill: color-mix(in oklch, var(--color-warm-coral) 8%, transparent);'
 			: '--squircle-fill: var(--color-bg-tertiary);'
 	);
@@ -58,9 +64,14 @@
 		isLoadingStats = true;
 		statsError = null;
 		try {
-			const accounts = await accountService.getAccounts();
-			let needsReconciliation = 0;
-			let hasDiscrepancies = 0;
+			const [accounts, prefs] = await Promise.all([
+				accountService.getAccounts(),
+				userService.getUserPreferences()
+			]);
+			const intervalDays = prefs.reconciliationCheckupIntervalDays ?? 30;
+			checkupIntervalDays = intervalDays;
+			let needsCheckup = 0;
+			let openIssues = 0;
 			let lastReconciledDate: string | null = null;
 
 			const rows = await Promise.all(
@@ -78,14 +89,13 @@
 			for (const row of rows) {
 				if (!row) continue;
 				const { account, summary } = row;
-				const skipAttention = isAccountWithinReconciliationGrace(account);
-				if (!skipAttention) {
-					if (accountNeedsReconciliationAttention(account, summary)) {
-						needsReconciliation++;
-					}
-					if (summary.unresolvedDiscrepancies > 0) {
-						hasDiscrepancies++;
-					}
+				if (accountNeedsReconciliationCheckup(account, summary, intervalDays)) {
+					needsCheckup++;
+				}
+				if (
+					accountHasOpenReconciliationIssues(summary, summary.ledgerBalance, summary.currentBalance)
+				) {
+					openIssues++;
 				}
 				if (summary.lastReconciledDate) {
 					if (
@@ -99,8 +109,8 @@
 
 			reconciliationStats = {
 				totalAccounts: accounts.length,
-				needsReconciliation,
-				hasDiscrepancies,
+				needsCheckup,
+				openIssues,
 				lastReconciled: lastReconciledDate
 			};
 		} catch (err) {
@@ -110,8 +120,13 @@
 		}
 	}
 
-	function handleReconciliationComplete(result: ReconciliationRecord) {
+	async function refreshReconciliationAlerts() {
+		await refreshReconciliationDueInsights();
 		void navigationStore.updateBadges();
+	}
+
+	function handleReconciliationComplete(result: ReconciliationRecord) {
+		void refreshReconciliationAlerts();
 		loadReconciliationStats();
 		historyOpen = true;
 		const url = new URL($page.url);
@@ -122,6 +137,14 @@
 			url.searchParams.set('account', result.accountId);
 		}
 		history.replaceState({}, '', url);
+	}
+
+	function handleReconciliationSkipped(result: ReconciliationRecord) {
+		void refreshReconciliationAlerts();
+		loadReconciliationStats();
+		if (result.accountId) {
+			selectedAccountId = result.accountId;
+		}
 	}
 
 	function handleReconcileClick(accountId: string) {
@@ -148,8 +171,11 @@
 
 <div class="mx-auto max-w-2xl space-y-6 px-4 py-2">
 	<p class="text-xs text-[var(--color-text-tertiary)]">
-		Compare stored balances to your bank statement. Attention counts ignore accounts created in the
-		last 7 days.
+		Compare stored balances to your bank statement.
+		<strong class="font-medium text-[var(--color-text-secondary)]">Needs check-up</strong> — no
+		reconciliation within {checkupIntervalDays} days (bell alert, not the Data badge).
+		<strong class="font-medium text-[var(--color-text-secondary)]">Open issues</strong> — unresolved discrepancy
+		records or a material ledger gap needing action.
 	</p>
 	<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 		{#if isLoadingStats}
@@ -165,7 +191,7 @@
 			</div>
 		{:else}
 			{@const allGood =
-				reconciliationStats.needsReconciliation === 0 && reconciliationStats.hasDiscrepancies === 0}
+				reconciliationStats.needsCheckup === 0 && reconciliationStats.openIssues === 0}
 			<div class="squircle-2xl squircle-border squircle-fill-tertiary px-4 py-3">
 				<p
 					class="mb-1 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -176,32 +202,32 @@
 					{reconciliationStats.totalAccounts}
 				</p>
 			</div>
-			<div class="squircle-2xl squircle-border px-4 py-3" style={needReviewCardStyle}>
+			<div class="squircle-2xl squircle-border px-4 py-3" style={needsCheckupCardStyle}>
 				<p
 					class="mb-1 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 				>
-					Need review
+					Needs check-up
 				</p>
 				<p
-					class="text-xl font-semibold {reconciliationStats.needsReconciliation > 0
+					class="text-xl font-semibold {reconciliationStats.needsCheckup > 0
 						? 'text-[var(--color-amber)]'
 						: 'text-[var(--color-text-primary)]'}"
 				>
-					{reconciliationStats.needsReconciliation}
+					{reconciliationStats.needsCheckup}
 				</p>
 			</div>
-			<div class="squircle-2xl squircle-border px-4 py-3" style={discrepanciesCardStyle}>
+			<div class="squircle-2xl squircle-border px-4 py-3" style={openIssuesCardStyle}>
 				<p
 					class="mb-1 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 				>
-					Discrepancies
+					Open issues
 				</p>
 				<p
-					class="text-xl font-semibold {reconciliationStats.hasDiscrepancies > 0
+					class="text-xl font-semibold {reconciliationStats.openIssues > 0
 						? 'text-[var(--color-warm-coral)]'
 						: 'text-[var(--color-text-primary)]'}"
 				>
-					{reconciliationStats.hasDiscrepancies}
+					{reconciliationStats.openIssues}
 				</p>
 			</div>
 			<div
@@ -236,10 +262,10 @@
 		>
 			<History class="size-3.5" />
 			Reconciliation history
-			{#if reconciliationStats.hasDiscrepancies > 0}
+			{#if reconciliationStats.openIssues > 0}
 				<span
 					class="ml-0.5 rounded-full bg-[var(--color-warm-coral)] px-1.5 py-0.5 text-[10px] font-bold text-white"
-					>{reconciliationStats.hasDiscrepancies}</span
+					>{reconciliationStats.openIssues}</span
 				>
 			{/if}
 		</button>
@@ -249,6 +275,7 @@
 		{selectedAccountId}
 		initialStatementBalance={statementBalanceFromUrl}
 		onReconciliationComplete={handleReconciliationComplete}
+		onReconciliationSkipped={handleReconciliationSkipped}
 	/>
 
 	<DialogDrawer
@@ -258,7 +285,7 @@
 		description="Past sessions and discrepancies for your accounts."
 	>
 		{#snippet children()}
-			<ReconciliationHistory {selectedAccountId} onReconcileClick={handleReconcileClick} />
+			<ReconciliationHistory {selectedAccountId} embedded onReconcileClick={handleReconcileClick} />
 		{/snippet}
 	</DialogDrawer>
 </div>

@@ -14,6 +14,7 @@
 	import { AlertCircle, CheckCircle2, Clock, TrendingUp } from '@lucide/svelte';
 	import { CurrencyUtils } from '$lib/core/db';
 	import { onMount } from 'svelte';
+	import { toast } from 'svelte-sonner';
 	import { z } from 'zod';
 
 	// Props interface
@@ -22,6 +23,7 @@
 		/** Phase 10.8 — pre-fill from `/data?tab=reconcile&statementBalance=` (e.g. Update balance deep link) */
 		initialStatementBalance?: number | null;
 		onReconciliationComplete?: (result: ReconciliationRecord) => void;
+		onReconciliationSkipped?: (result: ReconciliationRecord) => void;
 		onCancel?: () => void;
 		className?: string;
 	}
@@ -30,6 +32,7 @@
 		selectedAccountId = '',
 		initialStatementBalance = null,
 		onReconciliationComplete = () => {},
+		onReconciliationSkipped = () => {},
 		onCancel = () => {},
 		className = ''
 	}: Props = $props();
@@ -230,6 +233,28 @@
 		}
 	}
 
+	async function handleSkipForNow() {
+		if (!formData.accountId || isLoading || isLoadingBalance) return;
+
+		isLoading = true;
+		error = null;
+
+		try {
+			const result = await reconciliationService.skipReconciliationForNow(
+				formData.accountId,
+				formData.notes || undefined
+			);
+			reconciliationResult = result;
+			discrepancies = [];
+			toast.success('Reconciliation skipped for now');
+			onReconciliationSkipped(result);
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to skip reconciliation';
+		} finally {
+			isLoading = false;
+		}
+	}
+
 	// Handle option changes that affect balance calculation
 	async function handleIncludePendingChange(checked: boolean) {
 		formData.includePendingTransactions = checked;
@@ -392,7 +417,7 @@
 										<AlertCircle class="h-5 w-5 text-red-600" />
 									{/if}
 									<span class="font-medium">
-										Discrepancy: {CurrencyUtils.formatAmount(
+										Balance gap: {CurrencyUtils.formatAmount(
 											discrepancy(),
 											selectedAccount.currency
 										)}
@@ -400,7 +425,7 @@
 								</div>
 								{#if Math.abs(discrepancy()) <= formData.tolerance}
 									<p class="text-muted-foreground mt-1 text-sm">
-										Within acceptable tolerance ({CurrencyUtils.formatAmount(
+										Matches within tolerance ({CurrencyUtils.formatAmount(
 											formData.tolerance,
 											selectedAccount.currency
 										)})
@@ -485,8 +510,12 @@
 						</div>
 
 						<!-- Actions -->
-						<div class="flex gap-2 pt-4">
-							<Button type="submit" disabled={!isFormValid || isLoading} class="flex-1">
+						<div class="flex flex-wrap gap-2 pt-4">
+							<Button
+								type="submit"
+								disabled={!isFormValid || isLoading}
+								class="flex-1 sm:flex-none"
+							>
 								{#if isLoading}
 									<div
 										class="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
@@ -495,6 +524,15 @@
 								{:else}
 									Perform Reconciliation
 								{/if}
+							</Button>
+
+							<Button
+								type="button"
+								variant="outline"
+								disabled={!formData.accountId || isLoading || isLoadingBalance}
+								onclick={() => void handleSkipForNow()}
+							>
+								Skip for now
 							</Button>
 
 							{#if onCancel}
@@ -517,7 +555,7 @@
 						>
 							{Math.abs(reconciliationResult.discrepancy) <= formData.tolerance
 								? 'Balanced'
-								: 'Discrepancy Found'}
+								: 'Balance gap found'}
 						</Badge>
 					</div>
 
@@ -542,7 +580,7 @@
 							</p>
 						</div>
 						<div class="col-span-2">
-							<Label class="text-muted-foreground text-sm">Discrepancy</Label>
+							<Label class="text-muted-foreground text-sm">Balance gap</Label>
 							<p
 								class="text-lg font-semibold {Math.abs(reconciliationResult.discrepancy) >
 								formData.tolerance

@@ -50,9 +50,10 @@ class NotificationsService {
 	 */
 	async initialize(): Promise<void> {
 		try {
-			const { refreshFeeAndNegativeAllowanceInsights } =
+			const { refreshFeeAndNegativeAllowanceInsights, refreshReconciliationDueInsights } =
 				await import('$lib/core/services/alerts-aggregation-service');
 			await refreshFeeAndNegativeAllowanceInsights();
+			await refreshReconciliationDueInsights();
 		} catch (e) {
 			console.error('Error refreshing alert sources:', e);
 		}

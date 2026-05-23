@@ -101,6 +101,7 @@ export function insightsTabForAlertType(type: Insight['type']): 'optimize' | 'pa
 }
 
 export function insightsDeepLinkForType(type: Insight['type']): string {
+	if (type === 'reconciliation_due') return '/data?tab=reconcile';
 	const tab = insightsTabForAlertType(type);
 	return `/insights?tab=${tab}&insightType=${encodeURIComponent(type)}`;
 }

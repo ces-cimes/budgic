@@ -22,11 +22,20 @@ export interface ReconciliationSummary {
 	lastReconciledDate?: string;
 	daysSinceLastReconciliation: number;
 	currentBalance: number;
+	ledgerBalance: number;
+	balanceGap: number;
 	lastReconciledBalance: number;
 	totalDiscrepancies: number;
 	unresolvedDiscrepancies: number;
 	reconciliationHealth: 'good' | 'warning' | 'critical';
 }
+
+type ReconciliationPerformOptions = Partial<
+	ReconciliationOptions & {
+		reconciliationType?: ReconciliationRecord['reconciliationType'];
+		notes?: string;
+	}
+>;
 
 export interface ReconciliationOptions {
 	tolerance: number; // Acceptable difference in currency units (e.g., 0.01 for cents)
@@ -101,7 +110,7 @@ class ReconciliationService {
 	async performReconciliation(
 		accountId: string,
 		statementBalance: number,
-		options: Partial<ReconciliationOptions> = {}
+		options: ReconciliationPerformOptions = {}
 	): Promise<ReconciliationRecord> {
 		// Validate account exists
 		const account = await accountService.getAccount(accountId);
@@ -109,8 +118,9 @@ class ReconciliationService {
 			throw new Error(`Account ${accountId} not found`);
 		}
 
+		const { reconciliationType = 'manual', notes, ...reconOptions } = options;
 		// Validate and set default options
-		const validatedOptions = ReconciliationOptionsSchema.parse(options);
+		const validatedOptions = ReconciliationOptionsSchema.parse(reconOptions);
 
 		// Get current calculated balance
 		const calculatedBalance = await this.calculateReconciliationBalance(
@@ -138,10 +148,11 @@ class ReconciliationService {
 			statementBalance,
 			calculatedBalance,
 			discrepancy,
-			reconciliationType: 'manual',
+			reconciliationType,
 			transactionCount: transactions.length,
 			reconciledTransactionIds: reconciledTransactions.map((t) => t.id),
 			unreconciledTransactionIds: unreconciledTransactions.map((t) => t.id),
+			...(notes ? { notes } : {}),
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 			deletedAt: null
@@ -188,14 +199,15 @@ class ReconciliationService {
 	 */
 	async performAutomaticReconciliation(
 		accountId: string,
-		options: Partial<ReconciliationOptions> = {}
+		options: Partial<ReconciliationOptions & { notes?: string }> = {}
 	): Promise<ReconciliationRecord> {
 		const account = await accountService.getAccount(accountId);
 		if (!account) {
 			throw new Error(`Account ${accountId} not found`);
 		}
 
-		const validatedOptions = ReconciliationOptionsSchema.parse(options);
+		const { notes, ...reconOptions } = options;
+		const validatedOptions = ReconciliationOptionsSchema.parse(reconOptions);
 		const calculatedBalance = await this.calculateReconciliationBalance(
 			accountId,
 			validatedOptions
@@ -204,8 +216,64 @@ class ReconciliationService {
 		// For automatic reconciliation, assume statement balance equals calculated balance
 		return await this.performReconciliation(accountId, calculatedBalance, {
 			...validatedOptions,
-			autoResolveSmallDiscrepancies: true
+			autoResolveSmallDiscrepancies: true,
+			reconciliationType: 'automatic',
+			notes
 		});
+	}
+
+	/**
+	 * Record a skipped check-up as a 0-delta reconciliation session.
+	 */
+	async skipReconciliationForNow(accountId: string, notes?: string): Promise<ReconciliationRecord> {
+		const account = await accountService.getAccount(accountId);
+		if (!account) {
+			throw new Error(`Account ${accountId} not found`);
+		}
+
+		const calculatedBalance = await this.calculateReconciliationBalance(accountId, {
+			tolerance: 0.01,
+			includePendingTransactions: false,
+			autoResolveSmallDiscrepancies: false,
+			autoResolveThreshold: 0.01
+		});
+
+		return await this.performReconciliation(accountId, calculatedBalance, {
+			tolerance: 0.01,
+			includePendingTransactions: false,
+			autoResolveSmallDiscrepancies: false,
+			reconciliationType: 'skipped',
+			notes: notes ?? 'Skipped for now'
+		});
+	}
+
+	/**
+	 * Baseline reconciliation for newly created or imported accounts (idempotent).
+	 */
+	async bootstrapReconciliationForAccount(
+		accountId: string,
+		source: 'create' | 'import'
+	): Promise<ReconciliationRecord | null> {
+		const account = await accountService.getAccount(accountId);
+		if (!account) {
+			throw new Error(`Account ${accountId} not found`);
+		}
+
+		if (account.metadata?.lastReconciledDate) {
+			return null;
+		}
+
+		const history = await this.getReconciliationHistory(accountId, 1);
+		if (history.length > 0) {
+			return null;
+		}
+
+		const notes =
+			source === 'create'
+				? 'Automatic baseline reconciliation on account creation'
+				: 'Automatic baseline reconciliation on import';
+
+		return await this.performAutomaticReconciliation(accountId, { notes });
 	}
 
 	// ============================================================================
@@ -422,6 +490,8 @@ class ReconciliationService {
 			.and((d) => !d.deletedAt)
 			.toArray();
 		const unresolvedDiscrepancies = discrepancies.filter((d) => !d.resolvedAt);
+		const ledgerBalance = await this.getLedgerBalance(accountId);
+		const balanceGap = Math.abs(account.currentBalance - ledgerBalance);
 
 		// Calculate reconciliation health
 		let reconciliationHealth: ReconciliationSummary['reconciliationHealth'] = 'good';
@@ -438,6 +508,8 @@ class ReconciliationService {
 			daysSinceLastReconciliation:
 				daysSinceLastReconciliation === Infinity ? -1 : daysSinceLastReconciliation,
 			currentBalance: account.currentBalance,
+			ledgerBalance,
+			balanceGap,
 			lastReconciledBalance: lastReconciliation?.calculatedBalance || account.initialBalance,
 			totalDiscrepancies: discrepancies.length,
 			unresolvedDiscrepancies: unresolvedDiscrepancies.length,
