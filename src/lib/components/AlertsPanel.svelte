@@ -17,6 +17,12 @@
 	import * as Drawer from '$lib/components/ui/drawer';
 	import NotificationCard from '$lib/components/NotificationCard.svelte';
 	import { db, type Insight } from '$lib/core/db';
+	import {
+		getCriticalAlertsCoachmarkCopy,
+		shouldShowCriticalAlertsCoachmark,
+		type ExplanationDetail,
+		type GuidanceTone
+	} from '$lib/utils/guidance-presentation';
 
 	let unreadCount = $state(0);
 	let unreadInsights = $state<Insight[]>([]);
@@ -28,6 +34,8 @@
 	let alertsCurrency = $state('USD');
 	let alertsNumberLocale = $state('en-US');
 	let alertsCriticalCoachmarkSeen = $state(true);
+	let guidanceTone = $state<GuidanceTone>('balanced');
+	let explanationDetail = $state<ExplanationDetail>('standard');
 	/** Expanded "Earlier" row id for message + link review */
 	let expandedEarlierId = $state<string | null>(null);
 
@@ -47,8 +55,12 @@
 	const highGroups = $derived(groupPanelAlertsForDisplay(high));
 	const hasUnread = $derived(unreadCount > 0);
 	const showCriticalCoachmark = $derived(
-		critical.length > 0 && !alertsCriticalCoachmarkSeen && !isLoading
+		critical.length > 0 &&
+			!alertsCriticalCoachmarkSeen &&
+			!isLoading &&
+			shouldShowCriticalAlertsCoachmark(guidanceTone)
 	);
+	const criticalCoachmarkCopy = $derived(getCriticalAlertsCoachmarkCopy(explanationDetail));
 
 	$effect(() => {
 		if (expandedEarlierId && !earlierAlerts.some((i) => i.id === expandedEarlierId)) {
@@ -89,6 +101,8 @@
 			alertsCurrency = prefs.currency ?? 'USD';
 			alertsNumberLocale = prefs.language === 'ru' ? 'ru-RU' : 'en-US';
 			alertsCriticalCoachmarkSeen = prefs.alertsCriticalCoachmarkSeen ?? false;
+			guidanceTone = prefs.guidanceTone ?? 'balanced';
+			explanationDetail = prefs.explanationDetail ?? 'standard';
 			const catEntries = await Promise.all(
 				[...catIds].map(async (id) => {
 					const c = await db.categories.get(id);
@@ -279,16 +293,8 @@
 										class="border-border bg-muted/40 text-muted-foreground mb-3 rounded-lg border px-3 py-2 text-xs"
 										role="note"
 									>
-										<p class="text-foreground mb-1 font-medium">How alerts work</p>
-										<p>
-											When an alert stays visible for about a second, it is marked read.
-											<strong>Tap the alert</strong> or its CTA to open the linked screen.
-											<strong>Details</strong> expands the full message when there is more to read.
-											<strong>Swipe left</strong> to dismiss, <strong>swipe right</strong> to snooze
-											for 24 hours.
-											<strong>Dismiss</strong> (✕) removes it until the issue returns.
-											<strong>Mark all read</strong> in the header marks every unread alert here as read.
-										</p>
+										<p class="text-foreground mb-1 font-medium">{criticalCoachmarkCopy.title}</p>
+										<p>{criticalCoachmarkCopy.body}</p>
 										<Button
 											variant="ghost"
 											size="sm"

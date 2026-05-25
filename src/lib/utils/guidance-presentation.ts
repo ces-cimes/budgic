@@ -66,3 +66,59 @@ export function getClassifyNudgeCopy(detail: ExplanationDetail): { title: string
 			};
 	}
 }
+
+export interface ClassifyNudgeContext {
+	allowanceConfidenceRatio: number;
+	unclassifiedTransactionCount: number;
+	dismissed: boolean;
+}
+
+/** Show thresholds keyed off guidance tone (balanced = legacy defaults). */
+export function shouldShowClassifyNudge(
+	presentation: GuidancePresentation,
+	context: ClassifyNudgeContext
+): boolean {
+	if (context.dismissed) return false;
+
+	const { ratio, unclassifiedTransactionCount: count } = {
+		ratio: context.allowanceConfidenceRatio,
+		unclassifiedTransactionCount: context.unclassifiedTransactionCount
+	};
+
+	switch (presentation.guidanceTone) {
+		case 'supportive':
+			return ratio < 0.6 && count > 3;
+		case 'minimal':
+			return ratio < 0.35 && count > 10;
+		default:
+			return ratio < 0.5 && count > 5;
+	}
+}
+
+/** One-time Alerts panel coachmark — suppressed for minimal guidance tone. */
+export function shouldShowCriticalAlertsCoachmark(guidanceTone: GuidanceTone): boolean {
+	return guidanceTone !== 'minimal';
+}
+
+export function getCriticalAlertsCoachmarkCopy(detail: ExplanationDetail): {
+	title: string;
+	body: string;
+} {
+	switch (detail) {
+		case 'brief':
+			return {
+				title: 'Alerts',
+				body: 'Visible ~1s marks read. Tap for action; swipe to dismiss or snooze.'
+			};
+		case 'full':
+			return {
+				title: 'How alerts work',
+				body: 'When an alert stays visible for about a second, it is marked read. Tap the alert or its CTA to open the linked screen. Details expands the full message when there is more to read. Swipe left to dismiss, swipe right to snooze for 24 hours. Dismiss (✕) removes it until the issue returns. Mark all read in the header marks every unread alert here as read.'
+			};
+		default:
+			return {
+				title: 'How alerts work',
+				body: 'Alerts mark read after ~1s visible. Tap to act, swipe left to dismiss, swipe right to snooze 24h, or use Mark all read in the header.'
+			};
+	}
+}

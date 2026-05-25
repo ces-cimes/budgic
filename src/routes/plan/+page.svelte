@@ -19,8 +19,8 @@
 	} from '@lucide/svelte';
 
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
-	import { getClassifyNudgeCopy } from '$lib/utils/guidance-presentation';
-	import type { ExplanationDetail } from '$lib/utils/guidance-presentation';
+	import { getClassifyNudgeCopy, shouldShowClassifyNudge } from '$lib/utils/guidance-presentation';
+	import type { ExplanationDetail, GuidanceTone } from '$lib/utils/guidance-presentation';
 
 	import {
 		BudgetTab,
@@ -146,6 +146,7 @@
 	} | null>(null);
 	let unclassifiedTransactionCount = $state(0);
 	let nudgeClassifyDismissed = $state(false);
+	let guidanceTone = $state<GuidanceTone>('balanced');
 	let explanationDetail = $state<ExplanationDetail>('standard');
 	let allowanceTabMarked = $state(false);
 	let error = $state<string | null>(null);
@@ -158,9 +159,14 @@
 	const netProjectedChange = $derived(planningData?.netProjectedChange ?? 0);
 	const showClassifyNudge = $derived(
 		Boolean(allowanceConfidence) &&
-			allowanceConfidence!.ratio < 0.5 &&
-			unclassifiedTransactionCount > 5 &&
-			!nudgeClassifyDismissed
+			shouldShowClassifyNudge(
+				{ guidanceTone, explanationDetail },
+				{
+					allowanceConfidenceRatio: allowanceConfidence!.ratio,
+					unclassifiedTransactionCount,
+					dismissed: nudgeClassifyDismissed
+				}
+			)
 	);
 	const classifyNudgeCopy = $derived(getClassifyNudgeCopy(explanationDetail));
 
@@ -170,6 +176,7 @@
 			weekStartsOn = preferences.weekStartsOn ?? 0;
 			userCurrency = preferences?.currency || 'USD';
 			nudgeClassifyDismissed = preferences?.nudgeClassifyDismissed ?? false;
+			guidanceTone = preferences?.guidanceTone ?? 'balanced';
 			explanationDetail = preferences?.explanationDetail ?? 'standard';
 			allowanceTabMarked = preferences?.allowanceTabReviewed ?? false;
 			const accounts = await planService.getAccounts();
