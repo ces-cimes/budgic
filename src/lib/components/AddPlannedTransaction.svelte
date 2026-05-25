@@ -52,6 +52,15 @@
 	let confidence = $state('confirmed');
 	let formError = $state('');
 
+	const plannedStatus = 'planned' as const;
+	const autocompleteContext = $derived({
+		accountId,
+		transactionType,
+		status: plannedStatus,
+		fromAccountId: accountId,
+		toAccountId: toAccountId || undefined
+	});
+
 	const destinationAccounts = $derived(accounts.filter((a) => a.id !== accountId));
 	const destinationAccountOptions = $derived.by(() => {
 		const defaultOrderMap = new Map(
@@ -86,13 +95,22 @@
 		}
 	});
 
+	$effect(() => {
+		const filter = { type: transactionType, status: plannedStatus };
+		let cancelled = false;
+		autocompleteService.getBlendedBoundedFieldScores('transaction.account', filter).then((scores) => {
+			if (!cancelled) accountBlendScores = scores;
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	onMount(async () => {
 		const preferences = await userService.getUserPreferences();
 		userCurrency = preferences?.currency || 'USD';
 
 		accounts = await accountService.getAccounts();
-		accountBlendScores =
-			await autocompleteService.getBlendedBoundedFieldScores('transaction.account');
 		const tomorrow = new Date();
 		tomorrow.setDate(tomorrow.getDate() + 1);
 		plannedDate = tomorrow.toISOString().split('T')[0];
@@ -281,13 +299,7 @@
 								}));
 							}
 						: undefined}
-					selectionContext={{
-						accountId,
-						transactionType,
-						status: 'planned',
-						fromAccountId: accountId,
-						toAccountId: toAccountId || undefined
-					}}
+					selectionContext={autocompleteContext}
 				/>
 			</div>
 
@@ -313,11 +325,7 @@
 						bind:value={toAccountId}
 						options={destinationAccountOptions}
 						placeholder="Select destination"
-						selectionContext={{
-							transactionType,
-							status: 'planned',
-							accountId
-						}}
+						selectionContext={autocompleteContext}
 					/>
 				</div>
 			{/if}
