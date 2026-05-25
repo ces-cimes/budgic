@@ -1,16 +1,21 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { UserPreferences, UserAction } from '$lib/core/db';
 import { CURRENCY_REGISTRY } from '$lib/core/db';
-import {
-	getGuidancePresentation,
-	mapLegacyMaturityToGuidance,
-	needsGuidanceMigration
-} from '$lib/utils/guidance-presentation';
+import { getGuidancePresentation, needsGuidanceMigration } from '$lib/utils/guidance-presentation';
 
+/**
+ * User profile aggregates presentation prefs and derived behavior signals.
+ *
+ * | Field / API | Purpose | User-facing? |
+ * |-------------|---------|--------------|
+ * | `preferences.guidanceTone`, `preferences.explanationDetail` | Presentation prefs (user-chosen) | Yes — Settings profile |
+ * | `behaviorMaturityLevel` | Derived from `userActions` (30d) | Analytics/recommendations only |
+ */
 interface UserProfile {
 	id: string;
 	preferences: UserPreferences;
-	maturityLevel: 'beginner' | 'intermediate' | 'advanced';
+	/** Derived from usage patterns — analytics/recommendations only; not shown in Settings */
+	behaviorMaturityLevel: 'beginner' | 'intermediate' | 'advanced';
 	onboardingComplete: boolean;
 	lastActiveAt: string;
 }
@@ -70,16 +75,9 @@ class UserService {
 				: ['total_balance', 'today_allowance'],
 			firstRunChecklistComplete: prefs.firstRunChecklistComplete ?? false,
 			allowanceTabReviewed: prefs.allowanceTabReviewed ?? false,
-			guidanceTone:
-				(prefs.guidanceTone as UserPreferences['guidanceTone']) ??
-				mapLegacyMaturityToGuidance(
-					(prefs.userMaturityLevel as UserPreferences['userMaturityLevel']) ?? 'beginner'
-				).guidanceTone,
+			guidanceTone: (prefs.guidanceTone as UserPreferences['guidanceTone']) ?? 'balanced',
 			explanationDetail:
-				(prefs.explanationDetail as UserPreferences['explanationDetail']) ??
-				mapLegacyMaturityToGuidance(
-					(prefs.userMaturityLevel as UserPreferences['userMaturityLevel']) ?? 'beginner'
-				).explanationDetail,
+				(prefs.explanationDetail as UserPreferences['explanationDetail']) ?? 'standard',
 			postChecklistSuggestionDismissals:
 				(prefs.postChecklistSuggestionDismissals as UserPreferences['postChecklistSuggestionDismissals']) ??
 				undefined,
@@ -132,7 +130,7 @@ class UserService {
 		} as UserPreferences;
 
 		if (needsGuidanceMigration(preferences)) {
-			const mapped = getGuidancePresentation(preferences);
+			const mapped = getGuidancePresentation({});
 			await this.updateUserPreferences({
 				guidanceTone: mapped.guidanceTone,
 				explanationDetail: mapped.explanationDetail
@@ -169,7 +167,6 @@ class UserService {
 				theme: 'dark',
 				language: 'en',
 				currency: updates.currency || detectedCurrency,
-				userMaturityLevel: 'beginner',
 				guidanceTone: 'balanced',
 				explanationDetail: 'standard',
 				onboardingCompleted: false,
@@ -330,28 +327,17 @@ class UserService {
 		const preferences = await this.getUserPreferences();
 		const actions = await this.getUserActions(30);
 
-		// Calculate maturity level based on usage patterns
-		const maturityLevel = this.calculateMaturityLevel(actions);
-
-		// Check if onboarding is complete
+		const behaviorMaturityLevel = this.calculateMaturityLevel(actions);
 		const onboardingComplete = this.isOnboardingComplete(preferences, actions);
 
 		return {
 			id: preferences.id,
 			preferences,
-			maturityLevel,
+			behaviorMaturityLevel,
 			onboardingComplete,
 			lastActiveAt:
 				actions.length > 0 ? actions[actions.length - 1].timestamp : preferences.updatedAt
 		};
-	}
-
-	/**
-	 * Calculate behavior maturity from actions (internal score; does not overwrite presentation prefs).
-	 */
-	async updateMaturityLevel(): Promise<'beginner' | 'intermediate' | 'advanced'> {
-		const actions = await this.getUserActions(30);
-		return this.calculateMaturityLevel(actions);
 	}
 
 	/**
@@ -433,11 +419,11 @@ class UserService {
 			insights.push("You're actively using the app - great job!");
 		}
 
-		// Maturity level insights
-		if (profile.maturityLevel === 'beginner') {
+		// Behavior maturity hints (engagement copy — not presentation prefs)
+		if (profile.behaviorMaturityLevel === 'beginner') {
 			insights.push("You're new to financial planning - start with basic budgeting");
 			recommendations.push('Focus on tracking expenses and setting simple goals');
-		} else if (profile.maturityLevel === 'advanced') {
+		} else if (profile.behaviorMaturityLevel === 'advanced') {
 			insights.push("You're an advanced user - consider exploring advanced features");
 			recommendations.push('Try setting up complex budgets and long-term financial goals');
 		}
@@ -530,7 +516,6 @@ class UserService {
 			theme: 'dark',
 			language: 'en',
 			currency: detectedCurrency,
-			userMaturityLevel: 'beginner',
 			guidanceTone: 'balanced',
 			explanationDetail: 'standard',
 			onboardingCompleted: false,
@@ -586,7 +571,7 @@ class UserService {
 	}
 
 	/**
-	 * Calculate user maturity level based on actions
+	 * Derive behavior maturity from recent actions. Analytics-only — never writes presentation prefs.
 	 */
 	private calculateMaturityLevel(actions: UserAction[]): 'beginner' | 'intermediate' | 'advanced' {
 		const actionTypes = new Set(actions.map((a) => a.action));

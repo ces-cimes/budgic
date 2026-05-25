@@ -1,5 +1,9 @@
 import { db } from '$lib/core/db';
 import {
+	mapLegacyMaturityToGuidance,
+	type LegacyMaturityLevel
+} from '$lib/utils/guidance-presentation';
+import {
 	BUDGIC_BACKUP_VERSION,
 	backupPayloadHasUserData,
 	isV2BackupPayload,
@@ -85,6 +89,25 @@ function v1TableRows(v1: BudgicBackupV1, tableName: string): unknown[] | undefin
 	return mapping[tableName];
 }
 
+function normalizeUserPreferencesRow(row: Record<string, unknown>): Record<string, unknown> {
+	const normalized = { ...row };
+	const legacyMaturity = normalized.userMaturityLevel as LegacyMaturityLevel | undefined;
+	if (legacyMaturity && (normalized.guidanceTone == null || normalized.explanationDetail == null)) {
+		const mapped = mapLegacyMaturityToGuidance(legacyMaturity);
+		if (normalized.guidanceTone == null) normalized.guidanceTone = mapped.guidanceTone;
+		if (normalized.explanationDetail == null) {
+			normalized.explanationDetail = mapped.explanationDetail;
+		}
+	}
+	delete normalized.userMaturityLevel;
+	return normalized;
+}
+
+function normalizeBackupRows(tableName: string, rows: unknown[]): unknown[] {
+	if (tableName !== 'userPreferences') return rows;
+	return rows.map((row) => normalizeUserPreferencesRow(row as Record<string, unknown>));
+}
+
 export async function importFullBackup(data: BudgicBackup): Promise<void> {
 	if (!data.version || !data.exportDate) {
 		throw new Error('Invalid backup: missing version or exportDate');
@@ -103,9 +126,10 @@ export async function importFullBackup(data: BudgicBackup): Promise<void> {
 				const rows = isV2Backup(data)
 					? (data.tables[table.name as BudgicBackupTableName] ?? [])
 					: (v1TableRows(data as BudgicBackupV1, table.name) ?? []);
+				const normalizedRows = normalizeBackupRows(table.name, rows);
 				await table.clear();
-				if (rows.length > 0) {
-					await table.bulkPut(rows as any);
+				if (normalizedRows.length > 0) {
+					await table.bulkPut(normalizedRows as any);
 				}
 			}
 		}

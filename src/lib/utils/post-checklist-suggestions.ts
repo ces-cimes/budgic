@@ -96,7 +96,6 @@ export function getEligiblePostChecklistSuggestions(
 		UserPreferences,
 		| 'guidanceTone'
 		| 'explanationDetail'
-		| 'userMaturityLevel'
 		| 'postChecklistSuggestionDismissals'
 		| 'nudgeClassifyDismissed'
 	>,
@@ -129,7 +128,7 @@ export function getEligiblePostChecklistSuggestions(
 export function getDismissedPostChecklistSuggestions(
 	prefs: Pick<
 		UserPreferences,
-		'guidanceTone' | 'explanationDetail' | 'userMaturityLevel' | 'postChecklistSuggestionDismissals'
+		'guidanceTone' | 'explanationDetail' | 'postChecklistSuggestionDismissals'
 	>
 ): ResolvedPostChecklistSuggestion[] {
 	const presentation = getGuidancePresentation(prefs);

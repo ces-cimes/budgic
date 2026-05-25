@@ -6,6 +6,8 @@
 	interface Props {
 		open: boolean;
 		group: ImportSplitReviewGroup | null;
+		title?: string;
+		description?: string;
 		accountName?: string;
 		busy?: boolean;
 		onOpenChange: (open: boolean) => void;
@@ -16,6 +18,8 @@
 	let {
 		open,
 		group,
+		title = 'Link as split?',
+		description = 'Other transactions on this account look like the same receipt.',
 		accountName,
 		busy = false,
 		onOpenChange,
@@ -24,12 +28,7 @@
 	}: Props = $props();
 </script>
 
-<DialogDrawer
-	{open}
-	{onOpenChange}
-	title="Link as split?"
-	description="Other transactions on this account look like the same receipt."
->
+<DialogDrawer {open} {onOpenChange} {title} {description}>
 	{#snippet children()}
 		{#if group}
 			<ul class="m-0 list-none p-0">

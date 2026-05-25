@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
 	getClassifyNudgeCopy,
 	getCriticalAlertsCoachmarkCopy,
+	getGoalPrecisionNudgeCopy,
 	getGuidancePresentation,
 	getMaxSuggestions,
+	getPostAddSplitSuggestionCopy,
 	mapLegacyMaturityToGuidance,
 	needsGuidanceMigration,
 	shouldShowClassifyNudge,
-	shouldShowCriticalAlertsCoachmark
+	shouldShowCriticalAlertsCoachmark,
+	shouldShowGoalPrecisionNudge,
+	shouldShowPostAddSplitSuggestion
 } from './guidance-presentation';
 
 describe('mapLegacyMaturityToGuidance', () => {
@@ -31,33 +35,30 @@ describe('mapLegacyMaturityToGuidance', () => {
 });
 
 describe('getGuidancePresentation', () => {
-	it('prefers explicit prefs over legacy maturity', () => {
+	it('returns explicit prefs when set', () => {
 		expect(
 			getGuidancePresentation({
 				guidanceTone: 'minimal',
-				explanationDetail: 'brief',
-				userMaturityLevel: 'beginner'
+				explanationDetail: 'brief'
 			})
 		).toEqual({ guidanceTone: 'minimal', explanationDetail: 'brief' });
 	});
 
-	it('falls back to legacy maturity when prefs missing', () => {
-		expect(
-			getGuidancePresentation({
-				guidanceTone: 'balanced',
-				explanationDetail: 'standard',
-				userMaturityLevel: 'beginner'
-			})
-		).toEqual({ guidanceTone: 'balanced', explanationDetail: 'standard' });
+	it('defaults to balanced + standard when prefs missing', () => {
+		expect(getGuidancePresentation({})).toEqual({
+			guidanceTone: 'balanced',
+			explanationDetail: 'standard'
+		});
 	});
 });
 
 describe('needsGuidanceMigration', () => {
-	it('returns true when both presentation fields absent', () => {
-		expect(needsGuidanceMigration({ userMaturityLevel: 'intermediate' })).toBe(true);
+	it('returns true when either presentation field absent', () => {
+		expect(needsGuidanceMigration({})).toBe(true);
+		expect(needsGuidanceMigration({ guidanceTone: 'balanced' })).toBe(true);
 	});
 
-	it('returns false when either field is set', () => {
+	it('returns false when both fields set', () => {
 		expect(
 			needsGuidanceMigration({ guidanceTone: 'balanced', explanationDetail: 'standard' })
 		).toBe(false);
@@ -163,6 +164,27 @@ describe('getCriticalAlertsCoachmarkCopy', () => {
 	it('returns shorter copy for brief detail', () => {
 		expect(getCriticalAlertsCoachmarkCopy('brief').body.length).toBeLessThan(
 			getCriticalAlertsCoachmarkCopy('full').body.length
+		);
+	});
+});
+
+describe('split nudge guidance', () => {
+	it('suppresses goal-precision and post-add split for minimal tone', () => {
+		expect(shouldShowGoalPrecisionNudge('minimal')).toBe(false);
+		expect(shouldShowPostAddSplitSuggestion('minimal')).toBe(false);
+	});
+
+	it('allows split nudges for balanced and supportive', () => {
+		expect(shouldShowGoalPrecisionNudge('balanced')).toBe(true);
+		expect(shouldShowPostAddSplitSuggestion('supportive')).toBe(true);
+	});
+
+	it('returns shorter copy for brief detail', () => {
+		expect(getGoalPrecisionNudgeCopy('brief', 'Groceries').body.length).toBeLessThan(
+			getGoalPrecisionNudgeCopy('full', 'Groceries').body.length
+		);
+		expect(getPostAddSplitSuggestionCopy('brief').description.length).toBeLessThan(
+			getPostAddSplitSuggestionCopy('full').description.length
 		);
 	});
 });

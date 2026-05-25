@@ -8,14 +8,12 @@ import type { UserPreferences } from '$lib/core/db';
 const basePrefs = {
 	guidanceTone: 'balanced',
 	explanationDetail: 'standard',
-	userMaturityLevel: 'intermediate',
 	nudgeClassifyDismissed: false,
 	postChecklistSuggestionDismissals: undefined
 } as Pick<
 	UserPreferences,
 	| 'guidanceTone'
 	| 'explanationDetail'
-	| 'userMaturityLevel'
 	| 'postChecklistSuggestionDismissals'
 	| 'nudgeClassifyDismissed'
 >;

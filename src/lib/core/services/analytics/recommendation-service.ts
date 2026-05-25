@@ -32,7 +32,7 @@ export interface Recommendation {
 
 export interface RecommendationContext {
 	userProfile: {
-		maturityLevel: 'beginner' | 'intermediate' | 'advanced';
+		behaviorMaturityLevel: 'beginner' | 'intermediate' | 'advanced';
 		engagementScore: number;
 	};
 	spendingPatterns: {
@@ -256,7 +256,7 @@ class RecommendationService {
 		});
 
 		// Suggest creating a goal if none exist
-		if (context.goals.length === 0 && context.userProfile.maturityLevel !== 'beginner') {
+		if (context.goals.length === 0 && context.userProfile.behaviorMaturityLevel !== 'beginner') {
 			recommendations.push({
 				id: 'goal-create-first',
 				type: 'goal',
@@ -352,7 +352,7 @@ class RecommendationService {
 		}
 
 		// Beginner features
-		if (context.userProfile.maturityLevel === 'beginner') {
+		if (context.userProfile.behaviorMaturityLevel === 'beginner') {
 			recommendations.push({
 				id: 'feature-beginner-budget',
 				type: 'feature',
@@ -516,14 +516,14 @@ class RecommendationService {
 	 * Get user profile data
 	 */
 	private async getUserProfile(): Promise<{
-		maturityLevel: 'beginner' | 'intermediate' | 'advanced';
+		behaviorMaturityLevel: 'beginner' | 'intermediate' | 'advanced';
 		engagementScore: number;
 	}> {
 		const profile = await userService.getUserProfile();
 		const metrics = await appUsageAnalyticsService.getUsageMetrics(30);
 
 		return {
-			maturityLevel: profile.maturityLevel,
+			behaviorMaturityLevel: profile.behaviorMaturityLevel,
 			engagementScore: metrics.engagementScore
 		};
 	}

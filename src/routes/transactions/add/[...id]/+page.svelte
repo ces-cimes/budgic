@@ -44,6 +44,12 @@
 		postAddSplitDismissalKey
 	} from '$lib/core/services/import-export';
 	import type { ImportSplitReviewGroup } from '$lib/core/services/core/data-quality-service';
+	import {
+		getGoalPrecisionNudgeCopy,
+		getPostAddSplitSuggestionCopy,
+		shouldShowGoalPrecisionNudge,
+		shouldShowPostAddSplitSuggestion
+	} from '$lib/utils/guidance-presentation';
 	import { devLog } from '$lib/utils/dev-log';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import * as Form from '$lib/components/ui/form/index.ts';
@@ -332,6 +338,9 @@
 		secondaryLabel: string;
 		currency: string;
 		totalAbs: number;
+		title: string;
+		description: string;
+		body: string;
 	};
 	let goalPrecisionNudge = $state<GoalPrecisionNudgeCtx | null>(null);
 	let goalPrecisionSheetOpen = $state(false);
@@ -340,6 +349,7 @@
 
 	let postAddSplitGroup = $state<ImportSplitReviewGroup | null>(null);
 	let postAddSplitSheetOpen = $state(false);
+	let postAddSplitCopy = $state<{ title: string; description: string } | null>(null);
 	let splitApproximateConfirmOpen = $state(false);
 	let splitApproximateConfirmResolver = $state<((ok: boolean) => void) | null>(null);
 	let postAddSplitBusy = $state(false);
@@ -1182,20 +1192,26 @@
 
 		const dismissKey = goalRelativePrecisionDismissalKey(mk, best.secondaryId);
 		const prefs = await userService.getUserPreferences();
+		if (!shouldShowGoalPrecisionNudge(prefs.guidanceTone)) return false;
 		const prev = prefs.goalRelativePrecisionDismissals?.[dismissKey] ?? [];
 		const recent = prev.filter((d) => Date.now() - new Date(d).getTime() < 30 * 86400000).length;
 		if (recent >= 3) return false;
 
 		const secCat = categories.find((c) => c.id === best.secondaryId);
+		const secondaryLabel = secCat?.name ?? 'this category';
+		const copy = getGoalPrecisionNudgeCopy(prefs.explanationDetail, secondaryLabel);
 		goalPrecisionNudge = {
 			savedTransactionId: saved.id,
 			merchantKey: mk,
 			accountId: saved.accountId,
 			primaryCategoryId: primary,
 			secondaryCategoryId: best.secondaryId,
-			secondaryLabel: secCat?.name ?? 'this category',
+			secondaryLabel,
 			currency: saved.currency || currency || 'USD',
-			totalAbs
+			totalAbs,
+			title: copy.title,
+			description: copy.description,
+			body: copy.body
 		};
 		goalPrecisionAmountStr = '';
 		goalPrecisionSheetOpen = true;
@@ -1220,6 +1236,9 @@
 	async function tryOpenPostAddSplitSuggestion(saved: Transaction): Promise<boolean> {
 		const group = await findPostAddSplitSuggestion(saved);
 		if (!group) return false;
+		const prefs = await userService.getUserPreferences();
+		if (!shouldShowPostAddSplitSuggestion(prefs.guidanceTone)) return false;
+		postAddSplitCopy = getPostAddSplitSuggestionCopy(prefs.explanationDetail);
 		postAddSplitGroup = group;
 		postAddSplitSheetOpen = true;
 		return true;
@@ -1246,6 +1265,7 @@
 		const group = postAddSplitGroup;
 		postAddSplitGroup = null;
 		postAddSplitSheetOpen = false;
+		postAddSplitCopy = null;
 		if (group) {
 			await recordPostAddSplitDismissal(group.transactions.map((t) => t.id));
 		}
@@ -1258,6 +1278,7 @@
 			await linkTransactionsAsSplitGroup(selectedIds);
 			postAddSplitGroup = null;
 			postAddSplitSheetOpen = false;
+			postAddSplitCopy = null;
 			goto('/transactions');
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not create split';
@@ -2782,15 +2803,14 @@
 		onOpenChange={(open) => {
 			if (!open && goalPrecisionNudge) void goalPrecisionOnNo();
 		}}
-		title="Split for your goals?"
-		description={goalPrecisionNudge ? `Any amount for ${goalPrecisionNudge.secondaryLabel}?` : ''}
+		title={goalPrecisionNudge?.title ?? 'Split for your goals?'}
+		description={goalPrecisionNudge?.description ?? ''}
 	>
 		{#snippet children()}
 			{#if goalPrecisionNudge}
 				<div class="space-y-4">
 					<p class="text-muted-foreground text-sm">
-						Your merchant history often includes {goalPrecisionNudge.secondaryLabel}. Enter part of
-						the total for that category, or tap No.
+						{goalPrecisionNudge.body}
 					</p>
 					<div class="space-y-2">
 						<Label.Root for="goal-precision-amt">Amount ({goalPrecisionNudge.currency})</Label.Root>
@@ -2841,6 +2861,8 @@
 	<PostAddSplitSuggestionSheet
 		open={postAddSplitSheetOpen}
 		group={postAddSplitGroup}
+		title={postAddSplitCopy?.title ?? 'Link as split?'}
+		description={postAddSplitCopy?.description ?? ''}
 		accountName={postAddSplitAccountName()}
 		busy={postAddSplitBusy}
 		onOpenChange={(open) => {

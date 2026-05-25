@@ -3,14 +3,15 @@ import type { UserPreferences } from '$lib/core/db';
 export type GuidanceTone = UserPreferences['guidanceTone'];
 export type ExplanationDetail = UserPreferences['explanationDetail'];
 
+/** Legacy backup/import field removed from schema in db v33 */
+export type LegacyMaturityLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
+
 export interface GuidancePresentation {
 	guidanceTone: GuidanceTone;
 	explanationDetail: ExplanationDetail;
 }
 
-export function mapLegacyMaturityToGuidance(
-	maturity: UserPreferences['userMaturityLevel']
-): GuidancePresentation {
+export function mapLegacyMaturityToGuidance(maturity: LegacyMaturityLevel): GuidancePresentation {
 	switch (maturity) {
 		case 'beginner':
 			return { guidanceTone: 'supportive', explanationDetail: 'full' };
@@ -25,18 +26,18 @@ export function mapLegacyMaturityToGuidance(
 }
 
 export function getGuidancePresentation(
-	prefs: Pick<UserPreferences, 'guidanceTone' | 'explanationDetail' | 'userMaturityLevel'>
+	prefs: Partial<Pick<UserPreferences, 'guidanceTone' | 'explanationDetail'>>
 ): GuidancePresentation {
-	if (prefs.guidanceTone && prefs.explanationDetail) {
-		return { guidanceTone: prefs.guidanceTone, explanationDetail: prefs.explanationDetail };
-	}
-	return mapLegacyMaturityToGuidance(prefs.userMaturityLevel ?? 'beginner');
+	return {
+		guidanceTone: prefs.guidanceTone ?? 'balanced',
+		explanationDetail: prefs.explanationDetail ?? 'standard'
+	};
 }
 
 export function needsGuidanceMigration(
-	prefs: Partial<Pick<UserPreferences, 'guidanceTone' | 'explanationDetail' | 'userMaturityLevel'>>
+	prefs: Partial<Pick<UserPreferences, 'guidanceTone' | 'explanationDetail'>>
 ): boolean {
-	return prefs.guidanceTone == null && prefs.explanationDetail == null;
+	return prefs.guidanceTone == null || prefs.explanationDetail == null;
 }
 
 /** Max suggestions to show based on presentation prefs */
@@ -119,6 +120,66 @@ export function getCriticalAlertsCoachmarkCopy(detail: ExplanationDetail): {
 			return {
 				title: 'How alerts work',
 				body: 'Alerts mark read after ~1s visible. Tap to act, swipe left to dismiss, swipe right to snooze 24h, or use Mark all read in the header.'
+			};
+	}
+}
+
+/** Goal-precision split nudge on transaction save — suppressed for minimal guidance tone. */
+export function shouldShowGoalPrecisionNudge(guidanceTone: GuidanceTone): boolean {
+	return guidanceTone !== 'minimal';
+}
+
+/** Post-add split suggestion sheet — suppressed for minimal guidance tone. */
+export function shouldShowPostAddSplitSuggestion(guidanceTone: GuidanceTone): boolean {
+	return guidanceTone !== 'minimal';
+}
+
+export function getGoalPrecisionNudgeCopy(
+	detail: ExplanationDetail,
+	secondaryLabel: string
+): { title: string; description: string; body: string } {
+	switch (detail) {
+		case 'brief':
+			return {
+				title: 'Split for goals?',
+				description: `Amount for ${secondaryLabel}?`,
+				body: `History often includes ${secondaryLabel}. Enter an amount or tap No.`
+			};
+		case 'full':
+			return {
+				title: 'Split for your goals?',
+				description: `Any amount for ${secondaryLabel}?`,
+				body: `Your merchant history often includes ${secondaryLabel}. Enter part of the total for that category to improve goal tracking, or tap No to skip.`
+			};
+		default:
+			return {
+				title: 'Split for your goals?',
+				description: `Any amount for ${secondaryLabel}?`,
+				body: `Your merchant history often includes ${secondaryLabel}. Enter part of the total for that category, or tap No.`
+			};
+	}
+}
+
+export function getPostAddSplitSuggestionCopy(detail: ExplanationDetail): {
+	title: string;
+	description: string;
+} {
+	switch (detail) {
+		case 'brief':
+			return {
+				title: 'Link as split?',
+				description: 'Same receipt on this account?'
+			};
+		case 'full':
+			return {
+				title: 'Link as split?',
+				description:
+					'Other transactions on this account look like the same receipt. Select lines to merge into one split group.'
+			};
+		default:
+			return {
+				title: 'Link as split?',
+				description: 'Other transactions on this account look like the same receipt.'
 			};
 	}
 }
