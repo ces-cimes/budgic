@@ -20,6 +20,12 @@
 	import { BulkActionBar, BulkEditDialog, TypePicker } from '$lib/components/transactions';
 	import type { Transaction, Account, Category } from '$lib/core/db';
 	import { toast } from 'svelte-sonner';
+	import {
+		countTransactionsInMonth,
+		findLatestMonthWithTransactions,
+		monthDateFromKey,
+		shouldAutoSnapToLatestMonth
+	} from '$lib/utils/transaction-month-empty';
 
 	const { data } = $props<{ data: any }>();
 
@@ -523,6 +529,25 @@
 
 			const transactionsData = await transactionService.getAllTransactions();
 			transactions = transactionsData.filter((t) => t && !t.deletedAt);
+
+			const currentMonth = transactionFilters.currentMonth;
+			if (
+				transactionFilters.dateFilterEnabled &&
+				shouldAutoSnapToLatestMonth($page.url.search, currentMonth) &&
+				countTransactionsInMonth(transactions, currentMonth) === 0 &&
+				transactions.length > 0
+			) {
+				const latestMonth = findLatestMonthWithTransactions(transactions);
+				if (latestMonth) {
+					transactionFilters = {
+						...transactionFilters,
+						currentMonth: monthDateFromKey(latestMonth)
+					};
+					periodStore.month = latestMonth;
+					const url = periodStore.applyToUrl($page.url.pathname, $page.url.search);
+					goto(url, { replaceState: true, noScroll: true });
+				}
+			}
 		} catch (error) {
 			console.error('Error loading transactions:', error);
 		} finally {

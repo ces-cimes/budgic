@@ -26,6 +26,12 @@
 	import FilterButton from './filters/FilterButton.svelte';
 	import FilterSheet from './filters/FilterSheet.svelte';
 	import { getActiveFilterCount } from './filters/filter-utils';
+	import { groupSpansMultipleCalendarDays as groupSpansMultipleCalendarDaysUtil } from '$lib/utils/transaction-list-date-label';
+	import {
+		findLatestMonthWithTransactions,
+		hasTransactionsOutsideMonth,
+		monthDateFromKey
+	} from '$lib/utils/transaction-month-empty';
 	import { swipe, type SwipeDirection } from '$lib/actions/swipe';
 	import { createDistanceThresholdGhostSuppression } from '$lib/utils/ghost-click-suppression';
 	import { tick, onMount } from 'svelte';
@@ -370,17 +376,7 @@
 
 	/** When a non-day group contains txs on different calendar days, show date per row instead of time. */
 	function groupSpansMultipleCalendarDays(transactions: (Transaction | any)[]): boolean {
-		if (propGroupingMode === 'none') return false;
-		if (transactions.length < 2) return false;
-		const keys = new Set<string>();
-		for (const t of transactions) {
-			const raw = getTransactionDate(t);
-			const d = new Date(raw);
-			if (Number.isNaN(d.getTime())) continue;
-			keys.add(d.toISOString().slice(0, 10));
-			if (keys.size > 1) return true;
-		}
-		return false;
+		return groupSpansMultipleCalendarDaysUtil(getTransactionDate, filters.groupingMode, transactions);
 	}
 
 	// Derived filtered transactions with fuzzy search and date grouping
@@ -776,6 +772,21 @@
 		return count;
 	});
 
+	const filteredVisibleCount = $derived(() =>
+		filteredTransactions().reduce((count, group) => count + group.transactions.length, 0)
+	);
+
+	const isMonthOnlyEmptyState = $derived(() => {
+		if (filteredVisibleCount() > 0) return false;
+		if (!filters.dateFilterEnabled) return false;
+		if (filters.searchQuery.trim()) return false;
+		if (getActiveFilterCount(filters) > 0) return false;
+		return hasTransactionsOutsideMonth(
+			transactions.filter((t) => t && !t.deletedAt),
+			filters.currentMonth
+		);
+	});
+
 	// Summary stats and per-date-group totals, converted to main currency (async)
 	let summaryStats = $state<{ income: number; expenses: number; net: number }>({
 		income: 0,
@@ -990,6 +1001,22 @@
 	// Format month display
 	function formatMonth(date: Date) {
 		return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+	}
+
+	function handleShowAllMonths() {
+		updateFilters({ ...filters, dateFilterEnabled: false });
+	}
+
+	function handleSnapToLatestActivity() {
+		const latestMonth = findLatestMonthWithTransactions(
+			transactions.filter((t) => t && !t.deletedAt)
+		);
+		if (!latestMonth) return;
+		updateFilters({
+			...filters,
+			dateFilterEnabled: true,
+			currentMonth: monthDateFromKey(latestMonth)
+		});
 	}
 
 	// Handle transaction click
@@ -1399,16 +1426,16 @@
 			{/if}
 
 			<!-- Month translate lives here; route/page may apply overflow-x-clip above this list. -->
-			<div class="w-full min-w-0">
+			<div class="flex min-h-0 w-full min-w-0 flex-1 flex-col">
 				<div
 					bind:this={monthSwipeSliderEl}
-					class="month-swipe-slider w-full transition-transform duration-200 ease-out will-change-transform"
+					class="month-swipe-slider flex min-h-0 w-full flex-1 flex-col transition-transform duration-200 ease-out will-change-transform"
 					class:transition-none={isMonthSwipeDragging || monthSwipeInstantReset}
 					style="transform: translate3d({monthSwipeTxPx}px, 0, 0)"
 				>
 					{#key monthNavKey}
 						<!-- Transaction List -->
-						<section class="space-y-6">
+						<section class="flex min-h-0 flex-1 flex-col space-y-6">
 							{#if filters.searchQuery.trim()}
 								<div class="text-muted-foreground text-center text-sm">
 									Search results for "{filters.searchQuery}"
@@ -1545,12 +1572,17 @@
 								</div>
 							{/each}
 
-							{#if filteredTransactions().reduce((count, group) => count + group.transactions.length, 0) === 0}
-								<div class="flex flex-col items-center justify-center py-16 text-center">
+							{#if filteredVisibleCount() === 0}
+								<div
+									class="flex min-h-[50vh] flex-1 flex-col items-center justify-center px-4 py-16 pb-[max(5rem,calc(4.5rem+env(safe-area-inset-bottom)))] text-center"
+								>
 									<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
 									<p class="text-sm text-[var(--color-text-secondary)] select-none">
 										{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
 											No transactions match your filters.
+										{:else if isMonthOnlyEmptyState()}
+											No transactions in {formatMonth(filters.currentMonth)}. You have activity in
+											other months.
 										{:else}
 											Nothing yet. Add your first transaction.
 										{/if}
@@ -1571,6 +1603,25 @@
 										>
 											Clear filters
 										</Button>
+									{:else if isMonthOnlyEmptyState()}
+										<div class="mt-3 flex flex-wrap items-center justify-center gap-2">
+											<Button
+												variant="ghost"
+												size="sm"
+												class="text-[var(--color-amber)]"
+												onclick={handleSnapToLatestActivity}
+											>
+												Go to latest activity
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												class="text-[var(--color-text-tertiary)]"
+												onclick={handleShowAllMonths}
+											>
+												Show all months
+											</Button>
+										</div>
 									{:else if onAddTransaction}
 										<Button
 											variant="ghost"

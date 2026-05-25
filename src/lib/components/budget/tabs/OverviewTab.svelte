@@ -18,6 +18,7 @@
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import EnvelopeBorrowingCard from '$lib/components/budget/EnvelopeBorrowingCard.svelte';
 	import RolloverCard from '$lib/components/budget/RolloverCard.svelte';
+	import AddPlannedTransaction from '$lib/components/AddPlannedTransaction.svelte';
 
 	const {
 		dailyAllowance,
@@ -165,10 +166,17 @@
 			<CardTitle class="text-lg">Quick Actions</CardTitle>
 		</CardHeader>
 		<CardContent class="space-y-3">
-			<Button onclick={onAddPlannedTransaction} class="w-full justify-start" variant="outline">
-				<Plus class="mr-2" size={16} />
-				Add Planned Transaction
-			</Button>
+			{#if accountId}
+				<AddPlannedTransaction
+					{accountId}
+					onTransactionAdded={onAddPlannedTransaction}
+				/>
+			{:else}
+				<Button onclick={onAddPlannedTransaction} class="w-full justify-start" variant="outline">
+					<Plus class="mr-2" size={16} />
+					Add Planned Transaction
+				</Button>
+			{/if}
 
 			<Button onclick={onSetGoal} class="w-full justify-start" variant="outline">
 				<Target class="mr-2" size={16} />

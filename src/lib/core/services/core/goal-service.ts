@@ -513,6 +513,55 @@ class GoalService {
 			isTimeBound
 		};
 	}
+
+	async getProgressMapForGoals(goals: Goal[]): Promise<Map<string, GoalProgress>> {
+		const transactions = await db.transactions.toArray();
+		const progressById = new Map<string, GoalProgress>();
+		for (const goal of goals) {
+			progressById.set(goal.id, await this.calculateGoalProgress(goal, transactions));
+		}
+		return progressById;
+	}
+
+	sortGoalsForHomeSnapshot(goals: Goal[], progressById: Map<string, GoalProgress>): Goal[] {
+		const priorityRank: Record<Goal['priority'], number> = {
+			critical: 0,
+			high: 1,
+			medium: 2,
+			low: 3
+		};
+		const isAtRisk = (goal: Goal): boolean => isTimeBoundGoalAtRisk(goal, progressById.get(goal.id));
+
+		return [...goals].sort((a, b) => {
+			const aAtRisk = isAtRisk(a);
+			const bAtRisk = isAtRisk(b);
+			if (aAtRisk !== bAtRisk) return aAtRisk ? -1 : 1;
+
+			const priA = priorityRank[a.priority] ?? 99;
+			const priB = priorityRank[b.priority] ?? 99;
+			if (priA !== priB) return priA - priB;
+
+			const pctA = progressById.get(a.id)?.percentageComplete ?? 0;
+			const pctB = progressById.get(b.id)?.percentageComplete ?? 0;
+			return pctA - pctB;
+		});
+	}
+
+	async getActiveGoalsForHomeSnapshot(limit = 3): Promise<Goal[]> {
+		const activeGoals = (await this.getAllGoals()).filter(
+			(goal) => goal.status === 'active' || goal.status === 'paused'
+		);
+		const progressById = await this.getProgressMapForGoals(activeGoals);
+		return this.sortGoalsForHomeSnapshot(activeGoals, progressById).slice(0, limit);
+	}
+}
+
+/** Shared at-risk signal for Home sort, insights, and badges. */
+export function isTimeBoundGoalAtRisk(
+	goal: Pick<Goal, 'targetDate'>,
+	progress: Pick<GoalProgress, 'isOnTrack'> | null | undefined
+): boolean {
+	return Boolean(goal.targetDate && progress && !progress.isOnTrack);
 }
 
 export const goalService = new GoalService();

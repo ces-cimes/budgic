@@ -31,6 +31,7 @@
 	import AllowanceWeekView from '$lib/components/plan/AllowanceWeekView.svelte';
 	import OutstandingReimbursementsPanel from '$lib/components/plan/OutstandingReimbursementsPanel.svelte';
 	import BalanceProjectionChart from '$lib/components/accounts/BalanceProjectionChart.svelte';
+	import AddPlannedTransaction from '$lib/components/AddPlannedTransaction.svelte';
 	import {
 		OverviewTab as GoalsOverviewTab,
 		ActiveTab as GoalsActiveTab,
@@ -702,6 +703,14 @@
 									</p>
 								</div>
 							</div>
+							{#if selectedAccountId}
+								<AddPlannedTransaction
+									accountId={selectedAccountId}
+									variant="outline"
+									class="w-full justify-start"
+									onTransactionAdded={() => loadPlanData({ force: true })}
+								/>
+							{/if}
 							<BudgetTab
 								{userCurrency}
 								{selectedAccountId}

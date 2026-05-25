@@ -6,10 +6,9 @@
 		accountService,
 		transactionService,
 		userService,
-		goalsService,
-		insightsService
+		insightsService,
+		goalService
 	} from '$lib/core/services';
-	import { db } from '$lib/core/db';
 	import * as Button from '$lib/components/ui/button/index.ts';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
@@ -30,6 +29,7 @@
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
 	import type { Insight } from '$lib/core/db';
+	import { db } from '$lib/core/db';
 	import { tierRowsFromBudgetSummary, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
 	import { alertActionUrlForInsight } from '$lib/utils/alert-tiers';
 	import { notificationsService } from '$lib/core/services';
@@ -178,8 +178,7 @@
 
 	async function loadGoalsAndThisWeek() {
 		try {
-			const goalsData = await goalsService.getGoalsData();
-			activeGoals = (goalsData.activeGoals || []).slice(0, 3);
+			activeGoals = await goalService.getActiveGoalsForHomeSnapshot(3);
 
 			const allTx = await transactionService.getAllTransactions();
 			const now = new Date();

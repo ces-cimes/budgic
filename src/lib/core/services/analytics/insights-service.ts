@@ -485,7 +485,13 @@ class InsightsService {
 		const insights: Insight[] = [];
 
 		for (const goal of goals) {
-			const progress = goal.currentAmount / goal.targetAmount;
+			const progressData = await goalService.getGoalProgress(goal.id);
+			const progress =
+				progressData != null
+					? progressData.percentageComplete / 100
+					: goal.targetAmount > 0
+						? goal.currentAmount / goal.targetAmount
+						: 0;
 
 			// Milestone insights
 			if (progress >= 0.25 && progress < 0.5) {
@@ -542,44 +548,25 @@ class InsightsService {
 				});
 			}
 
-			// Behind schedule insights
-			if (goal.targetDate && goal.status === 'active') {
-				const targetDate = new Date(goal.targetDate);
-				const now = new Date();
-				const timeRemaining = targetDate.getTime() - now.getTime();
-				const daysRemaining = Math.ceil(timeRemaining / (1000 * 60 * 60 * 24));
-
-				if (daysRemaining > 0) {
-					const dailyRequiredAmount = (goal.targetAmount - goal.currentAmount) / daysRemaining;
-					const averageDailyContribution =
-						goal.currentAmount /
-						Math.max(
-							1,
-							Math.ceil(
-								(now.getTime() - new Date(goal.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-							)
-						);
-
-					if (averageDailyContribution < dailyRequiredAmount * 0.8) {
-						insights.push({
-							id: generateUUID(),
-							type: 'goal_milestone',
-							severity: 'warning',
-							title: `${goal.name} - Behind Schedule`,
-							message: `You're behind schedule on your ${goal.name} goal. Consider increasing your contributions.`,
-							goalId: goal.id,
-							percentage: progress * 100,
-							confidence: 85,
-							actionable: true,
-							actionText: 'Review goal',
-							actionUrl: '/plan?tab=goals',
-							isActive: true,
-							createdAt: new Date().toISOString(),
-							updatedAt: new Date().toISOString(),
-							deletedAt: null
-						});
-					}
-				}
+			// Behind schedule insights — same signal as Home sort (`goalService.isOnTrack`)
+			if (goal.targetDate && goal.status === 'active' && progressData && !progressData.isOnTrack) {
+				insights.push({
+					id: generateUUID(),
+					type: 'goal_milestone',
+					severity: 'warning',
+					title: `${goal.name} - Behind Schedule`,
+					message: `You're behind schedule on your ${goal.name} goal. Consider increasing your contributions.`,
+					goalId: goal.id,
+					percentage: progressData.percentageComplete,
+					confidence: 85,
+					actionable: true,
+					actionText: 'Review goal',
+					actionUrl: '/plan?tab=goals',
+					isActive: true,
+					createdAt: new Date().toISOString(),
+					updatedAt: new Date().toISOString(),
+					deletedAt: null
+				});
 			}
 		}
 

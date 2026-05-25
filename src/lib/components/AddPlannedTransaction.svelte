@@ -34,9 +34,16 @@
 	interface Props {
 		onTransactionAdded?: () => void;
 		accountId: string;
+		class?: string;
+		variant?: 'default' | 'outline' | 'ghost' | 'secondary' | 'destructive' | 'link';
 	}
 
-	const { onTransactionAdded, accountId }: Props = $props();
+	const {
+		onTransactionAdded,
+		accountId,
+		class: className = 'w-full',
+		variant = 'default'
+	}: Props = $props();
 
 	let isOpen = $state(false);
 	let isLoading = $state(false);
@@ -234,7 +241,7 @@
 
 <Dialog bind:open={isOpen}>
 	<DialogTrigger>
-		<Button class="w-full">
+		<Button {variant} class={className}>
 			<Plus size={16} class="mr-2" />
 			Add Planned Transaction
 		</Button>

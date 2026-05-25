@@ -811,7 +811,7 @@
 			</button>
 		</div>
 	{:else if isGroup}
-		<!-- Grouped Transaction with Double Border -->
+		<!-- Grouped Transaction -->
 		<div
 			class="relative overflow-hidden rounded-xl transition-all duration-200 ease-out
 				   {cardStyling()} {statusInfo().mainBorderClass} {statusInfo().leftBorderClass} {statusInfo()
@@ -821,13 +821,6 @@
 				   {isLongPressing ? 'scale-[0.98] shadow-inner' : ''}
 				   group-hover:border-golden-amber/50"
 		>
-			<!-- Double border effect for grouped transactions -->
-			<div
-				class="absolute inset-0 rounded-xl {statusInfo().mainBorderClass} {statusInfo()
-					.leftBorderClass} pointer-events-none"
-				style="margin: 2px;"
-			></div>
-
 			<!-- Subtle gradient overlay for depth -->
 			<div
 				class="from-warm-ivory/[0.02] pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent"
