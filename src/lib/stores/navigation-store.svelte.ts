@@ -7,7 +7,7 @@ import {
 } from '$lib/core/services';
 import { accountHasOpenReconciliationIssues } from '$lib/utils/reconciliation-attention';
 import { scheduler } from '$lib/utils/scheduler';
-import { planTabs, insightsNavTabsForMaturity, reportsTabs } from '$lib/config/nav-tabs';
+import { planTabs, insightsTabs, reportsTabs } from '$lib/config/nav-tabs';
 
 const NAV_BADGES_TASK = 'nav:badge-updates';
 
@@ -147,18 +147,7 @@ class NavigationStore {
 	 */
 	async loadItems(): Promise<void> {
 		try {
-			let insightsNavTabs = insightsNavTabsForMaturity('beginner');
-			try {
-				const prefs = await userService.getUserPreferences();
-				const level =
-					(prefs as { userMaturityLevel?: string } | null | undefined)?.userMaturityLevel ??
-					'beginner';
-				insightsNavTabs = insightsNavTabsForMaturity(level);
-			} catch {
-				// Keep beginner-filtered tabs (conservative; matches default route behavior)
-			}
-
-			// New IA: first 4 = Home, Trans, Plan, Insights (mobile bar); Accounts, Reports, Settings in More; Alerts in bottom (panel)
+			const insightsNavTabs = insightsTabs;
 			const defaultItems: NavItemConfig[] = [
 				{
 					id: 'dashboard',

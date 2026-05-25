@@ -20,7 +20,7 @@
 	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
 
 	// Tab configuration: Patterns | Optimize | Badges (Alerts → bell panel; Savings merged into Optimize)
-	const allInsightsTabs: TabConfig[] = [
+	const insightsTabs: TabConfig[] = [
 		{ id: 'patterns', label: 'Patterns', icon: TrendingUp },
 		{ id: 'optimize', label: 'Optimize', icon: Zap },
 		{ id: 'badges', label: 'Badges', icon: Award }
@@ -32,17 +32,8 @@
 	let insights = $state<any[]>([]);
 	let error = $state<string | null>(null);
 	let userCurrency = $state<string>('USD');
-	/** Phase 5: Optimize tab hidden for Beginner maturity */
-	let maturityLevel = $state<'beginner' | 'intermediate' | 'advanced' | 'expert'>('beginner');
 	/** Bumps to force Patterns tab heavy reload (header refresh). */
 	let patternsDataNonce = $state(0);
-
-	// Visible tabs: hide Optimize for beginner (UX_SPEC Phase 5)
-	const insightsTabs = $derived(
-		maturityLevel === 'beginner'
-			? allInsightsTabs.filter((t) => t.id !== 'optimize')
-			: allInsightsTabs
-	);
 
 	// Derived values
 	const insightsCount = $derived(() => insights.filter((i) => i.isActive).length);
@@ -52,8 +43,6 @@
 		try {
 			const prefs = await userService.getUserPreferences();
 			userCurrency = prefs?.currency ?? 'USD';
-			const level = (prefs as { userMaturityLevel?: string })?.userMaturityLevel ?? 'beginner';
-			maturityLevel = level as 'beginner' | 'intermediate' | 'advanced' | 'expert';
 			// Load insights data
 			await loadInsightsData();
 
@@ -74,8 +63,6 @@
 		if (tabParam === 'overview' || tabParam === 'alerts') tabParam = 'patterns';
 		if (tabParam === 'savings') tabParam = 'optimize';
 		if (['recurring', 'predictions', 'learning'].includes(tabParam ?? '')) tabParam = 'patterns';
-		// If beginner and URL asks for optimize, show patterns instead
-		if (maturityLevel === 'beginner' && tabParam === 'optimize') tabParam = 'patterns';
 		if (tabParam && insightsTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
 		}

@@ -1,16 +1,15 @@
 <script lang="ts">
-	/** Milestone E: tier-coloured segmented bar can use `tierRows` + D attribution (May 2026). */
 	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
-	import type { AllowanceTierRow } from '$lib/utils/budget-tier-display';
-	import { getWaterfallTierLabel } from '$lib/utils/waterfall-tier-utils';
+	import { computeTierSegmentLayout, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
-	import { TrendingUp, TrendingDown, Lightbulb } from '@lucide/svelte';
+	import { TrendingDown, Lightbulb } from '@lucide/svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import TierSegmentedAllowanceBar from '$lib/components/TierSegmentedAllowanceBar.svelte';
 
 	interface Props {
 		allowance: EnhancedAllowance | null;
@@ -25,6 +24,12 @@
 		} | null;
 		/** From same `getBudgetSummary()` snapshot as home `confidence` (Phase 8 follow-up). */
 		tierRows?: AllowanceTierRow[];
+		/**
+		 * When true, render recovery horizon card instead of normal allowance UI.
+		 * Stub in Milestone E — body implemented in Milestone F (CHECKLIST F L602).
+		 * Wired from `userPreferences.recoveryModeActive` in F batch; Home passes prop in F.
+		 */
+		recoveryModeActive?: boolean;
 	}
 
 	const {
@@ -33,7 +38,8 @@
 		negativeStatus = null,
 		recoverySuggestions = [],
 		confidence = null,
-		tierRows = []
+		tierRows = [],
+		recoveryModeActive = false
 	}: Props = $props();
 
 	const showConfidenceBand = $derived(Boolean(confidence) && confidence?.tier !== 'high');
@@ -65,10 +71,11 @@
 			: null
 	);
 
-	// Progress bar: normal fill capped at 100%; overspent = red overflow beyond 100% (UX_SPEC 3.1.1)
-	const fillWidth = $derived(Math.min(pct, 100));
 	const isOverspent = $derived(pct > 100);
-	const overflowPct = $derived(isOverspent ? Math.min(pct - 100, 50) : 0);
+
+	const tierSegments = $derived(computeTierSegmentLayout(tierRows));
+	const anyTierOverspent = $derived(tierSegments.some((segment) => segment.isOverspent));
+	const showTierBar = $derived(tierSegments.length > 0);
 </script>
 
 {#if isLoading}
@@ -81,7 +88,7 @@
 {:else if allowance}
 	<div
 		class="squircle-4xl squircle-border bg-card space-y-4 p-6 shadow-sm"
-		style={isOverBudget || isOverspent
+		style={isOverBudget || isOverspent || anyTierOverspent
 			? '--squircle-border-color: color-mix(in oklch, var(--color-warm-coral) 30%, transparent);'
 			: ''}
 	>
@@ -126,51 +133,17 @@
 			</p>
 		{/if}
 
-		<!-- Progress bar (overspent: red overflow + red stroke per UX_SPEC 3.1.1) -->
-		<div class="space-y-1.5">
+		{#if recoveryModeActive}
+			<!-- Milestone F (CHECKLIST L602): RecoveryHorizonCard — weekly surplus, clearance date, debt-free progress bar.
+			     E batch ships this slot only; F replaces inner content. Do not delete {:else} normal branch. -->
 			<div
-				class="budget-progress {isOverspent ? 'budget-progress-overspent' : ''}"
-				style={isOverspent ? '--overflow-pct: ' + overflowPct : ''}
+				class="text-muted-foreground border-border rounded-lg border border-dashed px-3 py-4 text-center text-xs"
 			>
-				<div
-					class="budget-progress-fill"
-					style="width: {fillWidth}%; --fill-pct: {fillWidth};"
-				></div>
-				{#if isOverspent}
-					<div class="budget-progress-overflow" style="width: {overflowPct}%;"></div>
-				{/if}
+				Recovery view — horizon card ships in Milestone F
 			</div>
-			<div class="text-muted-foreground flex justify-between text-[10px]">
-				<span>
-					{formatAmount(allowance.total.spentSoFar, allowance.total.currency)} spent
-				</span>
-				<span>
-					{formatAmount(allowance.total.monthly, allowance.total.currency)} allowance
-				</span>
-			</div>
-		</div>
-
-		{#if tierRows.length > 0 && allowance}
-			<div class="border-border space-y-1.5 border-t pt-3">
-				<p
-					class="text-[10px] font-medium tracking-widest text-[var(--color-text-tertiary)] uppercase"
-				>
-					By tier
-				</p>
-				<ul class="space-y-1">
-					{#each tierRows as row (row.tier)}
-						<li class="text-muted-foreground flex justify-between text-[10px]">
-							<span>{getWaterfallTierLabel(row.tier)}</span>
-							<span>
-								{formatAmount(row.spent, allowance.total.currency)} / {formatAmount(
-									row.allocated,
-									allowance.total.currency
-								)}
-							</span>
-						</li>
-					{/each}
-				</ul>
-			</div>
+		{:else if showTierBar}
+			<!-- Normal mode: tier-coloured segmented allowance bar (Milestone E) -->
+			<TierSegmentedAllowanceBar segments={tierSegments} currency={allowance.total.currency} />
 		{/if}
 
 		<!-- Over-budget warning -->
