@@ -51,6 +51,7 @@
 	const sidebar = Sidebar.useSidebar();
 
 	const showTabRow = $derived(!tabRowMobileOnly || sidebar.isMobile);
+	const showBack = $derived(showBackButton || Boolean(backButtonLink));
 
 	function handleBackClick() {
 		if (backButtonLink) {
@@ -69,10 +70,11 @@
 		: 'py-3'}"
 >
 	<div class="flex w-full items-center gap-2 px-4">
-		{#if showBackButton}
+		{#if showBack}
 			<Button
 				variant="ghost"
 				onclick={handleBackClick}
+				aria-label={backButtonLabel}
 				class="text-muted-foreground hover:text-foreground size-8 shrink-0"
 			>
 				<ArrowLeft size={16} />

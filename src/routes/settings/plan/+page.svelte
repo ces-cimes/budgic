@@ -182,6 +182,8 @@
 	{#snippet topBar()}
 		<Header
 			title="Budget & allowance"
+			backButtonLink="/settings"
+			backButtonLabel="Back to settings"
 			buttonProps={[{ text: 'Save', onclick: save, size: 'sm', disabled: isSaving }]}
 		/>
 	{/snippet}

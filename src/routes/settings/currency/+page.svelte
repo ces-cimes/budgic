@@ -991,7 +991,11 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<Header title="Currency Settings" />
+		<Header
+			title="Currency Settings"
+			backButtonLink="/settings"
+			backButtonLabel="Back to settings"
+		/>
 	{/snippet}
 
 	<div
