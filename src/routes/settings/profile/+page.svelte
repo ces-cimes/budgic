@@ -10,6 +10,7 @@
 	import type { UserPreferences } from '$lib/core/db';
 	import { getDeviceId } from '$lib/device-id';
 	import { getLastServerBackupAt } from '$lib/core/services/import-export';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	// State
 	let isLoading = $state(true);
@@ -125,7 +126,7 @@
 		{#if isLoading}
 			<div class="space-y-4">
 				{#each [1, 2] as _}
-					<div class="h-24 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-24 w-full rounded-2xl bg-[var(--color-bg-tertiary)]" />
 				{/each}
 			</div>
 		{:else}

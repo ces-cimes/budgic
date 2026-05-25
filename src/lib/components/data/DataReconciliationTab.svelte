@@ -17,6 +17,7 @@
 		accountHasOpenReconciliationIssues
 	} from '$lib/utils/reconciliation-attention';
 	import { onMount } from 'svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	let historyOpen = $state(false);
 	let selectedAccountId = $state('');
@@ -180,7 +181,7 @@
 	<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 		{#if isLoadingStats}
 			{#each [1, 2, 3, 4] as _}
-				<div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+				<Skeleton class="h-16 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 			{/each}
 		{:else if statsError}
 			<div

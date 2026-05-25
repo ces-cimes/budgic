@@ -12,6 +12,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { toast } from 'svelte-sonner';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	// Lucide icons
 	import {
@@ -279,7 +280,7 @@
 		{#if loading}
 			<div class="space-y-2">
 				{#each [1, 2, 3, 4, 5] as _}
-					<div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-16 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 				{/each}
 			</div>
 		{:else}
@@ -371,7 +372,7 @@
 				{#if widgetLoading}
 					<div class="space-y-2">
 						{#each [1, 2, 3] as _}
-							<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+							<Skeleton class="h-14 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 						{/each}
 					</div>
 				{:else}

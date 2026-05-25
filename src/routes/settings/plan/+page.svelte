@@ -19,6 +19,7 @@
 	} from '$lib/core/services/person-ledger';
 	import type { AutomaticThreshold } from '$lib/core/services/person-ledger';
 	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	const NEGATIVE_ALLOWANCE_LABELS: Record<NegativeAllowanceHandling, string> = {
 		block_with_warning: 'Block with warning – alert and require override',
@@ -187,7 +188,7 @@
 
 	<div class="mx-auto max-w-2xl px-4 py-6">
 		{#if isLoading}
-			<div class="h-96 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+			<Skeleton class="h-96 w-full rounded-2xl bg-[var(--color-bg-tertiary)]" />
 		{:else}
 			<div class="space-y-6">
 				<!-- Negative allowance -->

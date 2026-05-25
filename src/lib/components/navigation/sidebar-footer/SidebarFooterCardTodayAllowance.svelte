@@ -3,6 +3,7 @@
 	import { planService, userService } from '$lib/core/services';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { Wallet } from '@lucide/svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		/** When embedded in the hotswap strip (no outer card wrapper). */
@@ -63,10 +64,10 @@
 		<!-- Amount + /day -->
 		{#if loading}
 			<div class="mt-0.5 flex flex-col gap-1">
-				<div class="h-[18px] w-20 animate-pulse rounded bg-[var(--color-bg-surface)]/60"></div>
-				<div
-					class="h-1.5 w-16 animate-pulse rounded-full bg-[var(--color-bg-surface)]/40 group-data-[collapsible=icon]:hidden"
-				></div>
+				<Skeleton class="h-[18px] w-20 rounded bg-[var(--color-bg-surface)]/60" />
+				<Skeleton
+					class="h-1.5 w-16 rounded-full bg-[var(--color-bg-surface)]/40 group-data-[collapsible=icon]:hidden"
+				/>
 			</div>
 		{:else if dailySafe != null}
 			<div class="flex min-w-0 items-baseline gap-1">

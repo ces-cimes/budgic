@@ -3,6 +3,7 @@
 	import { accountService, userService } from '$lib/core/services';
 	import { formatAmount } from '$lib/utils/currency-utils';
 	import { Wallet } from '@lucide/svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		/** When embedded in the hotswap strip (no outer card wrapper). */
@@ -41,9 +42,9 @@
 		</div>
 		<!-- Amount row -->
 		{#if loading}
-			<div
-				class="mt-0.5 h-[18px] w-20 animate-pulse rounded bg-[var(--color-bg-surface)]/60 group-data-[collapsible=icon]:w-10"
-			></div>
+			<Skeleton
+				class="mt-0.5 h-[18px] w-20 rounded bg-[var(--color-bg-surface)]/60 group-data-[collapsible=icon]:w-10"
+			/>
 		{:else}
 			<span
 				class="text-sm leading-tight font-semibold break-all text-[var(--color-text-primary)] tabular-nums group-data-[collapsible=icon]:text-xs"

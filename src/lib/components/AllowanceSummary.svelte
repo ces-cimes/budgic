@@ -10,6 +10,7 @@
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { TrendingUp, TrendingDown, Lightbulb } from '@lucide/svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		allowance: EnhancedAllowance | null;
@@ -73,9 +74,9 @@
 {#if isLoading}
 	<!-- Skeleton -->
 	<div class="squircle-4xl squircle-border bg-card space-y-3 p-6 shadow-sm">
-		<div class="h-3 w-28 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-		<div class="h-8 w-36 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-		<div class="h-2 w-full animate-pulse rounded-full bg-[var(--color-bg-surface)]"></div>
+		<Skeleton class="h-3 w-28 rounded bg-[var(--color-bg-surface)]" />
+		<Skeleton class="h-8 w-36 rounded bg-[var(--color-bg-surface)]" />
+		<Skeleton class="h-2 w-full rounded-full bg-[var(--color-bg-surface)]" />
 	</div>
 {:else if allowance}
 	<div

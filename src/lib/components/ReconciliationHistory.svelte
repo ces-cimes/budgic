@@ -25,6 +25,7 @@
 	import { CurrencyUtils } from '$lib/core/db';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { onMount } from 'svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	// Props interface
 	interface Props {
@@ -331,13 +332,11 @@
 			{#each Array(6) as _}
 				<Card>
 					<CardContent class="pt-6">
-						<div class="animate-pulse">
-							<div class="mb-2 h-4 w-3/4 rounded bg-gray-200"></div>
-							<div class="mb-4 h-6 w-1/2 rounded bg-gray-200"></div>
-							<div class="space-y-2">
-								<div class="h-3 w-full rounded bg-gray-200"></div>
-								<div class="h-3 w-2/3 rounded bg-gray-200"></div>
-							</div>
+						<Skeleton class="mb-2 h-4 w-3/4 rounded bg-gray-200" />
+						<Skeleton class="mb-4 h-6 w-1/2 rounded bg-gray-200" />
+						<div class="space-y-2">
+							<Skeleton class="h-3 w-full rounded bg-gray-200" />
+							<Skeleton class="h-3 w-2/3 rounded bg-gray-200" />
 						</div>
 					</CardContent>
 				</Card>

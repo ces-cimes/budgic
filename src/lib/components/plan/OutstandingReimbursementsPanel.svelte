@@ -6,6 +6,7 @@
 	import { personService } from '$lib/core/services/person-ledger';
 	import type { ReimbursementEntry, Transaction } from '$lib/core/db';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	type OutstandingItem = {
 		transactionId: string;
@@ -155,7 +156,7 @@
 	</div>
 
 	{#if isLoading}
-		<div class="h-24 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+		<Skeleton class="h-24 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 	{:else if error}
 		<p class="text-sm text-[var(--color-warm-coral)]">{error}</p>
 	{:else if items.length === 0}

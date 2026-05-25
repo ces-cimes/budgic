@@ -9,6 +9,7 @@
 	import { defaultTabByRoute } from '$lib/config/nav-tabs';
 	import { onMount } from 'svelte';
 	import type { NavItemConfig } from '$lib/stores/navigation-store.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	// Lucide icons – single source for sidebar nav
 	import {
@@ -161,7 +162,7 @@
 							{#if loading}
 								{#each Array(4) as _, i}
 									<Sidebar.MenuItem>
-										<div class="h-10 animate-pulse rounded-md bg-[var(--color-bg-tertiary)]"></div>
+										<Skeleton class="h-10 w-full rounded-md bg-[var(--color-bg-tertiary)]" />
 									</Sidebar.MenuItem>
 								{/each}
 							{:else}

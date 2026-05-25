@@ -14,6 +14,7 @@
 	import type { AccountCompounding } from '$lib/core/db';
 	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
 	import { isPersonLedgerNameCandidate } from '$lib/utils/person-ledger-heuristics';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	let account = $state<Account | null>(null);
 	let postCreateAccount = $state<Account | null>(null);
@@ -201,7 +202,7 @@
 		{#if isLoading}
 			<div class="space-y-4 pt-4">
 				{#each [1, 2, 3] as _}
-					<div class="h-12 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-12 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 				{/each}
 			</div>
 		{:else if !isEditMode || account}

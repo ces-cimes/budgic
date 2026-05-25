@@ -13,6 +13,7 @@
 	import { toast } from 'svelte-sonner';
 	import { formatAmount, getUserMainCurrency } from '$lib/utils/currency-utils';
 	import { effectiveAmountForCategory } from '$lib/utils/category-utils';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	let categories = $state<Category[]>([]);
 	let transactions = $state<any[]>([]);
@@ -365,11 +366,9 @@
 			<div class="space-y-4">
 				{#each Array(3) as _}
 					<div class="bg-card border-border rounded-2xl border p-6 shadow-sm">
-						<div class="animate-pulse">
-							<div class="bg-muted mb-2 h-4 w-3/4 rounded"></div>
-							<div class="bg-muted mb-4 h-3 w-1/2 rounded"></div>
-							<div class="bg-muted h-6 w-full rounded"></div>
-						</div>
+						<Skeleton class="bg-muted mb-2 h-4 w-3/4 rounded" />
+						<Skeleton class="bg-muted mb-4 h-3 w-1/2 rounded" />
+						<Skeleton class="bg-muted h-6 w-full rounded" />
 					</div>
 				{/each}
 			</div>

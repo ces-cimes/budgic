@@ -19,6 +19,7 @@
 		ChevronRight,
 		Wallet
 	} from '@lucide/svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	const { data } = $props<{ data: any }>();
 
@@ -250,9 +251,9 @@
 			<div class="space-y-6">
 				{#each [1, 2, 3] as _}
 					<div class="space-y-1">
-						<div class="mb-3 h-3 w-20 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+						<Skeleton class="mb-3 h-3 w-20 rounded bg-[var(--color-bg-surface)]" />
 						{#each [1, 2] as _}
-							<div class="h-14 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+							<Skeleton class="h-14 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 						{/each}
 					</div>
 				{/each}

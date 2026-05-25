@@ -6,6 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		TrendingUp,
 		Target,
@@ -115,7 +116,7 @@
 		{#if isLoading || localLoading}
 			<div class="space-y-3">
 				{#each Array(3) as _}
-					<div class="h-20 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-20 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 				{/each}
 			</div>
 		{:else if predictions.length === 0}

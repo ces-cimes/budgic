@@ -5,6 +5,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.ts';
 	import { db } from '$lib/core/db';
@@ -1056,7 +1057,7 @@
 
 	<div class="mx-auto max-w-2xl space-y-6 px-4 py-6">
 		{#if isLoading}
-			<div class="h-36 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+			<Skeleton class="h-36 w-full rounded-2xl bg-[var(--color-bg-tertiary)]" />
 		{:else}
 			{#if error}
 				<div

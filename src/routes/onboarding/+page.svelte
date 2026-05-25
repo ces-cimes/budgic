@@ -7,6 +7,7 @@
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
 	import { db, type UserPreferences, type Currency } from '$lib/core/db';
 	import { BarChart2, Target, Lightbulb } from '@lucide/svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	const { data } = $props<{ data: any }>();
 
@@ -244,8 +245,8 @@
 		<div class="w-full max-w-lg">
 			{#if isLoading}
 				<div class="space-y-4">
-					<div class="h-2 animate-pulse rounded-full bg-[var(--color-bg-tertiary)]"></div>
-					<div class="h-64 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-2 w-full rounded-full bg-[var(--color-bg-tertiary)]" />
+					<Skeleton class="h-64 w-full rounded-2xl bg-[var(--color-bg-tertiary)]" />
 				</div>
 			{:else}
 				<!-- Wordmark -->

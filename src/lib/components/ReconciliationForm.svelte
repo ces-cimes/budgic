@@ -16,6 +16,7 @@
 	import { onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import { z } from 'zod';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	// Props interface
 	interface Props {
@@ -341,7 +342,7 @@
 								<Label class="text-muted-foreground text-sm">Calculated Balance</Label>
 								<div class="flex items-center gap-2">
 									{#if isLoadingBalance}
-										<div class="bg-muted-foreground/20 h-6 w-20 animate-pulse rounded"></div>
+										<Skeleton class="bg-muted-foreground/20 h-6 w-20 rounded" />
 									{:else}
 										<span class="text-lg font-semibold">
 											{CurrencyUtils.formatAmount(calculatedBalance, selectedAccount.currency)}

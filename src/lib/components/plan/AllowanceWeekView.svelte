@@ -8,6 +8,7 @@
 	import { transactionService } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import { formatAmount } from '$lib/utils/currency-utils';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		allowance: EnhancedAllowance | null;
@@ -134,7 +135,7 @@
 	{#if isLoading}
 		<div class="flex h-12 items-end gap-1">
 			{#each Array(7) as _}
-				<div class="h-8 flex-1 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+				<Skeleton class="h-8 flex-1 rounded bg-[var(--color-bg-surface)]" />
 			{/each}
 		</div>
 	{:else}

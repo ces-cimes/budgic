@@ -11,6 +11,7 @@
 	} from '$lib/core/services';
 	import * as Button from '$lib/components/ui/button/index.ts';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
 	import { PageLayout } from '$lib/components/layouts';
@@ -309,9 +310,7 @@
 						delay={80}
 					/>
 				{:else}
-					<div
-						class="mx-auto h-14 w-48 animate-pulse rounded-lg bg-[var(--color-bg-surface)]"
-					></div>
+					<Skeleton class="mx-auto h-14 w-48 rounded-lg bg-[var(--color-bg-surface)]" />
 				{/if}
 			</button>
 
@@ -467,10 +466,10 @@
 						{#each Array(4) as _}
 							<div class="border-border flex items-center gap-3 border-b px-4 py-3.5 last:border-0">
 								<div class="flex-1 space-y-1.5">
-									<div class="h-3.5 w-32 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-									<div class="h-2.5 w-20 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+									<Skeleton class="h-3.5 w-32 rounded bg-[var(--color-bg-surface)]" />
+									<Skeleton class="h-2.5 w-20 rounded bg-[var(--color-bg-surface)]" />
 								</div>
-								<div class="h-3.5 w-16 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+								<Skeleton class="h-3.5 w-16 rounded bg-[var(--color-bg-surface)]" />
 							</div>
 						{/each}
 					</div>

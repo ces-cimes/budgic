@@ -15,6 +15,7 @@
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import type { OverviewTabProps, UnifiedInsight } from '../types';
 	import { accountService } from '$lib/core/services';
@@ -97,12 +98,12 @@
 		{#if isLoading}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				{#each [1, 2, 3, 4] as _}
-					<div class="h-16 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-16 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 				{/each}
 			</div>
 			<div class="space-y-2">
 				{#each [1, 2, 3] as _}
-					<div class="h-20 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-20 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 				{/each}
 			</div>
 		{:else}

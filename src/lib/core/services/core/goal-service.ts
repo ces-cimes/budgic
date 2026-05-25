@@ -530,7 +530,8 @@ class GoalService {
 			medium: 2,
 			low: 3
 		};
-		const isAtRisk = (goal: Goal): boolean => isTimeBoundGoalAtRisk(goal, progressById.get(goal.id));
+		const isAtRisk = (goal: Goal): boolean =>
+			isTimeBoundGoalAtRisk(goal, progressById.get(goal.id));
 
 		return [...goals].sort((a, b) => {
 			const aAtRisk = isAtRisk(a);

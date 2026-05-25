@@ -167,10 +167,7 @@
 		</CardHeader>
 		<CardContent class="space-y-3">
 			{#if accountId}
-				<AddPlannedTransaction
-					{accountId}
-					onTransactionAdded={onAddPlannedTransaction}
-				/>
+				<AddPlannedTransaction {accountId} onTransactionAdded={onAddPlannedTransaction} />
 			{:else}
 				<Button onclick={onAddPlannedTransaction} class="w-full justify-start" variant="outline">
 					<Plus class="mr-2" size={16} />

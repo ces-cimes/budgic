@@ -69,7 +69,8 @@ vi.mock('$lib/core/db', () => ({
 			add: vi.fn(async (acc: { id: string; currency: string; type?: string; name?: string }) => {
 				hoisted.accountsById.set(acc.id, acc);
 			}),
-			get: vi.fn(async (id: string) => hoisted.accountsById.get(id) ?? undefined)
+			get: vi.fn(async (id: string) => hoisted.accountsById.get(id) ?? undefined),
+			toArray: vi.fn(async () => [...hoisted.accountsById.values()])
 		},
 		categories: {
 			add: vi.fn(async () => {})
@@ -154,6 +155,26 @@ vi.mock('$lib/utils/category-utils', () => ({
 		id: 'uncat-inc',
 		name: 'Uncategorized income'
 	}))
+}));
+
+vi.mock('../person-ledger/person-service', () => ({
+	personService: {
+		findByExternalKey: vi.fn(async () => null),
+		resolvePersonForLedgerAccount: vi.fn(async (_account: { name: string }) => ({
+			id: 'person-1',
+			displayName: _account.name,
+			aliases: [],
+			externalKeys: [],
+			createdAt: '2020-01-01T00:00:00.000Z',
+			updatedAt: '2020-01-01T00:00:00.000Z',
+			deletedAt: null
+		})),
+		updatePerson: vi.fn(async () => ({}))
+	}
+}));
+
+vi.mock('../person-ledger/import-routing', () => ({
+	resolveImportedPersonLedgerTarget: vi.fn(async () => null)
 }));
 
 import { MoneyManagerImporter } from './money-manager-importer';

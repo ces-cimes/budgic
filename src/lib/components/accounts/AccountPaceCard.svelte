@@ -2,6 +2,7 @@
 	import type { AccountPaceResult } from '$lib/core/services/core/account-pace-service';
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { TrendingDown, TrendingUp, Minus } from '@lucide/svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	interface Props {
 		pace: AccountPaceResult | null;
@@ -39,8 +40,8 @@
 
 {#if loading}
 	<div class="space-y-3 py-4">
-		<div class="h-4 w-1/2 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-		<div class="h-3 w-2/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+		<Skeleton class="h-4 w-1/2 rounded bg-[var(--color-bg-surface)]" />
+		<Skeleton class="h-3 w-2/3 rounded bg-[var(--color-bg-surface)]" />
 	</div>
 {:else if pace}
 	<div class="space-y-4">

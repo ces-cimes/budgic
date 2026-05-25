@@ -9,6 +9,7 @@
 	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import { Label } from '$lib/components/ui/label/index.ts';
 	import UpdateBalanceSheet from '$lib/components/accounts/UpdateBalanceSheet.svelte';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	let isLoading = $state(true);
 	let includeAccrued = $state(false);
@@ -118,7 +119,7 @@
 
 	<div class="mx-auto max-w-2xl space-y-6 px-4 py-6">
 		{#if isLoading}
-			<div class="h-24 animate-pulse rounded-2xl bg-[var(--color-bg-tertiary)]"></div>
+			<Skeleton class="h-24 w-full rounded-2xl bg-[var(--color-bg-tertiary)]" />
 		{:else}
 			<section
 				class="squircle-2xl squircle-border space-y-3 bg-[var(--color-bg-tertiary)] px-5 py-4"

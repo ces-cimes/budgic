@@ -105,9 +105,11 @@
 	$effect(() => {
 		const filter = { type: transactionType, status: plannedStatus };
 		let cancelled = false;
-		autocompleteService.getBlendedBoundedFieldScores('transaction.account', filter).then((scores) => {
-			if (!cancelled) accountBlendScores = scores;
-		});
+		autocompleteService
+			.getBlendedBoundedFieldScores('transaction.account', filter)
+			.then((scores) => {
+				if (!cancelled) accountBlendScores = scores;
+			});
 		return () => {
 			cancelled = true;
 		};

@@ -66,6 +66,10 @@ describe('mm-transaction-uid-merge', () => {
 		const fresh = freshFromMm();
 		const patch = buildMmMergeUpdates(fresh);
 		for (const k of MM_MERGE_IMPORT_OWNED_KEYS) {
+			if (k === 'reimbursements' && fresh.reimbursements === undefined) {
+				expect(patch).not.toHaveProperty('reimbursements');
+				continue;
+			}
 			expect(patch).toHaveProperty(k);
 		}
 		expect(patch).not.toHaveProperty('description');

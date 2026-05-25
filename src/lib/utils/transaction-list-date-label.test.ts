@@ -29,7 +29,10 @@ describe('transaction-list-date-label', () => {
 		};
 
 		expect(
-			groupSpansMultipleCalendarDays(getDate, 'smart', [group, { clearedDate: '2026-05-13T10:00:00.000Z' }])
+			groupSpansMultipleCalendarDays(getDate, 'smart', [
+				group,
+				{ clearedDate: '2026-05-13T10:00:00.000Z' }
+			])
 		).toBe(true);
 		expect(groupSpansMultipleCalendarDays(getDate, 'smart', [group, sameDay])).toBe(true);
 		expect(groupSpansMultipleCalendarDays(getDate, 'smart', [sameDay])).toBe(false);
