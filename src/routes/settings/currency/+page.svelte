@@ -37,6 +37,7 @@
 	} from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { toast } from 'svelte-sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
@@ -1048,9 +1049,10 @@
 		{/if}
 
 		{#if isLoading}
-			<div class="space-y-4 py-8 text-center">
-				<div class="border-primary inline-block h-8 w-8 animate-spin rounded-full border-b-2"></div>
-				<p class="text-muted-foreground animate-pulse">Loading currency settings...</p>
+			<div class="space-y-4">
+				{#each [1, 2, 3] as _ (_)}
+					<Skeleton class="h-24 w-full rounded-2xl bg-[var(--color-bg-tertiary)]" />
+				{/each}
 			</div>
 		{:else}
 			<!-- Main Currency Selection & Active Currencies -->
