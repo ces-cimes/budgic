@@ -1,6 +1,6 @@
 <script lang="ts">
 	/**
-	 * Desktop: sheet from the right. Mobile: bottom drawer (like AlertsPanel).
+	 * Drawer-only: bottom on mobile (max ~70vh), right on desktop (640px breakpoint).
 	 * Does not take full height; content has horizontal padding.
 	 */
 	import { onMount } from 'svelte';

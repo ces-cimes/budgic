@@ -85,7 +85,7 @@
 				return db.localeCompare(da);
 			});
 		} catch (e) {
-			console.error('RecurringPatternSheet load error:', e);
+			console.error('RecurringPatternPanel load error:', e);
 		} finally {
 			loading = false;
 		}
@@ -101,7 +101,7 @@
 			: undefined;
 	}
 
-	async function applyTierFromSheet(tier: NonNullable<Category['waterfallTier']>) {
+	async function applyTierFromPanel(tier: NonNullable<Category['waterfallTier']>) {
 		if (!patternId || tierApplying) return;
 		tierApplying = true;
 		try {
@@ -207,7 +207,7 @@
 				<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
 					Budget tier
 				</h4>
-				<div class="flex flex-wrap gap-1.5">
+				<div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-1.5">
 					{#each tierChipDefs as chip (chip.tier)}
 						{@const isActive = chip.tier === patternWaterfallTier}
 						<Button
@@ -219,10 +219,10 @@
 							aria-pressed={isActive}
 							aria-label={`${chip.label}. ${chip.hint}`}
 							class={cn(
-								'h-7 min-h-7 shrink-0 gap-0 rounded-md px-2.5 py-0 text-[11px] font-semibold shadow-none',
+								'min-h-11 shrink-0 gap-0 rounded-md px-3 py-0 text-xs font-semibold shadow-none',
 								isActive ? tierActiveClasses[chip.tier] : tierChipIdleClasses[chip.tier]
 							)}
-							onclick={() => void applyTierFromSheet(chip.tier)}
+							onclick={() => void applyTierFromPanel(chip.tier)}
 						>
 							{chip.label}
 						</Button>

@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { Plus, CreditCard, Wallet, PiggyBank, LayoutGrid, List } from '@lucide/svelte';
+	import {
+		Plus,
+		CreditCard,
+		Wallet,
+		PiggyBank,
+		LayoutGrid,
+		List,
+		ChevronDown,
+		ChevronRight
+	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { accountService, userService } from '$lib/core/services';
 	import { goto } from '$app/navigation';
@@ -34,6 +43,8 @@
 	let updateBalanceAccount = $state<Account | null>(null);
 	/** Dense grid layout for many accounts (persisted locally). */
 	let compactAccountsView = $state(false);
+	/** Collapsed account type groups in compact mode (empty = all expanded). */
+	let collapsedAccountTypes = $state<Set<string>>(new Set());
 
 	const ACCOUNT_TYPE_ORDER = [
 		'checking',
@@ -70,10 +81,22 @@
 		const rows: AccountDisplayRow[] = [];
 		for (const g of accountsGrouped) {
 			rows.push({ kind: 'header', type: g.type });
-			for (const account of g.items) rows.push({ kind: 'account', account });
+			if (!collapsedAccountTypes.has(g.type)) {
+				for (const account of g.items) rows.push({ kind: 'account', account });
+			}
 		}
 		return rows;
 	});
+
+	function toggleAccountTypeCollapsed(type: string) {
+		const next = new Set(collapsedAccountTypes);
+		if (next.has(type)) {
+			next.delete(type);
+		} else {
+			next.add(type);
+		}
+		collapsedAccountTypes = next;
+	}
 
 	function toggleCompactAccountsView() {
 		compactAccountsView = !compactAccountsView;
@@ -96,6 +119,9 @@
 
 	onMount(async () => {
 		try {
+			const hasCompactPref =
+				typeof localStorage !== 'undefined' &&
+				localStorage.getItem('budgic_accounts_compact') !== null;
 			if (typeof localStorage !== 'undefined') {
 				compactAccountsView = localStorage.getItem('budgic_accounts_compact') === '1';
 			}
@@ -110,6 +136,10 @@
 				balance: account.currentBalance ?? 0
 			}));
 			totalBalance = totalBalanceValue;
+
+			if (!hasCompactPref && accounts.length >= 6) {
+				compactAccountsView = true;
+			}
 		} catch (error) {
 			console.error('Error loading accounts:', error);
 		}
@@ -240,11 +270,32 @@
 		>
 			{#each accountsDisplayRows as row}
 				{#if row.kind === 'header'}
-					<p
-						class="col-span-full mt-4 mb-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase first:mt-0"
+					<button
+						type="button"
+						class="col-span-full mt-4 mb-1 flex w-full items-center gap-1.5 text-left first:mt-0"
+						aria-expanded={!collapsedAccountTypes.has(row.type)}
+						aria-label="{collapsedAccountTypes.has(row.type)
+							? 'Expand'
+							: 'Collapse'} {row.type} accounts"
+						onclick={() => toggleAccountTypeCollapsed(row.type)}
 					>
-						{row.type}
-					</p>
+						{#if collapsedAccountTypes.has(row.type)}
+							<ChevronRight
+								class="size-3.5 shrink-0 text-[var(--color-text-tertiary)]"
+								aria-hidden="true"
+							/>
+						{:else}
+							<ChevronDown
+								class="size-3.5 shrink-0 text-[var(--color-text-tertiary)]"
+								aria-hidden="true"
+							/>
+						{/if}
+						<span
+							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							{row.type}
+						</span>
+					</button>
 				{:else}
 					{@const account = row.account}
 					{@const bufferStatus =

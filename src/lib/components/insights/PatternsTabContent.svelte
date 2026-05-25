@@ -24,7 +24,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { toast } from 'svelte-sonner';
-	import RecurringPatternSheet from './RecurringPatternSheet.svelte';
+	import RecurringPatternPanel from './RecurringPatternPanel.svelte';
 	import ReviewSession from '$lib/components/review/ReviewSession.svelte';
 	import { ChevronRight } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -130,7 +130,7 @@
 	let reviewSessionOpen = $state(false);
 	let reviewUrlHandled = $state(false);
 	let retrospectiveApplying = $state(false);
-	let recurringSheetOpen = $state(false);
+	let recurringPanelOpen = $state(false);
 	let selectedPatternId = $state<string | null>(null);
 	let alertTypeInsights = $state<Insight[]>([]);
 
@@ -772,7 +772,7 @@
 									class="hover:bg-muted/30 focus-visible:ring-ring flex w-full items-center gap-2 px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
 									onclick={() => {
 										selectedPatternId = item.patternId;
-										recurringSheetOpen = true;
+										recurringPanelOpen = true;
 									}}
 								>
 									<div class="min-w-0 flex-1">
@@ -918,7 +918,7 @@
 												class="text-muted-foreground hover:text-foreground text-xs font-medium underline-offset-2 hover:underline"
 												onclick={() => {
 													selectedPatternId = a.relatedPatternId!;
-													recurringSheetOpen = true;
+													recurringPanelOpen = true;
 												}}
 											>
 												View pattern
@@ -1037,13 +1037,13 @@
 		}}
 	/>
 
-	<!-- Recurring pattern drill-in sheet -->
-	<RecurringPatternSheet
-		open={recurringSheetOpen}
+	<!-- Recurring pattern drill-in panel -->
+	<RecurringPatternPanel
+		open={recurringPanelOpen}
 		patternId={selectedPatternId}
 		{userCurrency}
 		onClose={() => {
-			recurringSheetOpen = false;
+			recurringPanelOpen = false;
 			selectedPatternId = null;
 		}}
 		onPatternBudgetTierApplied={() => void refreshRecurringFromServices(userCurrency)}
