@@ -3,16 +3,16 @@
 	import { onMount } from 'svelte';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { PageLayout } from '$lib/components/layouts';
+	import GuidanceDetailPicker from '$lib/components/GuidanceDetailPicker.svelte';
 	import { userService } from '$lib/core/services';
 	import { navigationStore } from '$lib/stores/navigation-store.svelte';
-	import { db, type UserPreferences, type Currency } from '$lib/core/db';
-	import { BarChart2, Target, Lightbulb } from '@lucide/svelte';
+	import { db, type UserPreferences } from '$lib/core/db';
+	import { BarChart2, Target, Lightbulb, Upload } from '@lucide/svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-
-	const { data } = $props<{ data: any }>();
+	import type { ExplanationDetail, GuidanceTone } from '$lib/utils/guidance-presentation';
 
 	let currentStep = $state(1);
-	let totalSteps = 4;
+	const totalSteps = 6;
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
 	let isLoading = $state(true);
@@ -23,19 +23,16 @@
 		currency: 'USD',
 		theme: 'dark' as 'light' | 'dark',
 		language: 'en' as 'en' | 'ru',
-		userMaturityLevel: 'beginner' as 'beginner' | 'intermediate' | 'advanced' | 'expert',
-		financialGoals: [] as string[]
+		guidanceTone: 'balanced' as GuidanceTone,
+		explanationDetail: 'standard' as ExplanationDetail
 	});
 
-	// Load currencies and user preferences on mount
 	onMount(async () => {
 		try {
-			// Load active currencies from database
 			const activeCurrencies = await db.getActiveCurrencies();
 			currencies = activeCurrencies
 				.filter((c) => c.isActive)
 				.sort((a, b) => {
-					// Sort system currencies first, then by code
 					if (a.isSystem && !b.isSystem) return -1;
 					if (!a.isSystem && b.isSystem) return 1;
 					return a.code.localeCompare(b.code);
@@ -45,16 +42,13 @@
 					label: `${c.code} - ${c.name}`
 				}));
 
-			// If no currencies found, this is an error state
 			if (currencies.length === 0) {
 				console.error('No currencies available in database');
 			}
 
-			// Load existing preferences if available (but don't redirect)
 			const preferences = await userService.getUserPreferences();
 			if (preferences.username) formData.username = preferences.username;
 			if (preferences.currency && currencies.length > 0) {
-				// Validate currency exists in available currencies
 				const currencyExists = currencies.some((c) => c.value === preferences.currency);
 				formData.currency = currencyExists ? preferences.currency : currencies[0]?.value || 'USD';
 			} else if (currencies.length > 0) {
@@ -62,33 +56,14 @@
 			}
 			if (preferences.theme) formData.theme = preferences.theme;
 			if (preferences.language) formData.language = preferences.language;
-			if (preferences.userMaturityLevel) formData.userMaturityLevel = preferences.userMaturityLevel;
+			if (preferences.guidanceTone) formData.guidanceTone = preferences.guidanceTone;
+			if (preferences.explanationDetail) formData.explanationDetail = preferences.explanationDetail;
 		} catch (err) {
 			console.error('Error loading data:', err);
-			// Don't set fallback - let the form handle the error
 		} finally {
 			isLoading = false;
 		}
 	});
-
-	const goals: Array<{ id: string; label: string }> = [
-		{ id: 'save_money', label: 'Save more money' },
-		{ id: 'track_spending', label: 'Track spending habits' },
-		{ id: 'pay_debt', label: 'Pay off debt' },
-		{ id: 'invest', label: 'Start investing' },
-		{ id: 'emergency_fund', label: 'Build an emergency fund' },
-		{ id: 'budget_better', label: 'Create a better budget' }
-	];
-
-	const experienceLevels: Array<{
-		value: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-		label: string;
-	}> = [
-		{ value: 'beginner', label: 'Beginner - New to budgeting' },
-		{ value: 'intermediate', label: 'Intermediate - Some experience' },
-		{ value: 'advanced', label: 'Advanced - Experienced budgeter' },
-		{ value: 'expert', label: 'Expert - Financial professional' }
-	];
 
 	function nextStep() {
 		if (currentStep < totalSteps) {
@@ -102,54 +77,43 @@
 		}
 	}
 
-	function toggleGoal(goalId: string) {
-		const index = formData.financialGoals.indexOf(goalId);
-		if (index > -1) {
-			formData.financialGoals = formData.financialGoals.filter((id) => id !== goalId);
-		} else {
-			formData.financialGoals = [...formData.financialGoals, goalId];
-		}
+	function buildPreferences(): Partial<UserPreferences> {
+		return {
+			username: formData.username || 'User',
+			currency: formData.currency,
+			theme: formData.theme,
+			language: formData.language,
+			guidanceTone: formData.guidanceTone,
+			explanationDetail: formData.explanationDetail,
+			onboardingCompleted: true,
+			enablePredictiveAnalytics: true,
+			analyticsEnabled: true,
+			backupEnabled: true
+		};
 	}
 
-	async function handleSubmit() {
+	async function finishOnboarding(redirectTo: string) {
 		if (isSaving) return;
 
 		isSaving = true;
 		error = null;
 
 		try {
-			// Create user preferences from onboarding data
-			const userPreferences: Partial<UserPreferences> = {
-				username: formData.username || 'User',
-				currency: formData.currency,
-				theme: formData.theme,
-				language: formData.language,
-				userMaturityLevel: formData.userMaturityLevel,
-				onboardingCompleted: true,
-				enableAdvancedFeatures:
-					formData.userMaturityLevel === 'advanced' || formData.userMaturityLevel === 'expert',
-				enablePredictiveAnalytics: true,
-				analyticsEnabled: true,
-				backupEnabled: true
-			};
-
-			// Save user preferences
-			await userService.updateUserPreferences(userPreferences);
+			await userService.updateUserPreferences(buildPreferences());
 			await navigationStore.refresh();
 
-			// Track onboarding completion
 			await userService.trackUserAction({
 				action: 'onboarding_completed',
 				details: JSON.stringify({
 					username: formData.username,
 					currency: formData.currency,
-					maturityLevel: formData.userMaturityLevel,
-					goalsSelected: formData.financialGoals.length
+					guidanceTone: formData.guidanceTone,
+					explanationDetail: formData.explanationDetail,
+					redirectTo
 				})
 			});
 
-			// Redirect to main app
-			goto('/');
+			goto(redirectTo);
 		} catch (err) {
 			error = 'Failed to save onboarding data. Please try again.';
 			console.error('Onboarding error:', err);
@@ -165,25 +129,9 @@
 		error = null;
 
 		try {
-			// Save minimal preferences with onboarding marked as completed
-			const userPreferences: Partial<UserPreferences> = {
-				username: formData.username || 'User',
-				currency: formData.currency,
-				theme: formData.theme,
-				language: formData.language,
-				userMaturityLevel: formData.userMaturityLevel,
-				onboardingCompleted: true,
-				enableAdvancedFeatures: false,
-				enablePredictiveAnalytics: true,
-				analyticsEnabled: true,
-				backupEnabled: true
-			};
-
-			// Save user preferences
-			await userService.updateUserPreferences(userPreferences);
+			await userService.updateUserPreferences(buildPreferences());
 			await navigationStore.refresh();
 
-			// Track onboarding skip
 			await userService.trackUserAction({
 				action: 'onboarding_skipped',
 				details: JSON.stringify({
@@ -193,7 +141,6 @@
 				})
 			});
 
-			// Redirect to main app
 			goto('/');
 		} catch (err) {
 			error = 'Failed to skip onboarding. Please try again.';
@@ -208,11 +155,15 @@
 			case 1:
 				return 'Welcome to Budgic';
 			case 2:
-				return 'Personal Information';
+				return 'Your name';
 			case 3:
-				return 'Goals';
+				return 'Currency';
 			case 4:
-				return 'Experience Level';
+				return 'Theme & language';
+			case 5:
+				return 'Guidance & detail';
+			case 6:
+				return 'Import existing data?';
 			default:
 				return '';
 		}
@@ -223,11 +174,15 @@
 			case 1:
 				return "Let's get to know you and set up your financial profile";
 			case 2:
-				return 'Tell us about yourself and your financial situation';
+				return 'What should we call you in the app?';
 			case 3:
-				return 'What are your main financial goals?';
+				return 'Choose your primary currency for balances and budgets';
 			case 4:
-				return 'Help us personalize your experience';
+				return 'Pick how Budgic looks and which language to use';
+			case 5:
+				return 'Tune how much guidance Budgic shows — you can change this anytime in Profile';
+			case 6:
+				return 'Optional: bring in transactions from a CSV or another app now, or skip and add data later';
 			default:
 				return '';
 		}
@@ -249,12 +204,10 @@
 					<Skeleton class="h-64 w-full rounded-2xl bg-[var(--color-bg-tertiary)]" />
 				</div>
 			{:else}
-				<!-- Wordmark -->
 				<div class="mb-8 text-center">
 					<p class="font-display text-2xl text-[var(--color-hero-number)]">Budgic</p>
 				</div>
 
-				<!-- Progress -->
 				<div class="mb-6">
 					<div class="mb-2 flex items-center justify-between">
 						<span class="text-xs text-[var(--color-text-tertiary)]"
@@ -272,7 +225,6 @@
 					</div>
 				</div>
 
-				<!-- Card -->
 				<div class="squircle-4xl squircle-border squircle-fill-tertiary p-8">
 					<div class="mb-6">
 						<h1 class="text-xl font-semibold text-[var(--color-text-primary)]">{getStepTitle()}</h1>
@@ -288,7 +240,6 @@
 						</div>
 					{/if}
 
-					<!-- Step 1: Welcome -->
 					{#if currentStep === 1}
 						<div class="space-y-6">
 							<div class="grid grid-cols-3 gap-3">
@@ -323,122 +274,108 @@
 						</div>
 					{/if}
 
-					<!-- Step 2: Personal Information -->
 					{#if currentStep === 2}
-						<div class="space-y-4">
+						<div class="space-y-1.5">
+							<label for="ob-username" class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Your name</label
+							>
+							<input
+								id="ob-username"
+								type="text"
+								bind:value={formData.username}
+								placeholder="What should we call you?"
+								class="border-border w-full rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
+							/>
+						</div>
+					{/if}
+
+					{#if currentStep === 3}
+						<div class="space-y-1.5">
+							<label for="ob-currency" class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Currency</label
+							>
+							<Select.Root type="single" bind:value={formData.currency}>
+								<Select.Trigger id="ob-currency" class="w-full">
+									{formData.currency
+										? (currencies.find((c) => c.value === formData.currency)?.label ??
+											formData.currency)
+										: 'Select currency'}
+								</Select.Trigger>
+								<Select.Content>
+									{#each currencies as currency}
+										<Select.Item value={currency.value}>{currency.label}</Select.Item>
+									{/each}
+								</Select.Content>
+							</Select.Root>
+						</div>
+					{/if}
+
+					{#if currentStep === 4}
+						<div class="grid grid-cols-2 gap-3">
 							<div class="space-y-1.5">
-								<label
-									for="ob-username"
-									class="text-sm font-medium text-[var(--color-text-primary)]">Your name</label
+								<label for="ob-theme" class="text-sm font-medium text-[var(--color-text-primary)]"
+									>Theme</label
 								>
-								<input
-									id="ob-username"
-									type="text"
-									bind:value={formData.username}
-									placeholder="What should we call you?"
-									class="border-border w-full rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
-								/>
-							</div>
-							<div class="space-y-1.5">
-								<label
-									for="ob-currency"
-									class="text-sm font-medium text-[var(--color-text-primary)]">Currency</label
-								>
-								<Select.Root type="single" bind:value={formData.currency}>
-									<Select.Trigger id="ob-currency" class="w-full">
-										{formData.currency
-											? (currencies.find((c) => c.value === formData.currency)?.label ??
-												formData.currency)
-											: 'Select currency'}
+								<Select.Root type="single" bind:value={formData.theme}>
+									<Select.Trigger id="ob-theme" class="w-full">
+										{formData.theme === 'light' ? 'Light' : 'Dark'}
 									</Select.Trigger>
 									<Select.Content>
-										{#each currencies as currency}
-											<Select.Item value={currency.value}>{currency.label}</Select.Item>
-										{/each}
+										<Select.Item value="light">Light</Select.Item>
+										<Select.Item value="dark">Dark</Select.Item>
 									</Select.Content>
 								</Select.Root>
 							</div>
-							<div class="grid grid-cols-2 gap-3">
-								<div class="space-y-1.5">
-									<label for="ob-theme" class="text-sm font-medium text-[var(--color-text-primary)]"
-										>Theme</label
-									>
-									<Select.Root type="single" bind:value={formData.theme}>
-										<Select.Trigger id="ob-theme" class="w-full">
-											{formData.theme === 'light' ? 'Light' : 'Dark'}
-										</Select.Trigger>
-										<Select.Content>
-											<Select.Item value="light">Light</Select.Item>
-											<Select.Item value="dark">Dark</Select.Item>
-										</Select.Content>
-									</Select.Root>
-								</div>
-								<div class="space-y-1.5">
-									<label
-										for="ob-language"
-										class="text-sm font-medium text-[var(--color-text-primary)]">Language</label
-									>
-									<Select.Root type="single" bind:value={formData.language}>
-										<Select.Trigger id="ob-language" class="w-full">
-											{formData.language === 'en' ? 'English' : 'Русский'}
-										</Select.Trigger>
-										<Select.Content>
-											<Select.Item value="en">English</Select.Item>
-											<Select.Item value="ru">Русский</Select.Item>
-										</Select.Content>
-									</Select.Root>
-								</div>
-							</div>
-						</div>
-					{/if}
-
-					<!-- Step 3: Goals -->
-					{#if currentStep === 3}
-						<div class="space-y-2">
-							<p class="mb-3 text-xs text-[var(--color-text-tertiary)]">Select all that apply</p>
-							<div class="grid grid-cols-2 gap-2">
-								{#each goals as goal}
-									<button
-										type="button"
-										onclick={() => toggleGoal(goal.id)}
-										class="rounded-xl border p-3 text-left text-sm font-medium transition-colors {formData.financialGoals.includes(
-											goal.id
-										)
-											? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)] text-[var(--color-amber)]'
-											: 'border-border text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]/40'}"
-									>
-										{goal.label}
-									</button>
-								{/each}
-							</div>
-						</div>
-					{/if}
-
-					<!-- Step 4: Experience Level -->
-					{#if currentStep === 4}
-						<div class="space-y-2">
-							{#each experienceLevels as level}
-								<button
-									type="button"
-									onclick={() => (formData.userMaturityLevel = level.value)}
-									class="w-full rounded-xl border p-3.5 text-left transition-colors {formData.userMaturityLevel ===
-									level.value
-										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
-										: 'border-border hover:border-[var(--color-amber)]/40'}"
+							<div class="space-y-1.5">
+								<label
+									for="ob-language"
+									class="text-sm font-medium text-[var(--color-text-primary)]">Language</label
 								>
-									<p
-										class="text-sm font-medium {formData.userMaturityLevel === level.value
-											? 'text-[var(--color-amber)]'
-											: 'text-[var(--color-text-primary)]'}"
-									>
-										{level.label}
-									</p>
-								</button>
-							{/each}
+								<Select.Root type="single" bind:value={formData.language}>
+									<Select.Trigger id="ob-language" class="w-full">
+										{formData.language === 'en' ? 'English' : 'Русский'}
+									</Select.Trigger>
+									<Select.Content>
+										<Select.Item value="en">English</Select.Item>
+										<Select.Item value="ru">Русский</Select.Item>
+									</Select.Content>
+								</Select.Root>
+							</div>
 						</div>
 					{/if}
 
-					<!-- Navigation -->
+					{#if currentStep === 5}
+						<GuidanceDetailPicker
+							guidanceTone={formData.guidanceTone}
+							explanationDetail={formData.explanationDetail}
+							onGuidanceToneChange={(value) => (formData.guidanceTone = value)}
+							onExplanationDetailChange={(value) => (formData.explanationDetail = value)}
+						/>
+					{/if}
+
+					{#if currentStep === 6}
+						<div class="space-y-4">
+							<div
+								class="squircle-2xl squircle-border squircle-fill-surface flex items-start gap-3 p-4"
+							>
+								<div
+									class="squircle-xl flex size-9 shrink-0 items-center justify-center bg-[var(--color-amber-subtle)]"
+								>
+									<Upload class="size-4 text-[var(--color-amber)]" />
+								</div>
+								<div>
+									<p class="text-sm font-medium text-[var(--color-text-primary)]">
+										Bring in past transactions
+									</p>
+									<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+										Import a CSV or file from another app. You can also add transactions manually
+										from Home later.
+									</p>
+								</div>
+							</div>
+						</div>
+					{/if}
+
 					<div class="mt-8 flex items-center justify-between gap-3">
 						<div class="flex gap-2">
 							{#if currentStep > 1}
@@ -451,7 +388,7 @@
 									Previous
 								</button>
 							{/if}
-							{#if currentStep > 1}
+							{#if currentStep > 1 && currentStep < 6}
 								<button
 									type="button"
 									onclick={handleSkip}
@@ -463,15 +400,25 @@
 							{/if}
 						</div>
 
-						{#if currentStep === totalSteps}
-							<button
-								type="button"
-								onclick={handleSubmit}
-								disabled={isSaving}
-								class="rounded-xl bg-[var(--color-amber)] px-6 py-2 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
-							>
-								{isSaving ? 'Setting up…' : 'Get started'}
-							</button>
+						{#if currentStep === 6}
+							<div class="flex gap-2">
+								<button
+									type="button"
+									onclick={() => finishOnboarding('/')}
+									disabled={isSaving}
+									class="border-border rounded-xl border px-4 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] disabled:opacity-50"
+								>
+									Skip for now
+								</button>
+								<button
+									type="button"
+									onclick={() => finishOnboarding('/data?tab=import')}
+									disabled={isSaving}
+									class="rounded-xl bg-[var(--color-amber)] px-6 py-2 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
+								>
+									{isSaving ? 'Setting up…' : 'Import data'}
+								</button>
+							</div>
 						{:else}
 							<button
 								type="button"

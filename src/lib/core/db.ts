@@ -1378,10 +1378,19 @@ const UserPreferencesSchema = BaseSchema.extend({
 	weekStartsOn: z.number().int().min(0).max(6).default(0),
 
 	// User Maturity and Onboarding
+	/** @deprecated Presentation prefs use guidanceTone + explanationDetail; kept for behavior score + migration */
 	userMaturityLevel: z.enum(['beginner', 'intermediate', 'advanced', 'expert']).default('beginner'),
+	/** Presentation-only: tooltip density and suggestion tone (not nav/tab gating) */
+	guidanceTone: z.enum(['supportive', 'balanced', 'minimal']).default('balanced'),
+	/** Presentation-only: helper copy length */
+	explanationDetail: z.enum(['full', 'standard', 'brief']).default('standard'),
 	onboardingCompleted: z.boolean().default(false),
-	/** Home first-run checklist (3 steps) — hide permanently when true */
+	/** Home first-run checklist (4 steps) complete — unlocks post-checklist suggestions */
 	firstRunChecklistComplete: z.boolean().default(false),
+	/** User opened Plan → Allowance tab at least once (checklist step 4) */
+	allowanceTabReviewed: z.boolean().default(false),
+	/** Post-checklist suggestion dismissals keyed by suggestion id → ISO timestamp */
+	postChecklistSuggestionDismissals: z.record(z.string(), z.string().datetime()).optional(),
 
 	// Feature Flags
 	enableAdvancedFeatures: z.boolean().default(false),
@@ -2910,6 +2919,82 @@ export class BudgicDB extends Dexie {
 					}
 					if (Object.keys(patch).length > 0) {
 						await tx.table('envelopeBorrowings').update(b.id, patch);
+					}
+				}
+			});
+
+		// Version 32: guidance + detail prefs, allowance checklist flag, post-checklist dismissals
+		this.version(32)
+			.stores({
+				accounts:
+					'id, type, currency, isActive, ledgerRole, deletedAt, createdAt, updatedAt, [type+isActive]',
+				currencies: 'id, code, name, isSystem, isActive, deletedAt, createdAt, updatedAt',
+				categories:
+					'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
+				transactions:
+					'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
+				goals:
+					'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+				userPreferences: 'id, createdAt, updatedAt',
+				userActions:
+					'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
+				autocompleteUsage:
+					'id, fieldKey, value, timestamp, typicalAmount, [fieldKey+value], [fieldKey+value+timestamp], createdAt, updatedAt, deletedAt',
+				tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
+				insights:
+					'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
+				currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+				exchangeRates:
+					'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
+				badges:
+					'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+				reconciliationRecords:
+					'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
+				reconciliationDiscrepancies:
+					'id, accountId, discrepancyType, severity, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+discrepancyType], [accountId+severity], [accountId+resolvedAt]',
+				learningPatterns:
+					'id, patternType, categoryId, isActive, appliedToProjections, lastValidated, deletedAt, createdAt, updatedAt, [patternType+isActive], [categoryId+patternType]',
+				userFeedback:
+					'id, feedbackType, suggestionId, action, deletedAt, createdAt, updatedAt, [feedbackType+action], [suggestionId+action]',
+				optimizationPreferences:
+					'id, preferenceType, categoryId, key, deletedAt, createdAt, updatedAt, [preferenceType+categoryId], [key+preferenceType]',
+				negativeAllowanceEvents:
+					'id, periodStart, periodEnd, accountId, category, deletedAt, createdAt, updatedAt, [accountId+periodStart], [category+periodStart]',
+				envelopeBorrowings:
+					'id, accountId, periodStart, fromCategory, toCategory, dueRepayBy, deletedAt, createdAt, updatedAt, [accountId+periodStart], [accountId+dueRepayBy]',
+				rolloverAdjustments:
+					'id, accountId, forPeriodStart, category, deletedAt, createdAt, updatedAt, [accountId+forPeriodStart]',
+				roundUpRules:
+					'id, sourceAccountId, targetAccountId, method, batchMode, isActive, deletedAt, createdAt, updatedAt, [sourceAccountId+isActive], [targetAccountId+isActive]',
+				merchantCategoryProfiles:
+					'id, merchantKey, accountId, deletedAt, createdAt, updatedAt, lastUpdated, [merchantKey+accountId]',
+				recurringPatternsCache: 'id, computedAt',
+				dataCorrections:
+					'id, transactionId, accountId, field, source, timestamp, [transactionId+timestamp], [accountId+timestamp]',
+				people: 'id, displayName, deletedAt, createdAt, updatedAt',
+				personMigrationBatches:
+					'id, status, ledgerAccountId, personId, anchorAccountId, createdAt, updatedAt, [ledgerAccountId+status]'
+			})
+			.upgrade(async (tx) => {
+				const maturityMap: Record<string, { guidanceTone: string; explanationDetail: string }> = {
+					beginner: { guidanceTone: 'supportive', explanationDetail: 'full' },
+					intermediate: { guidanceTone: 'balanced', explanationDetail: 'standard' },
+					advanced: { guidanceTone: 'minimal', explanationDetail: 'brief' },
+					expert: { guidanceTone: 'minimal', explanationDetail: 'brief' }
+				};
+				const prefs = await tx.table('userPreferences').toArray();
+				const now = new Date().toISOString();
+				for (const row of prefs) {
+					const patch: Record<string, unknown> = {};
+					if (row.guidanceTone == null || row.explanationDetail == null) {
+						const mapped = maturityMap[row.userMaturityLevel as string] ?? maturityMap.intermediate;
+						if (row.guidanceTone == null) patch.guidanceTone = mapped.guidanceTone;
+						if (row.explanationDetail == null) patch.explanationDetail = mapped.explanationDetail;
+					}
+					if (row.allowanceTabReviewed == null) patch.allowanceTabReviewed = false;
+					if (Object.keys(patch).length > 0) {
+						patch.updatedAt = now;
+						await tx.table('userPreferences').update(row.id, patch);
 					}
 				}
 			});

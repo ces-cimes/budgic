@@ -19,6 +19,9 @@
 	import AllowanceSummary from '$lib/components/AllowanceSummary.svelte';
 	import CountUpHero from '$lib/components/CountUpHero.svelte';
 	import FirstRunChecklist from '$lib/components/FirstRunChecklist.svelte';
+	import PostChecklistSuggestions from '$lib/components/PostChecklistSuggestions.svelte';
+	import { getEligiblePostChecklistSuggestions } from '$lib/utils/post-checklist-suggestions';
+	import type { UserPreferences } from '$lib/core/db';
 	import {
 		planService,
 		budgetService,
@@ -64,6 +67,11 @@
 	let thisWeekSpent = $state<number>(0);
 	let thisWeekPlanned = $state<number | null>(null);
 	let firstRunChecklistComplete = $state(false);
+	let allowanceTabReviewed = $state(false);
+	let transactionCount = $state(0);
+	let userPrefs = $state<UserPreferences | null>(null);
+	let unclassifiedTransactionCount = $state(0);
+	let postChecklistSuggestions = $state<ReturnType<typeof getEligiblePostChecklistSuggestions>>([]);
 	let accruedNetWorthDelta = $state(0);
 
 	onMount(async () => {
@@ -72,9 +80,9 @@
 			userCurrency = preferences?.currency || 'USD';
 			username = preferences?.username || '';
 			weekStartsOn = preferences.weekStartsOn ?? 0;
-			firstRunChecklistComplete =
-				(preferences as { firstRunChecklistComplete?: boolean })?.firstRunChecklistComplete ??
-				false;
+			firstRunChecklistComplete = preferences?.firstRunChecklistComplete ?? false;
+			allowanceTabReviewed = preferences?.allowanceTabReviewed ?? false;
+			userPrefs = preferences;
 
 			const [accountsData, balanceData, transactionsData, categoriesData] = await Promise.all([
 				accountService.getAccounts(),
@@ -92,6 +100,7 @@
 				accruedNetWorthDelta = 0;
 			}
 			recentTransactions = transactionsData.filter((t: any) => t && !t.deletedAt).slice(0, 8);
+			transactionCount = transactionsData.filter((t: any) => t && !t.deletedAt).length;
 			budgetCategories = categoriesData.reduce(
 				(acc: Record<string, any>, category: any) => {
 					acc[category.id] = category;
@@ -101,6 +110,7 @@
 			);
 
 			await loadGlobalAllowance();
+			if (userPrefs) refreshPostChecklistSuggestions(userPrefs);
 			attentionGroups = await insightsService.getPanelAlertGroupsForHome(3);
 			await loadGoalsAndThisWeek();
 		} catch (error) {
@@ -110,25 +120,56 @@
 		}
 	});
 
-	// First-run checklist: mark complete when all 3 steps done, then hide permanently (UX_SPEC §8)
+	// First-run checklist: mark complete when all 4 steps done (UX_SPEC §8)
 	const hasBudgetCategory = $derived(
 		Object.values(budgetCategories).some(
 			(c: { budgetAmount?: number }) => (c?.budgetAmount ?? 0) > 0
 		)
 	);
+
+	function refreshPostChecklistSuggestions(prefs: UserPreferences | null) {
+		if (!prefs) {
+			postChecklistSuggestions = [];
+			return;
+		}
+		postChecklistSuggestions = getEligiblePostChecklistSuggestions(prefs, {
+			unclassifiedTransactionCount
+		});
+	}
+
+	$effect(() => {
+		if (userPrefs) {
+			refreshPostChecklistSuggestions(userPrefs);
+		}
+	});
+
 	$effect(() => {
 		if (
 			!isLoaded ||
 			firstRunChecklistComplete ||
 			accounts.length === 0 ||
-			recentTransactions.length === 0 ||
-			!hasBudgetCategory
+			transactionCount === 0 ||
+			!hasBudgetCategory ||
+			!allowanceTabReviewed
 		)
 			return;
-		userService.updateUserPreferences({ firstRunChecklistComplete: true }).then(() => {
+		userService.updateUserPreferences({ firstRunChecklistComplete: true }).then((updated) => {
 			firstRunChecklistComplete = true;
+			userPrefs = updated;
 		});
 	});
+
+	async function handleDismissSuggestion(id: string) {
+		if (!userPrefs) return;
+		const dismissals = {
+			...(userPrefs.postChecklistSuggestionDismissals ?? {}),
+			[id]: new Date().toISOString()
+		};
+		const updated = await userService.updateUserPreferences({
+			postChecklistSuggestionDismissals: dismissals
+		});
+		userPrefs = updated;
+	}
 
 	async function loadGlobalAllowance() {
 		isLoadingAllowance = true;
@@ -139,6 +180,7 @@
 			]);
 			globalAllowance = enhancedAllowance;
 			allowanceConfidence = budgetSummary?.confidence ?? null;
+			unclassifiedTransactionCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
 			allowanceTierRows = tierRowsFromBudgetSummary(budgetSummary);
 			if (globalAllowance) {
 				const prefs = await userServiceImport.getUserPreferences();
@@ -335,12 +377,18 @@
 		<div class="bg-border mx-5 mb-6 h-px sm:mx-6"></div>
 
 		<div class="mx-auto flex w-full max-w-2xl flex-col space-y-8 px-5 pb-8 sm:px-6">
-			<!-- ── First-run checklist (hide when all 3 steps complete, UX_SPEC §8) ── -->
+			<!-- ── First-run checklist / post-complete suggestions (UX_SPEC §8) ── -->
 			{#if !firstRunChecklistComplete}
 				<FirstRunChecklist
 					hasAccount={accounts.length > 0}
-					hasTransaction={recentTransactions.length > 0}
+					hasTransaction={transactionCount > 0}
 					{hasBudgetCategory}
+					{allowanceTabReviewed}
+				/>
+			{:else if postChecklistSuggestions.length > 0}
+				<PostChecklistSuggestions
+					suggestions={postChecklistSuggestions}
+					onDismiss={handleDismissSuggestion}
 				/>
 			{/if}
 

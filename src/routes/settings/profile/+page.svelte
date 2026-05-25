@@ -11,6 +11,8 @@
 	import { getDeviceId } from '$lib/device-id';
 	import { getLastServerBackupAt } from '$lib/core/services/import-export';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import GuidanceDetailPicker from '$lib/components/GuidanceDetailPicker.svelte';
+	import type { ExplanationDetail, GuidanceTone } from '$lib/utils/guidance-presentation';
 
 	// State
 	let isLoading = $state(true);
@@ -20,7 +22,8 @@
 
 	// Form fields
 	let username = $state('');
-	let userMaturityLevel = $state<'beginner' | 'intermediate' | 'advanced' | 'expert'>('beginner');
+	let guidanceTone = $state<GuidanceTone>('balanced');
+	let explanationDetail = $state<ExplanationDetail>('standard');
 	// Privacy & data (merged from /settings/security)
 	let analyticsEnabled = $state(true);
 	let backupEnabled = $state(true);
@@ -29,25 +32,7 @@
 	let lastServerBackupAt = $state<string | null>(null);
 	let deviceIdCopied = $state(false);
 
-	// User maturity options
-	const userMaturityOptions = [
-		{
-			value: 'beginner',
-			label: 'Beginner',
-			description: 'New to budgeting and financial planning'
-		},
-		{ value: 'intermediate', label: 'Intermediate', description: 'Some experience with budgeting' },
-		{
-			value: 'advanced',
-			label: 'Advanced',
-			description: 'Experienced with complex financial planning'
-		},
-		{
-			value: 'expert',
-			label: 'Expert',
-			description: 'Financial planning professional or enthusiast'
-		}
-	];
+	// User maturity options — removed; guidance prefs replace experience level UI
 
 	async function copyDeviceId() {
 		try {
@@ -67,7 +52,8 @@
 			const preferences = await userService.getUserPreferences();
 			if (preferences) {
 				username = preferences.username || 'User';
-				userMaturityLevel = preferences.userMaturityLevel || 'beginner';
+				guidanceTone = preferences.guidanceTone ?? 'balanced';
+				explanationDetail = preferences.explanationDetail ?? 'standard';
 				analyticsEnabled = preferences.analyticsEnabled ?? true;
 				backupEnabled = preferences.backupEnabled ?? true;
 				insightsShadowCategoryBreakdown = preferences.insightsShadowCategoryBreakdown ?? false;
@@ -91,7 +77,8 @@
 		try {
 			await userService.updateUserPreferences({
 				username,
-				userMaturityLevel,
+				guidanceTone,
+				explanationDetail,
 				analyticsEnabled,
 				backupEnabled,
 				insightsShadowCategoryBreakdown
@@ -109,7 +96,8 @@
 	// Reset to defaults
 	function resetToDefaults() {
 		username = 'User';
-		userMaturityLevel = 'beginner';
+		guidanceTone = 'balanced';
+		explanationDetail = 'standard';
 	}
 </script>
 
@@ -179,31 +167,14 @@
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 						>
-							Experience level
+							Guidance & detail
 						</h2>
-						<div class="grid grid-cols-2 gap-2">
-							{#each userMaturityOptions as option}
-								<button
-									type="button"
-									onclick={() => (userMaturityLevel = option.value as typeof userMaturityLevel)}
-									class="rounded-xl border p-3 text-left transition-colors {userMaturityLevel ===
-									option.value
-										? 'border-[var(--color-amber)] bg-[var(--color-amber-subtle)]'
-										: 'border-border bg-[var(--color-bg-surface)] hover:border-[var(--color-amber)]/40'}"
-								>
-									<p
-										class="text-sm font-medium {userMaturityLevel === option.value
-											? 'text-[var(--color-amber)]'
-											: 'text-[var(--color-text-primary)]'}"
-									>
-										{option.label}
-									</p>
-									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-										{option.description}
-									</p>
-								</button>
-							{/each}
-						</div>
+						<GuidanceDetailPicker
+							{guidanceTone}
+							{explanationDetail}
+							onGuidanceToneChange={(value) => (guidanceTone = value)}
+							onExplanationDetailChange={(value) => (explanationDetail = value)}
+						/>
 					</div>
 				</div>
 

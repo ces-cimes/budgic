@@ -1,6 +1,11 @@
 import { db, generateUUID } from '$lib/core/db';
 import type { UserPreferences, UserAction } from '$lib/core/db';
 import { CURRENCY_REGISTRY } from '$lib/core/db';
+import {
+	getGuidancePresentation,
+	mapLegacyMaturityToGuidance,
+	needsGuidanceMigration
+} from '$lib/utils/guidance-presentation';
 
 interface UserProfile {
 	id: string;
@@ -41,7 +46,7 @@ class UserService {
 		}
 		// Apply defaults for preferences added in later versions (e.g. negativeAllowanceHandling, envelope borrowing)
 		const prefs = preferences as Record<string, unknown>;
-		return {
+		const merged = {
 			...preferences,
 			negativeAllowanceHandling: prefs.negativeAllowanceHandling ?? 'allow_with_strong_warning',
 			envelopeBorrowMaxPerCategoryPercent:
@@ -64,6 +69,20 @@ class UserService {
 				? prefs.sidebarFooterCards
 				: ['total_balance', 'today_allowance'],
 			firstRunChecklistComplete: prefs.firstRunChecklistComplete ?? false,
+			allowanceTabReviewed: prefs.allowanceTabReviewed ?? false,
+			guidanceTone:
+				(prefs.guidanceTone as UserPreferences['guidanceTone']) ??
+				mapLegacyMaturityToGuidance(
+					(prefs.userMaturityLevel as UserPreferences['userMaturityLevel']) ?? 'beginner'
+				).guidanceTone,
+			explanationDetail:
+				(prefs.explanationDetail as UserPreferences['explanationDetail']) ??
+				mapLegacyMaturityToGuidance(
+					(prefs.userMaturityLevel as UserPreferences['userMaturityLevel']) ?? 'beginner'
+				).explanationDetail,
+			postChecklistSuggestionDismissals:
+				(prefs.postChecklistSuggestionDismissals as UserPreferences['postChecklistSuggestionDismissals']) ??
+				undefined,
 			alertsCriticalCoachmarkSeen: prefs.alertsCriticalCoachmarkSeen ?? false,
 			budgetAlertWarningAtPercent:
 				typeof prefs.budgetAlertWarningAtPercent === 'number'
@@ -111,6 +130,17 @@ class UserService {
 					? prefs.weekStartsOn
 					: 0
 		} as UserPreferences;
+
+		if (needsGuidanceMigration(preferences)) {
+			const mapped = getGuidancePresentation(preferences);
+			await this.updateUserPreferences({
+				guidanceTone: mapped.guidanceTone,
+				explanationDetail: mapped.explanationDetail
+			});
+			return { ...merged, ...mapped };
+		}
+
+		return merged;
 	}
 
 	/**
@@ -140,8 +170,11 @@ class UserService {
 				language: 'en',
 				currency: updates.currency || detectedCurrency,
 				userMaturityLevel: 'beginner',
+				guidanceTone: 'balanced',
+				explanationDetail: 'standard',
 				onboardingCompleted: false,
 				firstRunChecklistComplete: false,
+				allowanceTabReviewed: false,
 				alertsCriticalCoachmarkSeen: false,
 				budgetAlertWarningAtPercent: 80,
 				budgetAlertCriticalAtPercent: 100,
@@ -314,16 +347,11 @@ class UserService {
 	}
 
 	/**
-	 * Update user maturity level
+	 * Calculate behavior maturity from actions (internal score; does not overwrite presentation prefs).
 	 */
 	async updateMaturityLevel(): Promise<'beginner' | 'intermediate' | 'advanced'> {
 		const actions = await this.getUserActions(30);
-		const maturityLevel = this.calculateMaturityLevel(actions);
-
-		// Update preferences with maturity level
-		await this.updateUserPreferences({ userMaturityLevel: maturityLevel });
-
-		return maturityLevel;
+		return this.calculateMaturityLevel(actions);
 	}
 
 	/**
@@ -503,8 +531,11 @@ class UserService {
 			language: 'en',
 			currency: detectedCurrency,
 			userMaturityLevel: 'beginner',
+			guidanceTone: 'balanced',
+			explanationDetail: 'standard',
 			onboardingCompleted: false,
 			firstRunChecklistComplete: false,
+			allowanceTabReviewed: false,
 			alertsCriticalCoachmarkSeen: false,
 			budgetAlertWarningAtPercent: 80,
 			budgetAlertCriticalAtPercent: 100,

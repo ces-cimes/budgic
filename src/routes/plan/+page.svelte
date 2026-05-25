@@ -19,6 +19,8 @@
 	} from '@lucide/svelte';
 
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
+	import { getClassifyNudgeCopy } from '$lib/utils/guidance-presentation';
+	import type { ExplanationDetail } from '$lib/utils/guidance-presentation';
 
 	import {
 		BudgetTab,
@@ -144,6 +146,8 @@
 	} | null>(null);
 	let unclassifiedTransactionCount = $state(0);
 	let nudgeClassifyDismissed = $state(false);
+	let explanationDetail = $state<ExplanationDetail>('standard');
+	let allowanceTabMarked = $state(false);
 	let error = $state<string | null>(null);
 	/** Phase 5.3 — intentional debt prompt (one group per period) */
 	let debtPromptGroupId = $state<string | null>(null);
@@ -158,6 +162,7 @@
 			unclassifiedTransactionCount > 5 &&
 			!nudgeClassifyDismissed
 	);
+	const classifyNudgeCopy = $derived(getClassifyNudgeCopy(explanationDetail));
 
 	onMount(async () => {
 		try {
@@ -165,6 +170,8 @@
 			weekStartsOn = preferences.weekStartsOn ?? 0;
 			userCurrency = preferences?.currency || 'USD';
 			nudgeClassifyDismissed = preferences?.nudgeClassifyDismissed ?? false;
+			explanationDetail = preferences?.explanationDetail ?? 'standard';
+			allowanceTabMarked = preferences?.allowanceTabReviewed ?? false;
 			const accounts = await planService.getAccounts();
 			const activeAccount = accounts.find((a) => a.isActive);
 			if (activeAccount) selectedAccountId = activeAccount.id;
@@ -182,6 +189,12 @@
 		const urlParams = new URLSearchParams($page.url.search);
 		const goalsParam = urlParams.get('goalsTab');
 		if (goalsParam && goalsSubTabs.some((t) => t.id === goalsParam)) goalsSubTab = goalsParam;
+	});
+
+	$effect(() => {
+		if (activeTab !== 'allowance' || allowanceTabMarked) return;
+		allowanceTabMarked = true;
+		void userService.updateUserPreferences({ allowanceTabReviewed: true });
 	});
 
 	async function loadPlanData(options?: { force?: boolean }) {
@@ -470,11 +483,8 @@
 										class="bg-muted/50 border-border flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
 									>
 										<div>
-											<p class="text-sm font-medium">Improve allowance confidence</p>
-											<p class="text-muted-foreground text-xs">
-												You have several unclassified transactions. Classify them to improve your
-												allowance accuracy.
-											</p>
+											<p class="text-sm font-medium">{classifyNudgeCopy.title}</p>
+											<p class="text-muted-foreground text-xs">{classifyNudgeCopy.body}</p>
 										</div>
 										<div class="flex items-center gap-2">
 											<Button

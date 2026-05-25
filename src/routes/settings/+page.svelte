@@ -17,13 +17,22 @@
 		SlidersHorizontal,
 		Database,
 		ChevronRight,
-		Wallet
+		Wallet,
+		Sparkles
 	} from '@lucide/svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import type { UserPreferences } from '$lib/core/db';
+	import {
+		getDismissedPostChecklistSuggestions,
+		getEligiblePostChecklistSuggestions
+	} from '$lib/utils/post-checklist-suggestions';
+	import type { ResolvedPostChecklistSuggestion } from '$lib/utils/post-checklist-suggestions';
 
 	const { data } = $props<{ data: any }>();
 
-	let userPreferences = $state<any>(null);
+	let userPreferences = $state<UserPreferences | null>(null);
+	let activeSetupSuggestions = $state<ResolvedPostChecklistSuggestion[]>([]);
+	let dismissedSetupSuggestions = $state<ResolvedPostChecklistSuggestion[]>([]);
 	let isLoading = $state(true);
 	let isSaving = $state(false);
 	let username = $state('');
@@ -37,6 +46,21 @@
 	let isDevActionLoading = $state(false);
 	let devActionMessage = $state<string | null>(null);
 
+	function refreshSetupSuggestions(prefs: UserPreferences) {
+		activeSetupSuggestions = getEligiblePostChecklistSuggestions(prefs);
+		dismissedSetupSuggestions = getDismissedPostChecklistSuggestions(prefs);
+	}
+
+	async function restoreSetupSuggestion(id: string) {
+		if (!userPreferences) return;
+		const dismissals = { ...(userPreferences.postChecklistSuggestionDismissals ?? {}) };
+		delete dismissals[id];
+		userPreferences = await userService.updateUserPreferences({
+			postChecklistSuggestionDismissals: Object.keys(dismissals).length > 0 ? dismissals : undefined
+		});
+		refreshSetupSuggestions(userPreferences);
+	}
+
 	// Load user preferences on mount
 	onMount(async () => {
 		try {
@@ -47,6 +71,7 @@
 				autoCategorizationEnabled = userPreferences.enablePredictiveAnalytics ?? true;
 				stressDetectionEnabled = userPreferences.enableAdvancedFeatures ?? true;
 				suggestSplitsAfterAddEnabled = userPreferences.suggestSplitsAfterAdd ?? true;
+				refreshSetupSuggestions(userPreferences);
 			} else {
 				// Create default preferences if none exist
 				userPreferences = await userService.updateUserPreferences({
@@ -148,7 +173,7 @@
 			items: [
 				{
 					name: 'Profile',
-					description: 'Name, experience level, privacy & data',
+					description: 'Name, guidance & detail, privacy & data',
 					Icon: User,
 					href: '/settings/profile'
 				}
@@ -261,7 +286,123 @@
 		{:else}
 			<!-- Settings link sections -->
 			<div class="space-y-8">
-				{#each settingsSections as section}
+				{#each settingsSections.slice(0, 1) as section}
+					<section>
+						<h2
+							class="mb-3 px-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+						>
+							{section.title}
+						</h2>
+						<div
+							class="border-border divide-border divide-y overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+						>
+							{#each section.items as item}
+								<button
+									type="button"
+									onclick={() => goto(item.href)}
+									class="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-[var(--color-bg-surface)]"
+								>
+									<div
+										class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]"
+									>
+										<item.Icon class="size-4 text-[var(--color-amber)]" />
+									</div>
+									<div class="min-w-0 flex-1">
+										<p class="text-sm font-medium text-[var(--color-text-primary)]">{item.name}</p>
+										<p class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">
+											{item.description}
+										</p>
+									</div>
+									<ChevronRight class="size-4 text-[var(--color-text-tertiary)]" />
+								</button>
+							{/each}
+						</div>
+					</section>
+				{/each}
+
+				<section>
+					<h2
+						class="mb-3 px-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+					>
+						Setup
+					</h2>
+					<div
+						class="border-border divide-border divide-y overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+					>
+						<button
+							type="button"
+							onclick={() => goto('/settings/profile')}
+							class="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-[var(--color-bg-surface)]"
+						>
+							<div
+								class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--color-amber-subtle)]"
+							>
+								<Sparkles class="size-4 text-[var(--color-amber)]" />
+							</div>
+							<div class="min-w-0 flex-1">
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									Guidance & detail
+								</p>
+								<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+									Adjust coaching tone and helper copy length → Profile
+								</p>
+							</div>
+							<ChevronRight class="size-4 text-[var(--color-text-tertiary)]" />
+						</button>
+
+						{#if activeSetupSuggestions.length > 0}
+							{#each activeSetupSuggestions as suggestion (suggestion.id)}
+								<div class="flex items-center justify-between gap-3 px-5 py-4">
+									<div class="min-w-0 flex-1">
+										<p class="text-sm font-medium text-[var(--color-text-primary)]">
+											{suggestion.title}
+										</p>
+										<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+											{suggestion.helper}
+										</p>
+									</div>
+									<button
+										type="button"
+										onclick={() => goto(suggestion.href)}
+										class="shrink-0 text-xs font-medium text-[var(--color-amber)]"
+									>
+										Open →
+									</button>
+								</div>
+							{/each}
+						{:else if userPreferences?.firstRunChecklistComplete}
+							<p class="px-5 py-4 text-xs text-[var(--color-text-tertiary)]">
+								No active setup suggestions right now.
+							</p>
+						{/if}
+
+						{#if dismissedSetupSuggestions.length > 0}
+							<div class="bg-[var(--color-bg-surface)]/40 px-5 py-2">
+								<p
+									class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+								>
+									Dismissed
+								</p>
+							</div>
+							{#each dismissedSetupSuggestions as suggestion (suggestion.id)}
+								<div class="flex items-center justify-between gap-3 px-5 py-4">
+									<div class="min-w-0 flex-1">
+										<p class="text-sm text-[var(--color-text-secondary)]">{suggestion.title}</p>
+									</div>
+									<button
+										type="button"
+										onclick={() => restoreSetupSuggestion(suggestion.id)}
+										class="shrink-0 text-xs font-medium text-[var(--color-amber)]"
+									>
+										Show again
+									</button>
+								</div>
+							{/each}
+						{/if}
+					</div>
+				</section>
+
+				{#each settingsSections.slice(1) as section}
 					<section>
 						<h2
 							class="mb-3 px-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"

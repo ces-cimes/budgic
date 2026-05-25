@@ -1,17 +1,14 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { Check } from '@lucide/svelte';
 
 	interface Props {
-		/** Step 1: user has at least one account */
 		hasAccount: boolean;
-		/** Step 2: user has at least one transaction (or has imported) */
 		hasTransaction: boolean;
-		/** Step 3: at least one category has a budget amount set */
 		hasBudgetCategory: boolean;
+		allowanceTabReviewed: boolean;
 	}
 
-	const { hasAccount, hasTransaction, hasBudgetCategory }: Props = $props();
+	const { hasAccount, hasTransaction, hasBudgetCategory, allowanceTabReviewed }: Props = $props();
 
 	const steps = $derived([
 		{
@@ -31,9 +28,16 @@
 		{
 			id: 3,
 			done: hasBudgetCategory,
-			label: 'Set a budget amount for at least one category',
+			label: 'Set a budget on a category',
 			href: '/plan?tab=budget',
 			cta: 'Set budget'
+		},
+		{
+			id: 4,
+			done: allowanceTabReviewed,
+			label: 'Review your allowance on Plan',
+			href: '/plan?tab=allowance',
+			cta: 'Review allowance'
 		}
 	]);
 </script>
