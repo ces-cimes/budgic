@@ -5,7 +5,11 @@
 	import UncertainPatternsScreen from './UncertainPatternsScreen.svelte';
 	import ImportPayoffScreen from './ImportPayoffScreen.svelte';
 	import PersonLedgerMigrationWizard from '$lib/components/person-ledger/PersonLedgerMigrationWizard.svelte';
-	import type { ImportResult, PersonLedgerCloseQueueEntry } from '$lib/core/services/import-export';
+	import type {
+		ImportResult,
+		PersonLedgerCloseQueueEntry,
+		PersonLedgerDirectRouteEntry
+	} from '$lib/core/services/import-export';
 	import { classifiedExpenseShareFromTiers } from '$lib/utils/import-wizard-batch-metrics';
 	import type { Transaction } from '$lib/core/db';
 
@@ -33,7 +37,9 @@
 			transactionId: string,
 			personName: string
 		) => Promise<void> | void;
+		personLedgerDirectRoute?: PersonLedgerDirectRouteEntry[];
 		personLedgerCloseQueue?: PersonLedgerCloseQueueEntry[];
+		showClassificationFlow?: boolean;
 		startStep?: number;
 		onPersonLedgerCloseApplied?: () => void | Promise<void>;
 		onClose: () => void;
@@ -53,7 +59,9 @@
 		personAccountPanels = [],
 		onTagPersonTxGift,
 		onTagPersonTxReimbursement,
+		personLedgerDirectRoute = [],
 		personLedgerCloseQueue = [],
+		showClassificationFlow = true,
 		startStep = 1,
 		onPersonLedgerCloseApplied,
 		onClose,
@@ -65,7 +73,13 @@
 	);
 
 	const hasPersonLedgerStep = $derived(personLedgerCloseQueue.length > 0);
-	const totalSteps = $derived(4 + (hasPersonLedgerStep ? 1 : 0));
+	const closeStepNumber = $derived(showClassificationFlow ? 5 : 2);
+	const totalSteps = $derived((showClassificationFlow ? 4 : 1) + (hasPersonLedgerStep ? 1 : 0));
+	const summaryNextLabel = $derived.by(() => {
+		if (showClassificationFlow) return 'Classify the big ones';
+		if (hasPersonLedgerStep) return 'Review fallback ledgers';
+		return 'Finish';
+	});
 
 	let step = $state(1);
 	let dismissedCandidates = $state<Set<string>>(new Set());
@@ -109,12 +123,26 @@
 
 	function finishPayoffStep() {
 		if (hasPersonLedgerStep) {
-			step = 5;
+			step = closeStepNumber;
 			personCloseIndex = 0;
 			personCloseWizardOpen = true;
 		} else {
 			onClose();
 		}
+	}
+
+	function advanceFromSummary() {
+		if (showClassificationFlow) {
+			step = 2;
+			return;
+		}
+		if (hasPersonLedgerStep) {
+			step = closeStepNumber;
+			personCloseIndex = 0;
+			personCloseWizardOpen = true;
+			return;
+		}
+		onClose();
 	}
 
 	async function onPersonLedgerApplied() {
@@ -128,7 +156,7 @@
 	}
 </script>
 
-{#if open && batch && (batch.transactionIds.length > 0 || (personLedgerCloseQueue?.length ?? 0) > 0)}
+{#if open && batch && (batch.transactionIds.length > 0 || personLedgerCloseQueue.length > 0 || personLedgerDirectRoute.length > 0)}
 	<div class="fixed inset-0 z-50 bg-black/40 p-4">
 		<div
 			class="mx-auto mt-8 max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] p-5 shadow-2xl"
@@ -160,13 +188,15 @@
 					{personAccountCandidates}
 					{personAccountPreFlagged}
 					{personAccountPanels}
+					{personLedgerDirectRoute}
 					hasPersonLedgerCloseStep={hasPersonLedgerStep}
+					nextLabel={summaryNextLabel}
 					{onTagPersonTxGift}
 					{onTagPersonTxReimbursement}
-					onNext={() => (step = 2)}
+					onNext={advanceFromSummary}
 					onSkip={onClose}
 				/>
-			{:else if step === 2}
+			{:else if showClassificationFlow && step === 2}
 				<EssentialCandidatesScreen
 					{candidates}
 					onApproveAll={approveAllEssentials}
@@ -174,14 +204,14 @@
 					onSkipRow={(c) => dismissedCandidates.add(c.patternKey)}
 					onNext={() => (step = 3)}
 				/>
-			{:else if step === 3}
+			{:else if showClassificationFlow && step === 3}
 				<UncertainPatternsScreen
 					{patternHints}
 					{onGoPatterns}
 					onNext={() => (step = 4)}
 					onSkip={() => (step = 4)}
 				/>
-			{:else if step === 4}
+			{:else if showClassificationFlow && step === 4}
 				<ImportPayoffScreen
 					{beforeClassifiedExpenseShare}
 					afterClassifiedExpenseShare={liveAfterClassifiedExpenseShare}
@@ -189,15 +219,24 @@
 					{onGoPatterns}
 					onDone={finishPayoffStep}
 				/>
-			{:else if currentPersonClose}
+			{:else if step === closeStepNumber && currentPersonClose}
 				<div class="space-y-3">
 					<h3 class="text-lg font-semibold text-[var(--color-text-primary)]">
-						Close person ledger
+						{personLedgerDirectRoute.length > 0
+							? 'Close fallback person ledger'
+							: 'Close person ledger'}
 					</h3>
 					<p class="text-sm text-[var(--color-text-secondary)]">
-						{personCloseIndex + 1} of {personLedgerCloseQueue.length}: migrate
-						<strong>{currentPersonClose.name}</strong> to reimbursements on a real wallet. Choose single
-						total, forgive & archive, guided, or automatic — same as on the account page.
+						{#if personLedgerDirectRoute.length > 0}
+							{personCloseIndex + 1} of {personLedgerCloseQueue.length}: migrate fallback ledger
+							<strong>{currentPersonClose.name}</strong> to reimbursements on a real wallet. Direct-routed
+							ledgers already went straight to their anchor wallet and do not need this step. Choose single
+							total, forgive & archive, guided, or automatic — same as on the account page.
+						{:else}
+							{personCloseIndex + 1} of {personLedgerCloseQueue.length}: migrate
+							<strong>{currentPersonClose.name}</strong> to reimbursements on a real wallet. Choose single
+							total, forgive & archive, guided, or automatic — same as on the account page.
+						{/if}
 					</p>
 					<PersonLedgerMigrationWizard
 						ledgerAccountId={currentPersonClose.accountId}

@@ -16,7 +16,8 @@ export const MM_MERGE_IMPORT_OWNED_KEYS = [
 	'importMetadata',
 	'importQuality',
 	'importSource',
-	'transferDetails'
+	'transferDetails',
+	'reimbursements'
 ] as const satisfies readonly (keyof Transaction)[];
 
 export type MmMergeImportOwnedKey = (typeof MM_MERGE_IMPORT_OWNED_KEYS)[number];
@@ -73,7 +74,8 @@ export function buildMmMergeUpdates(
 		importMetadata: fresh.importMetadata,
 		importQuality: fresh.importQuality,
 		importSource: fresh.importSource,
-		transferDetails: fresh.transferDetails
+		transferDetails: fresh.transferDetails,
+		...(fresh.reimbursements !== undefined ? { reimbursements: fresh.reimbursements } : {})
 	};
 }
 

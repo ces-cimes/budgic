@@ -10,7 +10,7 @@ const ACCOUNT_TYPE_PRIORITY: Account['type'][] = ['checking', 'cash', 'savings',
  * Resolve default anchor: wizard override → global pref → per-person pref → transfer volume.
  */
 export async function resolveDefaultAnchorAccountId(params: {
-	ledgerAccountId: string;
+	ledgerAccountId?: string;
 	personId?: string;
 	wizardOverride?: string;
 }): Promise<string | null> {
@@ -33,7 +33,10 @@ export async function resolveDefaultAnchorAccountId(params: {
 		}
 	}
 
-	return await inferAnchorFromTransferVolume(params.ledgerAccountId);
+	if (params.ledgerAccountId) {
+		return await inferAnchorFromTransferVolume(params.ledgerAccountId);
+	}
+	return await getFallbackWalletAccountId();
 }
 
 async function inferAnchorFromTransferVolume(ledgerAccountId: string): Promise<string | null> {
@@ -89,4 +92,11 @@ async function inferAnchorFromTransferVolume(ledgerAccountId: string): Promise<s
 	}
 
 	return bestId;
+}
+
+async function getFallbackWalletAccountId(): Promise<string | null> {
+	const wallets = await accountService.getWalletAccounts();
+	if (wallets.length === 0) return null;
+	const checking = wallets.find((w) => w.type === 'checking');
+	return checking?.id ?? wallets[0]?.id ?? null;
 }

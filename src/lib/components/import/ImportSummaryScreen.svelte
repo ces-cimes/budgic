@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Transaction } from '$lib/core/db';
+	import type { PersonLedgerDirectRouteEntry } from '$lib/core/services/import-export';
 
 	export interface PersonAccountTxPanel {
 		accountId: string;
@@ -18,10 +19,12 @@
 		personAccountCandidates?: string[];
 		personAccountPreFlagged?: string[];
 		personAccountPanels?: PersonAccountTxPanel[];
+		personLedgerDirectRoute?: PersonLedgerDirectRouteEntry[];
 		onTagPersonTxGift?: (transactionId: string) => void;
 		onTagPersonTxReimbursement?: (transactionId: string, personName: string) => void;
-		/** Step 5 will run PersonLedgerMigrationWizard when true */
+		/** Whether a later person-ledger close step is present */
 		hasPersonLedgerCloseStep?: boolean;
+		nextLabel?: string;
 		onNext: () => void;
 		onSkip: () => void;
 	}
@@ -37,12 +40,31 @@
 		personAccountCandidates = [],
 		personAccountPreFlagged = [],
 		personAccountPanels = [],
+		personLedgerDirectRoute = [],
 		onTagPersonTxGift,
 		onTagPersonTxReimbursement,
 		hasPersonLedgerCloseStep = false,
+		nextLabel = 'Classify the big ones',
 		onNext,
 		onSkip
 	}: Props = $props();
+
+	const directRouteNames = $derived(personLedgerDirectRoute.map((entry) => entry.name));
+	const directRouteNameSet = $derived.by(() => new Set(directRouteNames));
+	const fallbackPersonAccountCandidates = $derived(
+		personAccountCandidates.filter((name) => !directRouteNameSet.has(name))
+	);
+	const fallbackPersonAccountPreFlagged = $derived(
+		personAccountPreFlagged.filter((name) => !directRouteNameSet.has(name))
+	);
+	const fallbackPersonAccountPanels = $derived(
+		personAccountPanels.filter((panel) => !directRouteNameSet.has(panel.name))
+	);
+	const hasFallbackPersonLedgers = $derived(
+		fallbackPersonAccountCandidates.length > 0 ||
+			fallbackPersonAccountPreFlagged.length > 0 ||
+			fallbackPersonAccountPanels.length > 0
+	);
 
 	function fmtDate(value?: string): string {
 		if (!value) return '—';
@@ -76,7 +98,7 @@
 			class="space-y-2 rounded-xl border border-[var(--color-info)]/30 bg-[var(--color-info)]/10 p-4"
 		>
 			<p class="text-sm font-medium text-[var(--color-text-primary)]">Balance-based tracking</p>
-			{#each passiveBalanceHints as h}
+			{#each passiveBalanceHints as h (h.accountId)}
 				<p class="text-xs text-[var(--color-text-secondary)]">
 					<span class="font-medium">{h.accountName}:</span>
 					{h.message}
@@ -84,40 +106,58 @@
 			{/each}
 		</div>
 	{/if}
-	{#if personAccountCandidates.length > 0}
-		{@const detectedOnly = personAccountCandidates.filter(
-			(n) => !personAccountPreFlagged.includes(n)
+	{#if personLedgerDirectRoute.length > 0}
+		<div
+			class="space-y-2 rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 p-4"
+		>
+			<p class="text-sm font-medium text-[var(--color-text-primary)]">
+				Direct-routed person ledgers
+			</p>
+			<p class="text-xs text-[var(--color-text-secondary)]">
+				{directRouteNames.join(', ')}. Those movements were routed straight to the anchor wallet,
+				and no temporary wallet was created.
+			</p>
+			{#if hasPersonLedgerCloseStep}
+				<p class="text-xs text-[var(--color-text-tertiary)]">
+					The later close step is only for fallback person ledgers that still opened a temporary
+					wallet.
+				</p>
+			{/if}
+		</div>
+	{/if}
+	{#if hasFallbackPersonLedgers}
+		{@const detectedOnly = fallbackPersonAccountCandidates.filter(
+			(n) => !fallbackPersonAccountPreFlagged.includes(n)
 		)}
 		<div
 			class="space-y-2 rounded-xl border border-[var(--color-amber)]/30 bg-[var(--color-amber-subtle)] p-4"
 		>
 			<p class="text-sm font-medium text-[var(--color-text-primary)]">Person ledgers</p>
 			<p class="text-xs text-[var(--color-text-secondary)]">
-				{#if personAccountPreFlagged.length > 0}
-					Marked at import: {personAccountPreFlagged.join(', ')}.
+				{#if fallbackPersonAccountPreFlagged.length > 0}
+					Marked at import: {fallbackPersonAccountPreFlagged.join(', ')}.
 				{/if}
 				{#if detectedOnly.length > 0}
-					{personAccountPreFlagged.length > 0 ? ' ' : ''}Detected from activity: {detectedOnly.join(
-						', '
-					)}.
+					{fallbackPersonAccountPreFlagged.length > 0 ? ' ' : ''}Detected from activity:
+					{detectedOnly.join(', ')}.
 				{/if}
 			</p>
 			<p class="text-xs text-[var(--color-text-tertiary)]">
 				Tag recent activity as gift (lifestyle) or reimbursement.
 				{#if hasPersonLedgerCloseStep}
-					A later wizard step will close each person ledger (single total, forgive, guided, or
-					automatic).
+					A later wizard step will close fallback person ledgers that still opened a temporary
+					wallet.
 				{:else}
 					Close these from the account page when you are ready.
 				{/if}
 			</p>
-			{#each personAccountPanels as panel (panel.accountId)}
+			{#each fallbackPersonAccountPanels as panel (panel.accountId)}
 				<div
 					class="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] p-2"
 				>
 					<p class="text-xs font-medium text-[var(--color-text-primary)]">
 						{panel.name}
-						{#if personAccountPreFlagged.includes(panel.name)}
+						{#if fallbackPersonAccountPreFlagged.includes(panel.name)}
 							<span class="ml-1 font-normal text-[var(--color-text-tertiary)]"
 								>(marked at import)</span
 							>
@@ -173,7 +213,7 @@
 			class="rounded-xl bg-[var(--color-amber)] px-4 py-2 text-sm font-semibold text-[var(--color-bg-primary)]"
 			onclick={onNext}
 		>
-			Classify the big ones
+			{nextLabel}
 		</button>
 	</div>
 </div>

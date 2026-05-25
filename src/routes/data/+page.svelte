@@ -32,6 +32,7 @@
 		type MmCurrencyReviewRow,
 		type MmAccountReviewRow,
 		type PersonLedgerCloseQueueEntry,
+		type PersonLedgerDirectRouteEntry,
 		type ImportSourceDetection,
 		exportFullBackup,
 		importFullBackup,
@@ -251,6 +252,7 @@
 	let mmAccountReviewRows = $state<MmAccountReviewRow[]>([]);
 	let mmAccountTypeMap = $state<Record<string, Account['type']>>({});
 	let mmAccountPersonMap = $state<Record<string, boolean>>({});
+	let mmAccountPersonDirectRouteMap = $state<Record<string, boolean>>({});
 	let wizardPersonAccountPreFlagged = $state<string[]>([]);
 	let wizardBeforeClassifiedExpenseShare = $state(0);
 	let wizardExpenseTxIds = $state<string[]>([]);
@@ -260,7 +262,9 @@
 	let wizardPersonAccountPanels = $state<
 		Array<{ accountId: string; name: string; txs: Transaction[] }>
 	>([]);
+	let wizardPersonLedgerDirectRoute = $state<PersonLedgerDirectRouteEntry[]>([]);
 	let wizardPersonLedgerCloseQueue = $state<PersonLedgerCloseQueueEntry[]>([]);
+	let wizardShowClassificationFlow = $state(true);
 	let importWizardStartStep = $state(1);
 
 	// Export format options
@@ -442,7 +446,8 @@
 		csvFiles: Map<string, CSVFile>,
 		currencyOverride?: Record<string, string>,
 		accountTypeOverride?: Record<string, Account['type']>,
-		accountPersonOverride?: Record<string, boolean>
+		accountPersonOverride?: Record<string, boolean>,
+		accountPersonDirectRouteOverride?: Record<string, boolean>
 	): Promise<void> {
 		const trimmedOverride =
 			currencyOverride && Object.keys(currencyOverride).length > 0
@@ -461,6 +466,15 @@
 				? Object.fromEntries(Object.entries(accountPersonOverride).filter(([, flagged]) => flagged))
 				: undefined;
 
+		const trimmedPersonDirectRouteOverride =
+			accountPersonDirectRouteOverride && Object.keys(accountPersonDirectRouteOverride).length > 0
+				? Object.fromEntries(
+						Object.entries(accountPersonDirectRouteOverride).filter(
+							([uid, flagged]) => flagged && accountPersonOverride?.[uid] === true
+						)
+					)
+				: undefined;
+
 		const importer = new MoneyManagerImporter({
 			...mmImportOptions,
 			...(trimmedOverride && Object.keys(trimmedOverride).length > 0
@@ -469,6 +483,12 @@
 			...(trimmedTypeOverride ? { mmAccountUidToBudgicType: trimmedTypeOverride } : {}),
 			...(trimmedPersonOverride && Object.keys(trimmedPersonOverride).length > 0
 				? { externalAccountMarkedAsPersonLedger: trimmedPersonOverride }
+				: {}),
+			...(trimmedPersonDirectRouteOverride &&
+			Object.keys(trimmedPersonDirectRouteOverride).length > 0
+				? {
+						externalAccountMarkedAsPersonLedgerDirectRoute: trimmedPersonDirectRouteOverride
+					}
 				: {}),
 			onProgress: (progress) => {
 				mmProgress = progress;
@@ -551,12 +571,15 @@
 	function seedAccountReviewMaps(rows: MmAccountReviewRow[]) {
 		const types: Record<string, Account['type']> = {};
 		const persons: Record<string, boolean> = {};
+		const directRoutes: Record<string, boolean> = {};
 		for (const r of rows) {
 			types[r.mmUid] = r.suggestedType;
 			persons[r.mmUid] = r.personLedgerCandidate;
+			directRoutes[r.mmUid] = false;
 		}
 		mmAccountTypeMap = types;
 		mmAccountPersonMap = persons;
+		mmAccountPersonDirectRouteMap = directRoutes;
 	}
 
 	function clearAccountReviewState() {
@@ -564,6 +587,7 @@
 		mmAccountReviewRows = [];
 		mmAccountTypeMap = {};
 		mmAccountPersonMap = {};
+		mmAccountPersonDirectRouteMap = {};
 	}
 
 	/** @returns true when account review dialog is shown (import deferred) */
@@ -655,6 +679,7 @@
 		const currencyMap = { ...mmCurrencyUidMap };
 		const typeMap = { ...mmAccountTypeMap };
 		const personMap = { ...mmAccountPersonMap };
+		const personDirectRouteMap = { ...mmAccountPersonDirectRouteMap };
 
 		clearAccountReviewState();
 		pendingMmCsvFiles = null;
@@ -667,7 +692,8 @@
 				files,
 				Object.keys(currencyMap).length > 0 ? currencyMap : undefined,
 				typeMap,
-				personMap
+				personMap,
+				personDirectRouteMap
 			);
 			mmCurrencyReviewRows = [];
 			mmCurrencyReviewCurrencies = [];
@@ -701,6 +727,19 @@
 
 	function updateMmAccountPerson(mmUid: string, checked: boolean) {
 		mmAccountPersonMap = { ...mmAccountPersonMap, [mmUid]: checked };
+		if (!checked) {
+			mmAccountPersonDirectRouteMap = {
+				...mmAccountPersonDirectRouteMap,
+				[mmUid]: false
+			};
+		}
+	}
+
+	function updateMmAccountPersonDirectRoute(mmUid: string, checked: boolean) {
+		mmAccountPersonDirectRouteMap = {
+			...mmAccountPersonDirectRouteMap,
+			[mmUid]: mmAccountPersonMap[mmUid] ? checked : false
+		};
 	}
 
 	function updateMmCurrencySelection(mmUid: string, budgicCurrencyId: string) {
@@ -710,6 +749,8 @@
 	async function prepareImportWizardState(result: ImportResult): Promise<void> {
 		const batch = result.importBatch;
 		if (!batch) {
+			wizardPersonLedgerDirectRoute = [];
+			wizardShowClassificationFlow = true;
 			importWizardOpen = false;
 			return;
 		}
@@ -736,7 +777,9 @@
 		);
 
 		const preFlagged = batch.personAccountPreFlaggedNames ?? [];
+		const directRoute = batch.personLedgerDirectRoute ?? [];
 		wizardPersonAccountPreFlagged = preFlagged;
+		wizardPersonLedgerDirectRoute = directRoute;
 		const detected = await detectPersonAccountCandidates(batch.accountIdsAffected, preFlagged);
 		wizardPersonAccountCandidates = [...new Set([...preFlagged, ...detected])];
 		wizardPersonAccountPanels = await loadPersonAccountTransactionPanels(
@@ -748,12 +791,20 @@
 			batch.accountIdsAffected,
 			preFlagged
 		);
+		wizardShowClassificationFlow = openClassification;
 
-		if (!openClassification && wizardPersonLedgerCloseQueue.length === 0) {
+		if (
+			!openClassification &&
+			wizardPersonLedgerCloseQueue.length === 0 &&
+			directRoute.length === 0
+		) {
 			importWizardOpen = false;
 			return;
 		}
-		importWizardStartStep = openClassification ? 1 : 5;
+		importWizardStartStep =
+			!openClassification && wizardPersonLedgerCloseQueue.length > 0 && directRoute.length === 0
+				? 2
+				: 1;
 		importWizardOpen = true;
 	}
 
@@ -1632,8 +1683,10 @@
 	rows={mmAccountReviewRows}
 	typeSelection={mmAccountTypeMap}
 	personSelection={mmAccountPersonMap}
+	directRouteSelection={mmAccountPersonDirectRouteMap}
 	onTypeChange={updateMmAccountType}
 	onPersonChange={updateMmAccountPerson}
+	onDirectRouteChange={updateMmAccountPersonDirectRoute}
 	onConfirm={() => void confirmMmAccountReview()}
 	onCancel={cancelMmAccountReview}
 />
@@ -1650,7 +1703,9 @@
 		personAccountCandidates={wizardPersonAccountCandidates}
 		personAccountPreFlagged={wizardPersonAccountPreFlagged}
 		personAccountPanels={wizardPersonAccountPanels}
+		personLedgerDirectRoute={wizardPersonLedgerDirectRoute}
 		personLedgerCloseQueue={wizardPersonLedgerCloseQueue}
+		showClassificationFlow={wizardShowClassificationFlow}
 		startStep={importWizardStartStep}
 		onPersonLedgerCloseApplied={() => void navigationStore.updateBadges()}
 		onTagPersonTxGift={tagPersonTxAsGift}

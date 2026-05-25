@@ -14,6 +14,14 @@ export interface PersonLedgerCloseQueueEntry {
 	externalKeys: PersonExternalKey[];
 }
 
+/** Phase F direct-route metadata for person-ledger imports. */
+export interface PersonLedgerDirectRouteEntry {
+	name: string;
+	personId: string;
+	anchorAccountId: string;
+	externalKeys: PersonExternalKey[];
+}
+
 /** When INOUTCOME row mmUid already exists in DB */
 export type MmTransactionUidConflict = 'skip' | 'replace' | 'merge';
 
@@ -163,6 +171,8 @@ export interface ImportResult {
 		splitCandidateGroups?: Array<{ groupId: string; transactionIds: string[] }>;
 		/** Account names marked as person tracking at pre-import review */
 		personAccountPreFlaggedNames?: string[];
+		/** Phase F direct-routed person-ledger rows (no temporary wallet created) */
+		personLedgerDirectRoute?: PersonLedgerDirectRouteEntry[];
 		/** Accounts to close via PersonLedgerMigrationWizard after import (Phase E) */
 		personLedgerCloseQueue?: PersonLedgerCloseQueueEntry[];
 	};
@@ -204,6 +214,8 @@ export interface ImportOptions {
 	mmAccountUidToBudgicType?: Record<string, Account['type']>;
 	/** MM ASSETS uid → user marked person ledger at pre-import review */
 	externalAccountMarkedAsPersonLedger?: Record<string, boolean>;
+	/** MM ASSETS uid → user opted into Phase F direct route for marked person ledgers */
+	externalAccountMarkedAsPersonLedgerDirectRoute?: Record<string, boolean>;
 	/** Whether to skip validation (not recommended) */
 	skipValidation?: boolean;
 	/** Callback for progress updates */

@@ -14,8 +14,10 @@
 		rows: MmAccountReviewRow[];
 		typeSelection: Record<string, Account['type']>;
 		personSelection: Record<string, boolean>;
+		directRouteSelection: Record<string, boolean>;
 		onTypeChange: (mmUid: string, type: Account['type']) => void;
 		onPersonChange: (mmUid: string, checked: boolean) => void;
+		onDirectRouteChange: (mmUid: string, checked: boolean) => void;
 		onConfirm: () => void;
 		onCancel: () => void;
 	}
@@ -25,8 +27,10 @@
 		rows,
 		typeSelection,
 		personSelection,
+		directRouteSelection,
 		onTypeChange,
 		onPersonChange,
+		onDirectRouteChange,
 		onConfirm,
 		onCancel
 	}: Props = $props();
@@ -77,8 +81,8 @@
 			</div>
 
 			<p class="text-sm text-[var(--color-text-secondary)]">
-				Confirm type and optional person tracking for each new account before import. Types are
-				suggested from Money Manager fields and account names—you can change either.
+				Confirm type, person-ledger rows, and optional direct routing for each new account before
+				import. Direct route only applies when Person ledger is checked.
 			</p>
 
 			<div class="overflow-x-auto rounded-xl border border-[var(--color-border)]">
@@ -91,6 +95,7 @@
 							<th class="px-3 py-2 font-semibold">Inferred</th>
 							<th class="px-3 py-2 font-semibold">Budgic type</th>
 							<th class="px-3 py-2 font-semibold">Person ledger</th>
+							<th class="px-3 py-2 font-semibold">Direct route</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-[var(--color-border)]">
@@ -139,6 +144,24 @@
 											onCheckedChange={(v) => onPersonChange(row.mmUid, v === true)}
 										/>
 										<span>Person ledger</span>
+									</label>
+								</td>
+								<td class="px-3 py-2">
+									<label
+										class="flex items-center gap-2 text-xs text-[var(--color-text-secondary)] {personSelection[
+											row.mmUid
+										]
+											? 'cursor-pointer'
+											: 'cursor-not-allowed opacity-60'}"
+									>
+										<Checkbox
+											checked={personSelection[row.mmUid]
+												? (directRouteSelection[row.mmUid] ?? false)
+												: false}
+											disabled={!personSelection[row.mmUid]}
+											onCheckedChange={(v) => onDirectRouteChange(row.mmUid, v === true)}
+										/>
+										<span>Route to anchor wallet</span>
 									</label>
 								</td>
 							</tr>

@@ -11,10 +11,13 @@ import type {
 	Category,
 	Currency,
 	ImportQuality,
+	Person,
 	PersonExternalKey,
+	ReimbursementEntry,
 	Transaction
 } from '$lib/core/db';
 import { personService } from '../person-ledger/person-service';
+import { resolveImportedPersonLedgerTarget } from '../person-ledger/import-routing';
 import { accountService } from '../core/account-service';
 import { transactionService } from '../core/transaction-service';
 import { automationDetector } from '../intelligence/automation-detector';
@@ -43,6 +46,7 @@ import type {
 	IdMapping,
 	TransferPair,
 	MmUidConflictReportEntry,
+	PersonLedgerDirectRouteEntry,
 	PersonLedgerCloseQueueEntry
 } from './types';
 import { inferMmAccountType } from './mm-account-type-inference';
@@ -83,6 +87,13 @@ function mergeImportQuality(
 	return undefined;
 }
 
+interface PersonLedgerDirectRouteTarget {
+	name: string;
+	person: Person;
+	anchorAccountId: string;
+	externalKeys: PersonExternalKey[];
+}
+
 /**
  * Money Manager Importer
  *
@@ -114,6 +125,8 @@ export class MoneyManagerImporter extends BaseImporter {
 	private essentialCandidates: ClassificationCandidate[] = [];
 	private mmUidConflictReport: MmUidConflictReportEntry[] = [];
 	private personAccountPreFlaggedNames: string[] = [];
+	private personLedgerDirectRouteTargets: Map<string, PersonLedgerDirectRouteTarget> = new Map();
+	private personLedgerDirectRoute: PersonLedgerDirectRouteEntry[] = [];
 	private personLedgerCloseQueue: PersonLedgerCloseQueueEntry[] = [];
 
 	/**
@@ -130,6 +143,8 @@ export class MoneyManagerImporter extends BaseImporter {
 		this.essentialCandidates = [];
 		this.mmUidConflictReport = [];
 		this.personAccountPreFlaggedNames = [];
+		this.personLedgerDirectRouteTargets = new Map();
+		this.personLedgerDirectRoute = [];
 		this.personLedgerCloseQueue = [];
 
 		// Validate options
@@ -231,6 +246,336 @@ export class MoneyManagerImporter extends BaseImporter {
 		return steps;
 	}
 
+	private buildMmAccountExternalKeys(accountUid: string): PersonExternalKey[] {
+		return [{ source: 'money-manager', entity: 'account', key: accountUid }];
+	}
+
+	private buildDirectRouteReimbursement(
+		person: Person,
+		amount: number,
+		currency: string
+	): ReimbursementEntry {
+		const now = new Date().toISOString();
+		return personService.linkReimbursementPerson(
+			{
+				id: generateUUID(),
+				direction: 'lending',
+				amount,
+				currency,
+				person: person.displayName,
+				personId: person.id,
+				status: 'expecting',
+				createdAt: now,
+				updatedAt: now
+			},
+			person
+		);
+	}
+
+	private async findDirectRouteSettlement(
+		target: PersonLedgerDirectRouteTarget,
+		amount: number,
+		currency: string
+	): Promise<{ transactionId: string; reimbursementId: string } | null> {
+		const anchorTransactions = await db.transactions
+			.where('accountId')
+			.equals(target.anchorAccountId)
+			.filter(
+				(tx) =>
+					tx.deletedAt == null &&
+					(tx.reimbursements?.length ?? 0) > 0 &&
+					tx.reimbursements!.some(
+						(reimbursement) =>
+							(reimbursement.personId === target.person.id ||
+								reimbursement.person === target.person.displayName) &&
+							reimbursement.currency === currency &&
+							(reimbursement.status === 'expecting' || reimbursement.status === 'owed') &&
+							Math.abs(reimbursement.amount - amount) < 0.01
+					)
+			)
+			.toArray();
+
+		anchorTransactions.sort((a, b) =>
+			String(a.clearedDate || a.createdAt).localeCompare(String(b.clearedDate || b.createdAt))
+		);
+
+		for (const tx of anchorTransactions) {
+			for (const reimbursement of tx.reimbursements ?? []) {
+				if (
+					(reimbursement.personId === target.person.id ||
+						reimbursement.person === target.person.displayName) &&
+					reimbursement.currency === currency &&
+					(reimbursement.status === 'expecting' || reimbursement.status === 'owed') &&
+					Math.abs(reimbursement.amount - amount) < 0.01
+				) {
+					return { transactionId: tx.id, reimbursementId: reimbursement.id };
+				}
+			}
+		}
+
+		return null;
+	}
+
+	private async applyDirectRouteSettlement(
+		settlement: { transactionId: string; reimbursementId: string },
+		person: Person,
+		settledTransactionId: string
+	): Promise<void> {
+		const anchorTx = await db.transactions.get(settlement.transactionId);
+		if (!anchorTx?.reimbursements?.length) return;
+		const updatedAt = new Date().toISOString();
+		const reimbursements = anchorTx.reimbursements.map((reimbursement) =>
+			reimbursement.id !== settlement.reimbursementId
+				? reimbursement
+				: personService.linkReimbursementPerson(
+						{
+							...reimbursement,
+							status: 'settled',
+							settledTransactionId,
+							updatedAt
+						},
+						person
+					)
+		);
+		await transactionService.updateTransaction(settlement.transactionId, { reimbursements });
+	}
+
+	private async finalizeDirectRouteTransaction(params: {
+		fresh: Transaction;
+		mmUid?: string;
+		existingByMmUid: Transaction | null;
+		settlement?: { transactionId: string; reimbursementId: string } | null;
+		person: Person;
+	}): Promise<boolean> {
+		const { fresh, mmUid, existingByMmUid, settlement, person } = params;
+		const uidMode = this.options.mmTransactionUidConflict ?? 'skip';
+		let savedId: string | null = null;
+
+		if (existingByMmUid && uidMode === 'skip') {
+			return false;
+		}
+
+		if (existingByMmUid && uidMode === 'merge') {
+			const merged = await this.finishMmUidReimportMerge(existingByMmUid, fresh, mmUid as string);
+			if (!merged) return false;
+			savedId = existingByMmUid.id;
+		} else if (existingByMmUid && uidMode === 'replace') {
+			const replaced = await this.finishMmUidReimportReplace(
+				existingByMmUid,
+				fresh,
+				mmUid as string
+			);
+			if (!replaced) return false;
+			savedId = existingByMmUid.id;
+		} else {
+			const created = await transactionService.createTransaction(fresh, true);
+			savedId = created.id;
+			this.importedTransactionIds.push(created.id);
+			if (created.accountId) this.importedAccountIds.add(created.accountId);
+			if (mmUid && mmUid !== 'null' && mmUid !== '') {
+				this.existingMMTransactions.set(mmUid, created);
+			}
+		}
+
+		if (savedId && settlement) {
+			await this.applyDirectRouteSettlement(settlement, person, savedId);
+		}
+
+		return savedId != null;
+	}
+
+	private async importDirectRoutedRegularTransaction(
+		row: Record<string, string>,
+		target: PersonLedgerDirectRouteTarget
+	): Promise<boolean> {
+		const ctgUid = row.ctgUid;
+		const doType = parseInt(row.DO_TYPE || '0', 10);
+		const mmUid = row.uid || row.ID;
+		const existingByMmUid =
+			mmUid && mmUid !== 'null' && mmUid !== '' ? this.findTransactionByMMUid(mmUid) : null;
+
+		let categoryId =
+			ctgUid && ctgUid !== '-4' && ctgUid !== 'null'
+				? this.categoryMappings.get(ctgUid)
+				: undefined;
+		const txType = mapTransactionType(doType);
+		if (txType === 'expense' && categoryId === undefined) {
+			const uncategorized = await getOrCreateUncategorizedCategory();
+			categoryId = uncategorized.id;
+		} else if (txType === 'income' && categoryId === undefined) {
+			const uncategorizedIncome = await getOrCreateUncategorizedIncomeCategory();
+			categoryId = uncategorizedIncome.id;
+		}
+
+		const currencyUid = row.currencyUid || 'RUB_RUB';
+		const currencyFile = this.csvFiles.get('CURRENCY');
+		const extractedCurrency = extractCurrencyCodeWithQuality(currencyUid, currencyFile);
+		const finalCurrency = extractedCurrency.code || 'USD';
+		const inAmountQ = mapAmountWithQuality(parseFloat(row.IN_ZMONEY || '0'), doType);
+		const amount = inAmountQ.amount;
+		const clearedDateQ = mapDateWithQuality(row.ZDATE, row.UTIME, row.WDATE);
+		const createdQ = parseTimestampWithQuality(row.UTIME);
+		const updatedQ = parseTimestampWithQuality(row.UTIME);
+		const importQuality = mergeImportQuality(
+			inAmountQ.importQuality,
+			clearedDateQ.importQuality,
+			createdQ.importQuality,
+			updatedQ.importQuality,
+			extractedCurrency.importQuality
+		);
+		const absAmount = Math.abs(amount);
+		const reimbursements =
+			(txType === 'expense' || (txType === 'adjustment' && amount < 0)) && absAmount > 0
+				? [this.buildDirectRouteReimbursement(target.person, absAmount, finalCurrency)]
+				: undefined;
+		const settlement =
+			(txType === 'income' || (txType === 'adjustment' && amount > 0)) && absAmount > 0
+				? await this.findDirectRouteSettlement(target, absAmount, finalCurrency)
+				: null;
+
+		const transaction: Transaction = {
+			id: generateUUID(),
+			type: txType,
+			status: 'cleared',
+			accountId: target.anchorAccountId,
+			amount,
+			currency: finalCurrency,
+			description: row.ZCONTENT || '',
+			categoryId,
+			clearedDate: clearedDateQ.iso,
+			notes: row.ZCONTENT || '',
+			importSource: 'money-manager',
+			importMetadata:
+				mmUid && mmUid !== 'null' && mmUid !== ''
+					? JSON.stringify({
+							mmUid,
+							source: 'money-manager',
+							originalAmount: parseFloat(row.IN_ZMONEY || '0'),
+							originalCurrencyUid: currencyUid,
+							doType,
+							personLedgerDirectRoute: true,
+							personId: target.person.id,
+							anchorAccountId: target.anchorAccountId
+						})
+					: undefined,
+			importQuality,
+			reimbursements,
+			createdAt: createdQ.iso,
+			updatedAt: updatedQ.iso,
+			deletedAt: null
+		};
+
+		return await this.finalizeDirectRouteTransaction({
+			fresh: transaction,
+			mmUid: mmUid ?? undefined,
+			existingByMmUid,
+			settlement,
+			person: target.person
+		});
+	}
+
+	private async importDirectRoutedTransferTransaction(pair: TransferPair): Promise<boolean> {
+		if (!pair.transferOut || !pair.transferIn) {
+			return false;
+		}
+
+		const outRow = pair.transferOut;
+		const inRow = pair.transferIn;
+		const outTarget = outRow.assetUid
+			? this.personLedgerDirectRouteTargets.get(outRow.assetUid)
+			: undefined;
+		const inTarget =
+			(outRow.toAssetUid && this.personLedgerDirectRouteTargets.get(outRow.toAssetUid)) ||
+			(inRow.assetUid ? this.personLedgerDirectRouteTargets.get(inRow.assetUid) : undefined);
+
+		if (outTarget && inTarget) {
+			this.addWarning(
+				`Transfer ${pair.txUidTrans} touches two direct-routed person ledgers; skipping for now`
+			);
+			return false;
+		}
+
+		const target = outTarget ?? inTarget;
+		if (!target) {
+			return false;
+		}
+
+		const transferAmount = Math.abs(
+			parseFloat(inRow.IN_ZMONEY || '0') || parseFloat(outRow.IN_ZMONEY || '0') || 0
+		);
+		const mmUid = pair.txUidTrans;
+		const existingByMmUid =
+			mmUid && mmUid !== 'null' && mmUid !== '' ? this.findTransactionByMMUid(mmUid) : null;
+		const currencyUid = outRow.currencyUid || 'RUB_RUB';
+		const extractedCurrency = extractCurrencyCodeWithQuality(
+			currencyUid,
+			this.csvFiles.get('CURRENCY')
+		);
+		const rawDescription = (outRow.ZCONTENT || inRow.ZCONTENT || '').trim();
+		const description =
+			rawDescription === '' || rawDescription.toLowerCase() === 'transfer'
+				? undefined
+				: rawDescription;
+		const clearedDateQ = mapDateWithQuality(
+			outRow.ZDATE || inRow.ZDATE,
+			outRow.UTIME || inRow.UTIME,
+			outRow.WDATE || inRow.WDATE
+		);
+		const createdQ = parseTimestampWithQuality(outRow.UTIME || inRow.UTIME || '');
+		const updatedQ = parseTimestampWithQuality(outRow.UTIME || inRow.UTIME || '');
+		const importQuality = mergeImportQuality(
+			clearedDateQ.importQuality,
+			createdQ.importQuality,
+			updatedQ.importQuality,
+			extractedCurrency.importQuality
+		);
+		const finalCurrency = extractedCurrency.code || 'USD';
+		const settlement = outTarget
+			? await this.findDirectRouteSettlement(target, transferAmount, finalCurrency)
+			: null;
+		const reimbursements =
+			inTarget && transferAmount > 0
+				? [this.buildDirectRouteReimbursement(target.person, transferAmount, finalCurrency)]
+				: undefined;
+
+		const transaction: Transaction = {
+			id: generateUUID(),
+			type: outTarget ? 'income' : 'expense',
+			status: 'cleared',
+			accountId: target.anchorAccountId,
+			amount: outTarget ? transferAmount : -transferAmount,
+			currency: finalCurrency,
+			description,
+			clearedDate: clearedDateQ.iso,
+			notes: outRow.ZCONTENT || inRow.ZCONTENT || '',
+			importSource: 'money-manager',
+			importMetadata:
+				mmUid && mmUid !== 'null' && mmUid !== ''
+					? JSON.stringify({
+							mmUid,
+							source: 'money-manager',
+							type: 'transfer',
+							personLedgerDirectRoute: true,
+							personId: target.person.id,
+							anchorAccountId: target.anchorAccountId
+						})
+					: undefined,
+			importQuality,
+			reimbursements,
+			createdAt: createdQ.iso,
+			updatedAt: updatedQ.iso,
+			deletedAt: null
+		};
+
+		return await this.finalizeDirectRouteTransaction({
+			fresh: transaction,
+			mmUid: mmUid ?? undefined,
+			existingByMmUid,
+			settlement,
+			person: target.person
+		});
+	}
+
 	/**
 	 * Import currencies from CURRENCY.csv
 	 */
@@ -325,10 +670,28 @@ export class MoneyManagerImporter extends BaseImporter {
 					continue;
 				}
 
+				const markedPersonLedger =
+					this.options.externalAccountMarkedAsPersonLedger?.[accountUid] === true;
+				const directRouteRequested =
+					this.options.externalAccountMarkedAsPersonLedgerDirectRoute?.[accountUid] === true;
+				const externalKeys = this.buildMmAccountExternalKeys(accountUid);
+				const personLedgerTarget =
+					markedPersonLedger || directRouteRequested
+						? await resolveImportedPersonLedgerTarget({
+								accountName,
+								externalKeys,
+								ensurePerson: true
+							})
+						: await resolveImportedPersonLedgerTarget({
+								accountName,
+								externalKeys,
+								ensurePerson: false
+							});
+
 				const existingAccounts = await db.getActiveAccounts();
 				const duplicate = existingAccounts.find((acc) => acc.name === accountName);
 
-				if (duplicate) {
+				if (duplicate && personLedgerTarget == null) {
 					if (this.options.conflictResolution === 'skip') {
 						this.accountMappings.set(accountUid, duplicate.id);
 						this.statistics.accountsSkipped++;
@@ -374,10 +737,49 @@ export class MoneyManagerImporter extends BaseImporter {
 				const accountTypeOverride = this.options.mmAccountUidToBudgicType?.[accountUid];
 				const resolvedType = accountTypeOverride ?? inferMmAccountType(row).type;
 
-				const markedPersonLedger =
-					this.options.externalAccountMarkedAsPersonLedger?.[accountUid] === true;
+				const shouldAutoDirectRoute =
+					personLedgerTarget != null &&
+					personLedgerTarget.activeLedgerAccount == null &&
+					(personLedgerTarget.archivedLedgerAccount != null ||
+						personLedgerTarget.person.preferredAnchorAccountId != null);
+				const shouldDirectRoute =
+					personLedgerTarget != null &&
+					personLedgerTarget.activeLedgerAccount == null &&
+					(directRouteRequested || shouldAutoDirectRoute);
 				if (markedPersonLedger) {
 					this.personAccountPreFlaggedNames.push(accountName);
+				}
+
+				if (shouldDirectRoute && personLedgerTarget?.anchorAccountId) {
+					this.personLedgerDirectRouteTargets.set(accountUid, {
+						name: accountName,
+						person: personLedgerTarget.person,
+						anchorAccountId: personLedgerTarget.anchorAccountId,
+						externalKeys
+					});
+					this.personLedgerDirectRoute.push({
+						name: accountName,
+						personId: personLedgerTarget.person.id,
+						anchorAccountId: personLedgerTarget.anchorAccountId,
+						externalKeys
+					});
+					if (
+						personLedgerTarget.person.preferredAnchorAccountId !==
+						personLedgerTarget.anchorAccountId
+					) {
+						await personService.updatePerson(personLedgerTarget.person.id, {
+							preferredAnchorAccountId: personLedgerTarget.anchorAccountId
+						});
+					}
+					this.statistics.accountsSkipped++;
+					continue;
+				}
+
+				if (personLedgerTarget?.activeLedgerAccount) {
+					this.accountMappings.set(accountUid, personLedgerTarget.activeLedgerAccount.id);
+					this.importedAccountIds.add(personLedgerTarget.activeLedgerAccount.id);
+					this.statistics.accountsSkipped++;
+					continue;
 				}
 
 				// Phase E interim path: person ledger wallet until close wizard (Phase F supersedes for opt-in).
@@ -400,10 +802,9 @@ export class MoneyManagerImporter extends BaseImporter {
 				await db.accounts.add(account);
 
 				if (markedPersonLedger) {
-					const externalKeys: PersonExternalKey[] = [
-						{ source: 'money-manager', entity: 'account', key: accountUid }
-					];
-					const person = await personService.resolvePersonForLedgerAccount(account, externalKeys);
+					const person =
+						personLedgerTarget?.person ??
+						(await personService.resolvePersonForLedgerAccount(account, externalKeys));
 					await db.accounts.update(account.id, {
 						personId: person.id,
 						updatedAt: new Date().toISOString()
@@ -641,7 +1042,15 @@ export class MoneyManagerImporter extends BaseImporter {
 
 					const pair = this.transferPairs.get(txUidTrans);
 					if (pair && pair.transferOut && pair.transferIn) {
-						const imported = await this.importTransferTransaction(pair);
+						const imported =
+							(pair.transferOut.assetUid &&
+								this.personLedgerDirectRouteTargets.has(pair.transferOut.assetUid)) ||
+							(pair.transferOut.toAssetUid &&
+								this.personLedgerDirectRouteTargets.has(pair.transferOut.toAssetUid)) ||
+							(pair.transferIn.assetUid &&
+								this.personLedgerDirectRouteTargets.has(pair.transferIn.assetUid))
+								? await this.importDirectRoutedTransferTransaction(pair)
+								: await this.importTransferTransaction(pair);
 						if (imported) {
 							processedTransferUids.add(txUidTrans);
 							this.statistics.transactionsImported++;
@@ -653,6 +1062,19 @@ export class MoneyManagerImporter extends BaseImporter {
 				}
 
 				// Handle regular transactions (income, expense, adjustment)
+				const directRouteTarget = row.assetUid
+					? this.personLedgerDirectRouteTargets.get(row.assetUid)
+					: undefined;
+				if (directRouteTarget) {
+					const imported = await this.importDirectRoutedRegularTransaction(row, directRouteTarget);
+					if (imported) {
+						this.statistics.transactionsImported++;
+					} else {
+						this.statistics.transactionsSkipped++;
+					}
+					continue;
+				}
+
 				if (doType === 7 || doType === 8) {
 					const imported = await this.importReconciliationAdjustment(row);
 					if (imported) {
@@ -1173,7 +1595,11 @@ export class MoneyManagerImporter extends BaseImporter {
 
 	private async buildImportBatchMetadata(): Promise<ImportResult['importBatch'] | undefined> {
 		if (!this.importedTransactionIds.length) {
-			if (this.personLedgerCloseQueue.length > 0 || this.personAccountPreFlaggedNames.length > 0) {
+			if (
+				this.personLedgerCloseQueue.length > 0 ||
+				this.personLedgerDirectRoute.length > 0 ||
+				this.personAccountPreFlaggedNames.length > 0
+			) {
 				return {
 					transactionIds: [],
 					unclassifiedTransactionIds: [],
@@ -1182,6 +1608,9 @@ export class MoneyManagerImporter extends BaseImporter {
 						? {
 								personAccountPreFlaggedNames: [...new Set(this.personAccountPreFlaggedNames)]
 							}
+						: {}),
+					...(this.personLedgerDirectRoute.length > 0
+						? { personLedgerDirectRoute: [...this.personLedgerDirectRoute] }
 						: {}),
 					...(this.personLedgerCloseQueue.length > 0
 						? { personLedgerCloseQueue: [...this.personLedgerCloseQueue] }
@@ -1348,6 +1777,9 @@ export class MoneyManagerImporter extends BaseImporter {
 				? {
 						personAccountPreFlaggedNames: [...new Set(this.personAccountPreFlaggedNames)]
 					}
+				: {}),
+			...(this.personLedgerDirectRoute.length > 0
+				? { personLedgerDirectRoute: [...this.personLedgerDirectRoute] }
 				: {}),
 			...(this.personLedgerCloseQueue.length > 0
 				? { personLedgerCloseQueue: [...this.personLedgerCloseQueue] }

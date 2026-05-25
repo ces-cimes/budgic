@@ -115,7 +115,7 @@ export {
 	MM_CURRENCY_CREATE_PREFIX
 } from './mm-currency-create';
 
-export type { PersonLedgerCloseQueueEntry } from './types';
+export type { PersonLedgerCloseQueueEntry, PersonLedgerDirectRouteEntry } from './types';
 
 export {
 	buildMmAccountReviewRows,

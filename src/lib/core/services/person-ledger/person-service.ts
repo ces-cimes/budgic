@@ -5,6 +5,37 @@ type PersonMigrationHistoryEntry = NonNullable<Person['migrationHistory']>[numbe
 import type { CreatePersonInput } from './types';
 
 class PersonService {
+	private externalKeyEquals(a: PersonExternalKey, b: PersonExternalKey): boolean {
+		return a.source === b.source && a.entity === b.entity && a.key === b.key;
+	}
+
+	private mergeExternalKeys(
+		existing: PersonExternalKey[] | undefined,
+		incoming: PersonExternalKey[] | undefined
+	): PersonExternalKey[] {
+		const merged = [...(existing ?? [])];
+		for (const key of incoming ?? []) {
+			if (!merged.some((existingKey) => this.externalKeyEquals(existingKey, key))) {
+				merged.push(key);
+			}
+		}
+		return merged;
+	}
+
+	private async backfillExternalKeys(
+		person: Person,
+		externalKeys: PersonExternalKey[] | undefined
+	): Promise<Person> {
+		if (!externalKeys?.length || person.deletedAt != null) {
+			return person;
+		}
+		const merged = this.mergeExternalKeys(person.externalKeys, externalKeys);
+		if (merged.length === (person.externalKeys ?? []).length) {
+			return person;
+		}
+		return await this.updatePerson(person.id, { externalKeys: merged });
+	}
+
 	async createPerson(data: CreatePersonInput): Promise<Person> {
 		const now = new Date().toISOString();
 		const person: Person = {
@@ -61,10 +92,12 @@ class PersonService {
 
 	async findByExternalKey(key: PersonExternalKey): Promise<Person | null> {
 		const people = await db.people.toArray();
-		const match = people.find((p) =>
-			p.externalKeys.some(
-				(k) => k.source === key.source && k.entity === key.entity && k.key === key.key
-			)
+		const match = people.find(
+			(p) =>
+				p.deletedAt == null &&
+				p.externalKeys.some(
+					(k) => k.source === key.source && k.entity === key.entity && k.key === key.key
+				)
 		);
 		return match ?? null;
 	}
@@ -86,7 +119,7 @@ class PersonService {
 	async peekPersonForLedgerAccount(account: Account): Promise<Person | null> {
 		if (account.personId) {
 			const linked = await this.getPerson(account.personId);
-			if (linked) return linked;
+			if (linked && linked.deletedAt == null) return linked;
 		}
 		return await this.findByDisplayName(account.name);
 	}
@@ -97,14 +130,16 @@ class PersonService {
 	): Promise<Person> {
 		if (account.personId) {
 			const linked = await this.getPerson(account.personId);
-			if (linked) return linked;
+			if (linked && linked.deletedAt == null) {
+				return await this.backfillExternalKeys(linked, externalKeys);
+			}
 		}
 		for (const key of externalKeys ?? []) {
 			const byKey = await this.findByExternalKey(key);
-			if (byKey) return byKey;
+			if (byKey) return await this.backfillExternalKeys(byKey, externalKeys);
 		}
 		const byName = await this.findByDisplayName(account.name);
-		if (byName) return byName;
+		if (byName) return await this.backfillExternalKeys(byName, externalKeys);
 		return await this.createPerson({
 			displayName: account.name.trim(),
 			aliases: [],
