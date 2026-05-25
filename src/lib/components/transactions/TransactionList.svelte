@@ -9,6 +9,7 @@
 		Receipt
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Input } from '$lib/components/ui/input/index.ts';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.ts';
 	import TransactionItem from '$lib/components/TransactionItem.svelte';
@@ -376,7 +377,11 @@
 
 	/** When a non-day group contains txs on different calendar days, show date per row instead of time. */
 	function groupSpansMultipleCalendarDays(transactions: (Transaction | any)[]): boolean {
-		return groupSpansMultipleCalendarDaysUtil(getTransactionDate, filters.groupingMode, transactions);
+		return groupSpansMultipleCalendarDaysUtil(
+			getTransactionDate,
+			filters.groupingMode,
+			transactions
+		);
 	}
 
 	// Derived filtered transactions with fuzzy search and date grouping
@@ -785,6 +790,16 @@
 			transactions.filter((t) => t && !t.deletedAt),
 			filters.currentMonth
 		);
+	});
+
+	const emptyStateBody = $derived(() => {
+		if (filters.searchQuery.trim() || getActiveFilterCount(filters) > 0) {
+			return 'No transactions match your filters.';
+		}
+		if (isMonthOnlyEmptyState()) {
+			return `No transactions in ${formatMonth(filters.currentMonth)}. You have activity in other months.`;
+		}
+		return 'Nothing yet. Add your first transaction.';
 	});
 
 	// Summary stats and per-date-group totals, converted to main currency (async)
@@ -1573,64 +1588,57 @@
 							{/each}
 
 							{#if filteredVisibleCount() === 0}
-								<div
-									class="flex min-h-[50vh] flex-1 flex-col items-center justify-center px-4 py-16 pb-[max(5rem,calc(4.5rem+env(safe-area-inset-bottom)))] text-center"
+								<EmptyState
+									icon={Receipt}
+									body={emptyStateBody()}
+									class="flex min-h-[50vh] flex-1 justify-center px-4 py-16 pb-[max(5rem,calc(4.5rem+env(safe-area-inset-bottom)))]"
 								>
-									<Receipt class="mb-4 size-8 text-[var(--color-text-disabled)]" />
-									<p class="text-sm text-[var(--color-text-secondary)] select-none">
+									{#snippet children()}
 										{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
-											No transactions match your filters.
-										{:else if isMonthOnlyEmptyState()}
-											No transactions in {formatMonth(filters.currentMonth)}. You have activity in
-											other months.
-										{:else}
-											Nothing yet. Add your first transaction.
-										{/if}
-									</p>
-									{#if filters.searchQuery.trim() || getActiveFilterCount(filters) > 0}
-										<Button
-											variant="ghost"
-											size="sm"
-											class="mt-3 text-[var(--color-text-tertiary)]"
-											onclick={() =>
-												updateFilters({
-													searchQuery: '',
-													showPendingOnly: false,
-													dateFilterEnabled: true,
-													groupingMode: 'smart',
-													currentMonth: new Date()
-												})}
-										>
-											Clear filters
-										</Button>
-									{:else if isMonthOnlyEmptyState()}
-										<div class="mt-3 flex flex-wrap items-center justify-center gap-2">
-											<Button
-												variant="ghost"
-												size="sm"
-												class="text-[var(--color-amber)]"
-												onclick={handleSnapToLatestActivity}
-											>
-												Go to latest activity
-											</Button>
 											<Button
 												variant="ghost"
 												size="sm"
 												class="text-[var(--color-text-tertiary)]"
-												onclick={handleShowAllMonths}
+												onclick={() =>
+													updateFilters({
+														searchQuery: '',
+														showPendingOnly: false,
+														dateFilterEnabled: true,
+														groupingMode: 'smart',
+														currentMonth: new Date()
+													})}
 											>
-												Show all months
+												Clear filters
 											</Button>
-										</div>
-									{:else if onAddTransaction}
-										<Button
-											variant="ghost"
-											size="sm"
-											class="mt-3 text-[var(--color-amber)]"
-											onclick={onAddTransaction}>Add transaction</Button
-										>
-									{/if}
-								</div>
+										{:else if isMonthOnlyEmptyState()}
+											<div class="flex flex-wrap items-center justify-center gap-2">
+												<Button
+													variant="ghost"
+													size="sm"
+													class="text-[var(--color-amber)]"
+													onclick={handleSnapToLatestActivity}
+												>
+													Go to latest activity
+												</Button>
+												<Button
+													variant="ghost"
+													size="sm"
+													class="text-[var(--color-text-tertiary)]"
+													onclick={handleShowAllMonths}
+												>
+													Show all months
+												</Button>
+											</div>
+										{:else if onAddTransaction}
+											<Button
+												variant="ghost"
+												size="sm"
+												class="text-[var(--color-amber)]"
+												onclick={onAddTransaction}>Add transaction</Button
+											>
+										{/if}
+									{/snippet}
+								</EmptyState>
 							{/if}
 						</section>
 					{/key}

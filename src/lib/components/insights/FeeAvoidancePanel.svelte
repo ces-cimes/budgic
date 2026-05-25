@@ -22,6 +22,7 @@
 	import Zap from '@lucide/svelte/icons/zap';
 	import Info from '@lucide/svelte/icons/info';
 	import { goto } from '$app/navigation';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	// Props
 	interface Props {
@@ -258,21 +259,21 @@
 		<!-- No risks found -->
 		<Card>
 			<CardContent class="py-8">
-				<div class="flex flex-col items-center justify-center space-y-3 text-center">
-					<div class="rounded-full bg-green-500/10 p-3">
-						<Shield class="h-8 w-8 text-green-500" />
-					</div>
-					<div class="space-y-1">
-						<h3 class="text-text-primary text-lg font-semibold">No Fee Risks Detected</h3>
-						<p class="text-text-secondary max-w-md text-sm">
-							Your accounts are looking good! We're not detecting any potential fees in the next 90
-							days.
-						</p>
-					</div>
-					<Button onclick={loadFeeAvoidanceData} variant="outline" size="sm">
-						<span>Refresh</span>
-					</Button>
-				</div>
+				<EmptyState
+					icon={Shield}
+					iconVariant="circle"
+					heading="No Fee Risks Detected"
+					body="Your accounts are looking good! We're not detecting any potential fees in the next 90 days."
+					iconClass="text-green-500"
+					bodyClass="text-text-secondary max-w-md"
+					class="py-0"
+				>
+					{#snippet children()}
+						<Button onclick={loadFeeAvoidanceData} variant="outline" size="sm">
+							<span>Refresh</span>
+						</Button>
+					{/snippet}
+				</EmptyState>
 			</CardContent>
 		</Card>
 	{:else}

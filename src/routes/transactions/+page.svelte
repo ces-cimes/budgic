@@ -26,6 +26,7 @@
 		monthDateFromKey,
 		shouldAutoSnapToLatestMonth
 	} from '$lib/utils/transaction-month-empty';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 
 	const { data } = $props<{ data: any }>();
 
@@ -623,8 +624,8 @@
 				<div class="grid grid-cols-3 gap-4">
 					{#each [1, 2, 3] as item (item)}
 						<div class="flex flex-col items-center gap-1.5">
-							<div class="h-4 w-16 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-							<div class="h-2.5 w-10 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+							<Skeleton class="h-4 w-16 bg-[var(--color-bg-surface)]" />
+							<Skeleton class="h-2.5 w-10 bg-[var(--color-bg-surface)]" />
 						</div>
 					{/each}
 				</div>
@@ -635,14 +636,12 @@
 						class="squircle-2xl squircle-border squircle-fill-tertiary flex items-center gap-3 px-4 py-3"
 						style="animation-delay: {i * 40}ms"
 					>
-						<div
-							class="size-9 shrink-0 animate-pulse rounded-full bg-[var(--color-bg-surface)]"
-						></div>
+						<Skeleton class="size-9 shrink-0 rounded-full bg-[var(--color-bg-surface)]" />
 						<div class="flex-1 space-y-2">
-							<div class="h-3.5 w-2/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
-							<div class="h-2.5 w-1/3 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+							<Skeleton class="h-3.5 w-2/3 bg-[var(--color-bg-surface)]" />
+							<Skeleton class="h-2.5 w-1/3 bg-[var(--color-bg-surface)]" />
 						</div>
-						<div class="h-3.5 w-14 animate-pulse rounded bg-[var(--color-bg-surface)]"></div>
+						<Skeleton class="h-3.5 w-14 bg-[var(--color-bg-surface)]" />
 					</div>
 				{/each}
 			</div>

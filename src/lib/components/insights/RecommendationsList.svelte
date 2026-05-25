@@ -3,6 +3,7 @@
 	import { recommendationService, type Recommendation } from '$lib/core/services';
 	import { Lightbulb, AlertCircle, Target, TrendingUp, Settings, Clock, Tag } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	interface Props {
 		days?: number;
@@ -123,15 +124,16 @@
 			</button>
 		</div>
 	{:else if recommendations.length === 0}
-		<div class="py-8 text-center">
-			<div class="bg-muted mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full">
-				<Lightbulb class="text-muted-foreground h-6 w-6" />
-			</div>
-			<h3 class="text-foreground mb-1 text-sm font-semibold">No Recommendations Yet</h3>
-			<p class="text-muted-foreground mx-auto max-w-sm text-xs">
-				We'll provide personalized recommendations as we learn more about your financial patterns.
-			</p>
-		</div>
+		<EmptyState
+			icon={Lightbulb}
+			iconVariant="circle"
+			heading="No Recommendations Yet"
+			body="We'll provide personalized recommendations as we learn more about your financial patterns."
+			class="py-8"
+			iconClass="h-6 w-6"
+			headingClass="text-sm font-semibold mb-1"
+			bodyClass="text-muted-foreground mx-auto max-w-sm text-xs"
+		/>
 	{:else}
 		<div class="space-y-3">
 			{#each recommendations as recommendation (recommendation.id)}

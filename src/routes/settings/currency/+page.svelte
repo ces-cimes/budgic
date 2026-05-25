@@ -32,9 +32,11 @@
 		AlertCircle,
 		CheckCircle2,
 		Info,
-		BarChart2
+		BarChart2,
+		Coins
 	} from '@lucide/svelte';
 	import Header from '$lib/components/Header.svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { toast } from 'svelte-sonner';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.ts';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.ts';
@@ -1205,22 +1207,25 @@
 						</div>
 
 						{#if activeCurrencies.length === 0 && inactiveCurrencies.length === 0}
-							<div class="space-y-4 py-12 text-center">
-								<div class="mb-4 text-6xl">💱</div>
-								<h3 class="text-primary text-lg font-semibold">No currencies yet</h3>
-								<p class="text-muted-foreground mx-auto max-w-md">
-									Get started by adding your first currency. You can create custom currencies or
-									activate system currencies.
-								</p>
-								<Button.Root
-									variant="outline"
-									onclick={() => (showAddCurrencySheet = true)}
-									class="mt-4"
-								>
-									<Plus class="mr-2 h-4 w-4" />
-									Add Your First Currency
-								</Button.Root>
-							</div>
+							<EmptyState
+								icon={Coins}
+								iconVariant="circle"
+								heading="No currencies yet"
+								body="Get started by adding your first currency. You can create custom currencies or activate system currencies."
+								bodyClass="text-muted-foreground mx-auto max-w-md"
+								headingClass="text-primary text-lg font-semibold"
+							>
+								{#snippet children()}
+									<Button.Root
+										variant="outline"
+										onclick={() => (showAddCurrencySheet = true)}
+										class="mt-4"
+									>
+										<Plus class="mr-2 h-4 w-4" />
+										Add Your First Currency
+									</Button.Root>
+								{/snippet}
+							</EmptyState>
 						{:else}
 							<div class="space-y-2">
 								{#each activeCurrencies as currency, index (currency.id)}
@@ -1575,28 +1580,32 @@
 					{/if}
 
 					{#if exchangeRates.length === 0}
-						<div class="space-y-4 py-12 text-center">
-							<BarChart2 class="mx-auto mb-4 h-16 w-16 text-[var(--color-text-tertiary)]" />
-							<h3 class="text-primary text-lg font-semibold">No exchange rates yet</h3>
-							<p class="text-muted-foreground mx-auto max-w-md">
-								Exchange rates are needed for accurate multi-currency calculations. Update from API
-								or add rates manually.
-							</p>
-							<div class="mt-4 flex flex-wrap justify-center gap-2">
-								<Button.Root variant="outline" onclick={updateRatesFromAPI} disabled={isSaving}>
-									<RefreshCw class="mr-2 h-4 w-4" />
-									Update from API
-								</Button.Root>
-								<Button.Root
-									variant="outline"
-									onclick={() => (showAddRateForm = true)}
-									disabled={isSaving}
-								>
-									<Plus class="mr-2 h-4 w-4" />
-									Add Manual Rate
-								</Button.Root>
-							</div>
-						</div>
+						<EmptyState
+							icon={BarChart2}
+							iconVariant="circle"
+							heading="No exchange rates yet"
+							body="Exchange rates are needed for accurate multi-currency calculations. Update from API or add rates manually."
+							bodyClass="text-muted-foreground mx-auto max-w-md"
+							headingClass="text-primary text-lg font-semibold"
+							iconClass="h-16 w-16 text-[var(--color-text-tertiary)]"
+						>
+							{#snippet children()}
+								<div class="flex flex-wrap justify-center gap-2">
+									<Button.Root variant="outline" onclick={updateRatesFromAPI} disabled={isSaving}>
+										<RefreshCw class="mr-2 h-4 w-4" />
+										Update from API
+									</Button.Root>
+									<Button.Root
+										variant="outline"
+										onclick={() => (showAddRateForm = true)}
+										disabled={isSaving}
+									>
+										<Plus class="mr-2 h-4 w-4" />
+										Add Manual Rate
+									</Button.Root>
+								</div>
+							{/snippet}
+						</EmptyState>
 					{:else}
 						<div class="overflow-hidden rounded-lg border">
 							<div class="overflow-x-auto">

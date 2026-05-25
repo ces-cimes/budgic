@@ -14,6 +14,7 @@
 		CheckCircle2
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import type { OverviewTabProps, UnifiedInsight } from '../types';
 	import { accountService } from '$lib/core/services';
@@ -254,28 +255,26 @@
 
 			<!-- Empty State -->
 			{#if insights.length === 0}
-				<div class="py-12 text-center">
-					<div
-						class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full sm:mb-6 sm:h-20 sm:w-20"
-					>
-						<Lightbulb class="text-muted-foreground h-8 w-8 sm:h-10 sm:w-10" />
-					</div>
-					<h3 class="text-foreground mb-2 text-lg font-semibold sm:text-xl">No insights yet</h3>
-					<p class="text-muted-foreground mx-auto mb-6 max-w-md px-4 text-sm">
-						Insights will appear here as we analyze your financial patterns, spending habits, and
-						goal progress.
-					</p>
-					<div class="flex flex-col justify-center gap-3 sm:flex-row">
-						<Button onclick={() => onAction?.('refresh')} size="sm">
-							<RefreshCw class="mr-2 h-4 w-4" />
-							Refresh Insights
-						</Button>
-						<Button onclick={() => onAction?.('add-transaction')} variant="outline" size="sm">
-							<Plus class="mr-2 h-4 w-4" />
-							Add Transaction
-						</Button>
-					</div>
-				</div>
+				<EmptyState
+					icon={Lightbulb}
+					iconVariant="circle"
+					heading="No insights yet"
+					body="Insights will appear here as we analyze your financial patterns, spending habits, and goal progress."
+					bodyClass="text-muted-foreground mx-auto mb-6 max-w-md px-4"
+				>
+					{#snippet children()}
+						<div class="flex flex-col justify-center gap-3 sm:flex-row">
+							<Button onclick={() => onAction?.('refresh')} size="sm">
+								<RefreshCw class="mr-2 h-4 w-4" />
+								Refresh Insights
+							</Button>
+							<Button onclick={() => onAction?.('add-transaction')} variant="outline" size="sm">
+								<Plus class="mr-2 h-4 w-4" />
+								Add Transaction
+							</Button>
+						</div>
+					{/snippet}
+				</EmptyState>
 			{/if}
 		{/if}
 	</div>

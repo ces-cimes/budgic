@@ -16,6 +16,7 @@
 	import { formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { formatTransferLabel } from '$lib/utils/transfer-utils';
 	import { PageLayout } from '$lib/components/layouts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import Header from '$lib/components/Header.svelte';
 	import { Pencil, Scale, ChevronDown } from '@lucide/svelte';
 	import BufferVisualization from '$lib/components/accounts/BufferVisualization.svelte';
@@ -694,9 +695,7 @@
 				</div>
 
 				{#if transactions.length === 0}
-					<div class="flex flex-col items-center py-12 text-center">
-						<p class="text-sm text-[var(--color-text-secondary)]">No transactions yet.</p>
-					</div>
+					<EmptyState body="No transactions yet." />
 				{:else}
 					<div class="border-border overflow-hidden rounded-2xl border">
 						{#each accountTxDisplayRows.slice(0, 14) as row (row.kind === 'single' ? row.tx.id : `grp-${row.tag}-${row.txs[0].id}`)}

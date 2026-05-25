@@ -13,6 +13,7 @@
 	import X from '@lucide/svelte/icons/x';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
 	import { Button } from '$lib/components/ui/button';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import * as Drawer from '$lib/components/ui/drawer';
 	import NotificationCard from '$lib/components/NotificationCard.svelte';
 	import { db, type Insight } from '$lib/core/db';
@@ -260,11 +261,15 @@
 						Loading...
 					</div>
 				{:else if unreadInsights.length === 0 && earlierAlerts.length === 0}
-					<div class="flex flex-col items-center justify-center py-12 text-center">
-						<Bell class="text-muted-foreground mb-4 h-12 w-12 opacity-50" />
-						<p class="text-sm font-medium">No alerts</p>
-						<p class="text-muted-foreground mt-1 text-xs">You're all caught up!</p>
-					</div>
+					<EmptyState
+						icon={Bell}
+						heading="No alerts"
+						body="You're all caught up!"
+						iconClass="h-12 w-12 opacity-50 text-muted-foreground"
+						bodyClass="text-muted-foreground mt-1 text-xs"
+						headingClass="text-sm font-medium"
+						class="justify-center py-12"
+					/>
 				{:else}
 					<div class="flex flex-col gap-4">
 						{#if critical.length > 0}

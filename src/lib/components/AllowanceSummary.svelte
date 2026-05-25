@@ -9,6 +9,7 @@
 	import { getWaterfallTierLabel } from '$lib/utils/waterfall-tier-utils';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { TrendingUp, TrendingDown, Lightbulb } from '@lucide/svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	interface Props {
 		allowance: EnhancedAllowance | null;
@@ -224,10 +225,11 @@
 	</div>
 {:else}
 	<!-- No allowance state -->
-	<div class="squircle-4xl squircle-border bg-card px-5 py-6 text-center">
-		<p class="text-muted-foreground text-sm">No spending plan set up yet.</p>
-		<a href="/plan" class="text-amber mt-1 inline-block text-sm hover:underline">
-			Set up your plan →
-		</a>
-	</div>
+	<EmptyState variant="card" body="No spending plan set up yet." class="px-5 py-6">
+		{#snippet children()}
+			<a href="/plan" class="text-amber mt-1 inline-block text-sm hover:underline">
+				Set up your plan →
+			</a>
+		{/snippet}
+	</EmptyState>
 {/if}

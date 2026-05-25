@@ -13,6 +13,7 @@
 		tierChipIdleClasses
 	} from '$lib/insights/recurring-tier-presets';
 	import { Button } from '$lib/components/ui/button';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { ExternalLink, Calendar, Banknote } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { cn } from '$lib/utils.js';
@@ -234,7 +235,7 @@
 					Linked transactions
 				</h4>
 				{#if transactions.length === 0}
-					<p class="text-muted-foreground text-sm">No transactions linked.</p>
+					<EmptyState body="No transactions linked." class="py-0" />
 				{:else}
 					<ul class="space-y-1.5">
 						{#each transactions as tx (tx.id)}

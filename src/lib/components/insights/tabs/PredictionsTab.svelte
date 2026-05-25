@@ -5,6 +5,7 @@
 	import { onMount } from 'svelte';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import {
 		TrendingUp,
 		Target,
@@ -118,20 +119,13 @@
 				{/each}
 			</div>
 		{:else if predictions.length === 0}
-			<div class="py-12 text-center">
-				<div
-					class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full sm:mb-6 sm:h-20 sm:w-20"
-				>
-					<Sparkles class="text-muted-foreground h-8 w-8 sm:h-10 sm:w-10" />
-				</div>
-				<h3 class="text-foreground mb-2 text-lg font-semibold sm:text-xl">
-					No predictions available
-				</h3>
-				<p class="text-muted-foreground mx-auto mb-6 max-w-md px-4 text-sm">
-					We need more data to generate accurate predictions. Keep tracking your finances and we'll
-					start providing forecasts soon.
-				</p>
-			</div>
+			<EmptyState
+				icon={Sparkles}
+				iconVariant="circle"
+				heading="No predictions available"
+				body="We need more data to generate accurate predictions. Keep tracking your finances and we'll start providing forecasts soon."
+				bodyClass="text-muted-foreground mx-auto max-w-md px-4"
+			/>
 		{:else}
 			<div class="space-y-3 sm:space-y-4">
 				{#each predictions as prediction (prediction.id)}

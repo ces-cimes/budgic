@@ -12,6 +12,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Alert from '$lib/components/ui/alert';
@@ -218,10 +219,14 @@
 							<RefreshCw class="text-muted-foreground h-6 w-6 animate-spin" />
 						</div>
 					{:else if patterns.length === 0}
-						<div class="text-muted-foreground py-8 text-center">
-							<p>No recurring patterns detected yet.</p>
-							<p class="mt-2 text-sm">Add more transactions to enable pattern detection.</p>
-						</div>
+						<EmptyState
+							body="No recurring patterns detected yet."
+							class="text-muted-foreground py-8"
+						>
+							{#snippet children()}
+								<p class="text-sm">Add more transactions to enable pattern detection.</p>
+							{/snippet}
+						</EmptyState>
 					{:else}
 						<div
 							class="mb-4 flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center"
@@ -367,12 +372,13 @@
 						return pattern && pattern.isActive;
 					})}
 					{#if activePredictions.length === 0}
-						<div class="text-muted-foreground py-8 text-center">
-							<p>No predictions available.</p>
-							<p class="mt-2 text-sm">
-								Active patterns need at least 3 occurrences to generate predictions.
-							</p>
-						</div>
+						<EmptyState body="No predictions available." class="text-muted-foreground py-8">
+							{#snippet children()}
+								<p class="text-sm">
+									Active patterns need at least 3 occurrences to generate predictions.
+								</p>
+							{/snippet}
+						</EmptyState>
 					{:else}
 						<div class="space-y-3 sm:space-y-4">
 							{#each activePredictions as [patternId, prediction] (patternId)}
@@ -446,11 +452,16 @@
 				<!-- Conflicts Tab -->
 				<Tabs.Content value="conflicts" class="mt-4">
 					{#if conflicts.length === 0}
-						<div class="text-muted-foreground py-8 text-center">
-							<CheckCircle2 class="mx-auto mb-2 h-12 w-12 text-green-500" />
-							<p>No conflicts detected.</p>
-							<p class="mt-2 text-sm">All recurring patterns are consistent.</p>
-						</div>
+						<EmptyState
+							icon={CheckCircle2}
+							body="No conflicts detected."
+							iconClass="mx-auto mb-2 h-12 w-12 text-green-500"
+							class="text-muted-foreground py-8"
+						>
+							{#snippet children()}
+								<p class="text-sm">All recurring patterns are consistent.</p>
+							{/snippet}
+						</EmptyState>
 					{:else}
 						<div class="space-y-3 sm:space-y-4">
 							{#each conflicts as conflict (conflict.id)}

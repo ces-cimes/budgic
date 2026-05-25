@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import * as Button from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import {
 		CheckCircle,
@@ -329,17 +330,18 @@
 		</div>
 	{:else}
 		<!-- Empty State -->
-		<div class="squircle-4xl squircle-border bg-card p-12 text-center">
-			<p class="text-muted-foreground text-sm">No completed goals yet.</p>
-			<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-				Finish your first goal to see it here.
-			</p>
-			<a
-				href="/plan?tab=goals"
-				class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline"
-			>
-				View goals
-			</a>
-		</div>
+		<EmptyState variant="card" body="No completed goals yet." class="p-12">
+			{#snippet children()}
+				<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+					Finish your first goal to see it here.
+				</p>
+				<a
+					href="/plan?tab=goals"
+					class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline"
+				>
+					View goals
+				</a>
+			{/snippet}
+		</EmptyState>
 	{/if}
 </div>

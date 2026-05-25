@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import * as Button from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Progress } from '$lib/components/ui/progress/index.ts';
 	import {
@@ -376,15 +377,21 @@
 					{/if}
 				</div>
 			{:else}
-				<div class="py-8 text-center">
-					<Target class="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-					<h3 class="text-primary mb-2 text-lg font-semibold">No Active Goals</h3>
-					<p class="text-muted-foreground mb-4">Start by creating your first financial goal</p>
-					<Button.Root onclick={() => goto('/plan?tab=goals')}>
-						<Plus class="mr-2 h-4 w-4" />
-						Create Goal
-					</Button.Root>
-				</div>
+				<EmptyState
+					icon={Target}
+					heading="No Active Goals"
+					body="Start by creating your first financial goal"
+					bodyClass="text-muted-foreground mb-4"
+					class="py-8"
+					iconClass="mx-auto mb-4 h-12 w-12 text-muted-foreground"
+				>
+					{#snippet children()}
+						<Button.Root onclick={() => goto('/plan?tab=goals')}>
+							<Plus class="mr-2 h-4 w-4" />
+							Create Goal
+						</Button.Root>
+					{/snippet}
+				</EmptyState>
 			{/if}
 		</Card.Content>
 	</Card.Root>

@@ -6,6 +6,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Select from '$lib/components/ui/select';
 	import { Button } from '$lib/components/ui/button';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Alert from '$lib/components/ui/alert';
@@ -231,13 +232,18 @@
 				<Alert.Description>{error}</Alert.Description>
 			</Alert.Root>
 		{:else if dependencies.length === 0}
-			<div class="py-8 text-center">
-				<GitBranch class="text-muted-foreground mx-auto mb-2 h-12 w-12" />
-				<p class="text-muted-foreground text-sm">No dependencies configured</p>
-				<p class="text-muted-foreground mt-1 text-xs">
-					Add dependencies to control transaction scheduling
-				</p>
-			</div>
+			<EmptyState
+				icon={GitBranch}
+				body="No dependencies configured"
+				iconClass="mx-auto mb-2 h-12 w-12 text-muted-foreground"
+				class="py-8"
+			>
+				{#snippet children()}
+					<p class="text-muted-foreground mt-1 text-xs">
+						Add dependencies to control transaction scheduling
+					</p>
+				{/snippet}
+			</EmptyState>
 		{:else}
 			<div class="space-y-2">
 				{#each dependencies as dependency}
@@ -341,9 +347,10 @@
 			<!-- Transaction List -->
 			<div class="max-h-96 space-y-2 overflow-y-auto">
 				{#if filteredTransactions.length === 0}
-					<div class="text-muted-foreground py-8 text-center text-sm">
-						{searchQuery ? 'No matches.' : 'Nothing here yet.'}
-					</div>
+					<EmptyState
+						body={searchQuery ? 'No matches.' : 'Nothing here yet.'}
+						class="text-muted-foreground py-8"
+					/>
 				{:else}
 					{#each filteredTransactions as transaction}
 						<button

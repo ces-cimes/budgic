@@ -10,6 +10,7 @@
 		goalService
 	} from '$lib/core/services';
 	import * as Button from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
 	import { PageLayout } from '$lib/components/layouts';
@@ -474,16 +475,17 @@
 						{/each}
 					</div>
 				{:else if recentTransactions.length === 0}
-					<div class="squircle-4xl squircle-border bg-card px-4 py-10 text-center">
-						<p class="text-muted-foreground text-sm">Nothing yet.</p>
-						<button
-							type="button"
-							class="text-amber mt-1 text-sm hover:underline"
-							onclick={() => openTypePicker()}
-						>
-							Add your first transaction
-						</button>
-					</div>
+					<EmptyState variant="card" body="Nothing yet." class="px-4 py-10">
+						{#snippet children()}
+							<button
+								type="button"
+								class="text-amber mt-1 text-sm hover:underline"
+								onclick={() => openTypePicker()}
+							>
+								Add your first transaction
+							</button>
+						{/snippet}
+					</EmptyState>
 				{:else}
 					<div class="squircle-4xl squircle-border bg-card overflow-hidden">
 						{#each groupedTransactions() as [dateLabel, txGroup], gi}

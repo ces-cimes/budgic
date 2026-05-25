@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.ts';
 	import { Progress } from '$lib/components/ui/progress/index.ts';
@@ -283,13 +284,15 @@
 		</div>
 	{:else if budgetCategories.length === 0}
 		<!-- No Budget Categories -->
-		<Card class="border-border">
-			<CardContent class="py-8 text-center">
-				<DollarSign size={48} class="text-muted-foreground mx-auto mb-4" />
-				<h3 class="mb-2 text-lg font-semibold">No Budget Categories</h3>
-				<p class="text-muted-foreground mb-4">
-					Create budget categories to start tracking your spending
-				</p>
+		<EmptyState
+			variant="card"
+			icon={DollarSign}
+			iconClass="size-12 text-muted-foreground mx-auto"
+			heading="No Budget Categories"
+			body="Create budget categories to start tracking your spending"
+			bodyClass="text-muted-foreground mb-4"
+		>
+			{#snippet children()}
 				<Button
 					onclick={() =>
 						document
@@ -299,8 +302,8 @@
 					<Plus class="mr-2" size={14} />
 					Create Category
 				</Button>
-			</CardContent>
-		</Card>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		<!-- Budget Summary -->
 		<Card class="border-border">

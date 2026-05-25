@@ -15,6 +15,7 @@
 		CardHeader,
 		CardTitle
 	} from '$lib/components/ui/card/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge';
 	import {
 		AlertTriangle,
@@ -249,9 +250,7 @@
 	{:else if projections.length === 0}
 		<Card>
 			<CardContent class="p-6">
-				<div class="text-muted-foreground py-8 text-center">
-					No accounts available for projection
-				</div>
+				<EmptyState body="No accounts available for projection" class="py-8" />
 			</CardContent>
 		</Card>
 	{:else}

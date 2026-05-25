@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import * as Button from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Progress } from '$lib/components/ui/progress/index.ts';
 	import {
@@ -495,17 +496,18 @@
 		</div>
 	{:else}
 		<!-- Empty State -->
-		<div class="squircle-4xl squircle-border bg-card py-10 text-center">
-			<p class="text-muted-foreground text-sm">No active goals.</p>
-			<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-				Set a goal to start tracking progress.
-			</p>
-			<a
-				href="/plan?tab=goals"
-				class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline"
-			>
-				Add a goal
-			</a>
-		</div>
+		<EmptyState variant="card" body="No active goals.">
+			{#snippet children()}
+				<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+					Set a goal to start tracking progress.
+				</p>
+				<a
+					href="/plan?tab=goals"
+					class="mt-4 inline-block text-sm text-[var(--color-amber)] hover:underline"
+				>
+					Add a goal
+				</a>
+			{/snippet}
+		</EmptyState>
 	{/if}
 </div>

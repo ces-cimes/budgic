@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { InsightListProps } from '../types.js';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Bell } from '@lucide/svelte';
 	import InsightAlert from './InsightAlert.svelte';
 
@@ -22,11 +23,15 @@
 
 <div class={className}>
 	{#if insights.length === 0}
-		<div class="py-8 text-center">
-			<Bell class="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-			<h4 class="text-primary mb-2 text-lg font-semibold">No alerts</h4>
-			<p class="text-muted-foreground">You're all caught up!</p>
-		</div>
+		<EmptyState
+			icon={Bell}
+			heading="No alerts"
+			body="You're all caught up!"
+			bodyClass="text-muted-foreground"
+			headingClass="text-primary text-lg font-semibold"
+			iconClass="mx-auto mb-4 h-12 w-12 text-muted-foreground"
+			class="py-8"
+		/>
 	{:else}
 		<div class="space-y-3">
 			{#each displayInsights as insight (insight.id)}

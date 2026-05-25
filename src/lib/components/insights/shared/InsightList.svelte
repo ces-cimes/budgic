@@ -1,5 +1,7 @@
 <script lang="ts">
 	import InsightCard from './InsightCard.svelte';
+	import { Lightbulb } from '@lucide/svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import type { InsightListProps, UnifiedInsight } from '../types';
 
 	interface Props {
@@ -58,27 +60,14 @@
 
 <div class="insight-list {className}">
 	{#if displayedInsights().length === 0}
-		<div class="py-8 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-				<svg
-					class="text-muted-foreground h-8 w-8"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-					/>
-				</svg>
-			</div>
-			<h3 class="text-foreground mb-2 text-lg font-medium">No insights yet</h3>
-			<p class="text-muted-foreground text-sm">
-				Insights will appear here as we analyze your financial patterns.
-			</p>
-		</div>
+		<EmptyState
+			icon={Lightbulb}
+			iconVariant="circle"
+			heading="No insights yet"
+			body="Insights will appear here as we analyze your financial patterns."
+			class="py-8"
+			headingClass="text-lg font-medium"
+		/>
 	{:else}
 		<div class="space-y-3">
 			{#each displayedInsights() as insight (insight.id)}

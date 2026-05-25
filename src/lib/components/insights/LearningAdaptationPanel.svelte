@@ -14,6 +14,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import {
 		Brain,
 		TrendingUp,
@@ -251,10 +252,12 @@
 				{#if showPatterns}
 					<Card.Content>
 						{#if patterns.length === 0}
-							<div class="text-muted-foreground py-8 text-center">
-								<Info class="mx-auto mb-2 h-8 w-8 opacity-50" />
-								<p class="text-sm">No patterns detected yet. More data needed.</p>
-							</div>
+							<EmptyState
+								icon={Info}
+								body="No patterns detected yet. More data needed."
+								iconClass="opacity-50"
+								class="text-muted-foreground py-8"
+							/>
 						{:else}
 							<div class="space-y-3">
 								{#each patterns as pattern}
@@ -546,19 +549,21 @@
 
 			<!-- Empty State -->
 			{#if patterns.length === 0 && allowanceSuggestions.length === 0 && bufferSuggestions.length === 0 && flexibilityResults.length === 0 && dataQualityIssues.length === 0}
-				<Card.Root>
-					<Card.Content class="p-12 text-center">
-						<Brain class="text-muted-foreground mx-auto mb-4 h-16 w-16 opacity-50" />
-						<h3 class="mb-2 text-lg font-semibold">No Learning Data Yet</h3>
-						<p class="text-muted-foreground mb-4">
-							The system needs more transaction history to detect patterns and learn your
-							preferences.
-						</p>
+				<EmptyState
+					icon={Brain}
+					iconVariant="circle"
+					heading="No Learning Data Yet"
+					body="The system needs more transaction history to detect patterns and learn your preferences."
+					iconClass="opacity-50"
+					bodyClass="text-muted-foreground mb-4"
+					class="p-12"
+				>
+					{#snippet children()}
 						<p class="text-muted-foreground text-sm">
 							Check back after you've added more transactions and used the optimization features.
 						</p>
-					</Card.Content>
-				</Card.Root>
+					{/snippet}
+				</EmptyState>
 			{/if}
 		</div>
 	{/if}

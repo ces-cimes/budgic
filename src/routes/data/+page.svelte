@@ -4,6 +4,7 @@
 	import { userService, transactionService, accountService } from '$lib/core/services';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.ts';
 	import { db } from '$lib/core/db';
@@ -1548,9 +1549,11 @@
 					{#if reviewLoading}
 						<p class="text-sm text-[var(--color-text-tertiary)]">Loading…</p>
 					{:else if splitReviewGroups.length === 0 && reviewQueue.length === 0}
-						<p class="text-sm text-[var(--color-text-tertiary)]">
-							No transactions need import review.
-						</p>
+						<EmptyState
+							body="No transactions need import review."
+							bodyClass="text-sm text-[var(--color-text-tertiary)]"
+							class="py-0"
+						/>
 					{:else}
 						{#if splitReviewGroups.length > 0}
 							<section class="space-y-3">
@@ -1631,7 +1634,11 @@
 			{:else if dataTab === 'corrections'}
 				<div class="max-h-[70vh] space-y-2 overflow-y-auto">
 					{#if correctionsLog.length === 0}
-						<p class="text-sm text-[var(--color-text-tertiary)]">No corrections recorded yet.</p>
+						<EmptyState
+							body="No corrections recorded yet."
+							bodyClass="text-sm text-[var(--color-text-tertiary)]"
+							class="py-0"
+						/>
 					{:else}
 						{#each correctionsLog as row (row.id)}
 							<div

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.ts';
 	import {
@@ -166,19 +167,21 @@
 
 	<!-- Empty State -->
 	{#if insights.length === 0}
-		<Card class="border-border">
-			<CardContent class="flex flex-col items-center justify-center py-12 text-center">
-				<Lightbulb class="text-muted-foreground mb-4" size={48} />
-				<h3 class="mb-2 text-lg font-semibold">No Insights Available</h3>
-				<p class="text-muted-foreground mb-4 text-sm">
-					Add some planned transactions to get personalized insights and recommendations
-				</p>
+		<EmptyState
+			variant="card"
+			icon={Lightbulb}
+			iconClass="size-12 text-muted-foreground"
+			heading="No Insights Available"
+			body="Add some planned transactions to get personalized insights and recommendations"
+			bodyClass="text-muted-foreground mb-4"
+		>
+			{#snippet children()}
 				<Button onclick={onRefresh} variant="outline">
 					<RefreshCw class="mr-2" size={16} />
 					Refresh Insights
 				</Button>
-			</CardContent>
-		</Card>
+			{/snippet}
+		</EmptyState>
 	{/if}
 
 	<!-- Summary Stats -->

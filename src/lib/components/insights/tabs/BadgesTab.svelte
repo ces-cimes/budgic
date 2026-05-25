@@ -6,7 +6,9 @@
 	import * as Select from '$lib/components/ui/select/index.ts';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.ts';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Label } from '$lib/components/ui/label/index.ts';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { BadgesTabProps, BadgeInsight } from '../types';
 
 	interface Props {
@@ -74,16 +76,17 @@
 		{#if isLoading || localLoading}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
 				{#each Array(6) as _}
-					<div class="h-24 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-24 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 				{/each}
 			</div>
 		{:else if badges.length === 0}
-			<div class="squircle-4xl squircle-border bg-card py-10 text-center">
-				<p class="text-muted-foreground text-sm">No achievements yet.</p>
-				<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-					Complete goals and track spending to unlock badges.
-				</p>
-			</div>
+			<EmptyState variant="card" body="No achievements yet.">
+				{#snippet children()}
+					<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+						Complete goals and track spending to unlock badges.
+					</p>
+				{/snippet}
+			</EmptyState>
 		{:else}
 			<div class="space-y-3 sm:space-y-4">
 				<!-- Summary Stats -->
@@ -187,10 +190,7 @@
 				</div>
 
 				{#if filteredBadges.length === 0}
-					<div class="flex flex-col items-center py-12 text-center">
-						<Filter class="mb-4 size-8 text-[var(--color-text-disabled)]" />
-						<p class="text-sm text-[var(--color-text-secondary)]">No badges match your filters.</p>
-					</div>
+					<EmptyState icon={Filter} body="No badges match your filters." />
 				{/if}
 			</div>
 		{/if}

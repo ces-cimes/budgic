@@ -253,6 +253,7 @@
 							{timeRange}
 							{insights}
 							{userCurrency}
+							{isLoading}
 							onExportReport={handleExportReport}
 							onSetReminder={handleSetReminder}
 						/>
@@ -264,11 +265,12 @@
 							onTimeRangeChange={(range) => (timeRange = range as typeof timeRange)}
 							{analytics}
 							{userCurrency}
+							{isLoading}
 						/>
 					</TabContent>
 
 					<TabContent tabId="categories" isActive={activeTab === 'categories'} tabs={reportTabs}>
-						<CategoriesTab {categoryData} {userCurrency} {timeRange} />
+						<CategoriesTab {categoryData} {userCurrency} {timeRange} {isLoading} />
 					</TabContent>
 
 					<TabContent tabId="compare" isActive={activeTab === 'compare'} tabs={reportTabs}>
@@ -280,6 +282,7 @@
 							{currentPeriodData}
 							{previousPeriodData}
 							{userCurrency}
+							{isLoading}
 						/>
 					</TabContent>
 
@@ -290,6 +293,7 @@
 							onDownloadReport={handleDownloadReport}
 							settings={reportSettings}
 							onUpdateSettings={handleUpdateSettings}
+							{isLoading}
 						/>
 					</TabContent>
 				{/snippet}

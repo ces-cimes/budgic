@@ -6,6 +6,7 @@
 		FeatureUsage
 	} from '$lib/core/services/analytics/app-usage-analytics-service';
 	import { Activity, Clock, Calendar, TrendingUp, Smartphone } from '@lucide/svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	interface Props {
 		days?: number;
@@ -92,15 +93,13 @@
 			</button>
 		</div>
 	{:else if !metrics}
-		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-				<Smartphone class="text-muted-foreground h-8 w-8" />
-			</div>
-			<h3 class="text-foreground mb-2 text-lg font-semibold">No Usage Data</h3>
-			<p class="text-muted-foreground mx-auto max-w-md">
-				Start using the app to see your usage analytics.
-			</p>
-		</div>
+		<EmptyState
+			icon={Smartphone}
+			iconVariant="circle"
+			heading="No Usage Data"
+			body="Start using the app to see your usage analytics."
+			bodyClass="text-muted-foreground mx-auto max-w-md"
+		/>
 	{:else if compactWhenEmpty && metrics.totalSessions === 0 && metrics.mostActiveDay === 'Unknown'}
 		<p class="text-muted-foreground py-1 text-sm">
 			App usage insights will appear here once you use the app more.

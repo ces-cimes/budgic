@@ -125,6 +125,7 @@ export interface OverviewTabProps {
 	timeRange: string;
 	insights: Insight[];
 	userCurrency: string;
+	isLoading?: boolean;
 	onExportReport?: () => void;
 	onSetReminder?: () => void;
 }
@@ -134,12 +135,14 @@ export interface TrendsTabProps {
 	onTimeRangeChange: (range: string) => void;
 	analytics: AnalyticsData | null;
 	userCurrency: string;
+	isLoading?: boolean;
 }
 
 export interface CategoriesTabProps {
 	categoryData: CategoryData[];
 	userCurrency: string;
 	timeRange: string;
+	isLoading?: boolean;
 }
 
 export interface CompareTabProps {
@@ -148,6 +151,7 @@ export interface CompareTabProps {
 	currentPeriodData: PeriodData;
 	previousPeriodData: PeriodData;
 	userCurrency: string;
+	isLoading?: boolean;
 }
 
 export interface ReportsTabProps {
@@ -156,4 +160,5 @@ export interface ReportsTabProps {
 	onDownloadReport: (reportId: string) => void;
 	settings: ReportSettings;
 	onUpdateSettings: (settings: Partial<ReportSettings>) => void;
+	isLoading?: boolean;
 }

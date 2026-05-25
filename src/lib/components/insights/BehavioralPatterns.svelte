@@ -3,6 +3,7 @@
 	import { behavioralAnalysisService } from '$lib/core/services';
 	import type { BehaviorPattern } from '$lib/core/services/analytics/behavioral-analysis-service';
 	import { TrendingUp, Calendar, Clock, BarChart3 } from '@lucide/svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	interface Props {
 		days?: number;
@@ -114,16 +115,13 @@
 			</button>
 		</div>
 	{:else if patterns.length === 0}
-		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-				<BarChart3 class="text-muted-foreground h-8 w-8" />
-			</div>
-			<h3 class="text-foreground mb-2 text-lg font-semibold">No Patterns Detected</h3>
-			<p class="text-muted-foreground mx-auto max-w-md">
-				We need more data to identify behavioral patterns. Keep using the app and we'll start
-				detecting patterns soon.
-			</p>
-		</div>
+		<EmptyState
+			icon={BarChart3}
+			iconVariant="circle"
+			heading="No Patterns Detected"
+			body="We need more data to identify behavioral patterns. Keep using the app and we'll start detecting patterns soon."
+			bodyClass="text-muted-foreground mx-auto max-w-md"
+		/>
 	{:else}
 		<div class="space-y-4">
 			{#each patterns as pattern (pattern.id)}

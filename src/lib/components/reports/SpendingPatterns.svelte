@@ -3,6 +3,7 @@
 	import { insightsService } from '$lib/core/services';
 	import { formatCurrencyAmount } from '$lib/utils/currency-utils';
 	import { TrendingUp, TrendingDown, Minus, Clock, Calendar, AlertTriangle } from '@lucide/svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	interface Props {
 		days?: number;
@@ -95,15 +96,13 @@
 			</button>
 		</div>
 	{:else if !spendingPatterns}
-		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-				<Calendar class="text-muted-foreground h-8 w-8" />
-			</div>
-			<h3 class="text-foreground mb-2 text-lg font-semibold">No Spending Patterns</h3>
-			<p class="text-muted-foreground mx-auto max-w-md">
-				We need more transaction data to analyze your spending patterns.
-			</p>
-		</div>
+		<EmptyState
+			icon={Calendar}
+			iconVariant="circle"
+			heading="No Spending Patterns"
+			body="We need more transaction data to analyze your spending patterns."
+			bodyClass="text-muted-foreground mx-auto max-w-md"
+		/>
 	{:else}
 		<div class="space-y-6">
 			<!-- Category Patterns -->

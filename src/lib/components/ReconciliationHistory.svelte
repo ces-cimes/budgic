@@ -23,6 +23,7 @@
 		Eye
 	} from '@lucide/svelte';
 	import { CurrencyUtils } from '$lib/core/db';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { onMount } from 'svelte';
 
 	// Props interface
@@ -411,16 +412,23 @@
 
 		{#if filteredSummaries.length === 0}
 			<Card>
-				<CardContent class="py-8 pt-6 text-center">
-					<TrendingUp class="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-					<p class="text-muted-foreground text-sm">Nothing here yet.</p>
-					<p class="text-muted-foreground">
-						{#if searchTerm || selectedAccountFilter !== 'all' || selectedHealthFilter !== 'all' || showOnlyWithDiscrepancies}
-							Try adjusting your filters to see more results.
-						{:else}
-							Create some accounts to start reconciling balances.
-						{/if}
-					</p>
+				<CardContent class="pt-6">
+					<EmptyState
+						icon={TrendingUp}
+						body="Nothing here yet."
+						iconClass="mx-auto mb-4 h-12 w-12 text-muted-foreground"
+						class="py-8"
+					>
+						{#snippet children()}
+							<p class="text-muted-foreground">
+								{#if searchTerm || selectedAccountFilter !== 'all' || selectedHealthFilter !== 'all' || showOnlyWithDiscrepancies}
+									Try adjusting your filters to see more results.
+								{:else}
+									Create some accounts to start reconciling balances.
+								{/if}
+							</p>
+						{/snippet}
+					</EmptyState>
 				</CardContent>
 			</Card>
 		{/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Badge } from '$lib/components/ui/badge/index.ts';
 	import { Card, CardContent, CardHeader, CardTitle } from '$lib/components/ui/card/index.ts';
 	import { Progress } from '$lib/components/ui/progress/index.ts';
@@ -283,20 +284,21 @@
 
 		<!-- Empty State -->
 		{#if goals.length === 0}
-			<div class="squircle-4xl squircle-border bg-card py-10 text-center">
-				<p class="text-muted-foreground text-sm">No goals yet.</p>
-				<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-					Set a goal to start tracking progress.
-				</p>
-				<Button
-					onclick={onSetGoal}
-					variant="ghost"
-					size="sm"
-					class="mt-4 text-[var(--color-amber)] hover:underline"
-				>
-					Add a goal
-				</Button>
-			</div>
+			<EmptyState variant="card" body="No goals yet.">
+				{#snippet children()}
+					<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+						Set a goal to start tracking progress.
+					</p>
+					<Button
+						onclick={onSetGoal}
+						variant="ghost"
+						size="sm"
+						class="mt-4 text-[var(--color-amber)] hover:underline"
+					>
+						Add a goal
+					</Button>
+				{/snippet}
+			</EmptyState>
 		{/if}
 	{/if}
 </div>

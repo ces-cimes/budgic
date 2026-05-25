@@ -5,6 +5,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.ts';
 	import * as Card from '$lib/components/ui/card/index.ts';
 	import {
@@ -614,12 +615,13 @@
 								</p>
 							</div>
 						{:else}
-							<div class="flex flex-col items-center py-12 text-center">
-								<p class="text-sm text-[var(--color-text-secondary)]">No allowance data yet.</p>
-								<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-									Add accounts and budget categories to see your safe-to-spend.
-								</p>
-							</div>
+							<EmptyState body="No allowance data yet.">
+								{#snippet children()}
+									<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
+										Add accounts and budget categories to see your safe-to-spend.
+									</p>
+								{/snippet}
+							</EmptyState>
 						{/if}
 						<Button
 							variant="ghost"

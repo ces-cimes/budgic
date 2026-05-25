@@ -5,6 +5,7 @@
 	 * Spending primary; app usage secondary and de-emphasized.
 	 */
 	import { onMount } from 'svelte';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import {
 		insightsService,
 		recurringTransactionIntelligenceService,
@@ -28,6 +29,7 @@
 	import { ChevronRight } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Progress } from '$lib/components/ui/progress';
+	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { tierChipDefs, tierActiveClasses } from '$lib/insights/recurring-tier-presets';
 	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
 
@@ -627,10 +629,10 @@
 	<div class="space-y-6 py-2 sm:py-4">
 		{#if parentLoading || loading}
 			<div class="space-y-4">
-				<div class="h-20 animate-pulse rounded-xl bg-[var(--color-bg-tertiary)]"></div>
+				<Skeleton class="h-20 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
 				<div class="grid grid-cols-2 gap-2">
 					{#each Array(4) as _}
-						<div class="h-16 animate-pulse rounded-lg bg-[var(--color-bg-tertiary)]"></div>
+						<Skeleton class="h-16 w-full rounded-lg bg-[var(--color-bg-tertiary)]" />
 					{/each}
 				</div>
 			</div>
@@ -752,9 +754,9 @@
 					Recurring
 				</h2>
 				{#if loadingPatterns && recurringList.length === 0}
-					<div class="h-10 animate-pulse rounded-lg bg-[var(--color-bg-tertiary)]"></div>
+					<Skeleton class="h-10 w-full rounded-lg bg-[var(--color-bg-tertiary)]" />
 				{:else if recurringList.length === 0}
-					<p class="text-muted-foreground text-sm">No recurring transactions detected yet.</p>
+					<EmptyState body="No recurring transactions detected yet." class="py-0" />
 				{:else}
 					<ul class="space-y-2">
 						{#each recurringList as item}

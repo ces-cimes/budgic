@@ -4,6 +4,7 @@
 	import { accountService, userService } from '$lib/core/services';
 	import { goto } from '$app/navigation';
 	import { Button } from '$lib/components/ui/button/index.ts';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Separator } from '$lib/components/ui/separator/index.ts';
 	import { formatAmount, formatCurrencyAmount } from '$lib/utils/currency-utils';
 	import { useCurrencyFormatting } from '$lib/hooks/use-currency-formatting';
@@ -332,18 +333,18 @@
 			{/each}
 
 			{#if accounts.length === 0}
-				<div class="flex flex-col items-center py-16 text-center">
-					<Wallet class="mb-4 size-8 text-[var(--color-text-disabled)]" />
-					<p class="text-sm text-[var(--color-text-secondary)]">No accounts added.</p>
-					<Button
-						variant="ghost"
-						size="sm"
-						class="mt-3 text-[var(--color-amber)]"
-						onclick={() => goto('/accounts/add')}
-					>
-						Add account
-					</Button>
-				</div>
+				<EmptyState icon={Wallet} body="No accounts added." class="py-16">
+					{#snippet children()}
+						<Button
+							variant="ghost"
+							size="sm"
+							class="text-[var(--color-amber)]"
+							onclick={() => goto('/accounts/add')}
+						>
+							Add account
+						</Button>
+					{/snippet}
+				</EmptyState>
 			{/if}
 		</section>
 
