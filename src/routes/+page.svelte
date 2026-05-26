@@ -17,6 +17,7 @@
 	import { PageLayout } from '$lib/components/layouts';
 	import { Shield } from '@lucide/svelte';
 	import AllowanceSummary from '$lib/components/AllowanceSummary.svelte';
+	import RecoveryModePrompt from '$lib/components/RecoveryModePrompt.svelte';
 	import CountUpHero from '$lib/components/CountUpHero.svelte';
 	import FirstRunChecklist from '$lib/components/FirstRunChecklist.svelte';
 	import PostChecklistSuggestions from '$lib/components/PostChecklistSuggestions.svelte';
@@ -26,8 +27,10 @@
 		planService,
 		budgetService,
 		userService as userServiceImport,
-		negativeAllowanceService
+		negativeAllowanceService,
+		classifyFinancialState
 	} from '$lib/core/services';
+	import type { FinancialStateResult } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
@@ -73,6 +76,10 @@
 	let unclassifiedTransactionCount = $state(0);
 	let postChecklistSuggestions = $state<ReturnType<typeof getEligiblePostChecklistSuggestions>>([]);
 	let accruedNetWorthDelta = $state(0);
+	let financialState = $state<FinancialStateResult | null>(null);
+	let recoveryModeActive = $state(false);
+	let recoveryModeDeclined = $state(false);
+	let debtRecoveryActive = $state(false);
 
 	onMount(async () => {
 		try {
@@ -82,6 +89,9 @@
 			weekStartsOn = preferences.weekStartsOn ?? 0;
 			firstRunChecklistComplete = preferences?.firstRunChecklistComplete ?? false;
 			allowanceTabReviewed = preferences?.allowanceTabReviewed ?? false;
+			recoveryModeActive = preferences?.recoveryModeActive ?? false;
+			recoveryModeDeclined = preferences?.recoveryModeDeclined ?? false;
+			debtRecoveryActive = preferences?.debtRecoveryActive ?? false;
 			userPrefs = preferences;
 
 			const [accountsData, balanceData, transactionsData, categoriesData] = await Promise.all([
@@ -171,13 +181,28 @@
 		userPrefs = updated;
 	}
 
+	async function handleRecoveryPromptAction(patch: {
+		recoveryModeActive?: boolean;
+		recoveryModeDeclined?: boolean;
+		debtRecoveryActive?: boolean;
+	}) {
+		if (Object.keys(patch).length === 0) return; // exit-dismiss: no pref change needed
+		const updated = await userServiceImport.updateUserPreferences(patch);
+		if (patch.recoveryModeActive !== undefined) recoveryModeActive = patch.recoveryModeActive;
+		if (patch.recoveryModeDeclined !== undefined) recoveryModeDeclined = patch.recoveryModeDeclined;
+		if (patch.debtRecoveryActive !== undefined) debtRecoveryActive = patch.debtRecoveryActive;
+		userPrefs = updated;
+	}
+
 	async function loadGlobalAllowance() {
 		isLoadingAllowance = true;
 		try {
-			const [enhancedAllowance, budgetSummary] = await Promise.all([
+			const [enhancedAllowance, budgetSummary, classifierResult] = await Promise.all([
 				planService.getEnhancedAllowance(),
-				budgetService.getBudgetSummary()
+				budgetService.getBudgetSummary(),
+				classifyFinancialState()
 			]);
+			financialState = classifierResult;
 			globalAllowance = enhancedAllowance;
 			allowanceConfidence = budgetSummary?.confidence ?? null;
 			unclassifiedTransactionCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
@@ -392,6 +417,17 @@
 				/>
 			{/if}
 
+			<!-- ── Recovery mode prompt ── -->
+			{#if financialState}
+				<RecoveryModePrompt
+					{financialState}
+					{recoveryModeActive}
+					{recoveryModeDeclined}
+					{debtRecoveryActive}
+					onAction={handleRecoveryPromptAction}
+				/>
+			{/if}
+
 			<!-- ── Allowance (tap → /plan?tab=allowance) ── -->
 			<section class="animate-card-enter" style="animation-delay: 60ms">
 				<a
@@ -405,6 +441,7 @@
 						{recoverySuggestions}
 						confidence={allowanceConfidence}
 						tierRows={allowanceTierRows}
+						{recoveryModeActive}
 					/>
 				</a>
 			</section>

@@ -1494,7 +1494,12 @@ const UserPreferencesSchema = BaseSchema.extend({
 
 	/** Phase 9.7 — resume review session (transaction ids + cursor) */
 	reviewSessionQueueIds: z.array(z.string()).optional(),
-	reviewSessionIndex: z.number().int().min(0).optional()
+	reviewSessionIndex: z.number().int().min(0).optional(),
+
+	/** Milestone F — recovery-focused presentation mode (home horizon slot, plan recovery section) */
+	recoveryModeActive: z.boolean().default(false),
+	/** Milestone F — user dismissed the auto-prompt; do not show again until signals clear + re-detect */
+	recoveryModeDeclined: z.boolean().default(false)
 });
 
 // User Actions Schema
@@ -3074,6 +3079,22 @@ export class BudgicDB extends Dexie {
 					}
 				}
 			});
+
+		// Version 34: add recoveryModeActive + recoveryModeDeclined to userPreferences
+		// No index changes — upgrade only patches rows so Zod validation sees explicit booleans.
+		this.version(34).upgrade(async (tx) => {
+			const prefs = await tx.table('userPreferences').toArray();
+			const now = new Date().toISOString();
+			for (const row of prefs) {
+				const patch: Record<string, unknown> = {};
+				if (row.recoveryModeActive == null) patch.recoveryModeActive = false;
+				if (row.recoveryModeDeclined == null) patch.recoveryModeDeclined = false;
+				if (Object.keys(patch).length > 0) {
+					patch.updatedAt = now;
+					await tx.table('userPreferences').update(row.id, patch);
+				}
+			}
+		});
 
 		// Add validation hooks
 		this.setupValidationHooks();

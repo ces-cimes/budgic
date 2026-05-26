@@ -58,6 +58,8 @@
 	let maxDebtPeriodDays = $state(90);
 	let recoveryAggressivenessPercent = $state(20);
 	let debtRecoveryActive = $state(false);
+	/** Milestone F — recovery-focused presentation mode */
+	let recoveryModeActive = $state(false);
 
 	onMount(async () => {
 		try {
@@ -115,6 +117,7 @@
 						? Math.round(p.recoveryAggressiveness * 100)
 						: 20;
 				debtRecoveryActive = p.debtRecoveryActive === true;
+				recoveryModeActive = p.recoveryModeActive === true;
 			}
 		} catch (e) {
 			console.error('Failed to load plan settings', e);
@@ -164,7 +167,8 @@
 				budgetAlertCriticalAtPercent: crit,
 				maxDebtPeriodDays,
 				recoveryAggressiveness: Math.min(0.5, Math.max(0.1, recoveryAggressivenessPercent / 100)),
-				debtRecoveryActive
+				debtRecoveryActive,
+				recoveryModeActive
 			});
 		} catch (e) {
 			console.error('Failed to save plan settings', e);
@@ -296,13 +300,27 @@
 						>
 							<div>
 								<p class="text-sm font-medium text-[var(--color-text-primary)]">
-									Recovery mode active
+									Apply recovery deduction to allowance projection
 								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									When on, forward allowance deducts the recovery % from available cash flow.
 								</p>
 							</div>
 							<Switch bind:checked={debtRecoveryActive} />
+						</div>
+						<div
+							class="flex items-center justify-between gap-3 rounded-xl bg-[var(--color-bg-surface)] px-4 py-3"
+						>
+							<div>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									Recovery-focused view
+								</p>
+								<p class="text-xs text-[var(--color-text-tertiary)]">
+									Shows recovery horizon and plan sections. Can be set automatically by the home
+									prompt.
+								</p>
+							</div>
+							<Switch bind:checked={recoveryModeActive} />
 						</div>
 					</div>
 				</div>

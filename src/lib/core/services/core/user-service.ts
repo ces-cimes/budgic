@@ -126,7 +126,9 @@ class UserService {
 			weekStartsOn:
 				typeof prefs.weekStartsOn === 'number' && prefs.weekStartsOn >= 0 && prefs.weekStartsOn <= 6
 					? prefs.weekStartsOn
-					: 0
+					: 0,
+			recoveryModeActive: prefs.recoveryModeActive ?? false,
+			recoveryModeDeclined: prefs.recoveryModeDeclined ?? false
 		} as UserPreferences;
 
 		if (needsGuidanceMigration(preferences)) {
@@ -180,6 +182,8 @@ class UserService {
 				maxDebtPeriodDays: 90,
 				recoveryAggressiveness: 0.2,
 				debtRecoveryActive: false,
+				recoveryModeActive: false,
+				recoveryModeDeclined: false,
 				enableAdvancedFeatures: false,
 				enablePredictiveAnalytics: true,
 				analyticsEnabled: true,
@@ -529,6 +533,8 @@ class UserService {
 			maxDebtPeriodDays: 90,
 			recoveryAggressiveness: 0.2,
 			debtRecoveryActive: false,
+			recoveryModeActive: false,
+			recoveryModeDeclined: false,
 			enableAdvancedFeatures: false,
 			enablePredictiveAnalytics: true,
 			analyticsEnabled: true,

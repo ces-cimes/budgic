@@ -194,9 +194,10 @@ function buildLifestyleLines(
  */
 export async function computeDailyAllowance(
 	periodStart?: Date,
-	periodEnd?: Date
+	periodEnd?: Date,
+	asOf?: Date
 ): Promise<DailyAllowanceView> {
-	const now = new Date();
+	const now = asOf ?? new Date();
 	const start = periodStart ?? new Date(now.getFullYear(), now.getMonth(), 1);
 	const end = periodEnd ?? new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 

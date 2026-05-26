@@ -50,8 +50,10 @@
 		negativeAllowanceService,
 		goalsService,
 		goalService,
-		recurringTransactionIntelligenceService
+		recurringTransactionIntelligenceService,
+		classifyFinancialState
 	} from '$lib/core/services';
+	import type { FinancialStateResult } from '$lib/core/services';
 	import type { EnhancedAllowance } from '$lib/core/services/core/budget-service';
 	import type {
 		NegativeAllowanceStatus,
@@ -152,6 +154,10 @@
 	let error = $state<string | null>(null);
 	/** Phase 5.3 — intentional debt prompt (one group per period) */
 	let debtPromptGroupId = $state<string | null>(null);
+	/** Milestone F — financial state classifier result */
+	let financialState = $state<FinancialStateResult | null>(null);
+	/** Milestone F — recovery-focused view mode from user preferences */
+	let recoveryModeActive = $state(false);
 	let weekDayAnnotations = $state<Record<string, string>>({});
 
 	const totalPlannedIncome = $derived(planningData?.totalPlannedIncome ?? 0);
@@ -179,6 +185,7 @@
 			guidanceTone = preferences?.guidanceTone ?? 'balanced';
 			explanationDetail = preferences?.explanationDetail ?? 'standard';
 			allowanceTabMarked = preferences?.allowanceTabReviewed ?? false;
+			recoveryModeActive = preferences?.recoveryModeActive ?? false;
 			const accounts = await planService.getAccounts();
 			const activeAccount = accounts.find((a) => a.isActive);
 			if (activeAccount) selectedAccountId = activeAccount.id;
@@ -236,8 +243,14 @@
 		});
 		isPlanDataLoading = true;
 		try {
-			enhancedAllowance = await planService.getEnhancedAllowance();
-			dailyAllowance = await planService.getDailyAllowance();
+			const [_enhancedAllowance, _dailyAllowance, classifierResult] = await Promise.all([
+				planService.getEnhancedAllowance(),
+				planService.getDailyAllowance(),
+				classifyFinancialState()
+			]);
+			enhancedAllowance = _enhancedAllowance;
+			dailyAllowance = _dailyAllowance;
+			financialState = classifierResult;
 			const budgetSummary = await budgetService.getBudgetSummary();
 			allowanceConfidence = budgetSummary?.confidence ?? null;
 			unclassifiedTransactionCount = budgetSummary?.unclassifiedTransactionCount ?? 0;

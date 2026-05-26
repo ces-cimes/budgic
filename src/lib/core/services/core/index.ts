@@ -42,6 +42,15 @@ export {
 	performanceThreshold
 } from './performance-monitor';
 export {
+	classifyFinancialState,
+	type FinancialState,
+	type FinancialStateResult,
+	RECOVERY_PACE_THRESHOLD,
+	TENSE_PACE_THRESHOLD,
+	endOfPreviousCalendarMonth,
+	startOfPreviousCalendarMonth
+} from './financial-state-classifier';
+export {
 	personService,
 	personMigrationBatchService,
 	resolveDefaultAnchorAccountId,

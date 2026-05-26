@@ -100,6 +100,8 @@ function normalizeUserPreferencesRow(row: Record<string, unknown>): Record<strin
 		}
 	}
 	delete normalized.userMaturityLevel;
+	if (normalized.recoveryModeActive == null) normalized.recoveryModeActive = false;
+	if (normalized.recoveryModeDeclined == null) normalized.recoveryModeDeclined = false;
 	return normalized;
 }
 
