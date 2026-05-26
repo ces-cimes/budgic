@@ -39,6 +39,10 @@
 	import type { Insight } from '$lib/core/db';
 	import { db } from '$lib/core/db';
 	import { tierRowsFromBudgetSummary, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
+	import {
+		computeRecoveryHorizon,
+		type RecoveryHorizonSnapshot
+	} from '$lib/core/services/core/recovery-horizon';
 	import { alertActionUrlForInsight } from '$lib/utils/alert-tiers';
 	import { notificationsService } from '$lib/core/services';
 	import { dateUtils } from '$lib/utils/date-utils';
@@ -80,6 +84,7 @@
 	let recoveryModeActive = $state(false);
 	let recoveryModeDeclined = $state(false);
 	let debtRecoveryActive = $state(false);
+	let recoveryHorizon = $state<RecoveryHorizonSnapshot | null>(null);
 
 	onMount(async () => {
 		try {
@@ -192,6 +197,25 @@
 		if (patch.recoveryModeDeclined !== undefined) recoveryModeDeclined = patch.recoveryModeDeclined;
 		if (patch.debtRecoveryActive !== undefined) debtRecoveryActive = patch.debtRecoveryActive;
 		userPrefs = updated;
+		if (patch.recoveryModeActive !== undefined) {
+			await loadRecoveryHorizon();
+		}
+	}
+
+	async function loadRecoveryHorizon() {
+		if (!recoveryModeActive) {
+			recoveryHorizon = null;
+			return;
+		}
+		try {
+			recoveryHorizon = await computeRecoveryHorizon({
+				daysRemaining: globalAllowance?.total?.daysRemaining ?? 30,
+				dailyAllowance: globalAllowance?.total?.dailySafe ?? 0
+			});
+		} catch (error) {
+			console.error('Error loading recovery horizon:', error);
+			recoveryHorizon = null;
+		}
 	}
 
 	async function loadGlobalAllowance() {
@@ -237,6 +261,7 @@
 				negativeAllowanceStatus = null;
 				recoverySuggestions = [];
 			}
+			await loadRecoveryHorizon();
 		} catch (error) {
 			console.error('Error loading global allowance:', error);
 			allowanceTierRows = [];
@@ -442,6 +467,7 @@
 						confidence={allowanceConfidence}
 						tierRows={allowanceTierRows}
 						{recoveryModeActive}
+						{recoveryHorizon}
 					/>
 				</a>
 			</section>

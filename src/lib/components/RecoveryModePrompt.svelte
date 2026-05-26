@@ -74,10 +74,7 @@
 </script>
 
 {#if showEnter}
-	<div
-		class="flex flex-col gap-3 rounded-2xl bg-[var(--color-amber)]/10 px-4 py-3"
-		role="alert"
-	>
+	<div class="flex flex-col gap-3 rounded-2xl bg-[var(--color-amber)]/10 px-4 py-3" role="alert">
 		<div class="flex items-start justify-between gap-3">
 			<p class="text-sm text-[var(--color-text-primary)]">
 				Your finances look tight right now. Switch to a recovery-focused view?
@@ -100,7 +97,9 @@
 			</div>
 		</div>
 		{#if showDeductionOptIn}
-			<label class="flex cursor-pointer items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+			<label
+				class="flex cursor-pointer items-center gap-2 text-xs text-[var(--color-text-secondary)]"
+			>
 				<Checkbox bind:checked={alsoApplyDeduction} />
 				Also apply income recovery deduction to allowance projection
 			</label>

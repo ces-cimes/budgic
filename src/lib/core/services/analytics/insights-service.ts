@@ -1174,7 +1174,9 @@ class InsightsService {
 		const prefs = await userService.getUserPreferences();
 		const minSurplus = prefs?.savingsOpportunityMinSurplus;
 		const mainCurrency = await getUserMainCurrency();
-		const allowanceContext = await getSavingsHintAllowanceContext();
+		const allowanceContext = await getSavingsHintAllowanceContext({
+			forceSuppressLifestyleHints: prefs?.recoveryModeActive === true
+		});
 
 		type Scored = { row: SavingsVariabilityCategoryRow; hint: SavingsVariabilityHintResult };
 		const scored: Scored[] = [];

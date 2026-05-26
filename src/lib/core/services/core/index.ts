@@ -51,6 +51,13 @@ export {
 	startOfPreviousCalendarMonth
 } from './financial-state-classifier';
 export {
+	computeRecoveryHorizon,
+	isRecoverySuppressedAlertType,
+	RECOVERY_SUPPRESSED_ALERT_TYPES,
+	type RecoveryHorizonSnapshot,
+	type RecoveryObligation
+} from './recovery-horizon';
+export {
 	personService,
 	personMigrationBatchService,
 	resolveDefaultAnchorAccountId,

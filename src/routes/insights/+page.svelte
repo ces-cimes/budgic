@@ -32,6 +32,7 @@
 	let insights = $state<any[]>([]);
 	let error = $state<string | null>(null);
 	let userCurrency = $state<string>('USD');
+	let recoveryModeActive = $state(false);
 	/** Bumps to force Patterns tab heavy reload (header refresh). */
 	let patternsDataNonce = $state(0);
 
@@ -43,6 +44,7 @@
 		try {
 			const prefs = await userService.getUserPreferences();
 			userCurrency = prefs?.currency ?? 'USD';
+			recoveryModeActive = prefs?.recoveryModeActive === true;
 			// Load insights data
 			await loadInsightsData();
 
@@ -190,14 +192,16 @@
 										onRecommendationApplied={handleRefresh}
 									/>
 								</section>
-								<section>
-									<h2
-										class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
-									>
-										Optimize
-									</h2>
-									<OptimizeTab />
-								</section>
+								{#if !recoveryModeActive}
+									<section>
+										<h2
+											class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+										>
+											Optimize
+										</h2>
+										<OptimizeTab suppressNonEssential={false} />
+									</section>
+								{/if}
 							</div>
 						</TabContent>
 					{/if}

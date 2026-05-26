@@ -21,6 +21,13 @@
 	import { format } from 'date-fns';
 	import type { Account } from '$lib/core/db';
 
+	interface Props {
+		/** When true, hide simulator UI (recovery-focused view). */
+		suppressNonEssential?: boolean;
+	}
+
+	const { suppressNonEssential = false }: Props = $props();
+
 	let isOptimizing = $state(false);
 	let currentResult = $state<OptimizationResult | null>(null);
 	let history = $state<OptimizationHistoryEntry[]>([]);
@@ -91,110 +98,117 @@
 </script>
 
 <div class="space-y-6 py-2 sm:py-4">
-	{#if error}
-		<Card.Root class="border-destructive">
-			<Card.Content class="p-4">
-				<div class="text-destructive flex items-center gap-2">
-					<AlertCircle class="h-5 w-5" />
-					<span>{error}</span>
-				</div>
-			</Card.Content>
-		</Card.Root>
-	{/if}
-
-	<div class="flex items-center justify-between gap-4">
+	{#if suppressNonEssential}
 		<p class="text-muted-foreground text-sm">
-			Optimize transaction timing to avoid fees and maintain better balances.
+			Optimization simulator is hidden while recovery view is active. Fee avoidance remains
+			available above.
 		</p>
-		<Button onclick={runOptimization} disabled={isOptimizing || accounts.length === 0}>
-			{#if isOptimizing}
-				<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-			{:else}
-				<Sparkles class="mr-2 h-4 w-4" />
-			{/if}
-			{isOptimizing ? 'Optimizing...' : 'Run optimization'}
-		</Button>
-	</div>
+	{:else}
+		{#if error}
+			<Card.Root class="border-destructive">
+				<Card.Content class="p-4">
+					<div class="text-destructive flex items-center gap-2">
+						<AlertCircle class="h-5 w-5" />
+						<span>{error}</span>
+					</div>
+				</Card.Content>
+			</Card.Root>
+		{/if}
 
-	{#if accounts.length > 0}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-base">Accounts to include</Card.Title>
-			</Card.Header>
-			<Card.Content>
-				<div class="flex flex-wrap gap-2">
-					{#each accounts as account}
-						<button
-							type="button"
-							class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors {selectedAccountIds.includes(
-								account.id
-							)
-								? 'border-primary bg-primary/10 text-primary'
-								: 'border-border hover:bg-accent'}"
-							onclick={() => toggleAccount(account.id)}
-						>
-							{account.name}
-							<Badge variant="outline" class="text-xs">{account.type}</Badge>
-						</button>
-					{/each}
-				</div>
-			</Card.Content>
-		</Card.Root>
-	{/if}
+		<div class="flex items-center justify-between gap-4">
+			<p class="text-muted-foreground text-sm">
+				Optimize transaction timing to avoid fees and maintain better balances.
+			</p>
+			<Button onclick={runOptimization} disabled={isOptimizing || accounts.length === 0}>
+				{#if isOptimizing}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+				{:else}
+					<Sparkles class="mr-2 h-4 w-4" />
+				{/if}
+				{isOptimizing ? 'Optimizing...' : 'Run optimization'}
+			</Button>
+		</div>
 
-	{#if currentResult}
-		<OptimizationResultVisualization
-			result={currentResult}
-			onApply={handleApplyOptimization}
-			onDismiss={() => (currentResult = null)}
-		/>
-	{/if}
+		{#if accounts.length > 0}
+			<Card.Root>
+				<Card.Header>
+					<Card.Title class="text-base">Accounts to include</Card.Title>
+				</Card.Header>
+				<Card.Content>
+					<div class="flex flex-wrap gap-2">
+						{#each accounts as account}
+							<button
+								type="button"
+								class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors {selectedAccountIds.includes(
+									account.id
+								)
+									? 'border-primary bg-primary/10 text-primary'
+									: 'border-border hover:bg-accent'}"
+								onclick={() => toggleAccount(account.id)}
+							>
+								{account.name}
+								<Badge variant="outline" class="text-xs">{account.type}</Badge>
+							</button>
+						{/each}
+					</div>
+				</Card.Content>
+			</Card.Root>
+		{/if}
 
-	{#if history.length > 0}
-		<Card.Root>
-			<Card.Header>
-				<div class="flex items-center gap-2">
-					<History class="h-5 w-5" />
-					<Card.Title class="text-base">History</Card.Title>
-				</div>
-			</Card.Header>
-			<Card.Content>
-				<div class="space-y-3">
-					{#each history as entry}
-						<div class="flex items-center justify-between rounded-lg border p-3 text-sm">
-							<div class="flex items-center gap-2">
-								<span class="text-muted-foreground">{format(entry.runAt, 'MMM d, HH:mm')}</span>
-								{#if entry.applied}
-									<Badge
-										variant="secondary"
-										class="bg-green-500/20 text-green-700 dark:text-green-400"
-									>
-										<CheckCircle2 class="mr-1 h-3 w-3" />
-										Applied
-									</Badge>
-								{:else}
-									<Badge variant="outline">Not applied</Badge>
+		{#if currentResult}
+			<OptimizationResultVisualization
+				result={currentResult}
+				onApply={handleApplyOptimization}
+				onDismiss={() => (currentResult = null)}
+			/>
+		{/if}
+
+		{#if history.length > 0}
+			<Card.Root>
+				<Card.Header>
+					<div class="flex items-center gap-2">
+						<History class="h-5 w-5" />
+						<Card.Title class="text-base">History</Card.Title>
+					</div>
+				</Card.Header>
+				<Card.Content>
+					<div class="space-y-3">
+						{#each history as entry}
+							<div class="flex items-center justify-between rounded-lg border p-3 text-sm">
+								<div class="flex items-center gap-2">
+									<span class="text-muted-foreground">{format(entry.runAt, 'MMM d, HH:mm')}</span>
+									{#if entry.applied}
+										<Badge
+											variant="secondary"
+											class="bg-green-500/20 text-green-700 dark:text-green-400"
+										>
+											<CheckCircle2 class="mr-1 h-3 w-3" />
+											Applied
+										</Badge>
+									{:else}
+										<Badge variant="outline">Not applied</Badge>
+									{/if}
+								</div>
+								{#if entry.result?.success && entry.result.improvement > 0}
+									<span class="text-success flex items-center gap-1">
+										<TrendingUp class="h-4 w-4" />
+										+{entry.result.improvement.toFixed(2)}
+									</span>
 								{/if}
 							</div>
-							{#if entry.result?.success && entry.result.improvement > 0}
-								<span class="text-success flex items-center gap-1">
-									<TrendingUp class="h-4 w-4" />
-									+{entry.result.improvement.toFixed(2)}
-								</span>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			</Card.Content>
-		</Card.Root>
-	{/if}
+						{/each}
+					</div>
+				</Card.Content>
+			</Card.Root>
+		{/if}
 
-	{#if !currentResult && history.length === 0 && !isOptimizing}
-		<div
-			class="text-muted-foreground border-border bg-card/50 rounded-xl border p-8 text-center text-sm"
-		>
-			<Sparkles class="text-muted-foreground/50 mx-auto mb-2 h-10 w-10" />
-			<p>Run optimization to get suggestions for timing your transactions and avoiding fees.</p>
-		</div>
+		{#if !currentResult && history.length === 0 && !isOptimizing}
+			<div
+				class="text-muted-foreground border-border bg-card/50 rounded-xl border p-8 text-center text-sm"
+			>
+				<Sparkles class="text-muted-foreground/50 mx-auto mb-2 h-10 w-10" />
+				<p>Run optimization to get suggestions for timing your transactions and avoiding fees.</p>
+			</div>
+		{/if}
 	{/if}
 </div>

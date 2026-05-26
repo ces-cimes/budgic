@@ -6,10 +6,13 @@
 	} from '$lib/core/services/core/negative-allowance-service';
 	import { computeTierSegmentLayout, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
+	import { dateUtils } from '$lib/utils/date-utils';
 	import { TrendingDown, Lightbulb } from '@lucide/svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import TierSegmentedAllowanceBar from '$lib/components/TierSegmentedAllowanceBar.svelte';
+	import RecoveryHorizonCard from '$lib/components/RecoveryHorizonCard.svelte';
+	import type { RecoveryHorizonSnapshot } from '$lib/core/services/core/recovery-horizon';
 
 	interface Props {
 		allowance: EnhancedAllowance | null;
@@ -30,6 +33,8 @@
 		 * Wired from `userPreferences.recoveryModeActive` in F batch; Home passes prop in F.
 		 */
 		recoveryModeActive?: boolean;
+		/** Loaded when recovery mode active; renders horizon card in bar slot. */
+		recoveryHorizon?: RecoveryHorizonSnapshot | null;
 	}
 
 	const {
@@ -39,7 +44,8 @@
 		recoverySuggestions = [],
 		confidence = null,
 		tierRows = [],
-		recoveryModeActive = false
+		recoveryModeActive = false,
+		recoveryHorizon = null
 	}: Props = $props();
 
 	const showConfidenceBand = $derived(Boolean(confidence) && confidence?.tier !== 'high');
@@ -76,6 +82,7 @@
 	const tierSegments = $derived(computeTierSegmentLayout(tierRows));
 	const anyTierOverspent = $derived(tierSegments.some((segment) => segment.isOverspent));
 	const showTierBar = $derived(tierSegments.length > 0);
+	const showRecoveryHero = $derived(recoveryModeActive && recoveryHorizon != null);
 </script>
 
 {#if isLoading}
@@ -96,36 +103,55 @@
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0 flex-1">
 				<p class="text-muted-foreground mb-1 text-xs font-medium tracking-widest uppercase">
-					Safe to spend
+					{showRecoveryHero ? 'Weekly surplus' : 'Safe to spend'}
 				</p>
-				<!-- Daily amount — hero number -->
+				<!-- Hero: weekly surplus in recovery view, daily allowance otherwise -->
 				<div
 					class="text-hero-sm {isOverBudget || isOverspent ? 'text-[var(--color-warm-coral)]' : ''}"
 				>
-					{formatAmount(allowance.total.dailySafe, allowance.total.currency)}
-					<span class="text-muted-foreground ml-1 text-xs"> / day </span>
+					{#if showRecoveryHero}
+						{formatAmount(recoveryHorizon!.weeklySurplus, recoveryHorizon!.currency)}
+						<span class="text-muted-foreground ml-1 text-xs"> / week </span>
+					{:else}
+						{formatAmount(allowance.total.dailySafe, allowance.total.currency)}
+						<span class="text-muted-foreground ml-1 text-xs"> / day </span>
+					{/if}
 				</div>
 			</div>
 
 			<!-- Remaining badge -->
 			<div class="shrink-0 text-right">
-				<p class="text-muted-foreground mb-0.5 text-xs">Remaining</p>
-				<div
-					class="text-amount text-sm font-semibold {pct >= 100
-						? 'text-[var(--color-warm-coral)]'
-						: pct >= 80
-							? 'text-[var(--color-amber)]'
-							: 'text-[var(--color-sage-green)]'}"
-				>
-					{formatAmount(allowance.total.remaining, allowance.total.currency)}
-				</div>
-				<p class="text-muted-foreground mt-0.5 text-[10px]">
-					{allowance.total.daysRemaining}d left
-				</p>
+				{#if showRecoveryHero}
+					<p class="text-muted-foreground mb-0.5 text-xs">Obligations</p>
+					<div class="text-amount text-sm font-semibold text-[var(--color-text-secondary)]">
+						{formatAmount(recoveryHorizon!.totalObligationBalance, recoveryHorizon!.currency)}
+					</div>
+					<p class="text-muted-foreground mt-0.5 text-[10px]">
+						{#if recoveryHorizon!.aggregateClearanceDate}
+							Clear {dateUtils.formatMonthYear(recoveryHorizon!.aggregateClearanceDate)}
+						{:else}
+							Clearance unknown
+						{/if}
+					</p>
+				{:else}
+					<p class="text-muted-foreground mb-0.5 text-xs">Remaining</p>
+					<div
+						class="text-amount text-sm font-semibold {pct >= 100
+							? 'text-[var(--color-warm-coral)]'
+							: pct >= 80
+								? 'text-[var(--color-amber)]'
+								: 'text-[var(--color-sage-green)]'}"
+					>
+						{formatAmount(allowance.total.remaining, allowance.total.currency)}
+					</div>
+					<p class="text-muted-foreground mt-0.5 text-[10px]">
+						{allowance.total.daysRemaining}d left
+					</p>
+				{/if}
 			</div>
 		</div>
 
-		{#if passiveAccrualNote != null}
+		{#if passiveAccrualNote != null && !showRecoveryHero}
 			<p class="text-muted-foreground text-[10px] leading-snug">
 				Safe to spend includes about
 				{formatAmount(passiveAccrualNote, allowance.total.currency)} estimated savings accrual not yet
@@ -133,13 +159,13 @@
 			</p>
 		{/if}
 
-		{#if recoveryModeActive}
-			<!-- Milestone F (CHECKLIST L602): RecoveryHorizonCard — weekly surplus, clearance date, debt-free progress bar.
-			     E batch ships this slot only; F replaces inner content. Do not delete {:else} normal branch. -->
+		{#if recoveryModeActive && recoveryHorizon}
+			<RecoveryHorizonCard horizon={recoveryHorizon} />
+		{:else if recoveryModeActive}
 			<div
 				class="text-muted-foreground border-border rounded-lg border border-dashed px-3 py-4 text-center text-xs"
 			>
-				Recovery view — horizon card ships in Milestone F
+				Loading recovery horizon…
 			</div>
 		{:else if showTierBar}
 			<!-- Normal mode: tier-coloured segmented allowance bar (Milestone E) -->
@@ -171,8 +197,8 @@
 			</div>
 		{/if}
 
-		<!-- Confidence band (only when tier is low or medium) -->
-		{#if showConfidenceBand && confidence && conservativeRemaining !== null}
+		<!-- Confidence band (only when tier is low or medium; hidden in recovery view) -->
+		{#if !showRecoveryHero && showConfidenceBand && confidence && conservativeRemaining !== null}
 			<div class="border-border space-y-1.5 border-t pt-3">
 				<div class="flex items-center justify-between">
 					<p class="text-[10px] text-[var(--color-text-tertiary)]">

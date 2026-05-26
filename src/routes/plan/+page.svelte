@@ -30,6 +30,7 @@
 	} from '$lib/components/budget';
 	import AllowanceVisualization from '$lib/components/accounts/AllowanceVisualization.svelte';
 	import DebtAcknowledgmentPrompt from '$lib/components/plan/DebtAcknowledgmentPrompt.svelte';
+	import RecoverySection from '$lib/components/plan/RecoverySection.svelte';
 	import PlanRulesSummary from '$lib/components/budget/PlanRulesSummary.svelte';
 	import AllowanceWeekView from '$lib/components/plan/AllowanceWeekView.svelte';
 	import OutstandingReimbursementsPanel from '$lib/components/plan/OutstandingReimbursementsPanel.svelte';
@@ -73,6 +74,10 @@
 		recordWeekAnnDetectPatternsMs
 	} from '$lib/utils/plan-perf-debug';
 	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
+	import {
+		computeRecoveryHorizon,
+		type RecoveryHorizonSnapshot
+	} from '$lib/core/services/core/recovery-horizon';
 
 	type PlanAllowanceSnapshot = {
 		cacheKey: string;
@@ -89,6 +94,7 @@
 		nudgeClassifyDismissed: boolean;
 		negativeAllowanceStatus: NegativeAllowanceStatus | null;
 		recoverySuggestions: RecoverySuggestion[];
+		recoveryHorizon: RecoveryHorizonSnapshot | null;
 		planningData: PlanningData | null;
 		weeklyProjections: WeeklyProjection[];
 		weekDayAnnotations: Record<string, string>;
@@ -158,6 +164,7 @@
 	let financialState = $state<FinancialStateResult | null>(null);
 	/** Milestone F — recovery-focused view mode from user preferences */
 	let recoveryModeActive = $state(false);
+	let recoveryHorizon = $state<RecoveryHorizonSnapshot | null>(null);
 	let weekDayAnnotations = $state<Record<string, string>>({});
 
 	const totalPlannedIncome = $derived(planningData?.totalPlannedIncome ?? 0);
@@ -229,6 +236,7 @@
 			nudgeClassifyDismissed = planAllowanceCache.nudgeClassifyDismissed;
 			negativeAllowanceStatus = planAllowanceCache.negativeAllowanceStatus;
 			recoverySuggestions = planAllowanceCache.recoverySuggestions;
+			recoveryHorizon = planAllowanceCache.recoveryHorizon;
 			planningData = planAllowanceCache.planningData;
 			weeklyProjections = planAllowanceCache.weeklyProjections;
 			weekDayAnnotations = planAllowanceCache.weekDayAnnotations;
@@ -333,6 +341,19 @@
 				weekDayAnnotations = {};
 			}
 
+			if (recoveryModeActive) {
+				try {
+					recoveryHorizon = await computeRecoveryHorizon({
+						daysRemaining: enhancedAllowance?.total?.daysRemaining ?? 30,
+						dailyAllowance: enhancedAllowance?.total?.dailySafe ?? 0
+					});
+				} catch {
+					recoveryHorizon = null;
+				}
+			} else {
+				recoveryHorizon = null;
+			}
+
 			const revAfter = crossRouteSyncService.getSurfaceDataRevision();
 			planAllowanceCache = {
 				cacheKey: `${revAfter}:${userCurrency}:${selectedAccountId}:${dayKey}`,
@@ -344,6 +365,7 @@
 				nudgeClassifyDismissed,
 				negativeAllowanceStatus,
 				recoverySuggestions: [...recoverySuggestions],
+				recoveryHorizon,
 				planningData,
 				weeklyProjections: [...weeklyProjections],
 				weekDayAnnotations: { ...weekDayAnnotations }
@@ -532,7 +554,10 @@
 										onDismiss={handleDebtAckDismiss}
 									/>
 								{/if}
-								{#if enhancedAllowance?.projection?.hasAcknowledgedDebtInPeriod && enhancedAllowance.projection.recoveryWeeksEstimate != null}
+								{#if recoveryModeActive && recoveryHorizon}
+									<RecoverySection horizon={recoveryHorizon} />
+								{/if}
+								{#if !recoveryModeActive && enhancedAllowance?.projection?.hasAcknowledgedDebtInPeriod && enhancedAllowance.projection.recoveryWeeksEstimate != null}
 									<p class="text-muted-foreground text-center text-xs">
 										Recovery: about {enhancedAllowance.projection.recoveryWeeksEstimate} week(s) at current
 										pace after this intentional stretch.

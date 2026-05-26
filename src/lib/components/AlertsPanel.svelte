@@ -23,6 +23,7 @@
 		type ExplanationDetail,
 		type GuidanceTone
 	} from '$lib/utils/guidance-presentation';
+	import { isRecoverySuppressedAlertType } from '$lib/core/services/core/recovery-horizon';
 
 	let unreadCount = $state(0);
 	let unreadInsights = $state<Insight[]>([]);
@@ -36,6 +37,7 @@
 	let alertsCriticalCoachmarkSeen = $state(true);
 	let guidanceTone = $state<GuidanceTone>('balanced');
 	let explanationDetail = $state<ExplanationDetail>('standard');
+	let recoveryModeActive = $state(false);
 	/** Expanded "Earlier" row id for message + link review */
 	let expandedEarlierId = $state<string | null>(null);
 
@@ -86,9 +88,16 @@
 	async function refreshData() {
 		isLoading = true;
 		await notificationsService.refresh();
-		unreadCount = notificationsService.unreadCount;
-		unreadInsights = notificationsService.unreadInsights;
-		earlierAlerts = notificationsService.earlierAlerts;
+		const prefs = await userService.getUserPreferences();
+		recoveryModeActive = prefs?.recoveryModeActive === true;
+		const filterRecovery = (items: Insight[]) =>
+			recoveryModeActive ? items.filter((i) => !isRecoverySuppressedAlertType(i.type)) : items;
+
+		unreadCount = recoveryModeActive
+			? filterRecovery(notificationsService.unreadInsights).length
+			: notificationsService.unreadCount;
+		unreadInsights = filterRecovery(notificationsService.unreadInsights);
+		earlierAlerts = filterRecovery(notificationsService.earlierAlerts);
 
 		const catIds = new Set<string>();
 		const goalIds = new Set<string>();
@@ -97,7 +106,6 @@
 			if (i.goalId) goalIds.add(i.goalId);
 		}
 		try {
-			const prefs = await userService.getUserPreferences();
 			alertsCurrency = prefs.currency ?? 'USD';
 			alertsNumberLocale = prefs.language === 'ru' ? 'ru-RU' : 'en-US';
 			alertsCriticalCoachmarkSeen = prefs.alertsCriticalCoachmarkSeen ?? false;
