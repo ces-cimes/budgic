@@ -857,7 +857,7 @@ class InterestOptimizationService {
 				amount: aggregate.optimizationPotential,
 				actionable: true,
 				actionText: 'View Recommendations',
-				actionUrl: '/insights?tab=optimize',
+				actionUrl: '/insights?tab=fees-accounts',
 				metadata: {
 					optimizationPotential: aggregate.optimizationPotential
 				}

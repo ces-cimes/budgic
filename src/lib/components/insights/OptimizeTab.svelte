@@ -100,8 +100,8 @@
 <div class="space-y-6 py-2 sm:py-4">
 	{#if suppressNonEssential}
 		<p class="text-muted-foreground text-sm">
-			Optimization simulator is hidden while recovery view is active. Fee avoidance remains
-			available above.
+			What-if simulator is hidden while recovery view is active. Fee avoidance remains available
+			above.
 		</p>
 	{:else}
 		{#if error}
@@ -115,9 +115,10 @@
 			</Card.Root>
 		{/if}
 
-		<div class="flex items-center justify-between gap-4">
+		<div class="space-y-3">
 			<p class="text-muted-foreground text-sm">
-				Optimize transaction timing to avoid fees and maintain better balances.
+				Explore <strong>what-if scenarios</strong> by shifting transaction dates between accounts. Results
+				are previews — nothing changes until you choose to apply.
 			</p>
 			<Button onclick={runOptimization} disabled={isOptimizing || accounts.length === 0}>
 				{#if isOptimizing}
@@ -125,7 +126,7 @@
 				{:else}
 					<Sparkles class="mr-2 h-4 w-4" />
 				{/if}
-				{isOptimizing ? 'Optimizing...' : 'Run optimization'}
+				{isOptimizing ? 'Running...' : 'Run simulator'}
 			</Button>
 		</div>
 
@@ -207,7 +208,10 @@
 				class="text-muted-foreground border-border bg-card/50 rounded-xl border p-8 text-center text-sm"
 			>
 				<Sparkles class="text-muted-foreground/50 mx-auto mb-2 h-10 w-10" />
-				<p>Run optimization to get suggestions for timing your transactions and avoiding fees.</p>
+				<p>
+					Run the simulator to explore what-if date shifts across your accounts. No changes are made
+					until you apply.
+				</p>
 			</div>
 		{/if}
 	{/if}

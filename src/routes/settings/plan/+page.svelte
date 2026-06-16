@@ -142,11 +142,8 @@
 		if (isSaving) return;
 		isSaving = true;
 		try {
-			const prefs = await userService.getUserPreferences();
-			if (!prefs) return;
 			const { warn, crit } = clampBudgetAlertThresholds();
-			await userService.updateUserPreferences({
-				...prefs,
+			const updates: Record<string, unknown> = {
 				negativeAllowanceHandling,
 				reimbursementAllowanceMode,
 				defaultReimbursementAnchorAccountId: defaultReimbursementAnchorAccountId || undefined,
@@ -169,7 +166,8 @@
 				recoveryAggressiveness: Math.min(0.5, Math.max(0.1, recoveryAggressivenessPercent / 100)),
 				debtRecoveryActive,
 				recoveryModeActive
-			});
+			};
+			await userService.updateUserPreferences(JSON.parse(JSON.stringify(updates)));
 		} catch (e) {
 			console.error('Failed to save plan settings', e);
 		} finally {

@@ -110,9 +110,9 @@ export function groupPanelAlertsForDisplay(insights: Insight[]): Insight[][] {
 	return out;
 }
 
-/** Insights deep-link tab: fee-style savings → Optimize; else Patterns. */
-export function insightsTabForAlertType(type: Insight['type']): 'optimize' | 'patterns' {
-	return type === 'savings_opportunity' ? 'optimize' : 'patterns';
+/** Insights deep-link tab: fee-style savings → Fees & Accounts; else Patterns. */
+export function insightsTabForAlertType(type: Insight['type']): 'fees-accounts' | 'patterns' {
+	return type === 'savings_opportunity' ? 'fees-accounts' : 'patterns';
 }
 
 export function insightsDeepLinkForType(type: Insight['type']): string {
@@ -123,7 +123,7 @@ export function insightsDeepLinkForType(type: Insight['type']): string {
 	if (type === 'goal_milestone') return '/plan?tab=goals';
 	if (type === 'budget_approaching' || type === 'budget_exceeded') return '/plan?tab=budget';
 	if (type === 'emergency_fund' || type === 'credit_utilization') {
-		return `/insights?tab=optimize&insightType=${encodeURIComponent(type)}`;
+		return `/insights?tab=fees-accounts&insightType=${encodeURIComponent(type)}`;
 	}
 	const tab = insightsTabForAlertType(type);
 	return `/insights?tab=${tab}&insightType=${encodeURIComponent(type)}`;

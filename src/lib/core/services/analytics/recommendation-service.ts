@@ -167,7 +167,7 @@ class RecommendationService {
 				description: `You're making transactions frequently. Consider reviewing your spending habits.`,
 				actionable: true,
 				actionText: 'View Spending Analysis',
-				actionUrl: '/insights?tab=optimize',
+				actionUrl: '/insights?tab=fees-accounts',
 				confidence: 75,
 				estimatedImpact: 'medium',
 				metadata: {
@@ -421,7 +421,7 @@ class RecommendationService {
 					description: `Your spending in ${cat.categoryName} is increasing and represents ${Math.round(cat.percentageOfTotal)}% of your total spending.`,
 					actionable: true,
 					actionText: 'Review Category',
-					actionUrl: '/insights?tab=optimize',
+					actionUrl: '/insights?tab=fees-accounts',
 					confidence: 75,
 					estimatedImpact: 'medium',
 					metadata: { categoryId: cat.categoryId, categoryName: cat.categoryName },
@@ -455,7 +455,7 @@ class RecommendationService {
 					actionText: creditRec.recommendedAction,
 					actionUrl: creditRec.accountId
 						? `/accounts/${creditRec.accountId}`
-						: '/insights?tab=optimize',
+						: '/insights?tab=fees-accounts',
 					confidence: creditRec.estimatedImpact.estimatedScorePoints
 						? Math.min(100, 60 + creditRec.estimatedImpact.estimatedScorePoints)
 						: 75,

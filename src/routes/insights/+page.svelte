@@ -4,7 +4,7 @@
 	import { page } from '$app/stores';
 	import { PageLayout } from '$lib/components/layouts';
 	import Header from '$lib/components/Header.svelte';
-	import { TrendingUp, Award, RefreshCw, Zap, AlertTriangle } from '@lucide/svelte';
+	import { TrendingUp, Award, RefreshCw, Shield, AlertTriangle } from '@lucide/svelte';
 
 	// Shared components
 	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
@@ -14,15 +14,18 @@
 	import PatternsTabContent from '$lib/components/insights/PatternsTabContent.svelte';
 	import FeeAvoidancePanel from '$lib/components/insights/FeeAvoidancePanel.svelte';
 	import OptimizeTab from '$lib/components/insights/OptimizeTab.svelte';
+	import CreditUtilizationCard from '$lib/components/insights/CreditUtilizationCard.svelte';
+	import InterestOpportunitiesCard from '$lib/components/insights/InterestOpportunitiesCard.svelte';
+	import SpendingVsBudgetCard from '$lib/components/insights/SpendingVsBudgetCard.svelte';
 
 	// Services
 	import { insightsService, userService } from '$lib/core/services';
 	import { crossRouteSyncService } from '$lib/core/services/analytics/cross-route-sync-service';
 
-	// Tab configuration: Patterns | Optimize | Badges (Alerts → bell panel; Savings merged into Optimize)
+	// Tab configuration: Patterns | Fees & Accounts | Badges (Alerts → bell panel; Savings merged into Fees & Accounts)
 	const insightsTabs: TabConfig[] = [
 		{ id: 'patterns', label: 'Patterns', icon: TrendingUp },
-		{ id: 'optimize', label: 'Optimize', icon: Zap },
+		{ id: 'fees-accounts', label: 'Fees & Accounts', icon: Shield },
 		{ id: 'badges', label: 'Badges', icon: Award }
 	];
 
@@ -63,7 +66,6 @@
 		const urlParams = new URLSearchParams($page.url.search);
 		let tabParam = urlParams.get('tab');
 		if (tabParam === 'overview' || tabParam === 'alerts') tabParam = 'patterns';
-		if (tabParam === 'savings') tabParam = 'optimize';
 		if (['recurring', 'predictions', 'learning'].includes(tabParam ?? '')) tabParam = 'patterns';
 		if (tabParam && insightsTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
@@ -177,8 +179,12 @@
 						/>
 					</TabContent>
 
-					{#if insightsTabs.some((t) => t.id === 'optimize')}
-						<TabContent tabId="optimize" isActive={activeTab === 'optimize'} tabs={insightsTabs}>
+					{#if insightsTabs.some((t) => t.id === 'fees-accounts')}
+						<TabContent
+							tabId="fees-accounts"
+							isActive={activeTab === 'fees-accounts'}
+							tabs={insightsTabs}
+						>
 							<div class="space-y-6 py-5">
 								<section>
 									<h2
@@ -192,15 +198,35 @@
 										onRecommendationApplied={handleRefresh}
 									/>
 								</section>
+
+								<section>
+									<h2
+										class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+									>
+										Accounts
+									</h2>
+									<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+										<CreditUtilizationCard {userCurrency} />
+										{#if !recoveryModeActive}
+											<InterestOpportunitiesCard {userCurrency} />
+										{/if}
+										<SpendingVsBudgetCard {userCurrency} />
+									</div>
+								</section>
 								{#if !recoveryModeActive}
 									<section>
 										<h2
 											class="mb-4 text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 										>
-											Optimize
+											What-if simulator
 										</h2>
 										<OptimizeTab suppressNonEssential={false} />
 									</section>
+								{:else}
+									<p class="text-muted-foreground text-sm">
+										What-if simulator is hidden while recovery view is active. Fee avoidance remains
+										available above.
+									</p>
 								{/if}
 							</div>
 						</TabContent>

@@ -29,7 +29,7 @@ export const POST_CHECKLIST_SUGGESTION_CATALOG: PostChecklistSuggestionDef[] = [
 	{
 		id: 'fees-accounts',
 		title: 'Review Fees & Accounts',
-		href: '/insights?tab=optimize',
+		href: '/insights?tab=fees-accounts',
 		helperFull:
 			'Open Optimize once to spot recurring fees and account-level opportunities tailored to your data.',
 		helperStandard: 'Check Optimize for fees and account insights.',

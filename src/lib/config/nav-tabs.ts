@@ -16,7 +16,7 @@ export const planTabs: NavTabDef[] = [
 
 export const insightsTabs: NavTabDef[] = [
 	{ id: 'patterns', label: 'Patterns' },
-	{ id: 'optimize', label: 'Optimize' },
+	{ id: 'fees-accounts', label: 'Fees & Accounts' },
 	{ id: 'badges', label: 'Badges' }
 ];
 

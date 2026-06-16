@@ -779,7 +779,7 @@ class InsightsService {
 					confidence: 95,
 					actionable: true,
 					actionText: 'View Recommendations',
-					actionUrl: '/insights?tab=optimize',
+					actionUrl: '/insights?tab=fees-accounts',
 					metadata: JSON.stringify({
 						totalUtilization: aggregate.totalUtilization,
 						totalDebt: aggregate.totalDebt,
@@ -919,7 +919,7 @@ class InsightsService {
 					confidence: 100,
 					actionable: true,
 					actionText: 'View Emergency Fund',
-					actionUrl: '/insights?tab=optimize',
+					actionUrl: '/insights?tab=fees-accounts',
 					metadata: JSON.stringify({
 						currentBalance: analysis.currentBalance,
 						targetAmount: analysis.targetAmount,
@@ -948,7 +948,7 @@ class InsightsService {
 					confidence: 90,
 					actionable: true,
 					actionText: 'View Recommendations',
-					actionUrl: '/insights?tab=optimize',
+					actionUrl: '/insights?tab=fees-accounts',
 					metadata: JSON.stringify({
 						currentBalance: analysis.currentBalance,
 						targetAmount: analysis.targetAmount,
@@ -976,7 +976,7 @@ class InsightsService {
 					confidence: 95,
 					actionable: true,
 					actionText: 'View Recovery Plan',
-					actionUrl: '/insights?tab=optimize',
+					actionUrl: '/insights?tab=fees-accounts',
 					metadata: JSON.stringify({
 						amountUsed: analysis.partialUsage.amountUsed,
 						percentageUsed: analysis.partialUsage.percentageUsed,
