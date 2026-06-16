@@ -55,5 +55,9 @@ pnpm-debug.log*
 .cache
 /.cursor/
 
-docs
+.mimocode/plans
 extracted
+
+# Docs — exclude legacy and personal data
+docs/00_legacy/
+docs/sample_data/
