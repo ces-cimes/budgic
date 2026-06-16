@@ -1,23 +1,76 @@
 #!/bin/sh
 # Pre-commit hook — Budgic enforcement layer
+# Fast checks only. Run 'npm run validate' for full checks.
 echo "🔍 Running pre-commit checks..."
 
-# 1. Prettier check (BLOCK)
-echo "  → Checking Prettier formatting..."
-npx prettier --check .
-if [ $? -ne 0 ]; then
-  echo "❌ PRETTIER FAILURES — Run: npx prettier --write ."
+# 1. Prettier on staged files only (FAST)
+echo "  → Checking Prettier on staged files..."
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM -- "*.ts" "*.svelte" "*.js" "*.md" "*.json")
+if [ -n "$STAGED_FILES" ]; then
+  PRETTIER_OUT=$(echo "$STAGED_FILES" | xargs npx prettier --check 2>&1)
+  PRETTIER_EXIT=$?
+  if [ $PRETTIER_EXIT -ne 0 ]; then
+    echo ""
+    echo "❌ PRETTIER FAILURES"
+    echo "   Run: npx prettier --write <failed-files>"
+    echo ""
+    echo "$PRETTIER_OUT" | grep "warn" | head -5
+    echo ""
+    exit 1
+  fi
+fi
+
+# 2. Currency logic sentinel (FAST - just grep)
+echo "  → Checking currency logic boundaries..."
+VIOLATIONS=""
+for FILE in $STAGED_FILES; do
+  case "$FILE" in
+    *.ts|*.svelte)
+      if [ "$FILE" != "src/lib/utils/currency-utils.ts" ] && \
+         [ "$FILE" != "src/lib/core/services/core/exchange-rate-service.ts" ] && \
+         [ "$FILE" != "src/lib/core/services/core/currency-config-service.ts" ]; then
+        MATCHES=$(grep -n "rate \* \| \* rate\|/ rate\|rate /" "$FILE" 2>/dev/null | \
+                  grep -v "import " | grep -v "// " | grep -v ".test." | \
+                  grep -v "toFixed\|toPrecision\|formatAmount\|formatCompact")
+        if [ -n "$MATCHES" ]; then
+          VIOLATIONS="$VIOLATIONS
+  $FILE:
+$MATCHES"
+        fi
+      fi
+      ;;
+  esac
+done
+
+if [ -n "$VIOLATIONS" ]; then
+  echo ""
+  echo "❌ CURRENCY CONVERSION MATH FOUND"
+  echo "   Currency math should only be in canonical files."
+  echo "   See: 2_FOUNDATIONS.md#FD-1"
+  echo ""
+  echo "   Violations:$VIOLATIONS"
+  echo ""
   exit 1
 fi
 
-# 2. Console.log detector (WARN)
+# 3. Console.log detector (WARN)
 echo "  → Checking for console.log..."
-CONSOLE_LOGS=$(git diff --cached --name-only --diff-filter=ACM -- "*.ts" "*.svelte" | xargs grep -l "console\.log" 2>/dev/null | grep -v "\.test\." | grep -v "vitest" | grep -v "devLog")
+CONSOLE_LOGS=$(echo "$STAGED_FILES" | xargs grep -l "console\.log" 2>/dev/null | \
+               grep -v "\.test\." | grep -v "vitest" | grep -v "devLog")
 if [ -n "$CONSOLE_LOGS" ]; then
   echo "  ⚠️  console.log found — consider using devLog()"
 fi
 
-# 3. BUGS.md non-empty warning (WARN)
+# 4. Any type detector (WARN)
+echo "  → Checking for new any types..."
+NEW_ANY=$(git diff --cached --unified=0 2>/dev/null | \
+          grep "^+" | grep -v "^+++" | \
+          grep -c ": any\|<any\|as any" 2>/dev/null)
+if [ "$NEW_ANY" -gt 0 ]; then
+  echo "  ⚠️  $NEW_ANY new 'any' types — consider proper types"
+fi
+
+# 5. BUGS.md non-empty warning (WARN)
 if [ -f "docs/actionable/1_BUGS.md" ]; then
   UNCHECKED=$(grep -c "^\- \[ \]" docs/actionable/1_BUGS.md 2>/dev/null)
   if [ "$UNCHECKED" -gt 0 ]; then
@@ -25,4 +78,6 @@ if [ -f "docs/actionable/1_BUGS.md" ]; then
   fi
 fi
 
-echo "✅ All checks passed."
+echo "✅ Pre-commit checks passed."
+echo ""
+echo "ℹ️  Run 'npm run validate' for full checks (ESLint, svelte-check)"
