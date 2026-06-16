@@ -106,7 +106,10 @@ interface PredictionMetrics {
 	averageError: number;
 	averageErrorPercentage: number;
 	accuracyByType: Record<string, { count: number; avgError: number; avgErrorPercent: number }>;
-	accuracyByAlgorithm: Record<string, { count: number; avgError: number; avgErrorPercent: number }>;
+	accuracyByAlgorithm: Record<
+		string,
+		{ count: number; avgError: number; avgErrorPercent: number }
+	>;
 	recentAccuracy: {
 		last30Days: { count: number; avgError: number; avgErrorPercent: number };
 		last90Days: { count: number; avgError: number; avgErrorPercent: number };
@@ -201,7 +204,10 @@ class PredictionService {
 			);
 
 			// Convert to main currency
-			relevantTransactions = await this.convertTransactionsToMainCurrency(spendRows, mainCurrency);
+			relevantTransactions = await this.convertTransactionsToMainCurrency(
+				spendRows,
+				mainCurrency
+			);
 
 			// Debug: Log after conversion
 			const totalAfterConversion = relevantTransactions.reduce(
@@ -308,7 +314,10 @@ class PredictionService {
 		const spendRows = deduplicateForSpendTotals(transactions);
 
 		// Debug: Log transaction amounts before grouping
-		const totalBeforeGrouping = spendRows.reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+		const totalBeforeGrouping = spendRows.reduce(
+			(sum, tx) => sum + Math.abs(tx.amount || 0),
+			0
+		);
 		const avgTransactionAmount = totalBeforeGrouping / spendRows.length;
 
 		// Group by month
@@ -447,7 +456,11 @@ class PredictionService {
 			linearRegression.predicted
 		);
 
-		const factors = this.identifyPredictionFactors(amounts, coefficientOfVariation, monthlyAmounts);
+		const factors = this.identifyPredictionFactors(
+			amounts,
+			coefficientOfVariation,
+			monthlyAmounts
+		);
 
 		return {
 			categoryName,
@@ -536,7 +549,8 @@ class PredictionService {
 				// Check if on track
 				if (goal.targetDate) {
 					const targetDate = new Date(goal.targetDate);
-					const daysUntilTarget = (targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+					const daysUntilTarget =
+						(targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
 					const monthsUntilTarget = daysUntilTarget / 30.44;
 					const requiredRate = remaining / monthsUntilTarget;
 
@@ -565,7 +579,8 @@ class PredictionService {
 
 				if (goal.targetDate) {
 					const targetDate = new Date(goal.targetDate);
-					const daysUntilTarget = (targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+					const daysUntilTarget =
+						(targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
 					const monthsUntilTarget = daysUntilTarget / 30.44;
 					const requiredRate = remaining / monthsUntilTarget;
 
@@ -715,7 +730,8 @@ class PredictionService {
 					// Blend velocity-based and historical predictions
 					const velocityWeight = Math.min(0.7, daysElapsed / daysInMonth);
 					predictedSpending =
-						predictedSpending * velocityWeight + historicalPrediction * (1 - velocityWeight);
+						predictedSpending * velocityWeight +
+						historicalPrediction * (1 - velocityWeight);
 
 					factors.push('Historical spending patterns');
 					confidence = 0.7 + velocityWeight * 0.2;
@@ -843,7 +859,10 @@ class PredictionService {
 				waterfallTier: category.waterfallTier ?? 'lifestyle',
 				budgetAmount: analysis.budgetAmount,
 				predictedMonthlySpend: analysis.predictedSpending,
-				monthlySpendByMonth: monthsSorted.map((m) => ({ monthKey: m.month, amount: m.amount }))
+				monthlySpendByMonth: monthsSorted.map((m) => ({
+					monthKey: m.month,
+					amount: m.amount
+				}))
 			});
 		}
 
@@ -1625,7 +1644,11 @@ class PredictionService {
 	 */
 	async recordPredictionAccuracy(
 		predictionId: string,
-		predictionType: 'spending_forecast' | 'goal_completion' | 'budget_risk' | 'seasonal_pattern',
+		predictionType:
+			| 'spending_forecast'
+			| 'goal_completion'
+			| 'budget_risk'
+			| 'seasonal_pattern',
 		predictedValue: number,
 		actualValue: number,
 		confidence: number,
@@ -1712,7 +1735,8 @@ class PredictionService {
 						accuracyRecords.push({
 							predictionId: insight.id,
 							predictionType: this.determinePredictionTypeFromMetadata(metadata),
-							predictedValue: metadata.predictedAmount || metadata.predictedValue || 0,
+							predictedValue:
+								metadata.predictedAmount || metadata.predictedValue || 0,
 							actualValue: metadata.accuracy.actualValue,
 							error: metadata.accuracy.error,
 							errorPercentage: metadata.accuracy.errorPercentage,
@@ -1751,7 +1775,8 @@ class PredictionService {
 			};
 		}
 
-		const averageError = accuracyRecords.reduce((sum, r) => sum + r.error, 0) / totalPredictions;
+		const averageError =
+			accuracyRecords.reduce((sum, r) => sum + r.error, 0) / totalPredictions;
 		const averageErrorPercentage =
 			accuracyRecords.reduce((sum, r) => sum + r.errorPercentage, 0) / totalPredictions;
 
@@ -1762,7 +1787,11 @@ class PredictionService {
 		> = {};
 		for (const record of accuracyRecords) {
 			if (!accuracyByType[record.predictionType]) {
-				accuracyByType[record.predictionType] = { count: 0, avgError: 0, avgErrorPercent: 0 };
+				accuracyByType[record.predictionType] = {
+					count: 0,
+					avgError: 0,
+					avgErrorPercent: 0
+				};
 			}
 			const type = accuracyByType[record.predictionType];
 			type.count++;
@@ -1782,7 +1811,11 @@ class PredictionService {
 		> = {};
 		for (const record of accuracyRecords) {
 			if (!accuracyByAlgorithm[record.algorithm]) {
-				accuracyByAlgorithm[record.algorithm] = { count: 0, avgError: 0, avgErrorPercent: 0 };
+				accuracyByAlgorithm[record.algorithm] = {
+					count: 0,
+					avgError: 0,
+					avgErrorPercent: 0
+				};
 			}
 			const algo = accuracyByAlgorithm[record.algorithm];
 			algo.count++;
@@ -1822,7 +1855,8 @@ class PredictionService {
 							: 0,
 					avgErrorPercent:
 						last30Days.length > 0
-							? last30Days.reduce((sum, r) => sum + r.errorPercentage, 0) / last30Days.length
+							? last30Days.reduce((sum, r) => sum + r.errorPercentage, 0) /
+								last30Days.length
 							: 0
 				},
 				last90Days: {
@@ -1833,7 +1867,8 @@ class PredictionService {
 							: 0,
 					avgErrorPercent:
 						last90Days.length > 0
-							? last90Days.reduce((sum, r) => sum + r.errorPercentage, 0) / last90Days.length
+							? last90Days.reduce((sum, r) => sum + r.errorPercentage, 0) /
+								last90Days.length
 							: 0
 				}
 			}
@@ -1926,7 +1961,8 @@ class PredictionService {
 		metadata: any
 	): 'spending_forecast' | 'goal_completion' | 'budget_risk' | 'seasonal_pattern' {
 		if (metadata.algorithm?.includes('Goal') || metadata.goalId) return 'goal_completion';
-		if (metadata.algorithm?.includes('Budget') || metadata.riskProbability) return 'budget_risk';
+		if (metadata.algorithm?.includes('Budget') || metadata.riskProbability)
+			return 'budget_risk';
 		if (metadata.algorithm?.includes('Seasonal') || metadata.type === 'annual')
 			return 'seasonal_pattern';
 		return 'spending_forecast';

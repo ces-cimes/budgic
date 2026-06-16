@@ -35,7 +35,9 @@
 		onCancel
 	}: Props = $props();
 
-	const canConfirm = $derived(rows.length > 0 && rows.every((r) => typeSelection[r.mmUid] != null));
+	const canConfirm = $derived(
+		rows.length > 0 && rows.every((r) => typeSelection[r.mmUid] != null)
+	);
 
 	function sourceLabel(source: MmAccountTypeSource): string {
 		switch (source) {
@@ -51,7 +53,8 @@
 	function typeLabel(type: Account['type'] | undefined): string {
 		if (!type) return 'Select type';
 		return (
-			MM_ACCOUNT_REVIEW_TYPE_LABELS[type as keyof typeof MM_ACCOUNT_REVIEW_TYPE_LABELS] ?? type
+			MM_ACCOUNT_REVIEW_TYPE_LABELS[type as keyof typeof MM_ACCOUNT_REVIEW_TYPE_LABELS] ??
+			type
 		);
 	}
 </script>
@@ -81,8 +84,8 @@
 			</div>
 
 			<p class="text-sm text-[var(--color-text-secondary)]">
-				Confirm type, person-ledger rows, and optional direct routing for each new account before
-				import. Direct route only applies when Person ledger is checked.
+				Confirm type, person-ledger rows, and optional direct routing for each new account
+				before import. Direct route only applies when Person ledger is checked.
 			</p>
 
 			<div class="overflow-x-auto rounded-xl border border-[var(--color-border)]">
@@ -102,8 +105,14 @@
 						{#each rows as row (row.mmUid)}
 							<tr class="bg-[var(--color-bg-secondary)]/40">
 								<td class="px-3 py-2">
-									<p class="font-medium text-[var(--color-text-primary)]">{row.displayName}</p>
-									<p class="font-mono text-[10px] text-[var(--color-text-tertiary)]">{row.mmUid}</p>
+									<p class="font-medium text-[var(--color-text-primary)]">
+										{row.displayName}
+									</p>
+									<p
+										class="font-mono text-[10px] text-[var(--color-text-tertiary)]"
+									>
+										{row.mmUid}
+									</p>
 								</td>
 								<td class="px-3 py-2">
 									<div class="flex flex-wrap gap-1">
@@ -141,7 +150,8 @@
 									>
 										<Checkbox
 											checked={personSelection[row.mmUid] ?? false}
-											onCheckedChange={(v) => onPersonChange(row.mmUid, v === true)}
+											onCheckedChange={(v) =>
+												onPersonChange(row.mmUid, v === true)}
 										/>
 										<span>Person ledger</span>
 									</label>
@@ -159,7 +169,8 @@
 												? (directRouteSelection[row.mmUid] ?? false)
 												: false}
 											disabled={!personSelection[row.mmUid]}
-											onCheckedChange={(v) => onDirectRouteChange(row.mmUid, v === true)}
+											onCheckedChange={(v) =>
+												onDirectRouteChange(row.mmUid, v === true)}
 										/>
 										<span>Route to anchor wallet</span>
 									</label>

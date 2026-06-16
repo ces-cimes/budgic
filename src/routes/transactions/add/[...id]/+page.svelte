@@ -133,7 +133,10 @@
 	let lastSuggestedMerchantKey = $state('');
 
 	async function runMerchantProfileSuggestion() {
-		if ((transactionType !== 'expense' && transactionType !== 'income') || !description.trim()) {
+		if (
+			(transactionType !== 'expense' && transactionType !== 'income') ||
+			!description.trim()
+		) {
 			merchantSplitNote = null;
 			return;
 		}
@@ -378,8 +381,10 @@
 	let anomalyHint = $derived.by(() => {
 		if (!descriptionIntelligence?.amountStats || !description.trim()) return null;
 		const threshold =
-			descriptionIntelligence.amountStats.median + descriptionIntelligence.amountStats.stddev * 2;
-		if (!amountManuallyTouched || anomalyDismissed || Math.abs(amount) <= threshold) return null;
+			descriptionIntelligence.amountStats.median +
+			descriptionIntelligence.amountStats.stddev * 2;
+		if (!amountManuallyTouched || anomalyDismissed || Math.abs(amount) <= threshold)
+			return null;
 		return `Amount is above your usual range for this description (${formatAmount(
 			threshold,
 			currency || 'USD'
@@ -578,7 +583,9 @@
 			.filter((c) => {
 				if (transactionType === 'expense' || transactionType === 'income') {
 					if (c.waterfallTier === undefined) return false;
-					return transactionType === 'expense' ? c.type === 'expense' : c.type === 'income';
+					return transactionType === 'expense'
+						? c.type === 'expense'
+						: c.type === 'income';
 				}
 				return true;
 			})
@@ -711,7 +718,10 @@
 			if (!currency && currencies.length > 0) {
 				try {
 					const preferences = await userService.getUserPreferences();
-					if (preferences?.currency && currencies.some((c) => c.code === preferences.currency)) {
+					if (
+						preferences?.currency &&
+						currencies.some((c) => c.code === preferences.currency)
+					) {
 						currency = preferences.currency;
 					} else {
 						currency = currencies[0].code;
@@ -734,8 +744,12 @@
 					description = transaction.description || '';
 					if (transaction.type === 'transfer' && transaction.transferDetails) {
 						amount =
-							transaction.transferDetails.transferAmount ?? Math.abs(transaction.amount ?? 0);
-						toAccountId = transaction.transferDetails.toAccountId ?? transaction.toAccountId ?? '';
+							transaction.transferDetails.transferAmount ??
+							Math.abs(transaction.amount ?? 0);
+						toAccountId =
+							transaction.transferDetails.toAccountId ??
+							transaction.toAccountId ??
+							'';
 						const td = transaction.transferDetails;
 						if (td.feeAmount && td.feeAmount > 0) {
 							hasTransferFee = true;
@@ -743,7 +757,8 @@
 							transferFeeAccountId = td.feeAccountId || transaction.accountId || '';
 							transferFeeCategoryId = td.feeCategoryId || '';
 							transferFeeType = td.feeType || '';
-							transferFeeDeductionMethod = td.feeDeductionMethod || 'from-transfer-amount';
+							transferFeeDeductionMethod =
+								td.feeDeductionMethod || 'from-transfer-amount';
 						}
 					} else {
 						amount = transaction.amount ?? 0;
@@ -827,7 +842,12 @@
 				const url = get(page).url;
 				const typeParam = url.searchParams.get('type') as Transaction['type'] | null;
 				const statusParam = url.searchParams.get('status') as Transaction['status'] | null;
-				const validTypes: Transaction['type'][] = ['expense', 'income', 'transfer', 'adjustment'];
+				const validTypes: Transaction['type'][] = [
+					'expense',
+					'income',
+					'transfer',
+					'adjustment'
+				];
 				const validStatuses: Transaction['status'][] = ['cleared', 'planned', 'pending'];
 				if (typeParam && validTypes.includes(typeParam)) transactionType = typeParam;
 				if (statusParam && validStatuses.includes(statusParam)) status = statusParam;
@@ -860,7 +880,10 @@
 					const person = reimbursement.person?.trim();
 					if (person) personValues.add(person);
 
-					if (reimbursement.direction === 'lending' && reimbursement.status === 'expecting') {
+					if (
+						reimbursement.direction === 'lending' &&
+						reimbursement.status === 'expecting'
+					) {
 						settlementCandidates.push({
 							transactionId: tx.id,
 							reimbursementId: reimbursement.id,
@@ -894,7 +917,9 @@
 					if (alias.trim()) personValues.add(alias.trim());
 				}
 			}
-			reimbursementPersonSuggestions = Array.from(personValues).sort((a, b) => a.localeCompare(b));
+			reimbursementPersonSuggestions = Array.from(personValues).sort((a, b) =>
+				a.localeCompare(b)
+			);
 			settlementOptions = settlementCandidates;
 
 			if (settledByThisIncome) {
@@ -960,7 +985,9 @@
 					value?.dateInference &&
 					value.dateInference.confidence > 0.75
 				) {
-					suggestedPlannedDate = dateUtils.toLocalDateTimeInput(value.dateInference.nextDate);
+					suggestedPlannedDate = dateUtils.toLocalDateTimeInput(
+						value.dateInference.nextDate
+					);
 				} else if (plannedDate) {
 					suggestedPlannedDate = '';
 				}
@@ -978,10 +1005,12 @@
 			return;
 		}
 		let cancelled = false;
-		autocompleteService.getNoteSuggestionsForMerchant(merchantDescription, memo, 6).then((rows) => {
-			if (cancelled) return;
-			noteSuggestions = rows.map((row) => row.value);
-		});
+		autocompleteService
+			.getNoteSuggestionsForMerchant(merchantDescription, memo, 6)
+			.then((rows) => {
+				if (cancelled) return;
+				noteSuggestions = rows.map((row) => row.value);
+			});
 		return () => {
 			cancelled = true;
 		};
@@ -1004,7 +1033,12 @@
 	});
 
 	$effect(() => {
-		if (transactionType !== 'transfer' || !selectedAccount || !toAccountId || amountManuallyTouched)
+		if (
+			transactionType !== 'transfer' ||
+			!selectedAccount ||
+			!toAccountId ||
+			amountManuallyTouched
+		)
 			return;
 		const pair = transferDestinationScores.get(toAccountId);
 		if (pair?.typicalAmount && pair.typicalAmount > 0) {
@@ -1091,7 +1125,11 @@
 			const categoryName = category?.name;
 
 			// Auto-suggest priority if not set and haven't suggested yet
-			if (!hasSuggestedPriority && priority === undefined && (transactionType || categoryName)) {
+			if (
+				!hasSuggestedPriority &&
+				priority === undefined &&
+				(transactionType || categoryName)
+			) {
 				priority = suggestPriority(transactionType, categoryName);
 				hasSuggestedPriority = true;
 			}
@@ -1102,7 +1140,11 @@
 				directionalConstraint === undefined &&
 				(transactionType || categoryName)
 			) {
-				directionalConstraint = suggestConstraint(transactionType, categoryName, isRecurring);
+				directionalConstraint = suggestConstraint(
+					transactionType,
+					categoryName,
+					isRecurring
+				);
 				hasSuggestedConstraint = true;
 			}
 
@@ -1194,7 +1236,9 @@
 		const prefs = await userService.getUserPreferences();
 		if (!shouldShowGoalPrecisionNudge(prefs.guidanceTone)) return false;
 		const prev = prefs.goalRelativePrecisionDismissals?.[dismissKey] ?? [];
-		const recent = prev.filter((d) => Date.now() - new Date(d).getTime() < 30 * 86400000).length;
+		const recent = prev.filter(
+			(d) => Date.now() - new Date(d).getTime() < 30 * 86400000
+		).length;
 		if (recent >= 3) return false;
 
 		const secCat = categories.find((c) => c.id === best.secondaryId);
@@ -1248,7 +1292,10 @@
 		try {
 			const p = await userService.getUserPreferences();
 			const dismissKey = postAddSplitDismissalKey(memberIds);
-			const nextArr = [...(p.postAddSplitDismissals?.[dismissKey] ?? []), new Date().toISOString()];
+			const nextArr = [
+				...(p.postAddSplitDismissals?.[dismissKey] ?? []),
+				new Date().toISOString()
+			];
 			await userService.updateUserPreferences({
 				...p,
 				postAddSplitDismissals: {
@@ -1430,15 +1477,17 @@
 			);
 			if (sourceTransaction) {
 				const now = new Date().toISOString();
-				const updatedReimbursements = (sourceTransaction.reimbursements || []).map((entry) => {
-					if (entry.id !== settlementTarget.reimbursementId) return entry;
-					return {
-						...entry,
-						status: 'settled' as const,
-						settledTransactionId: savedTransaction.id,
-						updatedAt: now
-					};
-				});
+				const updatedReimbursements = (sourceTransaction.reimbursements || []).map(
+					(entry) => {
+						if (entry.id !== settlementTarget.reimbursementId) return entry;
+						return {
+							...entry,
+							status: 'settled' as const,
+							settledTransactionId: savedTransaction.id,
+							updatedAt: now
+						};
+					}
+				);
 				await transactionService.updateTransaction(sourceTransaction.id, {
 					reimbursements: updatedReimbursements
 				});
@@ -1469,8 +1518,9 @@
 			if (
 				showSplitSection &&
 				splitMode === 'partitioned' &&
-				Math.abs(exactAmountsForPersist().reduce((s, r) => s + r.amount, 0) - Math.abs(amount)) >
-					0.02
+				Math.abs(
+					exactAmountsForPersist().reduce((s, r) => s + r.amount, 0) - Math.abs(amount)
+				) > 0.02
 			) {
 				throw new Error('Exact split amounts must sum to the transaction total');
 			}
@@ -1562,7 +1612,8 @@
 						? dateUtils.fromLocalDateTimeInput(deadlineLocal)
 						: undefined,
 				spreadingStrategy: status === 'planned' ? spreadingStrategy : undefined,
-				debtGroupId: status === 'planned' ? debtGroupIdFromLabel(debtGroupLabel) : undefined,
+				debtGroupId:
+					status === 'planned' ? debtGroupIdFromLabel(debtGroupLabel) : undefined,
 				clearedDate:
 					status === 'cleared'
 						? clearedDate
@@ -1571,7 +1622,8 @@
 						: undefined,
 				recurrenceRule: isRecurring ? recurrenceRule : undefined,
 				priority: priority,
-				directionalConstraint: directionalConstraint === 'none' ? undefined : directionalConstraint,
+				directionalConstraint:
+					directionalConstraint === 'none' ? undefined : directionalConstraint,
 				flexibilityTier: flexibilityTier,
 				reimbursements
 			};
@@ -1583,7 +1635,9 @@
 					toAccountId: toAccountId!,
 					transferAmount: transferMagnitude,
 					feeAmount: hasTransferFee ? transferFeeAmount : 0,
-					feeAccountId: hasTransferFee ? transferFeeAccountId || selectedAccount : undefined,
+					feeAccountId: hasTransferFee
+						? transferFeeAccountId || selectedAccount
+						: undefined,
 					feeCategoryId: hasTransferFee ? transferFeeCategoryId : undefined,
 					feeType: hasTransferFee && transferFeeType ? transferFeeType : undefined,
 					feeDeductionMethod: hasTransferFee ? transferFeeDeductionMethod : undefined
@@ -1602,8 +1656,8 @@
 						: await planService.getEnhancedAllowance();
 					const prefs = await userService.getUserPreferences();
 					const handling =
-						(prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ??
-						'allow_with_strong_warning';
+						(prefs as { negativeAllowanceHandling?: string })
+							.negativeAllowanceHandling ?? 'allow_with_strong_warning';
 					const negStatus = await negativeAllowanceService.checkNegativeAllowance(
 						allowance,
 						handling as
@@ -1631,12 +1685,18 @@
 				transactionType === 'income' && selectedSettlementKey
 					? settlementOptions.find(
 							(option) =>
-								`${option.transactionId}::${option.reimbursementId}` === selectedSettlementKey
+								`${option.transactionId}::${option.reimbursementId}` ===
+								selectedSettlementKey
 						) || null
 					: null;
 
 			// Create or update transaction
-			await doActualSubmit(transactionData, isEditMode, transaction?.id ?? null, settlementTarget);
+			await doActualSubmit(
+				transactionData,
+				isEditMode,
+				transaction?.id ?? null,
+				settlementTarget
+			);
 		} catch (err) {
 			error =
 				err instanceof Error
@@ -1719,7 +1779,8 @@
 						class="flex items-center gap-1 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--color-bg-surface)]"
 						aria-label="Change currency"
 					>
-						<span class="currency-symbol font-display text-2xl text-[var(--color-text-secondary)]"
+						<span
+							class="currency-symbol font-display text-2xl text-[var(--color-text-secondary)]"
 							>{currencySymbol()}</span
 						>
 						<ChevronDown class="size-3.5 text-[var(--color-text-tertiary)]" />
@@ -1759,7 +1820,9 @@
 				{#if amountHint && !amountManuallyTouched}
 					<div class="flex items-center gap-2">
 						<span class={suggestedPillClass}>Suggested</span>
-						<p class="text-xs text-[var(--color-text-tertiary)]">Amount: {amountHint}</p>
+						<p class="text-xs text-[var(--color-text-tertiary)]">
+							Amount: {amountHint}
+						</p>
 					</div>
 				{/if}
 				{#if anomalyHint}
@@ -1834,7 +1897,9 @@
 
 				<div class="space-y-2">
 					<Label.Root for="description"
-						>{transactionType === 'transfer' ? 'Note (optional)' : 'Description'}</Label.Root
+						>{transactionType === 'transfer'
+							? 'Note (optional)'
+							: 'Description'}</Label.Root
 					>
 					<DescriptionAutocomplete
 						bind:value={description}
@@ -1845,12 +1910,13 @@
 						suggestionFetcher={transactionType === 'transfer'
 							? async (partial, limit) => {
 									if (!selectedAccount || !toAccountId) return [];
-									const ranked = await autocompleteService.getTransferMemoSuggestions(
-										selectedAccount,
-										toAccountId,
-										partial,
-										limit
-									);
+									const ranked =
+										await autocompleteService.getTransferMemoSuggestions(
+											selectedAccount,
+											toAccountId,
+											partial,
+											limit
+										);
 									return ranked.map((entry) => ({
 										value: entry.value,
 										frequency: entry.selectionFrequency,
@@ -1935,8 +2001,8 @@
 						>
 							<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
 							<p class="text-sm text-[var(--color-text-secondary)]">
-								This expense will be assigned to "Uncategorized". Add a category for better
-								tracking.
+								This expense will be assigned to "Uncategorized". Add a category for
+								better tracking.
 							</p>
 						</div>
 					{/if}
@@ -1947,7 +2013,8 @@
 						>
 							<Tag class="size-4 shrink-0 text-[var(--color-amber)]" />
 							<p class="text-sm text-[var(--color-text-secondary)]">
-								This income will be assigned to "Uncategorized". Add a category for better tracking.
+								This income will be assigned to "Uncategorized". Add a category for
+								better tracking.
 							</p>
 						</div>
 					{/if}
@@ -2039,7 +2106,8 @@
 							onfocus={handleInputFocus}
 						/>
 						<p class="text-muted-foreground text-xs">
-							When set, allowance spreads this expense until the deadline (linear by default).
+							When set, allowance spreads this expense until the deadline (linear by
+							default).
 						</p>
 					</div>
 					<div class="space-y-2">
@@ -2068,7 +2136,8 @@
 							onfocus={handleInputFocus}
 						/>
 						<p class="text-muted-foreground text-xs">
-							Groups related planned expenses; used for intentional debt prompts on Plan.
+							Groups related planned expenses; used for intentional debt prompts on
+							Plan.
 						</p>
 					</div>
 				{/if}
@@ -2080,7 +2149,9 @@
 						<div>
 							<p class="text-sm font-medium">Recurring</p>
 							{#if isRecurring}
-								<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">Set frequency below</p>
+								<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+									Set frequency below
+								</p>
 							{/if}
 						</div>
 						<Switch.Root bind:checked={isRecurring} />
@@ -2157,7 +2228,8 @@
 								<Select.Root type="single" bind:value={transferFeeAccountId}>
 									<Select.Trigger class="text-sm"
 										>{transferFeeAccountId
-											? accounts.find((a) => a.id === transferFeeAccountId)?.name
+											? accounts.find((a) => a.id === transferFeeAccountId)
+													?.name
 											: 'Account'}</Select.Trigger
 									>
 									<Select.Content>
@@ -2170,13 +2242,14 @@
 								<Select.Root type="single" bind:value={transferFeeCategoryId}>
 									<Select.Trigger class="text-sm"
 										>{transferFeeCategoryId
-											? categories.find((c) => c.id === transferFeeCategoryId)?.name
+											? categories.find((c) => c.id === transferFeeCategoryId)
+													?.name
 											: 'Category'}</Select.Trigger
 									>
 									<Select.Content>
 										<Select.Item value="">Default</Select.Item>
-										{#each categories as category}<Select.Item value={category.id}
-												>{category.name}</Select.Item
+										{#each categories as category}<Select.Item
+												value={category.id}>{category.name}</Select.Item
 											>{/each}
 									</Select.Content>
 								</Select.Root>
@@ -2194,19 +2267,30 @@
 														? 'Early withdrawal'
 														: transferFeeType === 'penalty'
 															? 'Penalty'
-															: transferFeeType === 'currency-conversion'
+															: transferFeeType ===
+																  'currency-conversion'
 																? 'FX conversion'
 																: transferFeeType === 'other'
 																	? 'Other'
 																	: 'Fee type'}</Select.Trigger
 									>
 									<Select.Content>
-										<Select.Item value="banking-transfer">Banking fee</Select.Item>
-										<Select.Item value="tax-withholding">Tax withholding</Select.Item>
-										<Select.Item value="broker-commission">Broker commission</Select.Item>
-										<Select.Item value="early-withdrawal">Early withdrawal</Select.Item>
+										<Select.Item value="banking-transfer"
+											>Banking fee</Select.Item
+										>
+										<Select.Item value="tax-withholding"
+											>Tax withholding</Select.Item
+										>
+										<Select.Item value="broker-commission"
+											>Broker commission</Select.Item
+										>
+										<Select.Item value="early-withdrawal"
+											>Early withdrawal</Select.Item
+										>
 										<Select.Item value="penalty">Penalty</Select.Item>
-										<Select.Item value="currency-conversion">FX conversion</Select.Item>
+										<Select.Item value="currency-conversion"
+											>FX conversion</Select.Item
+										>
 										<Select.Item value="other">Other</Select.Item>
 									</Select.Content>
 								</Select.Root>
@@ -2217,8 +2301,12 @@
 											: 'From arrival amount'}</Select.Trigger
 									>
 									<Select.Content>
-										<Select.Item value="from-transfer-amount">From arrival amount</Select.Item>
-										<Select.Item value="added-to-source">Added on top</Select.Item>
+										<Select.Item value="from-transfer-amount"
+											>From arrival amount</Select.Item
+										>
+										<Select.Item value="added-to-source"
+											>Added on top</Select.Item
+										>
 									</Select.Content>
 								</Select.Root>
 							</div>
@@ -2242,7 +2330,9 @@
 								</div>
 							{/if}
 							{#if transferFeeType === 'penalty' || transferFeeType === 'early-withdrawal'}
-								<p class="text-xs text-[var(--color-amber)]">This reduces your allowance.</p>
+								<p class="text-xs text-[var(--color-amber)]">
+									This reduces your allowance.
+								</p>
 							{/if}
 						</div>
 					{:else}
@@ -2296,8 +2386,12 @@
 								bind:value={reimbursementDirection}
 								class="w-full"
 							>
-								<ToggleGroup.Item value="lending" class="flex-1">I'm owed back</ToggleGroup.Item>
-								<ToggleGroup.Item value="borrowing" class="flex-1">I owe someone</ToggleGroup.Item>
+								<ToggleGroup.Item value="lending" class="flex-1"
+									>I'm owed back</ToggleGroup.Item
+								>
+								<ToggleGroup.Item value="borrowing" class="flex-1"
+									>I owe someone</ToggleGroup.Item
+								>
 							</ToggleGroup.Root>
 						</div>
 
@@ -2391,7 +2485,9 @@
 							Apply to outstanding reimbursement
 						</button>
 					{:else}
-						<div class="space-y-2 rounded-xl border border-[var(--color-border)] px-4 py-4">
+						<div
+							class="space-y-2 rounded-xl border border-[var(--color-border)] px-4 py-4"
+						>
 							<div class="flex items-center justify-between">
 								<h3 class="text-sm font-medium">Settlement target</h3>
 								<button
@@ -2409,16 +2505,20 @@
 								<Select.Trigger class="w-full">
 									{settlementOptions.find(
 										(option) =>
-											`${option.transactionId}::${option.reimbursementId}` === selectedSettlementKey
+											`${option.transactionId}::${option.reimbursementId}` ===
+											selectedSettlementKey
 									)?.label || 'Select reimbursement to settle'}
 								</Select.Trigger>
 								<Select.Content>
 									{#if settlementOptions.length === 0}
-										<Select.Item value="">No outstanding reimbursements</Select.Item>
+										<Select.Item value=""
+											>No outstanding reimbursements</Select.Item
+										>
 									{:else}
 										<Select.Item value="">None</Select.Item>
 										{#each settlementOptions as option}
-											<Select.Item value={`${option.transactionId}::${option.reimbursementId}`}
+											<Select.Item
+												value={`${option.transactionId}::${option.reimbursementId}`}
 												>{option.label}</Select.Item
 											>
 										{/each}
@@ -2438,12 +2538,14 @@
 						Split group ({linkedGroupMembers.length} parts)
 					</p>
 					<p class="text-xs text-[var(--color-text-tertiary)]">
-						This row is one part of a linked split. Edit each part below or change the shared group
-						name in Advanced.
+						This row is one part of a linked split. Edit each part below or change the
+						shared group name in Advanced.
 					</p>
 					<ul class="space-y-2">
 						{#each linkedGroupMembers as member (member.id)}
-							{@const memberCategory = categories.find((c) => c.id === member.categoryId)}
+							{@const memberCategory = categories.find(
+								(c) => c.id === member.categoryId
+							)}
 							{@const isCurrent = member.id === transaction?.id}
 							<li
 								class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2"
@@ -2452,7 +2554,9 @@
 									<p class="truncate text-sm text-[var(--color-text-primary)]">
 										{member.description || 'No description'}
 										{#if isCurrent}
-											<span class="ml-1 text-xs text-[var(--color-amber)]">(this row)</span>
+											<span class="ml-1 text-xs text-[var(--color-amber)]"
+												>(this row)</span
+											>
 										{/if}
 									</p>
 									<p class="text-xs text-[var(--color-text-tertiary)]">
@@ -2461,7 +2565,11 @@
 								</div>
 								<div class="flex items-center gap-2">
 									<span class="text-sm font-medium tabular-nums">
-										{formatTransactionAmount(member.amount, member.currency, true)}
+										{formatTransactionAmount(
+											member.amount,
+											member.currency,
+											true
+										)}
 									</span>
 									{#if !isCurrent}
 										<a
@@ -2521,7 +2629,9 @@
 					</div>
 				{/if}
 
-				<Label.Root for="tags" class="md:w-40 md:flex-shrink-0 md:text-right">Tags</Label.Root>
+				<Label.Root for="tags" class="md:w-40 md:flex-shrink-0 md:text-right"
+					>Tags</Label.Root
+				>
 				<div class="space-y-1">
 					<Input.Root
 						id="tags"
@@ -2591,18 +2701,22 @@
 					value={directionalConstraint || 'none'}
 					onValueChange={(value) => {
 						directionalConstraint =
-							value === 'none' || value === '' ? undefined : (value as DirectionalConstraint);
+							value === 'none' || value === ''
+								? undefined
+								: (value as DirectionalConstraint);
 					}}
 				>
 					<Select.Trigger class="w-full"
 						>{directionalConstraint && directionalConstraint !== 'none'
-							? DIRECTIONAL_CONSTRAINTS.find((c) => c.value === directionalConstraint)?.name
+							? DIRECTIONAL_CONSTRAINTS.find((c) => c.value === directionalConstraint)
+									?.name
 							: 'Select constraint'}</Select.Trigger
 					>
 					<Select.Content>
 						<Select.Item value="none">No constraint</Select.Item>
 						{#each DIRECTIONAL_CONSTRAINTS.filter((c) => c.value !== 'none') as constraint}<Select.Item
-								value={constraint.value}>{constraint.icon} {constraint.name}</Select.Item
+								value={constraint.value}
+								>{constraint.icon} {constraint.name}</Select.Item
 							>{/each}
 					</Select.Content>
 				</Select.Root>
@@ -2617,7 +2731,8 @@
 					type="single"
 					value={flexibilityTier || ''}
 					onValueChange={(value) => {
-						flexibilityTier = value === '' || !value ? undefined : (value as FlexibilityTier);
+						flexibilityTier =
+							value === '' || !value ? undefined : (value as FlexibilityTier);
 					}}
 				>
 					<Select.Trigger class="w-full"
@@ -2674,7 +2789,11 @@
 				>
 					Cancel
 				</Button.Root>
-				<Button.Root type="submit" form="transaction-form" disabled={isLoading || isDeleting}>
+				<Button.Root
+					type="submit"
+					form="transaction-form"
+					disabled={isLoading || isDeleting}
+				>
 					{isLoading ? 'Saving…' : submitButtonText}
 				</Button.Root>
 			</div>
@@ -2706,7 +2825,10 @@
 						{#if transaction.amount !== undefined}
 							<br />
 							<strong>Amount:</strong>
-							{formatAmount(Math.abs(transaction.amount), transaction.currency || 'USD')}
+							{formatAmount(
+								Math.abs(transaction.amount),
+								transaction.currency || 'USD'
+							)}
 						{/if}
 					{/if}
 				</Dialog.Description>
@@ -2742,8 +2864,8 @@
 			<Dialog.Header>
 				<Dialog.Title>Over spending allowance</Dialog.Title>
 				<Dialog.Description>
-					You're over your spending allowance for this period. Do you want to proceed and record
-					this transaction anyway?
+					You're over your spending allowance for this period. Do you want to proceed and
+					record this transaction anyway?
 				</Dialog.Description>
 			</Dialog.Header>
 			<Dialog.Footer class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
@@ -2786,7 +2908,8 @@
 							pendingSubmitData = null;
 							pendingTransactionId = null;
 						} catch (err) {
-							error = err instanceof Error ? err.message : 'Failed to save transaction';
+							error =
+								err instanceof Error ? err.message : 'Failed to save transaction';
 						} finally {
 							isLoading = false;
 						}
@@ -2813,19 +2936,26 @@
 						{goalPrecisionNudge.body}
 					</p>
 					<div class="space-y-2">
-						<Label.Root for="goal-precision-amt">Amount ({goalPrecisionNudge.currency})</Label.Root>
+						<Label.Root for="goal-precision-amt"
+							>Amount ({goalPrecisionNudge.currency})</Label.Root
+						>
 						<CalcExpressionInput
 							id="goal-precision-amt"
 							stringValue={goalPrecisionAmountStr}
 							onStringValueChange={(s) => (goalPrecisionAmountStr = s)}
 							decimalPlaces={2}
 							required={false}
-							placeholder={formatAmount(goalPrecisionNudge.totalAbs, goalPrecisionNudge.currency)}
+							placeholder={formatAmount(
+								goalPrecisionNudge.totalAbs,
+								goalPrecisionNudge.currency
+							)}
 						/>
 					</div>
 					<div class="flex flex-wrap gap-2 pt-2">
-						<Button.Root type="button" variant="outline" onclick={() => goalPrecisionOnNo()}
-							>No</Button.Root
+						<Button.Root
+							type="button"
+							variant="outline"
+							onclick={() => goalPrecisionOnNo()}>No</Button.Root
 						>
 						<Button.Root type="button" onclick={() => goalPrecisionOnApplyAmount()}>
 							Apply split

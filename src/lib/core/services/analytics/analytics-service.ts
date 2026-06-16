@@ -437,7 +437,9 @@ class AnalyticsService {
 			.filter((tx: Transaction) => tx != null) // Remove null/undefined transactions
 			.filter(
 				(tx: Transaction) =>
-					tx.status === 'cleared' && tx.clearedDate && new Date(tx.clearedDate) >= cutoffDate
+					tx.status === 'cleared' &&
+					tx.clearedDate &&
+					new Date(tx.clearedDate) >= cutoffDate
 			);
 
 		const monthlyData = new Map<string, { income: number; expenses: number }>();
@@ -768,7 +770,11 @@ class AnalyticsService {
 			if (acc.currency === mainCurrency) {
 				totalDebt += debt;
 			} else {
-				const converted = await exchangeRateService.convertAmount(debt, acc.currency, mainCurrency);
+				const converted = await exchangeRateService.convertAmount(
+					debt,
+					acc.currency,
+					mainCurrency
+				);
 				if (converted !== null) {
 					totalDebt += converted;
 				} else {

@@ -34,10 +34,12 @@ vi.mock('$lib/core/db', async (importOriginal) => {
 				put: vi.fn(async (tx: import('$lib/core/db').Transaction) => {
 					transactionsStore.set(tx.id, tx);
 				}),
-				update: vi.fn(async (id: string, patch: Partial<import('$lib/core/db').Transaction>) => {
-					const cur = transactionsStore.get(id);
-					if (cur) transactionsStore.set(id, { ...cur, ...patch });
-				})
+				update: vi.fn(
+					async (id: string, patch: Partial<import('$lib/core/db').Transaction>) => {
+						const cur = transactionsStore.get(id);
+						if (cur) transactionsStore.set(id, { ...cur, ...patch });
+					}
+				)
 			},
 			accounts: {
 				get: vi.fn(async (id: string) => accountsStore.get(id)),
@@ -89,13 +91,15 @@ vi.mock('$lib/core/services/core/account-service', () => ({
 			}
 			accountsStore.set(id, { ...acc, currentBalance: balance });
 		}),
-		updateAccount: vi.fn(async (id: string, updates: Partial<import('$lib/core/db').Account>) => {
-			const acc = accountsStore.get(id);
-			if (!acc) throw new Error('missing');
-			const updated = { ...acc, ...updates, updatedAt: new Date().toISOString() };
-			accountsStore.set(id, updated);
-			return updated;
-		}),
+		updateAccount: vi.fn(
+			async (id: string, updates: Partial<import('$lib/core/db').Account>) => {
+				const acc = accountsStore.get(id);
+				if (!acc) throw new Error('missing');
+				const updated = { ...acc, ...updates, updatedAt: new Date().toISOString() };
+				accountsStore.set(id, updated);
+				return updated;
+			}
+		),
 		getAccount: vi.fn(async (id: string) => accountsStore.get(id))
 	}
 }));

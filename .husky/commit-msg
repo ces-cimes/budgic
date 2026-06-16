@@ -1,0 +1,48 @@
+#!/bin/sh
+# Commit message validation — enforce conventional commits
+# Format: type(scope): description
+# Types: feat, fix, refactor, docs, test, chore, perf, ci, build
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Allow merge commits and fixup/squash
+if echo "$COMMIT_MSG" | grep -qE "^(Merge |fixup! |squash! |amend! )"; then
+  exit 0
+fi
+
+# Check conventional commit format
+if ! echo "$COMMIT_MSG" | grep -qE "^(feat|fix|refactor|docs|test|chore|perf|ci|build)(\([a-z0-9_-]+\))?: .+"; then
+  echo ""
+  echo "❌ INVALID COMMIT MESSAGE"
+  echo ""
+  echo "   Expected: type(scope): description"
+  echo "   Types: feat, fix, refactor, docs, test, chore, perf, ci, build"
+  echo "   Scope: optional, lowercase"
+  echo ""
+  echo "   Examples:"
+  echo "     feat(auth): add login flow"
+  echo "     fix: resolve currency conversion bug"
+  echo "     refactor(services): extract currency logic"
+  echo ""
+  echo "   Your message: $COMMIT_MSG"
+  echo ""
+  exit 1
+fi
+
+# Check description length
+DESC=$(echo "$COMMIT_MSG" | sed -E "s/^[a-z]+(\([a-z0-9_-]+\))?: //")
+if [ ${#DESC} -lt 3 ]; then
+  echo ""
+  echo "❌ COMMIT DESCRIPTION TOO SHORT"
+  echo "   Description must be at least 3 characters."
+  echo ""
+  exit 1
+fi
+
+if [ ${#DESC} -gt 72 ]; then
+  echo ""
+  echo "⚠️  COMMIT DESCRIPTION LONG (${#DESC} chars)"
+  echo "   Consider keeping under 72 characters."
+  echo ""
+fi

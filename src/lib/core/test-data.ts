@@ -52,7 +52,12 @@ async function createSampleCategories() {
 		// Create sample categories using the unified categorization system
 		const categories = [
 			// Income categories
-			{ name: 'Salary', type: 'income' as const, waterfallTier: 'survival' as const, priority: 1 },
+			{
+				name: 'Salary',
+				type: 'income' as const,
+				waterfallTier: 'survival' as const,
+				priority: 1
+			},
 			{
 				name: 'Freelance',
 				type: 'income' as const,
@@ -67,7 +72,12 @@ async function createSampleCategories() {
 			},
 
 			// Expense categories
-			{ name: 'Rent', type: 'expense' as const, waterfallTier: 'survival' as const, priority: 1 },
+			{
+				name: 'Rent',
+				type: 'expense' as const,
+				waterfallTier: 'survival' as const,
+				priority: 1
+			},
 			{
 				name: 'Groceries',
 				type: 'expense' as const,

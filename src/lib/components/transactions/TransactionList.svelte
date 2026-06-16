@@ -223,7 +223,9 @@
 
 	/** If the pointer moved this far horizontally during a month swipe, swallow the following click (ghost click). */
 	const SWIPE_CLICK_SUPPRESS_MIN_PX = 12;
-	const monthSwipeGhostClick = createDistanceThresholdGhostSuppression(SWIPE_CLICK_SUPPRESS_MIN_PX);
+	const monthSwipeGhostClick = createDistanceThresholdGhostSuppression(
+		SWIPE_CLICK_SUPPRESS_MIN_PX
+	);
 	/** Handoff from onSwipeLeft/Right to onSwipeEnd (same gesture, synchronous). */
 	let monthSwipeCommittedDirection: SwipeDirection | null = null;
 
@@ -356,7 +358,10 @@
 	}
 
 	// Enhanced fuzzy search function using semantic search utility
-	function fuzzySearch(transaction: Transaction, query: string): { match: boolean; score: number } {
+	function fuzzySearch(
+		transaction: Transaction,
+		query: string
+	): { match: boolean; score: number } {
 		const result = searchTransaction(
 			transaction,
 			query,
@@ -683,7 +688,9 @@
 				amount: totalAmount,
 				currency:
 					firstTransaction.currency ||
-					(firstTransaction.accountId ? accounts[firstTransaction.accountId]?.currency : undefined),
+					(firstTransaction.accountId
+						? accounts[firstTransaction.accountId]?.currency
+						: undefined),
 				status: firstTransaction.status,
 				clearedDate: firstTransaction.clearedDate,
 				plannedDate: firstTransaction.plannedDate,
@@ -873,7 +880,9 @@
 	}
 
 	function canStartMonthSwipe() {
-		return showDateNavigation && filters.dateFilterEnabled && !selectionMode && !filterSheetOpen;
+		return (
+			showDateNavigation && filters.dateFilterEnabled && !selectionMode && !filterSheetOpen
+		);
 	}
 
 	function doubleRaf(): Promise<void> {
@@ -942,7 +951,8 @@
 		if (!filters.dateFilterEnabled) return;
 		const cur = filters.currentMonth;
 		const now = new Date();
-		const diff = (now.getFullYear() - cur.getFullYear()) * 12 + (now.getMonth() - cur.getMonth());
+		const diff =
+			(now.getFullYear() - cur.getFullYear()) * 12 + (now.getMonth() - cur.getMonth());
 		if (diff === 0) return;
 		const dir = diff > 0 ? 'forward' : 'back';
 		void runMonthChangeTransition(dir, () => goToCurrentMonth());
@@ -1126,7 +1136,11 @@
 	function handleRowPrimaryClick(transactionOrGroup: Transaction | any) {
 		const id = rowSelectableId(transactionOrGroup);
 		if (selectionMode) {
-			if (id && id === suppressSelectionToggleId && Date.now() < suppressSelectionToggleUntilTs) {
+			if (
+				id &&
+				id === suppressSelectionToggleId &&
+				Date.now() < suppressSelectionToggleUntilTs
+			) {
 				suppressSelectionToggleId = null;
 				suppressSelectionToggleUntilTs = 0;
 				return;
@@ -1189,7 +1203,11 @@
 					{#if enableBasicToggles}
 						<div class="flex items-center gap-2">
 							<ToggleGroup.Root type="multiple" bind:value={toggleValues}>
-								<ToggleGroup.Item value="pending" size="sm" title="Show pending transactions only">
+								<ToggleGroup.Item
+									value="pending"
+									size="sm"
+									title="Show pending transactions only"
+								>
 									<Clock size={16} />
 								</ToggleGroup.Item>
 								<ToggleGroup.Item
@@ -1199,7 +1217,11 @@
 								>
 									<Group size={16} />
 								</ToggleGroup.Item>
-								<ToggleGroup.Item value="date" size="sm" title="Filter by current month">
+								<ToggleGroup.Item
+									value="date"
+									size="sm"
+									title="Filter by current month"
+								>
 									<Calendar size={16} />
 								</ToggleGroup.Item>
 							</ToggleGroup.Root>
@@ -1275,7 +1297,11 @@
 					{#if enableBasicToggles}
 						<div class="flex shrink-0 items-center gap-2">
 							<ToggleGroup.Root type="multiple" bind:value={toggleValues}>
-								<ToggleGroup.Item value="pending" size="sm" title="Show pending transactions only">
+								<ToggleGroup.Item
+									value="pending"
+									size="sm"
+									title="Show pending transactions only"
+								>
 									<Clock />
 								</ToggleGroup.Item>
 								<ToggleGroup.Item
@@ -1285,7 +1311,11 @@
 								>
 									<Group />
 								</ToggleGroup.Item>
-								<ToggleGroup.Item value="date" size="sm" title="Filter by current month">
+								<ToggleGroup.Item
+									value="date"
+									size="sm"
+									title="Filter by current month"
+								>
 									<Calendar />
 								</ToggleGroup.Item>
 							</ToggleGroup.Root>
@@ -1369,8 +1399,9 @@
 						class="border-border flex items-center justify-between gap-3 rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-2.5"
 					>
 						<p class="text-xs text-[var(--color-text-secondary)]">
-							{flaggedVisibleCount()} transaction{flaggedVisibleCount() === 1 ? '' : 's'} have flagged
-							import data
+							{flaggedVisibleCount()} transaction{flaggedVisibleCount() === 1
+								? ''
+								: 's'} have flagged import data
 						</p>
 						<a
 							href={reviewQueueHref}
@@ -1383,7 +1414,9 @@
 			{/if}
 			{#if showSummary}
 				<section class="mb-4">
-					<div class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5">
+					<div
+						class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-5 py-3.5"
+					>
 						<div
 							class="mb-2 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 						>
@@ -1458,7 +1491,9 @@
 							{/if}
 
 							{#each filteredTransactions() as dateGroup}
-								{@const spanMulti = groupSpansMultipleCalendarDays(dateGroup.transactions)}
+								{@const spanMulti = groupSpansMultipleCalendarDays(
+									dateGroup.transactions
+								)}
 								{@const totals = dateGroupTotals[dateGroup.group.key] ?? {
 									income: 0,
 									expenses: 0,
@@ -1472,9 +1507,12 @@
 											{#if selectionMode}
 												<div
 													class="border-border flex size-4 shrink-0 items-center justify-center rounded-sm border"
-													class:bg-golden-amber={isGroupFullySelected(dateGroup)}
-													class:border-golden-amber={isGroupFullySelected(dateGroup) ||
-														isGroupPartiallySelected(dateGroup)}
+													class:bg-golden-amber={isGroupFullySelected(
+														dateGroup
+													)}
+													class:border-golden-amber={isGroupFullySelected(
+														dateGroup
+													) || isGroupPartiallySelected(dateGroup)}
 													aria-hidden="true"
 												>
 													{#if isGroupFullySelected(dateGroup)}
@@ -1495,7 +1533,9 @@
 															/>
 														</svg>
 													{:else if isGroupPartiallySelected(dateGroup)}
-														<div class="bg-golden-amber size-1.5 rounded-sm"></div>
+														<div
+															class="bg-golden-amber size-1.5 rounded-sm"
+														></div>
 													{/if}
 												</div>
 											{/if}
@@ -1507,12 +1547,17 @@
 										</div>
 										<div class="flex items-center gap-3">
 											{#if totals.income > 0}
-												<span class="text-amount-sm text-[var(--color-sage-green)]"
-													>{formatAmountWithSign(totals.income, true)}</span
+												<span
+													class="text-amount-sm text-[var(--color-sage-green)]"
+													>{formatAmountWithSign(
+														totals.income,
+														true
+													)}</span
 												>
 											{/if}
 											{#if totals.expenses !== 0}
-												<span class="text-amount-sm text-[var(--color-text-secondary)]"
+												<span
+													class="text-amount-sm text-[var(--color-text-secondary)]"
 													>{formatAmountWithSign(totals.expenses)}</span
 												>
 											{/if}
@@ -1548,37 +1593,62 @@
 											<div
 												class="min-w-0"
 												role="presentation"
-												oncontextmenu={(e) => handleRowRightClick(e, transactionOrGroup)}
+												oncontextmenu={(e) =>
+													handleRowRightClick(e, transactionOrGroup)}
 											>
 												{#if transactionOrGroup.isGroup}
 													<TransactionItem
 														transaction={transactionOrGroup}
-														onClick={() => handleRowPrimaryClick(transactionOrGroup)}
-														onLongPress={() => handleRowLongPress(transactionOrGroup)}
+														onClick={() =>
+															handleRowPrimaryClick(
+																transactionOrGroup
+															)}
+														onLongPress={() =>
+															handleRowLongPress(transactionOrGroup)}
 														enableLongPress={!selectionMode}
-														isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
+														isSelected={selectionMode &&
+															isTransactionSelected(
+																transactionOrGroup
+															)}
 														context="transactions"
 														showDate={false}
-														secondaryDateMode={spanMulti ? 'calendar' : 'time'}
+														secondaryDateMode={spanMulti
+															? 'calendar'
+															: 'time'}
 														isGroup={true}
 														groupTransactions={transactionOrGroup.transactions}
-														totalAmount={getTransactionAmount(transactionOrGroup)}
+														totalAmount={getTransactionAmount(
+															transactionOrGroup
+														)}
 														groupDescription={transactionOrGroup.description ||
 															'Grouped Transaction'}
-														groupCategory={getCategoryName(transactionOrGroup)}
-														groupCurrency={getTransactionCurrency(transactionOrGroup)}
+														groupCategory={getCategoryName(
+															transactionOrGroup
+														)}
+														groupCurrency={getTransactionCurrency(
+															transactionOrGroup
+														)}
 														hasImportQualityFlag={transactionOrGroup.hasImportQualityFlag}
 													/>
 												{:else}
 													<TransactionItem
 														transaction={transactionOrGroup}
-														onClick={() => handleRowPrimaryClick(transactionOrGroup)}
-														onLongPress={() => handleRowLongPress(transactionOrGroup)}
+														onClick={() =>
+															handleRowPrimaryClick(
+																transactionOrGroup
+															)}
+														onLongPress={() =>
+															handleRowLongPress(transactionOrGroup)}
 														enableLongPress={!selectionMode}
-														isSelected={selectionMode && isTransactionSelected(transactionOrGroup)}
+														isSelected={selectionMode &&
+															isTransactionSelected(
+																transactionOrGroup
+															)}
 														context="transactions"
 														showDate={false}
-														secondaryDateMode={spanMulti ? 'calendar' : 'time'}
+														secondaryDateMode={spanMulti
+															? 'calendar'
+															: 'time'}
 													/>
 												{/if}
 											</div>
@@ -1611,7 +1681,9 @@
 												Clear filters
 											</Button>
 										{:else if isMonthOnlyEmptyState()}
-											<div class="flex flex-wrap items-center justify-center gap-2">
+											<div
+												class="flex flex-wrap items-center justify-center gap-2"
+											>
 												<Button
 													variant="ghost"
 													size="sm"

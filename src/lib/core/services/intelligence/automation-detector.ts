@@ -33,7 +33,10 @@ class AutomationDetector {
 				if (tx.automation === 'round-up') {
 					acc.roundUpCount += 1;
 					acc.roundUpAmount += amount;
-				} else if (tx.automation === 'interest-income' || tx.automation === 'interest-charge') {
+				} else if (
+					tx.automation === 'interest-income' ||
+					tx.automation === 'interest-charge'
+				) {
 					acc.interestCount += 1;
 					acc.interestAmount += amount;
 				} else if (tx.automation === 'reconciliation-adjustment') {
@@ -56,7 +59,9 @@ class AutomationDetector {
 		accountById: Map<string, Account>
 	): void {
 		const txs = Array.from(byId.values());
-		const expenses = txs.filter((tx) => tx.type === 'expense' && tx.clearedDate && !!tx.accountId);
+		const expenses = txs.filter(
+			(tx) => tx.type === 'expense' && tx.clearedDate && !!tx.accountId
+		);
 		const transfers = txs.filter(
 			(tx) =>
 				tx.type === 'transfer' &&
@@ -77,7 +82,10 @@ class AutomationDetector {
 				const toAccountId = transfer.transferDetails?.toAccountId;
 				if (!toAccountId) return false;
 				const destination = accountById.get(toAccountId);
-				if (!destination || (destination.type !== 'savings' && destination.type !== 'investment'))
+				if (
+					!destination ||
+					(destination.type !== 'savings' && destination.type !== 'investment')
+				)
 					return false;
 				const transferTs = Date.parse(transfer.clearedDate!);
 				if (Number.isNaN(transferTs)) return false;

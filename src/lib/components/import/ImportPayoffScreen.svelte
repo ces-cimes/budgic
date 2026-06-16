@@ -20,13 +20,17 @@
 	<h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Import payoff</h3>
 	<div class="space-y-2 rounded-xl bg-[var(--color-bg-surface)] p-4 text-sm">
 		<p>
-			<span class="text-[var(--color-text-tertiary)]">Classified expense share (this import):</span>
+			<span class="text-[var(--color-text-tertiary)]"
+				>Classified expense share (this import):</span
+			>
 			{(beforeClassifiedExpenseShare * 100).toFixed(0)}% → {(
 				afterClassifiedExpenseShare * 100
 			).toFixed(0)}%
 		</p>
 		<p>
-			<span class="text-[var(--color-text-tertiary)]">Unclassified rows left (tier view):</span>
+			<span class="text-[var(--color-text-tertiary)]"
+				>Unclassified rows left (tier view):</span
+			>
 			{remainingUnclassified}
 		</p>
 	</div>

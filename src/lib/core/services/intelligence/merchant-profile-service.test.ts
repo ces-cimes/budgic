@@ -222,7 +222,10 @@ describe('merchantProfileService.onTransactionSaved — splits', () => {
 		const profile = mockAdd.mock.calls[0][0] as MerchantCategoryProfile;
 		expect(profile.totalObservations).toBe(1);
 		expect(profile.weights.find((w) => w.categoryId === 'sal')?.meanWeight).toBeCloseTo(0.6, 5);
-		expect(profile.weights.find((w) => w.categoryId === 'bonus')?.meanWeight).toBeCloseTo(0.4, 5);
+		expect(profile.weights.find((w) => w.categoryId === 'bonus')?.meanWeight).toBeCloseTo(
+			0.4,
+			5
+		);
 	});
 
 	it('transfer cleared — no learning', async () => {
@@ -276,9 +279,11 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 		const tx = expense({ id: 'plain' });
 		mockTxGet.mockResolvedValue(tx);
 
-		const n = await merchantProfileService.applyRetrospectiveSplits('costco wholesale', 'acc-1', [
-			'plain'
-		]);
+		const n = await merchantProfileService.applyRetrospectiveSplits(
+			'costco wholesale',
+			'acc-1',
+			['plain']
+		);
 
 		expect(n).toBe(1);
 		expect(mockPersistRetro).toHaveBeenCalledWith(
@@ -294,9 +299,11 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 	it('skips partitioned group members', async () => {
 		mockTxGet.mockResolvedValue(expense({ id: 'hard-1', groupId: 'g1', amount: -60 }));
 
-		const n = await merchantProfileService.applyRetrospectiveSplits('costco wholesale', 'acc-1', [
-			'hard-1'
-		]);
+		const n = await merchantProfileService.applyRetrospectiveSplits(
+			'costco wholesale',
+			'acc-1',
+			['hard-1']
+		);
 
 		expect(n).toBe(0);
 		expect(mockTxUpdate).not.toHaveBeenCalled();
@@ -313,9 +320,11 @@ describe('merchantProfileService.applyRetrospectiveSplits — split guard', () =
 			})
 		);
 
-		const n = await merchantProfileService.applyRetrospectiveSplits('costco wholesale', 'acc-1', [
-			'soft'
-		]);
+		const n = await merchantProfileService.applyRetrospectiveSplits(
+			'costco wholesale',
+			'acc-1',
+			['soft']
+		);
 
 		expect(n).toBe(0);
 		expect(mockTxUpdate).not.toHaveBeenCalled();

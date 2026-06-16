@@ -116,7 +116,8 @@
 <div class="space-y-4">
 	<!-- Date Type -->
 	<div class="space-y-2">
-		<label for="filter-date-type" class="text-muted-foreground text-xs font-medium">Date Type</label
+		<label for="filter-date-type" class="text-muted-foreground text-xs font-medium"
+			>Date Type</label
 		>
 		<Select.Root
 			type="single"
@@ -124,7 +125,10 @@
 			onValueChange={(value) => {
 				onFiltersChange({
 					...filters,
-					dateType: value === 'cleared' ? undefined : (value as 'cleared' | 'planned' | undefined)
+					dateType:
+						value === 'cleared'
+							? undefined
+							: (value as 'cleared' | 'planned' | undefined)
 				});
 			}}
 		>
@@ -153,7 +157,8 @@
 			/>
 		</div>
 		<div class="space-y-1">
-			<label for="filter-end-date" class="text-muted-foreground text-xs font-medium">End Date</label
+			<label for="filter-end-date" class="text-muted-foreground text-xs font-medium"
+				>End Date</label
 			>
 			<Input
 				id="filter-end-date"

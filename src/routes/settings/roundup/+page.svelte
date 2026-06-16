@@ -51,7 +51,11 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<Header title="Round-up rules" backButtonLink="/settings" backButtonLabel="Back to settings" />
+		<Header
+			title="Round-up rules"
+			backButtonLink="/settings"
+			backButtonLabel="Back to settings"
+		/>
 	{/snippet}
 
 	<div class="mx-auto max-w-2xl space-y-5 px-4 py-6">

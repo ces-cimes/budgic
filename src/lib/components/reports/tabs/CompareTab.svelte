@@ -145,14 +145,18 @@
 				>
 					<div class="flex items-center gap-3">
 						<TrendingUp
-							class="h-4 w-4 {spendingChange() > 0 ? 'text-red-500' : 'text-green-500'}"
+							class="h-4 w-4 {spendingChange() > 0
+								? 'text-red-500'
+								: 'text-green-500'}"
 						/>
 						<span class="text-primary text-sm font-medium"
 							>Spending {spendingChange() > 0 ? 'increased' : 'decreased'}</span
 						>
 					</div>
 					<span
-						class="text-sm font-semibold {spendingChange() > 0 ? 'text-red-500' : 'text-green-500'}"
+						class="text-sm font-semibold {spendingChange() > 0
+							? 'text-red-500'
+							: 'text-green-500'}"
 					>
 						{spendingChange() > 0 ? '+' : ''}{spendingChange().toFixed(1)}%
 					</span>
@@ -165,7 +169,9 @@
 				>
 					<div class="flex items-center gap-3">
 						<TrendingUp
-							class="h-4 w-4 {transactionChange() > 0 ? 'text-green-500' : 'text-red-500'}"
+							class="h-4 w-4 {transactionChange() > 0
+								? 'text-green-500'
+								: 'text-red-500'}"
 						/>
 						<span class="text-primary text-sm font-medium">Transaction count</span>
 					</div>
@@ -185,7 +191,9 @@
 				>
 					<div class="flex items-center gap-3">
 						<TrendingUp
-							class="h-4 w-4 {savingsRateChange() > 0 ? 'text-green-500' : 'text-yellow-500'}"
+							class="h-4 w-4 {savingsRateChange() > 0
+								? 'text-green-500'
+								: 'text-yellow-500'}"
 						/>
 						<span class="text-primary text-sm font-medium">Savings rate</span>
 					</div>

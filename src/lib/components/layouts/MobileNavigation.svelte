@@ -189,7 +189,9 @@
 				<Drawer.Content>
 					<Drawer.Header>
 						<Drawer.Title>More Options</Drawer.Title>
-						<Drawer.Description>Additional navigation items and settings</Drawer.Description>
+						<Drawer.Description
+							>Additional navigation items and settings</Drawer.Description
+						>
 					</Drawer.Header>
 
 					<div class="space-y-0.5 p-3">
@@ -198,7 +200,8 @@
 							{@const badgeValue = item.badge?.countKey
 								? badges.get(item.badge.countKey)
 								: undefined}
-							{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
+							{@const showBadge =
+								item.badge && badgeValue !== undefined && badgeValue !== 0}
 							{@const active = isActive(item.path)}
 
 							<a
@@ -220,7 +223,9 @@
 										{badgeValue}
 									</Badge>
 								{/if}
-								<ChevronRightIcon class="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]" />
+								<ChevronRightIcon
+									class="h-4 w-4 shrink-0 text-[var(--color-text-tertiary)]"
+								/>
 							</a>
 						{/each}
 					</div>

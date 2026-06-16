@@ -83,7 +83,15 @@ class BehavioralAnalysisService {
 		transactions?: Transaction[]
 	): Promise<DayOfWeekPattern[]> {
 		const dayCounts = new Map<string, { count: number; amounts: number[] }>();
-		const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+		const dayNames = [
+			'sunday',
+			'monday',
+			'tuesday',
+			'wednesday',
+			'thursday',
+			'friday',
+			'saturday'
+		];
 
 		// Count actions by day of week
 		actions.forEach((action) => {
@@ -108,7 +116,10 @@ class BehavioralAnalysisService {
 			});
 		}
 
-		const totalCount = Array.from(dayCounts.values()).reduce((sum, data) => sum + data.count, 0);
+		const totalCount = Array.from(dayCounts.values()).reduce(
+			(sum, data) => sum + data.count,
+			0
+		);
 		if (totalCount < 3) {
 			return []; // Not enough data
 		}
@@ -153,7 +164,10 @@ class BehavioralAnalysisService {
 		}
 
 		// Group by week
-		const weeklySpending = new Map<string, { amount: number; count: number; dates: string[] }>();
+		const weeklySpending = new Map<
+			string,
+			{ amount: number; count: number; dates: string[] }
+		>();
 
 		expenseTransactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate!);
@@ -173,7 +187,8 @@ class BehavioralAnalysisService {
 
 		const amounts = Array.from(weeklySpending.values()).map((w) => w.amount);
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+		const variance =
+			amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -216,7 +231,10 @@ class BehavioralAnalysisService {
 		}
 
 		// Group by month
-		const monthlySpending = new Map<string, { amount: number; count: number; dates: string[] }>();
+		const monthlySpending = new Map<
+			string,
+			{ amount: number; count: number; dates: string[] }
+		>();
 
 		expenseTransactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate!);
@@ -235,12 +253,15 @@ class BehavioralAnalysisService {
 
 		const amounts = Array.from(monthlySpending.values()).map((m) => m.amount);
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+		const variance =
+			amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
 		if (coefficientOfVariation < 0.3 && monthlySpending.size >= 3) {
-			const months = Array.from(monthlySpending.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+			const months = Array.from(monthlySpending.entries()).sort((a, b) =>
+				a[0].localeCompare(b[0])
+			);
 
 			return [
 				{
@@ -275,7 +296,10 @@ class BehavioralAnalysisService {
 		}
 
 		// Group by quarter
-		const quarterlySpending = new Map<string, { amount: number; count: number; dates: string[] }>();
+		const quarterlySpending = new Map<
+			string,
+			{ amount: number; count: number; dates: string[] }
+		>();
 
 		expenseTransactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate!);
@@ -295,7 +319,8 @@ class BehavioralAnalysisService {
 
 		const amounts = Array.from(quarterlySpending.values()).map((q) => q.amount);
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+		const variance =
+			amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -342,7 +367,10 @@ class BehavioralAnalysisService {
 			hourCounts.set(hour, current);
 		});
 
-		const totalCount = Array.from(hourCounts.values()).reduce((sum, data) => sum + data.count, 0);
+		const totalCount = Array.from(hourCounts.values()).reduce(
+			(sum, data) => sum + data.count,
+			0
+		);
 		if (totalCount < 5) {
 			return [];
 		}
@@ -454,7 +482,8 @@ class BehavioralAnalysisService {
 					firstObserved: cycle.startDate
 				},
 				actionable: true,
-				recommendation: 'Consider setting up monthly budget allocations based on this pattern'
+				recommendation:
+					'Consider setting up monthly budget allocations based on this pattern'
 			});
 		});
 

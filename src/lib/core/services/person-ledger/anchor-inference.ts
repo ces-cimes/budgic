@@ -21,7 +21,9 @@ export async function resolveDefaultAnchorAccountId(params: {
 
 	const prefs = await userService.getUserPreferences();
 	if (prefs?.defaultReimbursementAnchorAccountId) {
-		const prefAccount = await accountService.getAccount(prefs.defaultReimbursementAnchorAccountId);
+		const prefAccount = await accountService.getAccount(
+			prefs.defaultReimbursementAnchorAccountId
+		);
 		if (prefAccount && prefAccount.isActive !== false) return prefAccount.id;
 	}
 

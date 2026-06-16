@@ -41,9 +41,15 @@ export function computeTierSegmentLayout(tierRows: AllowanceTierRow[]): TierSegm
 	const useEqualWidth = totalAllocated < 0.01;
 
 	return tierRows.map((row) => {
-		const widthPct = useEqualWidth ? 100 / tierRows.length : (row.allocated / totalAllocated) * 100;
+		const widthPct = useEqualWidth
+			? 100 / tierRows.length
+			: (row.allocated / totalAllocated) * 100;
 		const rawFillPct =
-			row.allocated <= 0.01 ? (row.spent > 0.01 ? 100 : 0) : (row.spent / row.allocated) * 100;
+			row.allocated <= 0.01
+				? row.spent > 0.01
+					? 100
+					: 0
+				: (row.spent / row.allocated) * 100;
 		const isOverspent = row.allocated > 0.01 && row.spent > row.allocated;
 		const fillPct = Math.min(rawFillPct, 100);
 		const overflowPct = isOverspent ? Math.min(rawFillPct - 100, 50) : 0;

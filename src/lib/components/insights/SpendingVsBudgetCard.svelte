@@ -53,7 +53,9 @@
 				result.push({ id, name: categories.get(id) || id, usage });
 			}
 		}
-		return result.sort((a, b) => (a.usage.usageRatio ?? 0) - (b.usage.usageRatio ?? 0)).slice(0, 5);
+		return result
+			.sort((a, b) => (a.usage.usageRatio ?? 0) - (b.usage.usageRatio ?? 0))
+			.slice(0, 5);
 	}
 
 	// Categories over budget: spent > budget
@@ -70,7 +72,9 @@
 				result.push({ id, name: categories.get(id) || id, usage });
 			}
 		}
-		return result.sort((a, b) => (b.usage.usageRatio ?? 0) - (a.usage.usageRatio ?? 0)).slice(0, 5);
+		return result
+			.sort((a, b) => (b.usage.usageRatio ?? 0) - (a.usage.usageRatio ?? 0))
+			.slice(0, 5);
 	}
 
 	function formatAmount(amount: number): string {
@@ -104,7 +108,9 @@
 		{:else}
 			{#if getCategoriesOverBudget().length > 0}
 				<div class="mb-3">
-					<p class="text-muted-foreground mb-1.5 text-xs font-medium tracking-wider uppercase">
+					<p
+						class="text-muted-foreground mb-1.5 text-xs font-medium tracking-wider uppercase"
+					>
 						Over budget
 					</p>
 					<div class="space-y-1.5">
@@ -114,7 +120,9 @@
 							>
 								<span class="truncate font-medium">{item.name}</span>
 								<div class="shrink-0 text-right">
-									<span class="font-medium text-red-500">{formatAmount(item.usage.spent)}</span>
+									<span class="font-medium text-red-500"
+										>{formatAmount(item.usage.spent)}</span
+									>
 									<span class="text-muted-foreground ml-1 text-xs">
 										/ {formatAmount(item.usage.budget!)}
 									</span>
@@ -127,7 +135,9 @@
 
 			{#if getCategoriesWithRoom().length > 0}
 				<div>
-					<p class="text-muted-foreground mb-1.5 text-xs font-medium tracking-wider uppercase">
+					<p
+						class="text-muted-foreground mb-1.5 text-xs font-medium tracking-wider uppercase"
+					>
 						Room to redirect
 					</p>
 					<div class="space-y-1.5">
@@ -137,7 +147,9 @@
 							>
 								<span class="truncate font-medium">{item.name}</span>
 								<div class="shrink-0 text-right">
-									<span class="font-medium text-green-500">{formatAmount(item.usage.spent)}</span>
+									<span class="font-medium text-green-500"
+										>{formatAmount(item.usage.spent)}</span
+									>
 									<span class="text-muted-foreground ml-1 text-xs">
 										/ {formatAmount(item.usage.budget!)}
 									</span>

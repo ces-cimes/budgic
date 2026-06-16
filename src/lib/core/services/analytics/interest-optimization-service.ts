@@ -181,7 +181,12 @@ function calculateInterestForPeriod(
 
 	const rateDecimal = rate / 100;
 	const years = days / 365;
-	const finalAmount = calculateCompoundInterest(balance, rateDecimal, years, compoundingFrequency);
+	const finalAmount = calculateCompoundInterest(
+		balance,
+		rateDecimal,
+		years,
+		compoundingFrequency
+	);
 	return finalAmount - balance;
 }
 
@@ -477,7 +482,8 @@ class InterestOptimizationService {
 					return rate > (best.metadata?.interestRate || 0) ? acc : best;
 				});
 
-				const rateIncrease = (bestOption.metadata?.interestRate || 0) - interestCalc.interestRate;
+				const rateIncrease =
+					(bestOption.metadata?.interestRate || 0) - interestCalc.interestRate;
 				const annualEarningsIncrease = (interestCalc.currentBalance * rateIncrease) / 100;
 
 				if (annualEarningsIncrease > 50) {
@@ -653,7 +659,9 @@ class InterestOptimizationService {
 
 		// Suggest moving savings to highest rate account
 		if (savingsAccounts.length > 1) {
-			const sortedSavings = [...savingsAccounts].sort((a, b) => b.interestRate - a.interestRate);
+			const sortedSavings = [...savingsAccounts].sort(
+				(a, b) => b.interestRate - a.interestRate
+			);
 			const highestRate = sortedSavings[0];
 			const lowerRateAccounts = sortedSavings.filter(
 				(s) => s.interestRate < highestRate.interestRate
@@ -740,7 +748,8 @@ class InterestOptimizationService {
 
 			for (const debt of sortedDebt) {
 				if (remainingFunds <= 0) break;
-				if (options.targetAccounts && !options.targetAccounts.includes(debt.accountId)) continue;
+				if (options.targetAccounts && !options.targetAccounts.includes(debt.accountId))
+					continue;
 
 				// Pay down high interest debt first
 				if (debt.interestRate > 10) {
@@ -753,7 +762,12 @@ class InterestOptimizationService {
 						recommendedAmount: paydownAmount,
 						action: 'paydown',
 						estimatedAnnualValue: annualSavings,
-						priority: debt.interestRate > 20 ? 'urgent' : debt.interestRate > 15 ? 'high' : 'medium'
+						priority:
+							debt.interestRate > 20
+								? 'urgent'
+								: debt.interestRate > 15
+									? 'high'
+									: 'medium'
 					});
 
 					remainingFunds -= paydownAmount;

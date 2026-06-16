@@ -130,7 +130,9 @@ The mobile navigation component that can be included in any page's bottom bar.
 		<!-- Form actions -->
 		<div class="border-border border-t p-4">
 			<div class="flex justify-end space-x-2">
-				<Button.Root type="button" variant="outline" disabled={isLoading}>Cancel</Button.Root>
+				<Button.Root type="button" variant="outline" disabled={isLoading}
+					>Cancel</Button.Root
+				>
 				<Button.Root type="submit" form="my-form" disabled={isLoading}>
 					{isLoading ? 'Creating...' : 'Create'}
 				</Button.Root>

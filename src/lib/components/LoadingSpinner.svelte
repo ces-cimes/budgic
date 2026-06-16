@@ -15,7 +15,9 @@
 
 <div class="py-8 text-center">
 	<div
-		class="animate-spin rounded-full {sizeClasses[size]} border-text-secondary mx-auto border-b-2"
+		class="animate-spin rounded-full {sizeClasses[
+			size
+		]} border-text-secondary mx-auto border-b-2"
 	></div>
 	<p class="text-text-secondary mt-2">{message}</p>
 </div>

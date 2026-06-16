@@ -82,7 +82,8 @@
 	async function startUpdateAllBalances() {
 		const all = await accountService.getAccounts();
 		const passive = all.filter(
-			(a) => (a.type === 'savings' || a.type === 'credit' || a.type === 'loan') && !a.deletedAt
+			(a) =>
+				(a.type === 'savings' || a.type === 'credit' || a.type === 'loan') && !a.deletedAt
 		);
 		if (passive.length === 0) return;
 		passiveQueue = passive;
@@ -126,9 +127,9 @@
 			>
 				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Net worth</h2>
 				<p class="text-xs text-[var(--color-text-secondary)]">
-					When enabled, savings, credit, and loan accounts with a rate profile use projected
-					balances in home and list totals. Otherwise totals use last confirmed or current ledger
-					balances.
+					When enabled, savings, credit, and loan accounts with a rate profile use
+					projected balances in home and list totals. Otherwise totals use last confirmed
+					or current ledger balances.
 				</p>
 				<div class="flex items-center justify-between gap-3">
 					<span class="text-sm text-[var(--color-text-primary)]"
@@ -145,14 +146,19 @@
 			<section
 				class="squircle-2xl squircle-border space-y-3 bg-[var(--color-bg-tertiary)] px-5 py-4"
 			>
-				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Update balance</h2>
+				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">
+					Update balance
+				</h2>
 				<p class="text-xs text-[var(--color-text-secondary)]">
-					If the number you enter is within this amount of the cleared-transaction total, Budgic
-					adjusts the account quietly without creating a transaction. Larger gaps ask for a category
-					or open full review.
+					If the number you enter is within this amount of the cleared-transaction total,
+					Budgic adjusts the account quietly without creating a transaction. Larger gaps
+					ask for a category or open full review.
 				</p>
 				<div class="space-y-2">
-					<Label for="auto-resolve-threshold" class="text-sm text-[var(--color-text-primary)]">
+					<Label
+						for="auto-resolve-threshold"
+						class="text-sm text-[var(--color-text-primary)]"
+					>
 						Auto-resolve within (same currency as the account)
 					</Label>
 					<CalcExpressionInput
@@ -164,7 +170,8 @@
 						min={0}
 						max={500}
 						disabled={isSavingThreshold}
-						onblur={() => persistAutoResolveThreshold(String(balanceUpdateAutoResolveThreshold))}
+						onblur={() =>
+							persistAutoResolveThreshold(String(balanceUpdateAutoResolveThreshold))}
 					/>
 				</div>
 			</section>
@@ -172,10 +179,13 @@
 			<section
 				class="squircle-2xl squircle-border space-y-3 bg-[var(--color-bg-tertiary)] px-5 py-4"
 			>
-				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Reconciliation</h2>
+				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">
+					Reconciliation
+				</h2>
 				<p class="text-xs text-[var(--color-text-secondary)]">
-					After this many days without a reconciliation session, Budgic shows a medium-priority bell
-					alert (not a persistent Data badge). Open issues still appear on the Data tab.
+					After this many days without a reconciliation session, Budgic shows a
+					medium-priority bell alert (not a persistent Data badge). Open issues still
+					appear on the Data tab.
 				</p>
 				<div class="space-y-2">
 					<Label for="checkup-interval" class="text-sm text-[var(--color-text-primary)]">
@@ -190,7 +200,8 @@
 						min={7}
 						max={365}
 						disabled={isSavingCheckupInterval}
-						onblur={() => persistCheckupInterval(String(reconciliationCheckupIntervalDays))}
+						onblur={() =>
+							persistCheckupInterval(String(reconciliationCheckupIntervalDays))}
 					/>
 				</div>
 			</section>
@@ -200,8 +211,8 @@
 			>
 				<h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Balances</h2>
 				<p class="text-xs text-[var(--color-text-secondary)]">
-					Walk through each savings, credit, or loan account with the same update flow used on the
-					account screens.
+					Walk through each savings, credit, or loan account with the same update flow
+					used on the account screens.
 				</p>
 				<Button variant="outline" class="w-full sm:w-auto" onclick={startUpdateAllBalances}>
 					Update all balances

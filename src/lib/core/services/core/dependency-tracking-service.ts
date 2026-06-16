@@ -263,7 +263,9 @@ class DependencyTrackingService {
 					const txDate = new Date(transaction.plannedDate);
 					const depDate = new Date(dependsOn.plannedDate);
 					if (txDate < depDate) {
-						warnings.push(`Transaction is scheduled before its dependency ${dependsOnId}`);
+						warnings.push(
+							`Transaction is scheduled before its dependency ${dependsOnId}`
+						);
 					}
 				}
 			}
@@ -338,7 +340,10 @@ class DependencyTrackingService {
 			// Check if transaction exists before processing
 			const current = await db.transactions.get(currentId);
 			if (!current) {
-				console.warn('[DependencyTracking] Transaction not found in cycle detection:', currentId);
+				console.warn(
+					'[DependencyTracking] Transaction not found in cycle detection:',
+					currentId
+				);
 				return; // Skip if transaction doesn't exist
 			}
 
@@ -411,7 +416,11 @@ class DependencyTrackingService {
 		};
 
 		// Get all dependents recursively
-		const getDependentsRecursive = async (txId: string, depth: number, visited: Set<string>) => {
+		const getDependentsRecursive = async (
+			txId: string,
+			depth: number,
+			visited: Set<string>
+		) => {
 			if (visited.has(txId)) return; // Prevent infinite loops
 			visited.add(txId);
 
@@ -588,7 +597,9 @@ class DependencyTrackingService {
 			totalTransactionsWithDependencies: transactionsWithDeps.length,
 			totalDependencyRelationships: totalRelationships,
 			averageDependenciesPerTransaction:
-				transactionsWithDeps.length > 0 ? totalRelationships / transactionsWithDeps.length : 0,
+				transactionsWithDeps.length > 0
+					? totalRelationships / transactionsWithDeps.length
+					: 0,
 			maxDependencyChainLength: maxChainLength,
 			circularDependencies: circularDeps
 		};

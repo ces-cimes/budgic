@@ -62,7 +62,8 @@
 			onValueChange={(value) => {
 				onFiltersChange({
 					...filters,
-					categoryType: value === '' ? undefined : (value as 'expense' | 'income' | undefined)
+					categoryType:
+						value === '' ? undefined : (value as 'expense' | 'income' | undefined)
 				});
 			}}
 		>

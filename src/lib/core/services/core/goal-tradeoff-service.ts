@@ -113,7 +113,11 @@ class GoalTradeoffService {
 				req.isTimeBound && req.requiredMonthly != null
 					? req.requiredMonthly
 					: (req.suggestedMonthly ?? 0);
-			const requiredInUser = await toUserCurrency(requiredMonthly, goal.currency, userCurrency);
+			const requiredInUser = await toUserCurrency(
+				requiredMonthly,
+				goal.currency,
+				userCurrency
+			);
 			items.push({
 				goalId: goal.id,
 				goalName: goal.name,

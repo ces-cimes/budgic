@@ -30,7 +30,9 @@ export const periodStore = {
 	},
 	/** Current month as Date (first day of month) */
 	get monthDate(): Date {
-		return parseMonth(monthValue) ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+		return (
+			parseMonth(monthValue) ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+		);
 	},
 	setMonth(ym: string) {
 		this.month = ym;

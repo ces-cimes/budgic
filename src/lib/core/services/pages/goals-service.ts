@@ -23,7 +23,10 @@ export class GoalsService {
 			const completedGoals = allGoals.filter((goal) => goal.status === 'completed');
 
 			const totalTargetValue = allGoals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-			const totalCurrentValue = activeGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+			const totalCurrentValue = activeGoals.reduce(
+				(sum, goal) => sum + goal.currentAmount,
+				0
+			);
 			const overallProgress =
 				totalTargetValue > 0 ? (totalCurrentValue / totalTargetValue) * 100 : 0;
 			const averageProgress =
@@ -111,7 +114,8 @@ export class GoalsService {
 					activeGoalsCount: activeGoals.length,
 					completedGoalsCount: completedGoals.length,
 					averageGoalValue: allGoals.length > 0 ? totalTargetValue / allGoals.length : 0,
-					completionRate: allGoals.length > 0 ? (completedGoals.length / allGoals.length) * 100 : 0
+					completionRate:
+						allGoals.length > 0 ? (completedGoals.length / allGoals.length) * 100 : 0
 				},
 				totalGoals: allGoals.length
 			};

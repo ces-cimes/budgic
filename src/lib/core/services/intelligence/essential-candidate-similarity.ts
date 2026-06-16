@@ -49,7 +49,10 @@ export function expandEssentialCandidatesWithSimilarity(
 		}
 
 		const mergedIds = Array.from(ids);
-		const groupSpend = mergedIds.reduce((s, id) => s + Math.abs(poolById.get(id)?.amount ?? 0), 0);
+		const groupSpend = mergedIds.reduce(
+			(s, id) => s + Math.abs(poolById.get(id)?.amount ?? 0),
+			0
+		);
 		const allowanceImpact = Math.min(1, groupSpend / totalSpend);
 		const stabilityBoost = Math.min(0.12, mergedIds.length * 0.015);
 		const confidence = Math.min(0.95, candidate.confidence + stabilityBoost);
@@ -61,7 +64,9 @@ export function expandEssentialCandidatesWithSimilarity(
 			allowanceImpact,
 			cadence: candidate.cadence,
 			confidence,
-			reason: expanded ? `${candidate.reason} · merged similar descriptions` : candidate.reason
+			reason: expanded
+				? `${candidate.reason} · merged similar descriptions`
+				: candidate.reason
 		};
 	});
 }

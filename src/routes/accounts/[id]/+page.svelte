@@ -160,7 +160,8 @@
 	async function loadTransactions() {
 		try {
 			if (accountId) {
-				const transactionsData = await transactionService.getTransactionsByAccount(accountId);
+				const transactionsData =
+					await transactionService.getTransactionsByAccount(accountId);
 				// Filter out any null/undefined or deleted transactions as a safety measure
 				const list = transactionsData.filter((t) => t && !t.deletedAt);
 				transactions = list;
@@ -190,11 +191,15 @@
 				}
 				if (account?.type === 'credit') {
 					const repayments = list.filter(
-						(tx) => tx.status === 'planned' && (tx.reference?.startsWith('repayment:') ?? false)
+						(tx) =>
+							tx.status === 'planned' &&
+							(tx.reference?.startsWith('repayment:') ?? false)
 					);
 					if (repayments.length > 0) {
 						const total = repayments.reduce(
-							(sum, tx) => sum + Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0),
+							(sum, tx) =>
+								sum +
+								Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0),
 							0
 						);
 						repaymentChip = `${repayments.length} repayment${repayments.length === 1 ? '' : 's'} remaining: ${formatTransactionAmount(total, account.currency)}`;
@@ -260,7 +265,11 @@
 			const tag = t.automation;
 			const acc = t.accountId;
 			let j = i;
-			while (j < sorted.length && sorted[j].automation === tag && sorted[j].accountId === acc) {
+			while (
+				j < sorted.length &&
+				sorted[j].automation === tag &&
+				sorted[j].accountId === acc
+			) {
 				j++;
 			}
 			const slice = sorted.slice(i, j);
@@ -310,10 +319,11 @@
 					const day = ap.projections[i];
 					if (day.date.getTime() < dayStart.getTime()) continue;
 					for (const tx of day.transactions) {
-						const imp = balanceProjectionService.getProjectedTransactionImpactForAccount(
-							tx,
-							accountId
-						);
+						const imp =
+							balanceProjectionService.getProjectedTransactionImpactForAccount(
+								tx,
+								accountId
+							);
 						if (imp < 0) {
 							outflowTotal -= imp;
 							candidates.push({
@@ -432,7 +442,15 @@
 			backButtonLink="/accounts"
 			backButtonLabel="Back to accounts"
 			buttonProps={account
-				? [{ text: 'Edit', onclick: handleEdit, variant: 'ghost', size: 'sm', icon: Pencil }]
+				? [
+						{
+							text: 'Edit',
+							onclick: handleEdit,
+							variant: 'ghost',
+							size: 'sm',
+							icon: Pencil
+						}
+					]
 				: []}
 		/>
 	{/snippet}
@@ -453,7 +471,10 @@
 						>
 					{/if}
 				</p>
-				<CountUpHero value={account.currentBalance} format={(n) => formatBalance(n, currency)} />
+				<CountUpHero
+					value={account.currentBalance}
+					format={(n) => formatBalance(n, currency)}
+				/>
 				{#if account.rateProfile && account.lastConfirmedAt}
 					<p class="text-muted-foreground mt-2 text-xs">
 						Projected: {formatBalance(
@@ -464,7 +485,11 @@
 				{/if}
 				{#if account.type === 'savings' || account.type === 'credit' || account.type === 'loan'}
 					<div class="mt-4 flex flex-wrap items-center justify-center gap-3">
-						<Button.Root variant="outline" size="sm" onclick={() => (updateBalanceOpen = true)}>
+						<Button.Root
+							variant="outline"
+							size="sm"
+							onclick={() => (updateBalanceOpen = true)}
+						>
 							Update balance
 						</Button.Root>
 					</div>
@@ -531,8 +556,8 @@
 						class="mx-auto mt-3 max-w-md text-xs text-amber-700 dark:text-amber-400/90"
 						role="status"
 					>
-						Projected outflows in the next 14 days may bring this balance below your alert
-						threshold. Review upcoming items below.
+						Projected outflows in the next 14 days may bring this balance below your
+						alert threshold. Review upcoming items below.
 					</p>
 				{/if}
 			</section>
@@ -548,10 +573,13 @@
 						<div class="flex items-center gap-3">
 							<Scale class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
 							<div>
-								<p class="text-sm font-medium text-[var(--color-text-primary)]">Reconciliation</p>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									Reconciliation
+								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									{#if reconciliationSummary.lastReconciledDate}
-										Last reconciled {reconciliationSummary.daysSinceLastReconciliation} days ago
+										Last reconciled {reconciliationSummary.daysSinceLastReconciliation}
+										days ago
 										{#if reconciliationSummary.unresolvedDiscrepancies > 0}
 											· {reconciliationSummary.unresolvedDiscrepancies} discrepancy(ies)
 										{/if}
@@ -561,7 +589,8 @@
 								</p>
 							</div>
 						</div>
-						<span class="text-xs font-medium text-[var(--color-text-tertiary)]">Open in Data →</span
+						<span class="text-xs font-medium text-[var(--color-text-tertiary)]"
+							>Open in Data →</span
 						>
 					</button>
 				</section>
@@ -652,7 +681,11 @@
 						Balance projection
 					</h2>
 					<div class="border-border rounded-2xl border bg-[var(--color-bg-tertiary)] p-6">
-						<BalanceProjectionChart accountId={account.id} daysAhead={90} showDetails={true} />
+						<BalanceProjectionChart
+							accountId={account.id}
+							daysAhead={90}
+							showDetails={true}
+						/>
 					</div>
 				</section>
 			{/if}
@@ -707,7 +740,9 @@
 									onclick={() => goto(`/transactions/add/${transaction.id}`)}
 								>
 									<div class="min-w-0 flex-1">
-										<p class="truncate text-sm font-medium text-[var(--color-text-primary)]">
+										<p
+											class="truncate text-sm font-medium text-[var(--color-text-primary)]"
+										>
 											{transactionRowLabel(transaction)}
 										</p>
 										<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
@@ -726,7 +761,10 @@
 									>
 										{formatBalance(
 											transaction?.amount ?? 0,
-											transaction?.currency || account?.currency || userCurrency || 'USD'
+											transaction?.currency ||
+												account?.currency ||
+												userCurrency ||
+												'USD'
 										)}
 									</span>
 								</button>
@@ -745,10 +783,14 @@
 										aria-expanded={Boolean(automationRowExpanded[ckey])}
 									>
 										<div class="min-w-0 flex-1">
-											<p class="text-muted-foreground truncate text-sm font-medium">
+											<p
+												class="text-muted-foreground truncate text-sm font-medium"
+											>
 												{automationHumanLabel(row.tag)} · ×{row.txs.length}
 											</p>
-											<p class="text-muted-foreground mt-0.5 text-xs">Automation entries</p>
+											<p class="text-muted-foreground mt-0.5 text-xs">
+												Automation entries
+											</p>
 										</div>
 										<div class="flex shrink-0 items-center gap-2">
 											<span class="text-amount text-foreground">
@@ -769,7 +811,8 @@
 												<button
 													type="button"
 													class="border-border flex w-full items-center justify-between gap-4 border-b px-5 py-2.5 pl-8 text-left transition-colors last:border-b-0 hover:bg-[var(--color-bg-surface)]"
-													onclick={() => goto(`/transactions/add/${transaction.id}`)}
+													onclick={() =>
+														goto(`/transactions/add/${transaction.id}`)}
 												>
 													<div class="min-w-0 flex-1">
 														<p
@@ -777,7 +820,9 @@
 														>
 															{transactionRowLabel(transaction)}
 														</p>
-														<p class="text-muted-foreground mt-0.5 text-[10px]">
+														<p
+															class="text-muted-foreground mt-0.5 text-[10px]"
+														>
 															{formatDate(
 																transaction?.clearedDate ||
 																	transaction?.plannedDate ||
@@ -787,13 +832,17 @@
 														</p>
 													</div>
 													<span
-														class="text-amount shrink-0 text-xs {transaction?.type === 'income'
+														class="text-amount shrink-0 text-xs {transaction?.type ===
+														'income'
 															? 'text-[var(--color-sage-green)]'
 															: 'text-foreground'}"
 													>
 														{formatBalance(
 															transaction?.amount ?? 0,
-															transaction?.currency || account?.currency || userCurrency || 'USD'
+															transaction?.currency ||
+																account?.currency ||
+																userCurrency ||
+																'USD'
 														)}
 													</span>
 												</button>

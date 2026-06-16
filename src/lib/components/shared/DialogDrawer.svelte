@@ -50,7 +50,10 @@
 
 {#if isDesktop}
 	<Sheet.Root {open} {onOpenChange}>
-		<Sheet.Content side={sheetSideDesktop} class={`${desktopSheetInnerClass} ${sheetContentClass}`}>
+		<Sheet.Content
+			side={sheetSideDesktop}
+			class={`${desktopSheetInnerClass} ${sheetContentClass}`}
+		>
 			<Sheet.Header>
 				<Sheet.Title>{title}</Sheet.Title>
 				{#if description}

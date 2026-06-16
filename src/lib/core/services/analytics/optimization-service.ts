@@ -413,7 +413,11 @@ class OptimizationService {
 			// Get all planned transactions
 			devLog('[Optimization] Getting planned transactions for dependency validation...');
 			const transactions = await transactionService.getTransactionsByStatus('planned');
-			devLog('[Optimization] Found', transactions.length, 'planned transactions for validation');
+			devLog(
+				'[Optimization] Found',
+				transactions.length,
+				'planned transactions for validation'
+			);
 
 			// Validate dependency graph
 			// Note: validateDependencyGraph already checks for circular dependencies internally
@@ -426,7 +430,9 @@ class OptimizationService {
 				// Only validate transactions that have dependencies
 				if (tx.dependencies && tx.dependencies.length > 0) {
 					try {
-						const validation = await dependencyTrackingService.validateDependencyGraph(tx.id);
+						const validation = await dependencyTrackingService.validateDependencyGraph(
+							tx.id
+						);
 						if (!validation.isValid) {
 							errors.push(...validation.errors);
 						}
@@ -529,7 +535,8 @@ class OptimizationService {
 						if (candidateScore > currentScore) {
 							accept = true;
 						} else if (enableSimulatedAnnealing) {
-							const temperature = initialTemperature * Math.pow(coolingRate, iterations);
+							const temperature =
+								initialTemperature * Math.pow(coolingRate, iterations);
 							if (temperature > 0) {
 								const delta = candidateScore - currentScore;
 								const acceptanceProbability = Math.exp(delta / temperature);
@@ -654,7 +661,10 @@ class OptimizationService {
 		// Always include original date if in range
 		if (transaction.plannedDate) {
 			const originalDate = parseISO(transaction.plannedDate);
-			if (!isBefore(originalDate, validRange.start) && !isAfter(originalDate, validRange.end)) {
+			if (
+				!isBefore(originalDate, validRange.start) &&
+				!isAfter(originalDate, validRange.end)
+			) {
 				candidates.push(originalDate);
 			}
 		}
@@ -960,7 +970,9 @@ class OptimizationService {
 
 		// Get learned preferences for optimization suggestions
 		const suggestionWeight =
-			(await learningAdaptationService.getPreferenceValue('optimization_suggestion_weight')) || 1.0;
+			(await learningAdaptationService.getPreferenceValue(
+				'optimization_suggestion_weight'
+			)) || 1.0;
 
 		// Filter movements based on learned category flexibility
 		const filteredMovements = await this.filterMovementsByFlexibility(optimizedPlan.movements);
@@ -1082,7 +1094,9 @@ class OptimizationService {
 	 * Get optimization history
 	 */
 	getHistory(): OptimizationHistoryEntry[] {
-		return Array.from(this.history.values()).sort((a, b) => b.runAt.getTime() - a.runAt.getTime());
+		return Array.from(this.history.values()).sort(
+			(a, b) => b.runAt.getTime() - a.runAt.getTime()
+		);
 	}
 
 	/**

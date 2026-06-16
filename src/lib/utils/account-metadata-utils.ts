@@ -266,7 +266,9 @@ export async function calculateRecommendedBuffer(
 					// Average over the number of months we have data for
 					const monthsOfData = Math.max(
 						1,
-						Math.ceil((now.getTime() - threeMonthsAgo.getTime()) / (1000 * 60 * 60 * 24 * 30))
+						Math.ceil(
+							(now.getTime() - threeMonthsAgo.getTime()) / (1000 * 60 * 60 * 24 * 30)
+						)
 					);
 					monthlyExpenses = totalExpenses / monthsOfData;
 				}

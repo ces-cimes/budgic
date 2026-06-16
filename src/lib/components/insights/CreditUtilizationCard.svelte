@@ -54,7 +54,9 @@
 		}
 	}
 
-	function statusBadgeVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+	function statusBadgeVariant(
+		status: string
+	): 'default' | 'secondary' | 'destructive' | 'outline' {
 		switch (status) {
 			case 'excellent':
 				return 'default';
@@ -106,11 +108,15 @@
 			<div class="text-muted-foreground mb-4 space-y-1 text-sm">
 				<div class="flex justify-between">
 					<span>Total debt</span>
-					<span class="text-foreground font-medium">{formatMainCurrencyAmount(analysis.totalDebt, userCurrency)}</span>
+					<span class="text-foreground font-medium"
+						>{formatMainCurrencyAmount(analysis.totalDebt, userCurrency)}</span
+					>
 				</div>
 				<div class="flex justify-between">
 					<span>Credit limit</span>
-					<span class="text-foreground font-medium">{formatMainCurrencyAmount(analysis.totalCreditLimit, userCurrency)}</span>
+					<span class="text-foreground font-medium"
+						>{formatMainCurrencyAmount(analysis.totalCreditLimit, userCurrency)}</span
+					>
 				</div>
 				<div class="flex justify-between">
 					<span>Accounts</span>
@@ -124,7 +130,9 @@
 						<div class="flex items-center justify-between text-sm">
 							<div class="flex items-center gap-2">
 								<div
-									class="h-2 w-2 rounded-full {utilizationColor(account.utilization)}"
+									class="h-2 w-2 rounded-full {utilizationColor(
+										account.utilization
+									)}"
 									style="background: currentColor"
 								></div>
 								<span class="text-muted-foreground max-w-[140px] truncate"

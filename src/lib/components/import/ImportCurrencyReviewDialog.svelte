@@ -67,16 +67,16 @@
 
 			<p class="text-sm text-[var(--color-text-secondary)]">
 				Map each Money Manager currency UID to a Budgic currency before data is written. Use
-				<strong>Create [code]</strong> when Budgic does not have that currency yet. Rows are from your
-				INOUTCOME export (transfer pairs use the transfer-out row).
+				<strong>Create [code]</strong> when Budgic does not have that currency yet. Rows are from
+				your INOUTCOME export (transfer pairs use the transfer-out row).
 			</p>
 
 			{#if currencies.length === 0 && !rows.some((r) => r.missingInBudgic)}
 				<p
 					class="rounded-lg border border-[var(--color-warning)]/40 bg-[var(--color-warning)]/10 p-3 text-sm text-[var(--color-text-primary)]"
 				>
-					No active currencies in Budgic. Add at least one currency in Settings, or create one
-					below.
+					No active currencies in Budgic. Add at least one currency in Settings, or create
+					one below.
 				</p>
 			{:else}
 				<div class="overflow-x-auto rounded-xl border border-[var(--color-border)]">
@@ -94,10 +94,14 @@
 						<tbody class="divide-y divide-[var(--color-border)]">
 							{#each rows as row (row.mmUid)}
 								<tr class="bg-[var(--color-bg-secondary)]/40">
-									<td class="px-3 py-2 font-mono text-xs text-[var(--color-text-primary)]">
+									<td
+										class="px-3 py-2 font-mono text-xs text-[var(--color-text-primary)]"
+									>
 										{row.mmUid}
 									</td>
-									<td class="px-3 py-2 text-[var(--color-text-secondary)]">{row.txCount}</td>
+									<td class="px-3 py-2 text-[var(--color-text-secondary)]"
+										>{row.txCount}</td
+									>
 									<td class="px-3 py-2 text-[var(--color-text-secondary)]">
 										{row.suggestedCode}
 										{#if row.hasFallback}
@@ -122,7 +126,10 @@
 											class="border-border w-full max-w-[14rem] rounded-lg border bg-[var(--color-bg-primary)] px-2 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
 											value={selection[row.mmUid] ?? ''}
 											onchange={(e) =>
-												onSelectionChange(row.mmUid, (e.currentTarget as HTMLSelectElement).value)}
+												onSelectionChange(
+													row.mmUid,
+													(e.currentTarget as HTMLSelectElement).value
+												)}
 										>
 											<option value="" disabled>Select currency…</option>
 											{#each optionsForRow(row) as opt (opt.value)}

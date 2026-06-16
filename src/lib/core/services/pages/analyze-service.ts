@@ -213,9 +213,12 @@ export class AnalyzeService {
 		const categoryData: CategoryData[] = Array.from(categoryMap.entries()).map(
 			([categoryId, data]) => {
 				const percentage = totalSpending > 0 ? (data.amount / totalSpending) * 100 : 0;
-				const readableName = categoryId.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+				const readableName = categoryId
+					.replace(/-/g, ' ')
+					.replace(/\b\w/g, (l) => l.toUpperCase());
 
-				const trendReliable = data.previousPeriod > 0 && data.currentPeriod > 0 && data.count >= 3;
+				const trendReliable =
+					data.previousPeriod > 0 && data.currentPeriod > 0 && data.count >= 3;
 
 				const base: CategoryData = {
 					name: readableName,
@@ -228,7 +231,8 @@ export class AnalyzeService {
 					return base;
 				}
 
-				const trendValue = ((data.currentPeriod - data.previousPeriod) / data.previousPeriod) * 100;
+				const trendValue =
+					((data.currentPeriod - data.previousPeriod) / data.previousPeriod) * 100;
 				const isPositive = trendValue >= 0;
 
 				return {
@@ -376,16 +380,16 @@ export class AnalyzeService {
       <th>Percentage</th>
     </tr>
     ${categoryBreakdown
-			.map(
-				(cat) => `
+		.map(
+			(cat) => `
     <tr>
       <td>${cat.name}</td>
       <td class="amount">${formatAmount(cat.amount, currency)}</td>
       <td class="amount">${formatPercentage(cat.percentage)}</td>
     </tr>
     `
-			)
-			.join('')}
+		)
+		.join('')}
     <tr class="total">
       <td>Total</td>
       <td class="amount">${formatAmount(totalSpending, currency)}</td>

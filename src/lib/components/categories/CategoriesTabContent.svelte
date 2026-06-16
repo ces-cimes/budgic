@@ -195,7 +195,9 @@
 	async function updateBudgetPeriod(cat: Category, value: BudgetPeriodValue) {
 		try {
 			await budgetService.updateBudgetCategory(cat.id, { budgetPeriod: value });
-			categories = categories.map((c) => (c.id === cat.id ? { ...c, budgetPeriod: value } : c));
+			categories = categories.map((c) =>
+				c.id === cat.id ? { ...c, budgetPeriod: value } : c
+			);
 			toast.success('Budget period updated');
 		} catch (err) {
 			error = 'Failed to update budget period';
@@ -253,7 +255,9 @@
 		if (draggedGroupIndex === -1) return;
 
 		const draggedGroup = groupedCategories[draggedGroupIndex];
-		const draggedIndex = draggedGroup.categories.findIndex((cat) => cat.id === draggedCategoryId);
+		const draggedIndex = draggedGroup.categories.findIndex(
+			(cat) => cat.id === draggedCategoryId
+		);
 		if (draggedGroupIndex === targetGroupIndex && draggedIndex === targetCategoryIndex) return;
 
 		const isMovingBetweenTiers = draggedGroupIndex !== targetGroupIndex;
@@ -377,7 +381,9 @@
 				<div class="text-muted-foreground p-8 text-center">
 					<div class="mb-2 text-lg">No categories found</div>
 					<div class="mb-4 text-sm">Try adjusting your filters or add a new category</div>
-					<Button onclick={() => goto('/plan?tab=budget')}>Create your first category</Button>
+					<Button onclick={() => goto('/plan?tab=budget')}
+						>Create your first category</Button
+					>
 				</div>
 			</div>
 		{:else}
@@ -414,7 +420,8 @@
 									<div class="mb-1 flex items-center gap-2">
 										<h4
 											class="text-primary font-semibold"
-											style:padding-left="{categoryTreeDepth(category) * 12}px"
+											style:padding-left="{categoryTreeDepth(category) *
+												12}px"
 										>
 											{category.name}
 										</h4>
@@ -433,7 +440,9 @@
 											<span class="text-muted-foreground">·</span>
 											<span class="text-muted-foreground">
 												Spent:
-												<span class="font-medium text-[var(--color-warm-coral)]">
+												<span
+													class="font-medium text-[var(--color-warm-coral)]"
+												>
 													{formatAmount(category.spent, mainCurrency)}
 												</span>
 											</span>
@@ -456,7 +465,9 @@
 											{/if}
 										</p>
 									{/if}
-									<label class="text-muted-foreground mt-2 block text-xs font-medium">
+									<label
+										class="text-muted-foreground mt-2 block text-xs font-medium"
+									>
 										Parent (category tree)
 										<select
 											class="border-input bg-background text-foreground mt-1 block w-full max-w-xs rounded-md border px-2 py-1.5 text-sm"
@@ -474,7 +485,9 @@
 										</select>
 									</label>
 									{#if category.type === 'expense'}
-										<label class="text-muted-foreground mt-2 block text-xs font-medium">
+										<label
+											class="text-muted-foreground mt-2 block text-xs font-medium"
+										>
 											Budget period (spent vs allocation)
 											<select
 												class="border-input bg-background text-foreground mt-1 block w-full max-w-xs rounded-md border px-2 py-1.5 text-sm"
@@ -482,12 +495,14 @@
 												onchange={(e) =>
 													updateBudgetPeriod(
 														category,
-														(e.currentTarget as HTMLSelectElement).value as BudgetPeriodValue
+														(e.currentTarget as HTMLSelectElement)
+															.value as BudgetPeriodValue
 													)}
 											>
 												<option value="monthly">Calendar month</option>
 												<option value="weekly">ISO week (Mon–Sun)</option>
-												<option value="biweekly">1st–15th / 16th–end</option>
+												<option value="biweekly">1st–15th / 16th–end</option
+												>
 											</select>
 										</label>
 									{/if}
@@ -498,7 +513,11 @@
 										checked={category.isActive}
 										onCheckedChange={() => toggleCategoryStatus(category)}
 									/>
-									<Button variant="outline" size="sm" onclick={() => goto(`/plan?tab=budget`)}>
+									<Button
+										variant="outline"
+										size="sm"
+										onclick={() => goto(`/plan?tab=budget`)}
+									>
 										View
 									</Button>
 								</div>

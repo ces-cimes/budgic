@@ -29,7 +29,9 @@ function worseFxConversion(a: FxConversionQuality, b: FxConversionQuality): FxCo
 
 /** Dexie tables can occasionally yield sparse/invalid rows; never pass those into analytics loops. */
 function compactTransactions(transactions: (Transaction | null | undefined)[]): Transaction[] {
-	return transactions.filter((tx): tx is Transaction => tx != null && typeof tx.type === 'string');
+	return transactions.filter(
+		(tx): tx is Transaction => tx != null && typeof tx.type === 'string'
+	);
 }
 
 /** Start of window for spent vs budget (category-level). */
@@ -230,7 +232,10 @@ class BudgetService {
 		// Calculate budget allocations for each category
 		for (const category of categories) {
 			if (category.budgetAmount && category.budgetAmount > 0) {
-				const periodStart = getCategoryBudgetPeriodStart(nowForBudget, category.budgetPeriod);
+				const periodStart = getCategoryBudgetPeriodStart(
+					nowForBudget,
+					category.budgetPeriod
+				);
 				const { sum: spentAmount, fxQuality } = await this.sumCategorySpending(
 					category.id,
 					transactions,
@@ -261,7 +266,10 @@ class BudgetService {
 		}
 
 		// Calculate by tier
-		const byTier: Record<AnalyticsTier, { allocated: number; spent: number; remaining: number }> = {
+		const byTier: Record<
+			AnalyticsTier,
+			{ allocated: number; spent: number; remaining: number }
+		> = {
 			survival: { allocated: 0, spent: 0, remaining: 0 },
 			security: { allocated: 0, spent: 0, remaining: 0 },
 			growth: { allocated: 0, spent: 0, remaining: 0 },
@@ -293,7 +301,9 @@ class BudgetService {
 			let reimbReduction = 0;
 			if (reimbursementAllowanceMode === 'optimistic' && tx.reimbursements?.length) {
 				reimbReduction = tx.reimbursements
-					.filter((entry) => entry.direction === 'lending' && entry.status === 'expecting')
+					.filter(
+						(entry) => entry.direction === 'lending' && entry.status === 'expecting'
+					)
 					.reduce((sum, entry) => sum + entry.amount, 0);
 			}
 
@@ -601,7 +611,9 @@ class BudgetService {
 		const tiers = ['survival', 'security', 'growth', 'lifestyle'] as const;
 
 		tiers.forEach((tier) => {
-			const tierCategories = budgetSummary.allocations.filter((a) => a.waterfallTier === tier);
+			const tierCategories = budgetSummary.allocations.filter(
+				(a) => a.waterfallTier === tier
+			);
 			const tierData = budgetSummary.byTier[tier];
 
 			tierProgress.push({
@@ -609,7 +621,8 @@ class BudgetService {
 				totalAllocated: tierData.allocated,
 				totalSpent: tierData.spent,
 				remaining: tierData.remaining,
-				percentageUsed: tierData.allocated > 0 ? (tierData.spent / tierData.allocated) * 100 : 0,
+				percentageUsed:
+					tierData.allocated > 0 ? (tierData.spent / tierData.allocated) * 100 : 0,
 				categories: tierCategories.sort((a, b) => a.priority - b.priority)
 			});
 		});
@@ -654,7 +667,9 @@ class BudgetService {
 		);
 		const daysElapsed = Math.max(
 			1,
-			Math.ceil((Math.min(now.getTime(), periodEnd.getTime()) - periodStart.getTime()) / 86_400_000)
+			Math.ceil(
+				(Math.min(now.getTime(), periodEnd.getTime()) - periodStart.getTime()) / 86_400_000
+			)
 		);
 		const daysRemaining = Math.max(
 			1,
@@ -697,7 +712,8 @@ class BudgetService {
 				);
 				let bookedInterest = 0;
 				for (const tx of transactions) {
-					if (tx.deletedAt || tx.type !== 'income' || tx.automation !== 'interest-income') continue;
+					if (tx.deletedAt || tx.type !== 'income' || tx.automation !== 'interest-income')
+						continue;
 					if (tx.accountId !== acct.id) continue;
 					const d =
 						tx.status === 'cleared' && tx.clearedDate
@@ -837,7 +853,9 @@ class BudgetService {
 			const metaType = p.metadata?.type;
 			if (metaType && metaType !== 'expense') continue;
 			if (!p.isActive) continue;
-			const hasPlannedOverlap = p.matchingTransactionIds.some((id) => plannedExpenseIds.has(id));
+			const hasPlannedOverlap = p.matchingTransactionIds.some((id) =>
+				plannedExpenseIds.has(id)
+			);
 			if (hasPlannedOverlap) continue;
 			const patternCurrency = txCurrencyById.get(p.matchingTransactionIds[0]) ?? userCurrency;
 			planned += await this.convertToMainCurrency(
@@ -878,7 +896,10 @@ class BudgetService {
 
 		let recoveryWeeksEstimate: number | null = null;
 		if (hasAcknowledgedDebtInPeriod && debtOverflowShortfall > 0) {
-			const weeklyRoom = Math.max(0.01, (periodIncome * (1 - recoveryAgg) - committed) / 4.33);
+			const weeklyRoom = Math.max(
+				0.01,
+				(periodIncome * (1 - recoveryAgg) - committed) / 4.33
+			);
 			recoveryWeeksEstimate = Math.ceil(debtOverflowShortfall / weeklyRoom);
 		}
 
@@ -1233,10 +1254,13 @@ class BudgetService {
 			const hasMatch = candidateExpenses.some((expenseTx) => {
 				const expenseAmount = Math.abs(expenseTx.amount ?? 0);
 				if (Math.abs(expenseAmount - transferAmount) > 0.01) return false;
-				const expenseDate = new Date(expenseTx.clearedDate ?? expenseTx.createdAt).getTime();
+				const expenseDate = new Date(
+					expenseTx.clearedDate ?? expenseTx.createdAt
+				).getTime();
 				const transferDate = new Date(tx.clearedDate ?? tx.createdAt).getTime();
 				const sameMonth =
-					new Date(expenseDate).getUTCFullYear() === new Date(transferDate).getUTCFullYear() &&
+					new Date(expenseDate).getUTCFullYear() ===
+						new Date(transferDate).getUTCFullYear() &&
 					new Date(expenseDate).getUTCMonth() === new Date(transferDate).getUTCMonth();
 				return sameMonth;
 			});

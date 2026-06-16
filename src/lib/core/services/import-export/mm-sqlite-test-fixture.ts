@@ -12,7 +12,10 @@ async function initSqliteForTests() {
 		const { readFileSync } = await import('node:fs');
 		const { join } = await import('node:path');
 		const wasmBinary = readFileSync(
-			join(process.cwd(), 'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.wasm')
+			join(
+				process.cwd(),
+				'node_modules/@sqlite.org/sqlite-wasm/sqlite-wasm/jswasm/sqlite3.wasm'
+			)
 		);
 		return init({
 			instantiateWasm: (

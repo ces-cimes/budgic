@@ -55,7 +55,10 @@
 
 	$effect(() => {
 		if (open && !wasOpen && account) {
-			const suggested = passiveAccountService.suggestedSheetOpeningBalance(account, new Date());
+			const suggested = passiveAccountService.suggestedSheetOpeningBalance(
+				account,
+				new Date()
+			);
 			enteredStr = String(Math.round(suggested * 100) / 100);
 			classification = guessUpdateBalanceClassification(
 				account,
@@ -151,14 +154,20 @@
 
 				{#if showTaxRow}
 					<p class="text-muted-foreground text-sm">
-						Estimated withholding ({Math.round((account.rateProfile?.taxRate ?? 0) * 100)}% of
+						Estimated withholding ({Math.round(
+							(account.rateProfile?.taxRate ?? 0) * 100
+						)}% of
 						{formatAmount(taxPreview.gross, account.currency)}):
 						<span class="text-foreground font-medium">
 							~{formatAmount(taxPreview.tax, account.currency)}
 						</span>
 					</p>
 					<label class="flex items-center gap-2 text-sm">
-						<input type="checkbox" bind:checked={applyTaxWithholding} class="rounded border" />
+						<input
+							type="checkbox"
+							bind:checked={applyTaxWithholding}
+							class="rounded border"
+						/>
 						Record gross interest and tax withholding
 					</label>
 				{/if}
@@ -169,7 +178,9 @@
 						{#if account.type === 'savings'}
 							<Button
 								type="button"
-								variant={classification === 'interest-income' ? 'default' : 'outline'}
+								variant={classification === 'interest-income'
+									? 'default'
+									: 'outline'}
 								size="sm"
 								onclick={() => setClass('interest-income')}>Interest income</Button
 							>
@@ -183,7 +194,9 @@
 						{#if account.type === 'credit' || account.type === 'loan'}
 							<Button
 								type="button"
-								variant={classification === 'interest-charge' ? 'default' : 'outline'}
+								variant={classification === 'interest-charge'
+									? 'default'
+									: 'outline'}
 								size="sm"
 								onclick={() => setClass('interest-charge')}>Interest charge</Button
 							>

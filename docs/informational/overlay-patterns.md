@@ -6,20 +6,20 @@ Do not add a fifth overlay pattern without updating this doc and [`UX_SPEC.md` �
 
 ## Decision table
 
-| Primitive | Use when | Breakpoint / behaviour | Examples |
-| :---- | :---- | :---- | :---- |
-| `Dialog` / `AlertDialog` | Confirm/cancel, ≤3 fields, blocking decision | Centered modal | `DeleteConfirmationDialog`, currency reset |
-| `DialogDrawer` | Secondary **edit/filter/history** flows; multi-field forms; user may return to parent | md+: Sheet; mobile: bottom Drawer (768px) | `FilterSheet`, `UpdateBalanceSheet`, reconciliation history |
-| `ResponsivePanel` | Read-heavy **contextual detail**; light inline actions; parent page stays visible | Drawer: bottom (mobile) / right (desktop); max ~70vh mobile (640px) | Recurring pattern drill-in (`RecurringPatternPanel`) |
-| Raw `Drawer` | Full-height or custom-direction panels when shared wrappers don't fit | Per call site | `AlertsPanel` |
+| Primitive                | Use when                                                                              | Breakpoint / behaviour                                              | Examples                                                    |
+| :----------------------- | :------------------------------------------------------------------------------------ | :------------------------------------------------------------------ | :---------------------------------------------------------- |
+| `Dialog` / `AlertDialog` | Confirm/cancel, ≤3 fields, blocking decision                                          | Centered modal                                                      | `DeleteConfirmationDialog`, currency reset                  |
+| `DialogDrawer`           | Secondary **edit/filter/history** flows; multi-field forms; user may return to parent | md+: Sheet; mobile: bottom Drawer (768px)                           | `FilterSheet`, `UpdateBalanceSheet`, reconciliation history |
+| `ResponsivePanel`        | Read-heavy **contextual detail**; light inline actions; parent page stays visible     | Drawer: bottom (mobile) / right (desktop); max ~70vh mobile (640px) | Recurring pattern drill-in (`RecurringPatternPanel`)        |
+| Raw `Drawer`             | Full-height or custom-direction panels when shared wrappers don't fit                 | Per call site                                                       | `AlertsPanel`                                               |
 
 ## Naming convention
 
 Applies to **overlay wrapper components** only — not inline page sections (e.g. `FeeAvoidancePanel`, `OutstandingReimbursementsPanel` are Card/list regions on a page, not overlays).
 
-| Suffix | Primitive |
-| :---- | :---- |
-| `*Panel` | `ResponsivePanel` (read-heavy contextual detail overlay) |
+| Suffix   | Primitive                                                              |
+| :------- | :--------------------------------------------------------------------- |
+| `*Panel` | `ResponsivePanel` (read-heavy contextual detail overlay)               |
 | `*Sheet` | `DialogDrawer` (edit/filter/history flows) unless documented exception |
 
 Raw `Drawer` overlays may use `*Panel` when the name reflects product language (e.g. `AlertsPanel`) — document in the inventory below.
@@ -28,32 +28,32 @@ Raw `Drawer` overlays may use `*Panel` when the name reflects product language (
 
 ### `*Sheet` — all use `DialogDrawer` ✓
 
-| Component | Primitive | Rename needed? |
-| :---- | :---- | :---- |
-| `FilterSheet` | `DialogDrawer` | No |
-| `UpdateBalanceSheet` | `DialogDrawer` | No |
-| `CurrencySelectionSheet` | `DialogDrawer` | No |
-| `PostAddSplitSuggestionSheet` | `DialogDrawer` | No |
+| Component                     | Primitive      | Rename needed? |
+| :---------------------------- | :------------- | :------------- |
+| `FilterSheet`                 | `DialogDrawer` | No             |
+| `UpdateBalanceSheet`          | `DialogDrawer` | No             |
+| `CurrencySelectionSheet`      | `DialogDrawer` | No             |
+| `PostAddSplitSuggestionSheet` | `DialogDrawer` | No             |
 
 ### `ResponsivePanel` overlays
 
-| Component | Primitive | Notes |
-| :---- | :---- | :---- |
+| Component               | Primitive         | Notes                                           |
+| :---------------------- | :---------------- | :---------------------------------------------- |
 | `RecurringPatternPanel` | `ResponsivePanel` | Renamed from `RecurringPatternSheet` (May 2026) |
 
 ### Raw `Drawer` overlays
 
-| Component | Primitive | Notes |
-| :---- | :---- | :---- |
+| Component     | Primitive    | Notes                                             |
+| :------------ | :----------- | :------------------------------------------------ |
 | `AlertsPanel` | Raw `Drawer` | Full-height alerts; name matches product language |
 
 ### Inline `DialogDrawer` (no dedicated `*Sheet` file)
 
-| Location | Flow | Optional follow-up |
-| :---- | :---- | :---- |
-| `DataReconciliationTab.svelte` | Reconciliation history | Extract `ReconciliationHistorySheet` if reused |
-| `AutomationAggregationCard.svelte` | Automation run history | Extract if pattern repeats |
-| `PersonLedgerMigrationWizard.svelte` | Migration wizard | `*Wizard` name appropriate — keep |
+| Location                             | Flow                   | Optional follow-up                             |
+| :----------------------------------- | :--------------------- | :--------------------------------------------- |
+| `DataReconciliationTab.svelte`       | Reconciliation history | Extract `ReconciliationHistorySheet` if reused |
+| `AutomationAggregationCard.svelte`   | Automation run history | Extract if pattern repeats                     |
+| `PersonLedgerMigrationWizard.svelte` | Migration wizard       | `*Wizard` name appropriate — keep              |
 
 ### Not overlays — do not rename
 

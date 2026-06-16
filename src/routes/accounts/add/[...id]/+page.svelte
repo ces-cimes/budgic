@@ -131,7 +131,9 @@
 		const apr = pct / 100;
 		const taxPct = parseFloat(passiveTaxPercent.replace(',', '.'));
 		const taxRate =
-			Number.isFinite(taxPct) && taxPct > 0 ? Math.min(1, Math.max(0, taxPct / 100)) : undefined;
+			Number.isFinite(taxPct) && taxPct > 0
+				? Math.min(1, Math.max(0, taxPct / 100))
+				: undefined;
 		await accountService.updateAccount(postCreateAccount.id, {
 			rateProfile: {
 				apr,
@@ -211,8 +213,8 @@
 					class="mb-6 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-tertiary)] px-5 py-4"
 				>
 					<p class="text-sm text-[var(--color-text-primary)]">
-						This looks like a person ledger account. Close it to track reimbursements on a real
-						wallet instead.
+						This looks like a person ledger account. Close it to track reimbursements on
+						a real wallet instead.
 					</p>
 					<Button
 						variant="outline"
@@ -247,7 +249,12 @@
 					<div class="grid gap-3 sm:grid-cols-2">
 						<div class="space-y-1">
 							<Label for="apr-pct">APR (%)</Label>
-							<Input id="apr-pct" type="text" inputmode="decimal" bind:value={passiveAprPercent} />
+							<Input
+								id="apr-pct"
+								type="text"
+								inputmode="decimal"
+								bind:value={passiveAprPercent}
+							/>
 						</div>
 						<div class="space-y-1">
 							<Label for="cmp">Compounding</Label>
@@ -263,12 +270,19 @@
 						</div>
 						<div class="space-y-1 sm:col-span-2">
 							<Label for="tax-pct">Withholding tax % (optional)</Label>
-							<Input id="tax-pct" type="text" inputmode="decimal" bind:value={passiveTaxPercent} />
+							<Input
+								id="tax-pct"
+								type="text"
+								inputmode="decimal"
+								bind:value={passiveTaxPercent}
+							/>
 						</div>
 					</div>
 					<div class="flex flex-wrap gap-2">
 						<Button type="button" onclick={savePassiveRateAndContinue}>Set rate</Button>
-						<Button type="button" variant="ghost" onclick={skipPassiveRatePrompt}>Skip</Button>
+						<Button type="button" variant="ghost" onclick={skipPassiveRatePrompt}
+							>Skip</Button
+						>
 					</div>
 				</div>
 			{/if}

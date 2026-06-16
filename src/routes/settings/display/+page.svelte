@@ -68,8 +68,12 @@
 				language = preferences.language || 'en';
 				// Validate currency exists in available currencies
 				if (preferences.currency) {
-					const currencyExists = currencyOptions.some((c) => c.value === preferences.currency);
-					currency = currencyExists ? preferences.currency : currencyOptions[0]?.value || currency;
+					const currencyExists = currencyOptions.some(
+						(c) => c.value === preferences.currency
+					);
+					currency = currencyExists
+						? preferences.currency
+						: currencyOptions[0]?.value || currency;
 					weekStartsOn = preferences.weekStartsOn ?? 0;
 				} else if (currencyOptions.length > 0) {
 					currency = currencyOptions[0].value;
@@ -160,7 +164,9 @@
 							Appearance
 						</h2>
 						<div class="space-y-1.5">
-							<label for="theme-select" class="text-sm font-medium text-[var(--color-text-primary)]"
+							<label
+								for="theme-select"
+								class="text-sm font-medium text-[var(--color-text-primary)]"
 								>Theme</label
 							>
 							<select
@@ -175,7 +181,8 @@
 						<div class="space-y-1.5">
 							<label
 								for="language-select"
-								class="text-sm font-medium text-[var(--color-text-primary)]">Language</label
+								class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Language</label
 							>
 							<select
 								id="language-select"
@@ -197,7 +204,8 @@
 						<div class="space-y-1.5">
 							<label
 								for="week-start-select"
-								class="text-sm font-medium text-[var(--color-text-primary)]">Week starts on</label
+								class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Week starts on</label
 							>
 							<select
 								id="week-start-select"
@@ -222,7 +230,8 @@
 						<div class="space-y-1.5">
 							<label
 								for="currency-select"
-								class="text-sm font-medium text-[var(--color-text-primary)]">Currency</label
+								class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Currency</label
 							>
 							<select
 								id="currency-select"

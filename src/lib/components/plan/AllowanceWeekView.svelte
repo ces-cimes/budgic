@@ -166,16 +166,23 @@
 								{#if day.spentProjected > 0}
 									<div
 										class="w-full rounded-t border border-dashed border-[var(--color-amber)] bg-[var(--color-amber)]/50"
-										style="height: {Math.min(100, (day.spentProjected / dailyBudget) * 100)}%;"
+										style="height: {Math.min(
+											100,
+											(day.spentProjected / dailyBudget) * 100
+										)}%;"
 									></div>
 								{/if}
 							{:else}
 								<!-- Actual: show spent vs daily budget -->
 								<div
-									class="w-full rounded-t transition-all {day.spentActual > dailyBudget
+									class="w-full rounded-t transition-all {day.spentActual >
+									dailyBudget
 										? 'bg-[var(--color-warm-coral)]'
 										: 'bg-[var(--color-amber)]'}"
-									style="height: {Math.min(100, (day.spentActual / dailyBudget) * 100)}%;"
+									style="height: {Math.min(
+										100,
+										(day.spentActual / dailyBudget) * 100
+									)}%;"
 								></div>
 							{/if}
 						</div>
@@ -201,6 +208,8 @@
 				Daily reference: {formatAmount(dailyBudget, currency)}
 			</p>
 		{/if}
-		<p class="text-[10px] text-[var(--color-text-tertiary)]">Solid = actual, dashed = projected</p>
+		<p class="text-[10px] text-[var(--color-text-tertiary)]">
+			Solid = actual, dashed = projected
+		</p>
 	{/if}
 </div>

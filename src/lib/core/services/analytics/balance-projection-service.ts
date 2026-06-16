@@ -183,7 +183,9 @@ class BalanceProjectionService {
 		// Remove cache entries that include any of the affected accounts
 		for (const [key, entry] of projectionCache.entries()) {
 			// Check if any of the affected accounts are in this cache entry
-			const hasAffectedAccount = Array.from(entry.accountIds).some((id) => accountIdsSet.has(id));
+			const hasAffectedAccount = Array.from(entry.accountIds).some((id) =>
+				accountIdsSet.has(id)
+			);
 			if (hasAffectedAccount) {
 				projectionCache.delete(key);
 			}
@@ -358,7 +360,11 @@ class BalanceProjectionService {
 
 		// If base date is before start, advance to first occurrence in range
 		if (isBefore(currentDate, startDate)) {
-			currentDate = this.getNextRecurrenceDate(currentDate, transaction.recurrenceRule, startDate);
+			currentDate = this.getNextRecurrenceDate(
+				currentDate,
+				transaction.recurrenceRule,
+				startDate
+			);
 		}
 
 		// Generate occurrences until end date
@@ -478,7 +484,10 @@ class BalanceProjectionService {
 
 		for (const projection of projections) {
 			// Skip accounts without buffers (bufferAmount = 0 means no buffer requirement)
-			if (projection.projections.length === 0 || projection.projections[0].bufferAmount === 0) {
+			if (
+				projection.projections.length === 0 ||
+				projection.projections[0].bufferAmount === 0
+			) {
 				continue;
 			}
 

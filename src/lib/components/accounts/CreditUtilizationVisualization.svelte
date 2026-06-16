@@ -174,7 +174,8 @@
 					<div class="flex items-center justify-center gap-2">
 						<Icon class="h-4 w-4 {config.color}" />
 						<Badge
-							variant={accountAnalysis.status === 'critical' || accountAnalysis.status === 'poor'
+							variant={accountAnalysis.status === 'critical' ||
+							accountAnalysis.status === 'poor'
 								? 'destructive'
 								: accountAnalysis.status === 'fair'
 									? 'outline'
@@ -252,7 +253,9 @@
 							Recommendations
 						</span>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 					{#if showRecommendationsExpanded}
@@ -290,10 +293,13 @@
 									<div class="flex items-start gap-2">
 										<Info class="text-info mt-0.5 h-4 w-4" />
 										<div class="flex-1">
-											<div class="text-sm font-medium">Pay before statement closes</div>
+											<div class="text-sm font-medium">
+												Pay before statement closes
+											</div>
 											<div class="text-muted-foreground mt-1 text-xs">
-												Your statement closes in {accountAnalysis.daysUntilStatementClose} day(s). Paying
-												down your balance now will improve the utilization reported to credit bureaus.
+												Your statement closes in {accountAnalysis.daysUntilStatementClose}
+												day(s). Paying down your balance now will improve the
+												utilization reported to credit bureaus.
 											</div>
 										</div>
 									</div>
@@ -318,7 +324,8 @@
 				Overall Credit Utilization
 			</CardTitle>
 			<CardDescription>
-				Across {aggregateAnalysis.accountCount} credit account{aggregateAnalysis.accountCount !== 1
+				Across {aggregateAnalysis.accountCount} credit account{aggregateAnalysis.accountCount !==
+				1
 					? 's'
 					: ''}
 			</CardDescription>
@@ -326,7 +333,11 @@
 		<CardContent class="space-y-4">
 			<!-- Aggregate Utilization -->
 			<div class="space-y-2 text-center">
-				<div class="text-4xl font-bold {getUtilizationColor(aggregateAnalysis.totalUtilization)}">
+				<div
+					class="text-4xl font-bold {getUtilizationColor(
+						aggregateAnalysis.totalUtilization
+					)}"
+				>
 					{formatPercentage(aggregateAnalysis.totalUtilization)}
 				</div>
 				{#if aggregateAnalysis.status}
@@ -361,7 +372,9 @@
 					value={Math.min(100, aggregateAnalysis.totalUtilization)}
 					max={100}
 					class="h-3"
-					style="--progress-background: {getProgressColor(aggregateAnalysis.totalUtilization)}"
+					style="--progress-background: {getProgressColor(
+						aggregateAnalysis.totalUtilization
+					)}"
 				/>
 				<div class="flex items-center justify-between text-xs">
 					<span class="text-muted-foreground">Total Available Credit</span>
@@ -383,15 +396,17 @@
 					>
 						<span class="text-sm font-medium">Account Details</span>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showAccountDetails ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showAccountDetails
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 					{#if showAccountDetails}
 						<div class="mt-2 space-y-2">
 							{#each aggregateAnalysis.accounts as accountAnalysis}
 								<div
-									class="rounded-lg border p-3 {accountAnalysis.status === 'critical' ||
-									accountAnalysis.status === 'poor'
+									class="rounded-lg border p-3 {accountAnalysis.status ===
+										'critical' || accountAnalysis.status === 'poor'
 										? 'border-destructive/50 bg-destructive/10'
 										: accountAnalysis.status === 'fair'
 											? 'border-warning/50 bg-warning/10'
@@ -411,8 +426,14 @@
 										</Badge>
 									</div>
 									<div class="text-muted-foreground text-xs">
-										{formatTransactionAmount(accountAnalysis.currentDebt, 'USD')} /{' '}
-										{formatTransactionAmount(accountAnalysis.creditLimit, 'USD')}
+										{formatTransactionAmount(
+											accountAnalysis.currentDebt,
+											'USD'
+										)} /{' '}
+										{formatTransactionAmount(
+											accountAnalysis.creditLimit,
+											'USD'
+										)}
 									</div>
 									{#if accountAnalysis.recommendedPaymentForTarget}
 										<div class="text-info mt-1 text-xs">
@@ -441,7 +462,9 @@
 							Recommendations ({recommendations.length})
 						</span>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 					{#if showRecommendationsExpanded}
@@ -454,7 +477,8 @@
 											? AlertTriangle
 											: Info}
 								<div
-									class="rounded-lg border p-3 {rec.priority === 'urgent' || rec.priority === 'high'
+									class="rounded-lg border p-3 {rec.priority === 'urgent' ||
+									rec.priority === 'high'
 										? 'border-destructive/50 bg-destructive/10'
 										: rec.priority === 'medium'
 											? 'border-warning/50 bg-warning/10'
@@ -462,7 +486,8 @@
 								>
 									<div class="flex items-start gap-2">
 										<Icon
-											class="mt-0.5 h-4 w-4 {rec.priority === 'urgent' || rec.priority === 'high'
+											class="mt-0.5 h-4 w-4 {rec.priority === 'urgent' ||
+											rec.priority === 'high'
 												? 'text-destructive'
 												: rec.priority === 'medium'
 													? 'text-warning'
@@ -470,8 +495,12 @@
 										/>
 										<div class="flex-1">
 											<div class="text-sm font-medium">{rec.title}</div>
-											<div class="text-muted-foreground mt-1 text-xs">{rec.description}</div>
-											<div class="text-info mt-1 text-xs">{rec.recommendedAction}</div>
+											<div class="text-muted-foreground mt-1 text-xs">
+												{rec.description}
+											</div>
+											<div class="text-info mt-1 text-xs">
+												{rec.recommendedAction}
+											</div>
 										</div>
 									</div>
 								</div>

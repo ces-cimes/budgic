@@ -9,8 +9,8 @@ describe('person-ledger automation tags', () => {
 	});
 
 	it('excludes person-opening-balance from analytics', () => {
-		expect(transactionAutomationCountsInAnalytics({ automation: 'person-opening-balance' })).toBe(
-			false
-		);
+		expect(
+			transactionAutomationCountsInAnalytics({ automation: 'person-opening-balance' })
+		).toBe(false);
 	});
 });

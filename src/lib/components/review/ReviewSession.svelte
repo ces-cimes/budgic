@@ -164,7 +164,9 @@
 		>
 			<div class="mb-4 flex items-center justify-between gap-2">
 				<h2 class="text-lg font-semibold">Review unclassified</h2>
-				<Button variant="ghost" size="sm" onclick={() => ((open = false), onClose())}>Close</Button>
+				<Button variant="ghost" size="sm" onclick={() => ((open = false), onClose())}
+					>Close</Button
+				>
 			</div>
 			{#if queue.length === 0}
 				<p class="text-muted-foreground text-sm">Nothing to review right now.</p>
@@ -182,8 +184,12 @@
 					<p class="text-destructive mt-2 text-sm" role="alert">{message}</p>
 				{/if}
 				<div class="mt-4 flex flex-wrap gap-2">
-					<Button type="button" disabled={saving} onclick={applySuggestion}>Use profile</Button>
-					<Button type="button" variant="secondary" disabled={saving} onclick={skip}>Skip</Button>
+					<Button type="button" disabled={saving} onclick={applySuggestion}
+						>Use profile</Button
+					>
+					<Button type="button" variant="secondary" disabled={saving} onclick={skip}
+						>Skip</Button
+					>
 				</div>
 				<div class="mt-4 space-y-2">
 					<p class="text-muted-foreground text-xs">Or choose a category</p>

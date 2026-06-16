@@ -26,7 +26,9 @@ function account(type: Account['type'], withRate = true): Account {
 
 describe('guessUpdateBalanceClassification', () => {
 	it('returns unclassified when there is no rate profile', () => {
-		expect(guessUpdateBalanceClassification(account('savings', false), 50)).toBe('unclassified');
+		expect(guessUpdateBalanceClassification(account('savings', false), 50)).toBe(
+			'unclassified'
+		);
 	});
 
 	it('returns unclassified when diff is within epsilon', () => {

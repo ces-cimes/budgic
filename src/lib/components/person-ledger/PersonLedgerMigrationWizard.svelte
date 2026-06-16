@@ -357,7 +357,9 @@
 				ledgerAccountId,
 				autoAcceptedProposals
 			);
-			const hasResidual = Object.values(automaticResidualBalances).some((v) => Math.abs(v) > 0.001);
+			const hasResidual = Object.values(automaticResidualBalances).some(
+				(v) => Math.abs(v) > 0.001
+			);
 			if (hasResidual) {
 				residualBalances = automaticResidualBalances;
 				wizardStep = 'residual';
@@ -461,9 +463,12 @@
 		{/if}
 
 		{#if appliedBatchId && wizardStep === 'done'}
-			<div class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4">
+			<div
+				class="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-4"
+			>
 				<p class="text-sm text-[var(--color-text-primary)]">
-					Person account closed. Reimbursements are on your anchor wallet; this ledger is archived.
+					Person account closed. Reimbursements are on your anchor wallet; this ledger is
+					archived.
 				</p>
 				<div class="mt-3 flex flex-wrap gap-2">
 					<Button.Root variant="outline" size="sm" disabled={busy} onclick={handleUndo}>
@@ -477,8 +482,8 @@
 		{:else if ledgerAccount && wizardStep === 'automatic'}
 			<div class="space-y-4">
 				<p class="text-sm text-[var(--color-text-tertiary)]">
-					Apply inferred rewrites at or above your confidence threshold. Review the summary before
-					committing.
+					Apply inferred rewrites at or above your confidence threshold. Review the
+					summary before committing.
 				</p>
 
 				<div class="space-y-2">
@@ -573,14 +578,17 @@
 					>
 						{busy ? 'Checking balance…' : 'Apply migration'}
 					</Button.Root>
-					<Button.Root variant="ghost" disabled={busy} onclick={backToMode}>Back</Button.Root>
+					<Button.Root variant="ghost" disabled={busy} onclick={backToMode}
+						>Back</Button.Root
+					>
 				</div>
 			</div>
 		{:else if ledgerAccount && wizardStep === 'residual'}
 			<div class="space-y-3">
 				<p class="text-sm text-[var(--color-text-primary)]">
-					After the rewrites {mode === 'automatic' ? 'selected' : 'you confirmed'}, this person
-					ledger still has a balance. Choose how to close the remainder before archiving.
+					After the rewrites {mode === 'automatic' ? 'selected' : 'you confirmed'}, this
+					person ledger still has a balance. Choose how to close the remainder before
+					archiving.
 				</p>
 				<ul class="space-y-0.5 text-sm">
 					{#each residualLines as line (line.currency)}
@@ -631,12 +639,14 @@
 		{:else if ledgerAccount && wizardStep === 'guided'}
 			<div class="space-y-4">
 				<p class="text-sm text-[var(--color-text-tertiary)]">
-					Review suggested rewrites. Confirm each item, skip what looks wrong, then continue.
+					Review suggested rewrites. Confirm each item, skip what looks wrong, then
+					continue.
 				</p>
 
 				{#if allProposals.length === 0}
 					<p class="text-sm">
-						No history rewrites detected. You can still close with a single balance move.
+						No history rewrites detected. You can still close with a single balance
+						move.
 					</p>
 				{/if}
 
@@ -644,7 +654,9 @@
 					{@const items = groupedProposals[section.key as keyof typeof groupedProposals]}
 					{#if items.length > 0}
 						<div class="space-y-2">
-							<p class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">
+							<p
+								class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase"
+							>
 								{section.label}
 							</p>
 							{#each items as proposal (proposal.id)}
@@ -657,11 +669,17 @@
 								>
 									<p class="text-sm font-medium">{proposal.summary}</p>
 									{#if proposal.conflict}
-										<p class="mt-1 text-xs text-amber-700">{proposal.conflict}</p>
+										<p class="mt-1 text-xs text-amber-700">
+											{proposal.conflict}
+										</p>
 									{/if}
 									{#if proposal.settlementCandidates && proposal.settlementCandidates.length > 1}
 										<div class="mt-2">
-											<p class="mb-1 text-xs text-[var(--color-text-tertiary)]">Settle against</p>
+											<p
+												class="mb-1 text-xs text-[var(--color-text-tertiary)]"
+											>
+												Settle against
+											</p>
 											<ReimbursementSettlementPicker
 												options={proposal.settlementCandidates.map((c) => ({
 													transactionId: c.transactionId,
@@ -669,7 +687,8 @@
 													label: c.label
 												}))}
 												value={proposalSettlementKeys[proposal.id] ?? ''}
-												onValueChange={(k) => setSettlementKey(proposal.id, k)}
+												onValueChange={(k) =>
+													setSettlementKey(proposal.id, k)}
 											/>
 										</div>
 									{/if}
@@ -680,15 +699,19 @@
 												? 'default'
 												: 'outline'}
 											disabled={busy}
-											onclick={() => setProposalDecision(proposal.id, 'accepted')}
+											onclick={() =>
+												setProposalDecision(proposal.id, 'accepted')}
 										>
 											Confirm
 										</Button.Root>
 										<Button.Root
 											size="sm"
-											variant={proposalDecisions[proposal.id] === 'skipped' ? 'secondary' : 'ghost'}
+											variant={proposalDecisions[proposal.id] === 'skipped'
+												? 'secondary'
+												: 'ghost'}
 											disabled={busy}
-											onclick={() => setProposalDecision(proposal.id, 'skipped')}
+											onclick={() =>
+												setProposalDecision(proposal.id, 'skipped')}
 										>
 											Skip
 										</Button.Root>
@@ -703,7 +726,9 @@
 					<Button.Root disabled={busy} onclick={continueFromGuided}>
 						{busy ? 'Checking balance…' : 'Continue'}
 					</Button.Root>
-					<Button.Root variant="ghost" disabled={busy} onclick={backToMode}>Back</Button.Root>
+					<Button.Root variant="ghost" disabled={busy} onclick={backToMode}
+						>Back</Button.Root
+					>
 				</div>
 			</div>
 		{:else if ledgerAccount}
@@ -760,7 +785,8 @@
 						<span>
 							<span class="text-sm font-medium">Move balance to reimbursements</span>
 							<span class="mt-0.5 block text-xs text-[var(--color-text-tertiary)]">
-								One opening balance on the anchor wallet; zero and archive this person account.
+								One opening balance on the anchor wallet; zero and archive this
+								person account.
 							</span>
 						</span>
 					</label>
@@ -776,9 +802,11 @@
 							class="mt-1"
 						/>
 						<span>
-							<span class="text-sm font-medium">We're even — forgive and archive</span>
+							<span class="text-sm font-medium">We're even — forgive and archive</span
+							>
 							<span class="mt-0.5 block text-xs text-[var(--color-text-tertiary)]">
-								Close without open receivables; mark existing reimbursements forgiven.
+								Close without open receivables; mark existing reimbursements
+								forgiven.
 							</span>
 						</span>
 					</label>
@@ -787,7 +815,9 @@
 
 			{#if balanceLines.length > 0}
 				<div>
-					<p class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Balances</p>
+					<p class="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">
+						Balances
+					</p>
 					<ul class="mt-1 space-y-0.5 text-sm">
 						{#each balanceLines as line (line.currency)}
 							<li>{line.label} ({line.currency})</li>

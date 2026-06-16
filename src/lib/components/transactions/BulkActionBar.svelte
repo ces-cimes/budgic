@@ -132,7 +132,9 @@
 						size="sm"
 						class="h-8 px-2 text-xs sm:text-sm"
 						onclick={onSelectAll}
-						disabled={isProcessing || selectableCount === 0 || selectedCount >= selectableCount}
+						disabled={isProcessing ||
+							selectableCount === 0 ||
+							selectedCount >= selectableCount}
 					>
 						Select all filtered
 					</Button.Root>

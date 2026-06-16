@@ -336,7 +336,10 @@ describe('FeeAvoidanceService', () => {
 				currentBalance: 1000
 			};
 
-			vi.mocked(accountService.getAccounts).mockResolvedValue([mockCheckingAccount, sourceAccount]);
+			vi.mocked(accountService.getAccounts).mockResolvedValue([
+				mockCheckingAccount,
+				sourceAccount
+			]);
 			vi.mocked(accountService.getAccount).mockImplementation(async (id) => {
 				if (id === mockCheckingAccount.id) return mockCheckingAccount;
 				if (id === sourceAccount.id) return sourceAccount;

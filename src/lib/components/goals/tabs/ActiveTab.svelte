@@ -262,7 +262,9 @@
 									<div class="text-3xl">{getCategoryIcon(goal.category)}</div>
 									<div>
 										<div class="mb-1 flex flex-wrap items-center gap-2">
-											<h3 class="text-primary text-lg font-semibold">{goal.name}</h3>
+											<h3 class="text-primary text-lg font-semibold">
+												{goal.name}
+											</h3>
 											<Badge class={getPriorityColor(goal.priority)}>
 												{goal.priority}
 											</Badge>
@@ -275,7 +277,9 @@
 											{/if}
 										</div>
 										{#if goal.description}
-											<p class="text-muted-foreground text-sm">{goal.description}</p>
+											<p class="text-muted-foreground text-sm">
+												{goal.description}
+											</p>
 										{/if}
 									</div>
 								</div>
@@ -311,7 +315,10 @@
 								</div>
 
 								<div class="space-y-2">
-									<Progress value={(goal.currentAmount / goal.targetAmount) * 100} class="h-3" />
+									<Progress
+										value={(goal.currentAmount / goal.targetAmount) * 100}
+										class="h-3"
+									/>
 									<div class="flex justify-between text-sm">
 										<span class="text-muted-foreground">0%</span>
 										<span
@@ -319,7 +326,9 @@
 												(goal.currentAmount / goal.targetAmount) * 100
 											)}"
 										>
-											{formatPercentage((goal.currentAmount / goal.targetAmount) * 100)}
+											{formatPercentage(
+												(goal.currentAmount / goal.targetAmount) * 100
+											)}
 										</span>
 										<span class="text-muted-foreground">100%</span>
 									</div>
@@ -327,14 +336,21 @@
 							</div>
 
 							<!-- Goal Details -->
-							<div class="grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-2 lg:grid-cols-4">
+							<div
+								class="grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-2 lg:grid-cols-4"
+							>
 								<div class="flex items-center space-x-2">
 									<DollarSign class="text-muted-foreground h-4 w-4" />
 									<div>
-										<div class="text-muted-foreground text-sm">Monthly Contribution</div>
+										<div class="text-muted-foreground text-sm">
+											Monthly Contribution
+										</div>
 										<div class="text-primary font-medium">
 											{goal.monthlyContribution
-												? formatAmount(goal.monthlyContribution, goal.currency)
+												? formatAmount(
+														goal.monthlyContribution,
+														goal.currency
+													)
 												: 'Not set'}
 										</div>
 									</div>
@@ -345,7 +361,9 @@
 									<div>
 										<div class="text-muted-foreground text-sm">Target Date</div>
 										<div class="text-primary font-medium">
-											{goal.targetDate ? new Date(goal.targetDate).toLocaleDateString() : 'Not set'}
+											{goal.targetDate
+												? new Date(goal.targetDate).toLocaleDateString()
+												: 'Not set'}
 										</div>
 									</div>
 								</div>
@@ -353,11 +371,16 @@
 								<div class="flex items-center space-x-2">
 									<TrendingUp class="text-muted-foreground h-4 w-4" />
 									<div>
-										<div class="text-muted-foreground text-sm">Est. Completion</div>
+										<div class="text-muted-foreground text-sm">
+											Est. Completion
+										</div>
 										<div class="text-primary font-medium">
 											{#if goal.monthlyContribution && goal.monthlyContribution > 0}
-												{@const estCompletion = getEstimatedCompletionDate(goal)}
-												{estCompletion ? estCompletion.toLocaleDateString() : 'Calculating...'}
+												{@const estCompletion =
+													getEstimatedCompletionDate(goal)}
+												{estCompletion
+													? estCompletion.toLocaleDateString()
+													: 'Calculating...'}
 											{:else}
 												Not available
 											{/if}
@@ -368,19 +391,25 @@
 								<div class="flex items-center space-x-2">
 									<Target class="text-muted-foreground h-4 w-4" />
 									<div>
-										<div class="text-muted-foreground text-sm">Required Monthly</div>
+										<div class="text-muted-foreground text-sm">
+											Required Monthly
+										</div>
 										<div class="text-primary font-medium">
 											{#if reqDisplay}
 												{#if reqDisplay.kind === 'time-bound'}
 													{formatAmount(reqDisplay.amount, goal.currency)}
 													{#if reqDisplay.monthsRemaining != null}
-														<span class="text-muted-foreground block text-xs"
-															>to hit target in {Math.ceil(reqDisplay.monthsRemaining)} mo.</span
+														<span
+															class="text-muted-foreground block text-xs"
+															>to hit target in {Math.ceil(
+																reqDisplay.monthsRemaining
+															)} mo.</span
 														>
 													{/if}
 												{:else}
 													{formatAmount(reqDisplay.amount, goal.currency)}
-													<span class="text-muted-foreground block text-xs"
+													<span
+														class="text-muted-foreground block text-xs"
 														>suggested (open-ended)</span
 													>
 												{/if}
@@ -393,12 +422,14 @@
 							</div>
 
 							<div class="space-y-2 border-t pt-4">
-								<p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+								<p
+									class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
+								>
 									Split nudge categories
 								</p>
 								<p class="text-muted-foreground text-xs">
-									Optional expense categories for post-save split prompts (merchant profile must
-									suggest them).
+									Optional expense categories for post-save split prompts
+									(merchant profile must suggest them).
 								</p>
 								<div class="flex flex-wrap gap-2">
 									{#each goal.linkedCategoryIds ?? [] as cid (cid)}
@@ -438,11 +469,15 @@
 									{#if goal.status === 'active'}
 										{@const StatusIcon = Clock}
 										<StatusIcon class="h-4 w-4 text-green-500" />
-										<span class="text-sm font-medium text-green-600">Active</span>
+										<span class="text-sm font-medium text-green-600"
+											>Active</span
+										>
 									{:else if goal.status === 'paused'}
 										{@const StatusIcon = AlertCircle}
 										<StatusIcon class="h-4 w-4 text-yellow-500" />
-										<span class="text-sm font-medium text-yellow-600">Paused</span>
+										<span class="text-sm font-medium text-yellow-600"
+											>Paused</span
+										>
 									{/if}
 
 									{#if goal.targetDate}
@@ -456,7 +491,11 @@
 								</div>
 
 								<div class="flex items-center gap-2">
-									<Button.Root variant="outline" size="sm" onclick={() => handleEditGoal(goal.id)}>
+									<Button.Root
+										variant="outline"
+										size="sm"
+										onclick={() => handleEditGoal(goal.id)}
+									>
 										<Edit class="mr-1 h-4 w-4" />
 										Edit
 									</Button.Root>

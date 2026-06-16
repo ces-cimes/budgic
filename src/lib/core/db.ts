@@ -184,7 +184,11 @@ export const BalanceUtils = {
 		totalAmount: number;
 	} {
 		if (groupTransactions.length === 0) {
-			return { isValid: false, errors: ['At least one transaction is required'], totalAmount: 0 };
+			return {
+				isValid: false,
+				errors: ['At least one transaction is required'],
+				totalAmount: 0
+			};
 		}
 
 		const totalAmount = groupTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
@@ -454,7 +458,9 @@ export function calculateTransferImpact(transaction: Transaction, accountId: str
 		// Source account: money going out + fee (if fee is on this account)
 		// Use cached accountAmount for transfer amount (converted to source account currency)
 		const sourceTransferAmount =
-			transaction.accountAmount !== undefined ? transaction.accountAmount : transferAmount || 0;
+			transaction.accountAmount !== undefined
+				? transaction.accountAmount
+				: transferAmount || 0;
 
 		// Use cached feeAccountAmount if fee is on this account, otherwise use original feeAmount
 		const feeOnThisAccount =
@@ -968,7 +974,9 @@ const CategorySchema = BaseSchema.extend({
 	/** Phase 9 — tree parent; undefined = root */
 	parentId: z.string().optional(),
 	// optional: organisational category nodes may omit tier (not selectable in transaction form)
-	waterfallTier: z.enum(['survival', 'security', 'growth', 'lifestyle', 'unclassified']).optional(),
+	waterfallTier: z
+		.enum(['survival', 'security', 'growth', 'lifestyle', 'unclassified'])
+		.optional(),
 	priority: z.number().min(1), // Within tier
 	budgetAmount: z.number().min(0).optional(), // Optional budget allocation
 	/** Rolling / calendar window for spent vs budget (default monthly in UI) */
@@ -1485,7 +1493,9 @@ const UserPreferencesSchema = BaseSchema.extend({
 	/**
 	 * Phase 9.6 — dismissal timestamps (ISO) per `merchantKey::goalCategoryId` for goal-relative precision nudge
 	 */
-	goalRelativePrecisionDismissals: z.record(z.string(), z.array(z.string().datetime())).optional(),
+	goalRelativePrecisionDismissals: z
+		.record(z.string(), z.array(z.string().datetime()))
+		.optional(),
 
 	/** B-Split Phase 4 — suggest linking nearby txs after manual expense/income create */
 	suggestSplitsAfterAdd: z.boolean().default(true),
@@ -1910,7 +1920,10 @@ export const TransactionUtils = {
 			case 'cleared':
 				// Cleared transactions cannot be in the future
 				if (transactionDate > now) {
-					return { isValid: false, error: 'Cleared transactions cannot have future dates' };
+					return {
+						isValid: false,
+						error: 'Cleared transactions cannot have future dates'
+					};
 				}
 				break;
 			case 'planned':
@@ -1978,8 +1991,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -1997,8 +2009,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2018,8 +2029,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2039,8 +2049,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2049,8 +2058,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]'
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]'
 		});
 
 		// Version 13: Add reconciliation tables for balance reconciliation tracking
@@ -2062,8 +2070,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2072,8 +2079,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2089,8 +2095,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2099,8 +2104,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2121,8 +2125,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2131,8 +2134,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2155,8 +2157,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2165,8 +2166,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2191,8 +2191,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2201,8 +2200,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2229,8 +2227,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2239,8 +2236,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2269,8 +2265,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2281,8 +2276,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2312,8 +2306,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2324,8 +2317,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2354,8 +2346,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2366,8 +2357,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2398,8 +2388,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2410,8 +2399,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2442,8 +2430,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2455,8 +2442,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2487,8 +2473,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2500,8 +2485,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2532,8 +2516,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2545,8 +2528,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2579,8 +2561,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2592,8 +2573,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2627,8 +2607,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2640,8 +2619,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2677,8 +2655,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2690,8 +2667,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2727,8 +2703,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2740,8 +2715,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2776,8 +2750,7 @@ export class BudgicDB extends Dexie {
 				'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 			transactions:
 				'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-			goals:
-				'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+			goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 			userPreferences: 'id, createdAt, updatedAt',
 			userActions:
 				'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2789,8 +2762,7 @@ export class BudgicDB extends Dexie {
 			currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 			exchangeRates:
 				'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-			badges:
-				'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+			badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 			reconciliationRecords:
 				'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 			reconciliationDiscrepancies:
@@ -2829,8 +2801,7 @@ export class BudgicDB extends Dexie {
 					'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 				transactions:
 					'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-				goals:
-					'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+				goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 				userPreferences: 'id, createdAt, updatedAt',
 				userActions:
 					'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2839,11 +2810,11 @@ export class BudgicDB extends Dexie {
 				tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
 				insights:
 					'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
-				currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+				currencyConfigurations:
+					'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 				exchangeRates:
 					'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-				badges:
-					'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+				badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 				reconciliationRecords:
 					'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 				reconciliationDiscrepancies:
@@ -2876,8 +2847,14 @@ export class BudgicDB extends Dexie {
 				const categories = await tx.table('categories').toArray();
 				const lifestyleIds = categories
 					.filter(
-						(c: { waterfallTier?: string; budgetAmount?: number; deletedAt?: string | null }) =>
-							c.waterfallTier === 'lifestyle' && (c.budgetAmount ?? 0) > 0 && !c.deletedAt
+						(c: {
+							waterfallTier?: string;
+							budgetAmount?: number;
+							deletedAt?: string | null;
+						}) =>
+							c.waterfallTier === 'lifestyle' &&
+							(c.budgetAmount ?? 0) > 0 &&
+							!c.deletedAt
 					)
 					.map((c: { id: string }) => c.id);
 				const now = new Date().toISOString();
@@ -2936,8 +2913,7 @@ export class BudgicDB extends Dexie {
 					'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 				transactions:
 					'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-				goals:
-					'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+				goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 				userPreferences: 'id, createdAt, updatedAt',
 				userActions:
 					'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -2946,11 +2922,11 @@ export class BudgicDB extends Dexie {
 				tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
 				insights:
 					'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
-				currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+				currencyConfigurations:
+					'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 				exchangeRates:
 					'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-				badges:
-					'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+				badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 				reconciliationRecords:
 					'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 				reconciliationDiscrepancies:
@@ -2979,7 +2955,10 @@ export class BudgicDB extends Dexie {
 					'id, status, ledgerAccountId, personId, anchorAccountId, createdAt, updatedAt, [ledgerAccountId+status]'
 			})
 			.upgrade(async (tx) => {
-				const maturityMap: Record<string, { guidanceTone: string; explanationDetail: string }> = {
+				const maturityMap: Record<
+					string,
+					{ guidanceTone: string; explanationDetail: string }
+				> = {
 					beginner: { guidanceTone: 'supportive', explanationDetail: 'full' },
 					intermediate: { guidanceTone: 'balanced', explanationDetail: 'standard' },
 					advanced: { guidanceTone: 'minimal', explanationDetail: 'brief' },
@@ -2990,9 +2969,12 @@ export class BudgicDB extends Dexie {
 				for (const row of prefs) {
 					const patch: Record<string, unknown> = {};
 					if (row.guidanceTone == null || row.explanationDetail == null) {
-						const mapped = maturityMap[row.userMaturityLevel as string] ?? maturityMap.intermediate;
+						const mapped =
+							maturityMap[row.userMaturityLevel as string] ??
+							maturityMap.intermediate;
 						if (row.guidanceTone == null) patch.guidanceTone = mapped.guidanceTone;
-						if (row.explanationDetail == null) patch.explanationDetail = mapped.explanationDetail;
+						if (row.explanationDetail == null)
+							patch.explanationDetail = mapped.explanationDetail;
 					}
 					if (row.allowanceTabReviewed == null) patch.allowanceTabReviewed = false;
 					if (Object.keys(patch).length > 0) {
@@ -3012,8 +2994,7 @@ export class BudgicDB extends Dexie {
 					'id, name, type, waterfallTier, parentId, priority, isActive, deletedAt, createdAt, updatedAt, [type+waterfallTier], [parentId+isActive]',
 				transactions:
 					'id, type, status, accountId, categoryId, plannedDate, clearedDate, groupId, importSource, deletedAt, createdAt, updatedAt, [accountId+status], [accountId+clearedDate], [categoryId+status], [groupId+status], [plannedDate+status], [clearedDate+type]',
-				goals:
-					'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
+				goals: 'id, name, category, priority, status, targetDate, createdAt, updatedAt, completedAt, [category+status]',
 				userPreferences: 'id, createdAt, updatedAt',
 				userActions:
 					'id, action, timestamp, sessionId, createdAt, updatedAt, deletedAt, [action+timestamp]',
@@ -3022,11 +3003,11 @@ export class BudgicDB extends Dexie {
 				tags: 'id, name, normalizedName, usageCount, lastUsedAt, deletedAt, createdAt, updatedAt, [normalizedName+deletedAt], [usageCount+lastUsedAt]',
 				insights:
 					'id, type, severity, categoryId, goalId, actionable, dismissedAt, expiresAt, isActive, createdAt, updatedAt, [type+goalId], [type+severity]',
-				currencyConfigurations: 'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
+				currencyConfigurations:
+					'id, currencyCode, isCustom, deletedAt, createdAt, updatedAt',
 				exchangeRates:
 					'id, fromCurrency, toCurrency, date, source, deletedAt, createdAt, updatedAt, [fromCurrency+toCurrency+date]',
-				badges:
-					'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
+				badges: 'id, badgeId, type, unlockedAt, notifiedAt, deletedAt, createdAt, updatedAt, [badgeId+unlockedAt], [type+unlockedAt]',
 				reconciliationRecords:
 					'id, accountId, reconciledDate, reconciliationType, resolvedAt, deletedAt, createdAt, updatedAt, [accountId+reconciledDate], [accountId+reconciliationType]',
 				reconciliationDiscrepancies:
@@ -3055,7 +3036,10 @@ export class BudgicDB extends Dexie {
 					'id, status, ledgerAccountId, personId, anchorAccountId, createdAt, updatedAt, [ledgerAccountId+status]'
 			})
 			.upgrade(async (tx) => {
-				const maturityMap: Record<string, { guidanceTone: string; explanationDetail: string }> = {
+				const maturityMap: Record<
+					string,
+					{ guidanceTone: string; explanationDetail: string }
+				> = {
 					beginner: { guidanceTone: 'supportive', explanationDetail: 'full' },
 					intermediate: { guidanceTone: 'balanced', explanationDetail: 'standard' },
 					advanced: { guidanceTone: 'minimal', explanationDetail: 'brief' },
@@ -3066,9 +3050,12 @@ export class BudgicDB extends Dexie {
 				for (const row of prefs) {
 					const patch: Record<string, unknown> = {};
 					if (row.guidanceTone == null || row.explanationDetail == null) {
-						const mapped = maturityMap[row.userMaturityLevel as string] ?? maturityMap.intermediate;
+						const mapped =
+							maturityMap[row.userMaturityLevel as string] ??
+							maturityMap.intermediate;
 						if (row.guidanceTone == null) patch.guidanceTone = mapped.guidanceTone;
-						if (row.explanationDetail == null) patch.explanationDetail = mapped.explanationDetail;
+						if (row.explanationDetail == null)
+							patch.explanationDetail = mapped.explanationDetail;
 					}
 					if ('userMaturityLevel' in row) {
 						patch.userMaturityLevel = undefined;
@@ -3198,7 +3185,8 @@ export class BudgicDB extends Dexie {
 	private async initializeCurrencyConfigurations(): Promise<void> {
 		try {
 			// Import currency config service dynamically to avoid circular dependencies
-			const { currencyConfigService } = await import('./services/core/currency-config-service');
+			const { currencyConfigService } =
+				await import('./services/core/currency-config-service');
 			await currencyConfigService.initializeSystemDefaults();
 		} catch (error) {
 			console.error('Failed to initialize currency configurations:', error);
@@ -3245,20 +3233,23 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.currencies.hook('updating', (modifications: Partial<Currency>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.currencies.hook(
+			'updating',
+			(modifications: Partial<Currency>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					CurrencySchema.parse(updated);
+				} catch (error) {
+					console.error('Currency update validation failed:', error);
+					console.error('Currency data:', obj);
+					console.error('Modifications:', modifications);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				CurrencySchema.parse(updated);
-			} catch (error) {
-				console.error('Currency update validation failed:', error);
-				console.error('Currency data:', obj);
-				console.error('Modifications:', modifications);
-				throw error;
 			}
-		});
+		);
 
 		// Currency Configuration validation
 		this.currencyConfigurations.hook('creating', (primKey, obj, trans) => {
@@ -3302,20 +3293,23 @@ export class BudgicDB extends Dexie {
 			}
 		});
 
-		this.categories.hook('updating', (modifications: Partial<Category>, primKey, obj, trans) => {
-			try {
-				if (modifications.updatedAt === undefined) {
-					modifications.updatedAt = new Date().toISOString();
+		this.categories.hook(
+			'updating',
+			(modifications: Partial<Category>, primKey, obj, trans) => {
+				try {
+					if (modifications.updatedAt === undefined) {
+						modifications.updatedAt = new Date().toISOString();
+					}
+					const updated = { ...obj, ...modifications };
+					CategorySchema.parse(updated);
+				} catch (error) {
+					console.error('Category update validation failed:', error);
+					console.error('Category data:', obj);
+					console.error('Modifications:', modifications);
+					throw error;
 				}
-				const updated = { ...obj, ...modifications };
-				CategorySchema.parse(updated);
-			} catch (error) {
-				console.error('Category update validation failed:', error);
-				console.error('Category data:', obj);
-				console.error('Modifications:', modifications);
-				throw error;
 			}
-		});
+		);
 
 		// Transaction validation
 		this.transactions.hook('creating', (primKey, obj, trans) => {
@@ -3397,12 +3391,15 @@ export class BudgicDB extends Dexie {
 
 					// Status-based accountId validation on update
 					// Check if status is being changed to cleared or pending
-					const newStatus = modifications.status !== undefined ? modifications.status : obj.status;
+					const newStatus =
+						modifications.status !== undefined ? modifications.status : obj.status;
 
 					// Transfers always require accountId
 					if (obj.type === 'transfer' || updated.type === 'transfer') {
 						const accountId =
-							modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
+							modifications.accountId !== undefined
+								? modifications.accountId
+								: obj.accountId;
 						if (!accountId) {
 							throw new Error('Account is required for transfer transactions');
 						}
@@ -3410,9 +3407,13 @@ export class BudgicDB extends Dexie {
 						// For non-transfer transactions, require accountId when status is cleared or pending
 						if (newStatus === 'cleared' || newStatus === 'pending') {
 							const accountId =
-								modifications.accountId !== undefined ? modifications.accountId : obj.accountId;
+								modifications.accountId !== undefined
+									? modifications.accountId
+									: obj.accountId;
 							if (!accountId) {
-								throw new Error('Account is required when changing status to cleared or pending');
+								throw new Error(
+									'Account is required when changing status to cleared or pending'
+								);
 							}
 						}
 					}
@@ -3799,7 +3800,10 @@ export class BudgicDB extends Dexie {
 
 		this.currencyConfigurations.hook('reading', (obj) => {
 			if (!obj) {
-				console.warn('[DB Hook] currencyConfigurations: obj is undefined', new Error().stack);
+				console.warn(
+					'[DB Hook] currencyConfigurations: obj is undefined',
+					new Error().stack
+				);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;
@@ -3857,7 +3861,10 @@ export class BudgicDB extends Dexie {
 
 		this.negativeAllowanceEvents.hook('reading', (obj) => {
 			if (!obj) {
-				console.warn('[DB Hook] negativeAllowanceEvents: obj is undefined', new Error().stack);
+				console.warn(
+					'[DB Hook] negativeAllowanceEvents: obj is undefined',
+					new Error().stack
+				);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;
@@ -3889,7 +3896,10 @@ export class BudgicDB extends Dexie {
 
 		this.merchantCategoryProfiles.hook('reading', (obj) => {
 			if (!obj) {
-				console.warn('[DB Hook] merchantCategoryProfiles: obj is undefined', new Error().stack);
+				console.warn(
+					'[DB Hook] merchantCategoryProfiles: obj is undefined',
+					new Error().stack
+				);
 				return undefined;
 			}
 			return obj.deletedAt ? undefined : obj;
@@ -3960,7 +3970,9 @@ export class BudgicDB extends Dexie {
 		}
 
 		// Enhanced group sum validation
-		const groupSumValidation = BalanceUtils.validateGroupSum(groupTransactions as Transaction[]);
+		const groupSumValidation = BalanceUtils.validateGroupSum(
+			groupTransactions as Transaction[]
+		);
 		if (!groupSumValidation.isValid) {
 			throw new Error(`Group sum validation failed: ${groupSumValidation.errors.join(', ')}`);
 		}
@@ -4043,7 +4055,8 @@ export class BudgicDB extends Dexie {
 					};
 
 					if (update.amount !== undefined) updateData.amount = update.amount;
-					if (update.description !== undefined) updateData.description = update.description;
+					if (update.description !== undefined)
+						updateData.description = update.description;
 					if (update.accountId !== undefined) updateData.accountId = update.accountId;
 					if (update.categoryId !== undefined) updateData.categoryId = update.categoryId;
 					if (update.categoryConfidence !== undefined) {
@@ -4103,7 +4116,9 @@ export class BudgicDB extends Dexie {
 		const allTransactions = [...groupTransactions, transaction];
 		const validation = validateTransactionGroup(allTransactions);
 		if (!validation.isValid) {
-			throw new Error(`Transaction cannot be added to group: ${validation.errors.join(', ')}`);
+			throw new Error(
+				`Transaction cannot be added to group: ${validation.errors.join(', ')}`
+			);
 		}
 
 		// Ensure consistent group name across all transactions
@@ -4504,7 +4519,8 @@ export class BudgicDB extends Dexie {
 		const all = await this.insights
 			.filter(
 				(insight) =>
-					(insight.readAt != null || insight.dismissedAt != null) && insight.type !== 'prediction'
+					(insight.readAt != null || insight.dismissedAt != null) &&
+					insight.type !== 'prediction'
 			)
 			.toArray();
 		const recent = all.filter((insight) => {
@@ -4755,10 +4771,13 @@ export class BudgicDB extends Dexie {
 				`[Balance Calc] Found ${clearedSourceTransactions.length} cleared source transactions`
 			);
 			const multiCurrencyCount = clearedSourceTransactions.filter(
-				(t) => t.currency && t.accountAmount !== undefined && t.currency !== account.currency
+				(t) =>
+					t.currency && t.accountAmount !== undefined && t.currency !== account.currency
 			).length;
 			if (multiCurrencyCount > 0) {
-				console.log(`[Balance Calc] Found ${multiCurrencyCount} multi-currency transactions`);
+				console.log(
+					`[Balance Calc] Found ${multiCurrencyCount} multi-currency transactions`
+				);
 			}
 		}
 
@@ -4834,9 +4853,12 @@ export class BudgicDB extends Dexie {
 			transactionCount++;
 
 			if (isDebugMode) {
-				const date = transaction.clearedDate || transaction.plannedDate || transaction.createdAt;
+				const date =
+					transaction.clearedDate || transaction.plannedDate || transaction.createdAt;
 				const amountUsed =
-					transaction.accountAmount !== undefined ? transaction.accountAmount : transaction.amount;
+					transaction.accountAmount !== undefined
+						? transaction.accountAmount
+						: transaction.amount;
 				const currencyInfo =
 					transaction.currency && transaction.currency !== account.currency
 						? ` (${transaction.currency}→${account.currency}, using accountAmount: ${transaction.accountAmount?.toFixed(2) || 'N/A'})`

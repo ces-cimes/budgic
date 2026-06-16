@@ -159,7 +159,8 @@
 			highlightedIndex = 0;
 			return;
 		}
-		highlightedIndex = (highlightedIndex + step + filteredOptions.length) % filteredOptions.length;
+		highlightedIndex =
+			(highlightedIndex + step + filteredOptions.length) % filteredOptions.length;
 	}
 
 	function selectHighlighted() {
@@ -175,7 +176,9 @@
 		if (fieldKey) {
 			autocompleteService
 				.recordSelection(fieldKey, nextValue, true, selectionContext)
-				.catch((error) => console.error('Failed to record searchable select selection', error));
+				.catch((error) =>
+					console.error('Failed to record searchable select selection', error)
+				);
 		}
 	}
 
@@ -261,7 +264,9 @@
 							<span class="min-w-0 flex-1">
 								<span class="block truncate">{option.label}</span>
 								{#if option.hint}
-									<span class="text-muted-foreground block truncate text-xs">{option.hint}</span>
+									<span class="text-muted-foreground block truncate text-xs"
+										>{option.hint}</span
+									>
 								{/if}
 							</span>
 							<span class="flex shrink-0 items-center gap-2">

@@ -90,7 +90,9 @@ export function panelInsightGroupKey(i: Insight): string {
  * Within each group, insights are newest-first (primary = group[0]).
  */
 export function groupPanelAlertsForDisplay(insights: Insight[]): Insight[][] {
-	const sorted = [...insights].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+	const sorted = [...insights].sort((a, b) =>
+		(b.createdAt || '').localeCompare(a.createdAt || '')
+	);
 	const byKey = new Map<string, Insight[]>();
 	for (const i of sorted) {
 		const k = panelInsightGroupKey(i);

@@ -140,7 +140,9 @@
 					<div class="flex items-center justify-between">
 						<div>
 							<p class="text-muted-foreground text-sm font-medium">Active Goals</p>
-							<p class="text-2xl font-bold text-[var(--color-amber)]">{goalsData.activeGoals}</p>
+							<p class="text-2xl font-bold text-[var(--color-amber)]">
+								{goalsData.activeGoals}
+							</p>
 						</div>
 						<TrendingUp class="h-8 w-8 text-[var(--color-amber)]" />
 					</div>
@@ -165,7 +167,9 @@
 				<Card.Content class="p-6">
 					<div class="flex items-center justify-between">
 						<div>
-							<p class="text-muted-foreground text-sm font-medium">Overall Progress</p>
+							<p class="text-muted-foreground text-sm font-medium">
+								Overall Progress
+							</p>
 							<p class="text-2xl font-bold text-green-500">
 								{formatPercentage(goalsData.overallProgress)}
 							</p>
@@ -186,7 +190,9 @@
 				<div class="space-y-2">
 					<div class="flex justify-between text-sm">
 						<span class="text-muted-foreground">Progress</span>
-						<span class="text-primary font-medium">{goalsData.overallProgress.toFixed(1)}%</span>
+						<span class="text-primary font-medium"
+							>{goalsData.overallProgress.toFixed(1)}%</span
+						>
 					</div>
 					<Progress value={goalsData.overallProgress} class="h-3" />
 				</div>
@@ -212,7 +218,9 @@
 		<Card.Root>
 			<Card.Header>
 				<Card.Title>Monthly Contributions</Card.Title>
-				<Card.Description>Total monthly contributions across all active goals</Card.Description>
+				<Card.Description
+					>Total monthly contributions across all active goals</Card.Description
+				>
 			</Card.Header>
 			<Card.Content>
 				<div class="text-center">
@@ -237,8 +245,10 @@
 							<Card.Title>Savings opportunities</Card.Title>
 							<Card.Description>
 								{#if opportunitiesResult.surplus >= opportunitiesResult.threshold}
-									You have {formatAmount(opportunitiesResult.surplus, opportunitiesResult.currency)} surplus
-									this period. Contribute to goals?
+									You have {formatAmount(
+										opportunitiesResult.surplus,
+										opportunitiesResult.currency
+									)} surplus this period. Contribute to goals?
 								{:else if opportunitiesResult.surplus > 0}
 									Surplus this period: {formatAmount(
 										opportunitiesResult.surplus,
@@ -248,8 +258,8 @@
 										opportunitiesResult.currency
 									)})
 								{:else}
-									No surplus this period after income, essentials, buffer, allowances, and goal
-									commitments.
+									No surplus this period after income, essentials, buffer,
+									allowances, and goal commitments.
 								{/if}
 							</Card.Description>
 						</div>
@@ -264,10 +274,14 @@
 								>
 									<div class="min-w-0 flex-1">
 										<p class="text-primary font-medium">{opp.goalName}</p>
-										<p class="text-muted-foreground text-sm">{opp.impactMessage}</p>
+										<p class="text-muted-foreground text-sm">
+											{opp.impactMessage}
+										</p>
 									</div>
 									<div class="ml-3 flex shrink-0 items-center gap-2">
-										<span class="font-semibold text-amber-700 dark:text-amber-300">
+										<span
+											class="font-semibold text-amber-700 dark:text-amber-300"
+										>
 											{formatAmount(opp.suggestedAmount, opp.currency)}
 										</span>
 										<Button.Root
@@ -331,7 +345,9 @@
 											goal.currency
 										)}
 										{#if getRequiredSavingsLabel(goal)}
-											<span class="text-muted-foreground"> · {getRequiredSavingsLabel(goal)}</span>
+											<span class="text-muted-foreground">
+												· {getRequiredSavingsLabel(goal)}</span
+											>
 										{/if}
 									</div>
 									<div class="bg-muted h-2 w-full rounded-full">
@@ -354,7 +370,9 @@
 										(goal.currentAmount / goal.targetAmount) * 100
 									)}"
 								>
-									{formatPercentage((goal.currentAmount / goal.targetAmount) * 100)}
+									{formatPercentage(
+										(goal.currentAmount / goal.targetAmount) * 100
+									)}
 								</div>
 								{#if goal.targetDate}
 									{@const daysLeft = getDaysUntilTarget(goal.targetDate)}
@@ -405,7 +423,11 @@
 						<Card.Title>Recent Completions</Card.Title>
 						<Card.Description>Goals you've recently achieved</Card.Description>
 					</div>
-					<Button.Root variant="ghost" size="sm" onclick={() => goto('/goals?tab=completed')}>
+					<Button.Root
+						variant="ghost"
+						size="sm"
+						onclick={() => goto('/goals?tab=completed')}
+					>
 						View All
 					</Button.Root>
 				</div>

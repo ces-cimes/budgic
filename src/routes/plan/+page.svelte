@@ -18,8 +18,16 @@
 		Settings
 	} from '@lucide/svelte';
 
-	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
-	import { getClassifyNudgeCopy, shouldShowClassifyNudge } from '$lib/utils/guidance-presentation';
+	import {
+		TabHeader,
+		TabContent,
+		TabContentWrapper,
+		type TabConfig
+	} from '$lib/components/shared';
+	import {
+		getClassifyNudgeCopy,
+		shouldShowClassifyNudge
+	} from '$lib/utils/guidance-presentation';
 	import type { ExplanationDetail, GuidanceTone } from '$lib/utils/guidance-presentation';
 
 	import {
@@ -311,7 +319,10 @@
 					weekDayAnnotations = annLookup.ann;
 				} else {
 					const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-					const patterns = await recurringTransactionIntelligenceService.detectPatterns(365, 3);
+					const patterns = await recurringTransactionIntelligenceService.detectPatterns(
+						365,
+						3
+					);
 					if (typeof performance !== 'undefined') {
 						recordWeekAnnDetectPatternsMs(performance.now() - t0);
 					}
@@ -463,7 +474,8 @@
 					await goalService.updateGoal(goalId, { status: 'completed' });
 					break;
 				case 'delete': {
-					const ok = typeof window !== 'undefined' ? window.confirm('Delete this goal?') : true;
+					const ok =
+						typeof window !== 'undefined' ? window.confirm('Delete this goal?') : true;
 					if (ok) await goalService.deleteGoal(goalId);
 					break;
 				}
@@ -497,7 +509,12 @@
 			variant="with-tabs"
 			tabRowMobileOnly
 			buttonProps={[
-				{ text: 'Settings', onclick: () => goto('/settings/plan'), size: 'sm', icon: Settings },
+				{
+					text: 'Settings',
+					onclick: () => goto('/settings/plan'),
+					size: 'sm',
+					icon: Settings
+				},
 				{ text: 'Add goal', onclick: () => goto('/plan?tab=goals'), size: 'sm', icon: Plus }
 			]}
 		>
@@ -511,7 +528,9 @@
 				<TabContent tabId="allowance" isActive={activeTab === 'allowance'} tabs={planTabs}>
 					<div class="space-y-5 py-5">
 						{#if isPlanDataLoading}
-							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
+							<div
+								class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5"
+							>
 								<Skeleton class="h-6 w-48 rounded" />
 								<Skeleton class="h-4 w-full rounded" />
 								<Skeleton class="h-4 w-3/4 rounded" />
@@ -519,25 +538,36 @@
 								<Skeleton class="h-16 w-full rounded-xl" />
 							</div>
 						{:else if enhancedAllowance}
-							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
+							<div
+								class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5"
+							>
 								{#if showClassifyNudge}
 									<div
 										class="bg-muted/50 border-border flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
 									>
 										<div>
-											<p class="text-sm font-medium">{classifyNudgeCopy.title}</p>
-											<p class="text-muted-foreground text-xs">{classifyNudgeCopy.body}</p>
+											<p class="text-sm font-medium">
+												{classifyNudgeCopy.title}
+											</p>
+											<p class="text-muted-foreground text-xs">
+												{classifyNudgeCopy.body}
+											</p>
 										</div>
 										<div class="flex items-center gap-2">
 											<Button
 												variant="ghost"
 												size="sm"
-												onclick={() => goto('/insights?tab=patterns&reviewSession=1')}
+												onclick={() =>
+													goto('/insights?tab=patterns&reviewSession=1')}
 												class="text-[var(--color-amber)]"
 											>
 												Open review session
 											</Button>
-											<Button variant="ghost" size="sm" onclick={handleDismissClassifyNudge}>
+											<Button
+												variant="ghost"
+												size="sm"
+												onclick={handleDismissClassifyNudge}
+											>
 												Dismiss
 											</Button>
 										</div>
@@ -545,7 +575,9 @@
 								{/if}
 								{#if debtPromptGroupId && enhancedAllowance?.projection}
 									<DebtAcknowledgmentPrompt
-										groupLabel={debtPromptGroupId.replace(/^debt:/, '').replace(/-/g, ' ')}
+										groupLabel={debtPromptGroupId
+											.replace(/^debt:/, '')
+											.replace(/-/g, ' ')}
 										shortfallDisplay={formatTransactionAmount(
 											enhancedAllowance.projection.debtOverflowShortfall,
 											enhancedAllowance.projection.currency
@@ -559,8 +591,9 @@
 								{/if}
 								{#if !recoveryModeActive && enhancedAllowance?.projection?.hasAcknowledgedDebtInPeriod && enhancedAllowance.projection.recoveryWeeksEstimate != null}
 									<p class="text-muted-foreground text-center text-xs">
-										Recovery: about {enhancedAllowance.projection.recoveryWeeksEstimate} week(s) at current
-										pace after this intentional stretch.
+										Recovery: about {enhancedAllowance.projection
+											.recoveryWeeksEstimate} week(s) at current pace after this
+										intentional stretch.
 									</p>
 								{/if}
 								<AllowanceVisualization
@@ -607,19 +640,34 @@
 										{#each sinkingFunds as fund (fund.id)}
 											{@const progress =
 												fund.targetAmount > 0
-													? Math.min(100, (fund.currentAmount / fund.targetAmount) * 100)
+													? Math.min(
+															100,
+															(fund.currentAmount /
+																fund.targetAmount) *
+																100
+														)
 													: 0}
 											<div class="space-y-1.5">
-												<div class="flex items-center justify-between text-sm">
+												<div
+													class="flex items-center justify-between text-sm"
+												>
 													<span>{fund.name}</span>
 													<span class="text-[var(--color-text-tertiary)]">
-														{formatTransactionAmount(fund.currentAmount, fund.currency)} /
-														{formatTransactionAmount(fund.targetAmount, fund.currency)}
+														{formatTransactionAmount(
+															fund.currentAmount,
+															fund.currency
+														)} /
+														{formatTransactionAmount(
+															fund.targetAmount,
+															fund.currency
+														)}
 														{#if fund.targetDate}
 															<span
 																class="border-border ml-1 rounded border px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]"
 															>
-																{new Date(fund.targetDate).toLocaleDateString(undefined, {
+																{new Date(
+																	fund.targetDate
+																).toLocaleDateString(undefined, {
 																	month: 'short',
 																	day: 'numeric'
 																})}
@@ -627,7 +675,9 @@
 														{/if}
 													</span>
 												</div>
-												<div class="h-2 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]">
+												<div
+													class="h-2 overflow-hidden rounded-full bg-[var(--color-bg-tertiary)]"
+												>
 													<div
 														class="h-full bg-[var(--color-amber)] transition-all"
 														style={`width: ${progress}%`}
@@ -646,7 +696,8 @@
 								>
 									<span class="inline-flex items-center gap-2">
 										Outstanding reimbursements
-										<span class="text-[10px] tracking-wide opacity-60 group-open/reimb:hidden"
+										<span
+											class="text-[10px] tracking-wide opacity-60 group-open/reimb:hidden"
 											>(expand)</span
 										>
 									</span>
@@ -673,7 +724,8 @@
 							<EmptyState body="No allowance data yet.">
 								{#snippet children()}
 									<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-										Add accounts and budget categories to see your safe-to-spend.
+										Add accounts and budget categories to see your
+										safe-to-spend.
 									</p>
 								{/snippet}
 							</EmptyState>
@@ -693,7 +745,9 @@
 				<TabContent tabId="budget" isActive={activeTab === 'budget'} tabs={planTabs}>
 					<div class="space-y-5 py-5">
 						{#if isPlanDataLoading}
-							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
+							<div
+								class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5"
+							>
 								<Skeleton class="h-5 w-40 rounded" />
 								<div class="grid grid-cols-2 gap-4">
 									<Skeleton class="h-16 w-full rounded-xl" />
@@ -701,7 +755,9 @@
 								</div>
 								<Skeleton class="h-12 w-full rounded-xl" />
 							</div>
-							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-3 p-5">
+							<div
+								class="squircle-4xl squircle-border squircle-fill-tertiary space-y-3 p-5"
+							>
 								<Skeleton class="h-6 w-56 rounded" />
 								<Skeleton class="h-24 w-full rounded-xl" />
 								<Skeleton class="h-24 w-full rounded-xl" />
@@ -717,7 +773,10 @@
 								<div class="mb-4 grid grid-cols-2 gap-4">
 									<div class="text-center">
 										<div class="text-hero-sm text-[var(--color-sage-green)]">
-											{formatTransactionAmount(totalPlannedIncome, userCurrency)}
+											{formatTransactionAmount(
+												totalPlannedIncome,
+												userCurrency
+											)}
 										</div>
 										<div
 											class="mt-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -727,14 +786,19 @@
 									</div>
 									<div class="text-center">
 										<div class="text-hero-sm text-[var(--color-warm-coral)]">
-											{formatTransactionAmount(totalPlannedExpenses, userCurrency)}
+											{formatTransactionAmount(
+												totalPlannedExpenses,
+												userCurrency
+											)}
 										</div>
 										<div
 											class="mt-1 text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
 										>
 											Expenses
 										</div>
-										<div class="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]/80">
+										<div
+											class="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]/80"
+										>
 											from planned transactions
 										</div>
 									</div>
@@ -744,12 +808,21 @@
 										{#if netProjectedChange >= 0}
 											<TrendingUp class="size-4 text-[var(--color-amber)]" />
 											<span class="text-hero-sm text-[var(--color-amber)]"
-												>+{formatTransactionAmount(netProjectedChange, userCurrency)}</span
+												>+{formatTransactionAmount(
+													netProjectedChange,
+													userCurrency
+												)}</span
 											>
 										{:else}
-											<TrendingDown class="size-4 text-[var(--color-warm-coral)]" />
-											<span class="text-hero-sm text-[var(--color-warm-coral)]"
-												>{formatTransactionAmount(netProjectedChange, userCurrency)}</span
+											<TrendingDown
+												class="size-4 text-[var(--color-warm-coral)]"
+											/>
+											<span
+												class="text-hero-sm text-[var(--color-warm-coral)]"
+												>{formatTransactionAmount(
+													netProjectedChange,
+													userCurrency
+												)}</span
 											>
 										{/if}
 									</div>
@@ -782,12 +855,16 @@
 				<TabContent tabId="goals" isActive={activeTab === 'goals'} tabs={planTabs}>
 					<div class="py-5">
 						{#if isPlanDataLoading}
-							<div class="squircle-4xl squircle-border squircle-fill-tertiary mb-5 space-y-3 p-5">
+							<div
+								class="squircle-4xl squircle-border squircle-fill-tertiary mb-5 space-y-3 p-5"
+							>
 								<Skeleton class="h-8 w-48 rounded" />
 								<Skeleton class="h-4 w-full rounded" />
 								<Skeleton class="h-32 w-full rounded-xl" />
 							</div>
-							<div class="squircle-4xl squircle-border squircle-fill-tertiary space-y-3 p-5">
+							<div
+								class="squircle-4xl squircle-border squircle-fill-tertiary space-y-3 p-5"
+							>
 								<Skeleton class="h-6 w-40 rounded" />
 								<Skeleton class="h-20 w-full rounded-xl" />
 							</div>
@@ -827,7 +904,11 @@
 									onGoalAction={handleGoalAction}
 								/>
 							{:else if goalsSubTab === 'active'}
-								<GoalsActiveTab {activeGoals} {userCurrency} onGoalAction={handleGoalAction} />
+								<GoalsActiveTab
+									{activeGoals}
+									{userCurrency}
+									onGoalAction={handleGoalAction}
+								/>
 							{:else}
 								<GoalsCompletedTab
 									{completedGoals}

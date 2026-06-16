@@ -133,13 +133,15 @@
 		} else {
 			// If dates span across months but same year
 			if (start.getFullYear() === end.getFullYear()) {
-				const yearSuffix = start.getFullYear() !== currentYear ? ` ${start.getFullYear()}` : '';
+				const yearSuffix =
+					start.getFullYear() !== currentYear ? ` ${start.getFullYear()}` : '';
 				return `${start.getDate()} ${start.toLocaleDateString('en-US', { month: 'short' })} - ${end.getDate()} ${end.toLocaleDateString('en-US', { month: 'short' })}${yearSuffix}`;
 			} else {
 				// If dates span across years
 				const startYearSuffix =
 					start.getFullYear() !== currentYear ? ` ${start.getFullYear()}` : '';
-				const endYearSuffix = end.getFullYear() !== currentYear ? ` ${end.getFullYear()}` : '';
+				const endYearSuffix =
+					end.getFullYear() !== currentYear ? ` ${end.getFullYear()}` : '';
 				return `${start.getDate()} ${start.toLocaleDateString('en-US', { month: 'short' })}${startYearSuffix} - ${end.getDate()} ${end.toLocaleDateString('en-US', { month: 'short' })}${endYearSuffix}`;
 			}
 		}
@@ -280,10 +282,15 @@
 							<div>
 								<div class="flex items-center gap-2">
 									<span class="text-primary font-medium">
-										{getWeekRange(week.weekStart.toISOString(), week.weekEnd.toISOString())}
+										{getWeekRange(
+											week.weekStart.toISOString(),
+											week.weekEnd.toISOString()
+										)}
 									</span>
 									{#if isCurrentWeekFlag}
-										<Badge variant="secondary" class="px-2 py-0.5 text-xs">Current</Badge>
+										<Badge variant="secondary" class="px-2 py-0.5 text-xs"
+											>Current</Badge
+										>
 									{/if}
 								</div>
 							</div>
@@ -314,7 +321,11 @@
 						</div>
 						<div class="text-center">
 							<div class="text-muted-foreground">Change</div>
-							<div class="font-medium {netChange >= 0 ? 'text-success' : 'text-destructive'}">
+							<div
+								class="font-medium {netChange >= 0
+									? 'text-success'
+									: 'text-destructive'}"
+							>
 								{netChange >= 0 ? '+' : ''}{formatTransactionAmountLocal(netChange)}
 							</div>
 						</div>
@@ -342,7 +353,8 @@
 							{...(week.transactions?.length || 0) > 3
 								? {
 										tabindex: 0,
-										onkeydown: (e) => e.key === 'Enter' && toggleTransactionExpansion(weekId)
+										onkeydown: (e) =>
+											e.key === 'Enter' && toggleTransactionExpansion(weekId)
 									}
 								: {}}
 						>
@@ -367,7 +379,9 @@
 							<div class="space-y-1">
 								{#each (week.transactions || []).slice(0, isExpanded ? week.transactions?.length || 0 : (week.transactions?.length || 0) <= 3 ? week.transactions?.length || 0 : 2) as transaction}
 									<div class="flex items-center justify-between text-xs">
-										<span class="truncate">{transaction.description || 'Transaction'}</span>
+										<span class="truncate"
+											>{transaction.description || 'Transaction'}</span
+										>
 										<span
 											class="font-medium {transaction.type === 'income'
 												? 'text-success'

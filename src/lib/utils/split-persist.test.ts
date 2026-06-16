@@ -30,7 +30,9 @@ function allocateSignedAmounts(
 	const mags = slices.map((s) => round2(Math.max(0, s.amount)));
 	const sumMag = mags.reduce((a, b) => a + b, 0);
 	const scaled =
-		Math.abs(sumMag - totalAbs) < 0.02 ? mags : mags.map((m) => round2((m / sumMag) * totalAbs));
+		Math.abs(sumMag - totalAbs) < 0.02
+			? mags
+			: mags.map((m) => round2((m / sumMag) * totalAbs));
 	const drift = round2(totalAbs - scaled.reduce((a, b) => a + b, 0));
 	const primaryIdx = slices.findIndex((s) => s.categoryId === primaryCategoryId);
 	const absorbIdx = primaryIdx >= 0 ? primaryIdx : 0;
@@ -121,8 +123,12 @@ describe('allocateSignedAmounts parity', () => {
 			]
 		} as unknown as Transaction;
 		const soft = resolveSplit(softTx)!;
-		expect(signed.find((x) => x.categoryId === 'gro')?.amount).toBe(amountForCategory(soft, 'gro'));
-		expect(signed.find((x) => x.categoryId === 'hh')?.amount).toBe(amountForCategory(soft, 'hh'));
+		expect(signed.find((x) => x.categoryId === 'gro')?.amount).toBe(
+			amountForCategory(soft, 'gro')
+		);
+		expect(signed.find((x) => x.categoryId === 'hh')?.amount).toBe(
+			amountForCategory(soft, 'hh')
+		);
 	});
 
 	it('income positive amounts sum to total', () => {

@@ -249,7 +249,12 @@
 			{/if}
 			{#if accounts.length > 3}
 				<div class="mt-3 flex justify-center sm:hidden">
-					<Button variant="outline" size="sm" onclick={toggleCompactAccountsView} class="gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={toggleCompactAccountsView}
+						class="gap-2"
+					>
 						{#if compactAccountsView}
 							<List class="size-4" />
 							Comfortable list
@@ -315,7 +320,8 @@
 								: account.type === 'credit'
 									? 'border-l-[var(--color-info)]'
 									: 'border-l-border'}
-					{@const AccountIcon = accountIcons[account.type as keyof typeof accountIcons] || Wallet}
+					{@const AccountIcon =
+						accountIcons[account.type as keyof typeof accountIcons] || Wallet}
 					<div
 						role="button"
 						tabindex="0"
@@ -333,12 +339,20 @@
 						<div class="flex items-start justify-between gap-4">
 							<div class="min-w-0 flex-1">
 								<div class="mb-1 flex items-center gap-2">
-									<AccountIcon class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
-									<h3 class="truncate font-semibold text-[var(--color-text-primary)]">
+									<AccountIcon
+										class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
+									/>
+									<h3
+										class="truncate font-semibold text-[var(--color-text-primary)]"
+									>
 										{account.name}
 									</h3>
 									{#if StatusIcon && bufferAmount > 0 && bufferStatus}
-										<StatusIcon class="size-3.5 shrink-0 {getBufferStatusColor(bufferStatus)}" />
+										<StatusIcon
+											class="size-3.5 shrink-0 {getBufferStatusColor(
+												bufferStatus
+											)}"
+										/>
 									{/if}
 								</div>
 								{#if !compactAccountsView}
@@ -349,7 +363,9 @@
 									</p>
 								{/if}
 								<div class="flex flex-wrap items-end justify-between gap-2">
-									<div class="text-hero-sm">{formatBalance(account.balance, account.currency)}</div>
+									<div class="text-hero-sm">
+										{formatBalance(account.balance, account.currency)}
+									</div>
 									{#if account.type === 'savings' || account.type === 'credit' || account.type === 'loan'}
 										<button
 											type="button"
@@ -363,7 +379,10 @@
 								{#if account.rateProfile && account.lastConfirmedAt}
 									<p class="text-muted-foreground mt-1 text-xs">
 										Projected: {formatBalance(
-											passiveAccountService.projectBalance(account, new Date()),
+											passiveAccountService.projectBalance(
+												account,
+												new Date()
+											),
 											account.currency
 										)}
 									</p>

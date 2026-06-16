@@ -148,12 +148,17 @@
 				<div class="space-y-2">
 					<div class="flex items-center justify-between text-sm">
 						<span class="text-muted-foreground">Progress to Target</span>
-						<span class="font-medium">{formatPercentage(analysis.percentageAchieved)}</span>
+						<span class="font-medium"
+							>{formatPercentage(analysis.percentageAchieved)}</span
+						>
 					</div>
 					<Progress value={analysis.percentageAchieved} max={100} class="h-3" />
 					<div class="text-muted-foreground flex justify-between text-xs">
 						<span>
-							Current: {formatTransactionAmount(analysis.currentBalance, userCurrency)}
+							Current: {formatTransactionAmount(
+								analysis.currentBalance,
+								userCurrency
+							)}
 						</span>
 						<span>
 							Target: {formatTransactionAmount(analysis.targetAmount, userCurrency)}
@@ -166,7 +171,9 @@
 					<div class="grid grid-cols-2 gap-4 pt-2">
 						<div class="space-y-1">
 							<div class="text-muted-foreground text-xs">Months Covered</div>
-							<div class="text-lg font-semibold">{analysis.monthsCovered.toFixed(1)}</div>
+							<div class="text-lg font-semibold">
+								{analysis.monthsCovered.toFixed(1)}
+							</div>
 							<div class="text-muted-foreground text-xs">
 								Target: {analysis.factors.targetMonths} months
 							</div>
@@ -174,7 +181,10 @@
 						<div class="space-y-1">
 							<div class="text-muted-foreground text-xs">Monthly Contribution</div>
 							<div class="text-lg font-semibold">
-								{formatTransactionAmount(analysis.recommendedMonthlyContribution, userCurrency)}
+								{formatTransactionAmount(
+									analysis.recommendedMonthlyContribution,
+									userCurrency
+								)}
 							</div>
 							<div class="text-muted-foreground text-xs">
 								{analysis.monthsToTarget > 0
@@ -192,19 +202,29 @@
 							class="text-muted-foreground hover:text-foreground flex w-full items-center justify-between text-sm font-medium transition-colors"
 							onclick={() => (showAccountBreakdown = !showAccountBreakdown)}
 						>
-							<span>Emergency Fund Accounts ({analysis.emergencyFundAccounts.length})</span>
+							<span
+								>Emergency Fund Accounts ({analysis.emergencyFundAccounts
+									.length})</span
+							>
 							<ChevronDown
-								class="h-4 w-4 transition-transform {showAccountBreakdown ? 'rotate-180' : ''}"
+								class="h-4 w-4 transition-transform {showAccountBreakdown
+									? 'rotate-180'
+									: ''}"
 							/>
 						</button>
 						{#if showAccountBreakdown}
 							<div class="mt-2 space-y-2">
 								{#each analysis.emergencyFundAccounts as account}
-									<div class="bg-muted/50 flex items-center justify-between rounded p-2">
+									<div
+										class="bg-muted/50 flex items-center justify-between rounded p-2"
+									>
 										<span class="text-sm">{account.accountName}</span>
 										<div class="text-right">
 											<div class="text-sm font-medium">
-												{formatTransactionAmount(account.balance, userCurrency)}
+												{formatTransactionAmount(
+													account.balance,
+													userCurrency
+												)}
 											</div>
 											<div class="text-muted-foreground text-xs">
 												{account.percentage.toFixed(1)}%
@@ -224,13 +244,18 @@
 							<AlertTriangle class="text-warning mt-0.5 h-5 w-5" />
 							<div class="flex-1">
 								<div class="text-warning text-sm font-medium">
-									Emergency Fund Used ({formatPercentage(analysis.partialUsage.percentageUsed, {
-										maxDecimals: 0
-									})})
+									Emergency Fund Used ({formatPercentage(
+										analysis.partialUsage.percentageUsed,
+										{
+											maxDecimals: 0
+										}
+									)})
 								</div>
 								<div class="text-muted-foreground mt-1 text-xs">
-									{formatTransactionAmount(analysis.partialUsage.amountUsed, userCurrency)} used. Rebuild
-									over {analysis.partialUsage.recoveryTimeline} months.
+									{formatTransactionAmount(
+										analysis.partialUsage.amountUsed,
+										userCurrency
+									)} used. Rebuild over {analysis.partialUsage.recoveryTimeline} months.
 								</div>
 							</div>
 						</div>
@@ -254,7 +279,9 @@
 							</CardTitle>
 						</div>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 				</CardHeader>
@@ -262,7 +289,8 @@
 					<CardContent class="space-y-3">
 						{#each recommendations as rec}
 							<div
-								class="rounded-lg border p-3 {rec.priority === 'urgent' || rec.priority === 'high'
+								class="rounded-lg border p-3 {rec.priority === 'urgent' ||
+								rec.priority === 'high'
 									? 'border-destructive/50 bg-destructive/5'
 									: rec.priority === 'medium'
 										? 'border-warning/50 bg-warning/5'
@@ -279,7 +307,8 @@
 									<div class="flex-1 space-y-2">
 										<div class="flex items-center gap-2">
 											<Badge
-												variant={rec.priority === 'urgent' || rec.priority === 'high'
+												variant={rec.priority === 'urgent' ||
+												rec.priority === 'high'
 													? 'destructive'
 													: rec.priority === 'medium'
 														? 'default'
@@ -289,13 +318,16 @@
 											</Badge>
 											<span class="text-sm font-medium">{rec.title}</span>
 										</div>
-										<p class="text-muted-foreground text-sm">{rec.description}</p>
+										<p class="text-muted-foreground text-sm">
+											{rec.description}
+										</p>
 										<div class="text-foreground text-sm font-medium">
 											{rec.recommendedAction}
 										</div>
 										{#if rec.estimatedImpact.monthsToTarget}
 											<div class="text-muted-foreground text-xs">
-												Estimated timeline: {rec.estimatedImpact.monthsToTarget} months
+												Estimated timeline: {rec.estimatedImpact
+													.monthsToTarget} months
 											</div>
 										{/if}
 									</div>
@@ -320,7 +352,10 @@
 					<div class="flex justify-between">
 						<span class="text-muted-foreground">Monthly Essential Expenses:</span>
 						<span class="font-medium">
-							{formatTransactionAmount(analysis.factors.monthlyEssentialExpenses, userCurrency)}
+							{formatTransactionAmount(
+								analysis.factors.monthlyEssentialExpenses,
+								userCurrency
+							)}
 						</span>
 					</div>
 					<div class="flex justify-between">
@@ -346,7 +381,9 @@
 					{#if analysis.factors.dependentsAdjustment > 0}
 						<div class="flex justify-between">
 							<span class="text-muted-foreground">Dependents Adjustment:</span>
-							<span class="font-medium">+{analysis.factors.dependentsAdjustment}%</span>
+							<span class="font-medium"
+								>+{analysis.factors.dependentsAdjustment}%</span
+							>
 						</div>
 					{/if}
 					{#if analysis.factors.healthAdjustment > 0}
@@ -359,7 +396,10 @@
 						<div class="flex justify-between">
 							<span class="text-muted-foreground">Insurance Gaps:</span>
 							<span class="font-medium">
-								+{formatTransactionAmount(analysis.factors.insuranceGapsAdjustment, userCurrency)}
+								+{formatTransactionAmount(
+									analysis.factors.insuranceGapsAdjustment,
+									userCurrency
+								)}
 							</span>
 						</div>
 					{/if}

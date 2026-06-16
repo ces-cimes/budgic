@@ -79,13 +79,16 @@
 		{#snippet children()}
 			<ul class="space-y-2 px-1 pb-2">
 				{#each sheetEntries as tx (tx.id)}
-					<li class="text-text-secondary border-border border-b pb-2 text-sm last:border-0">
+					<li
+						class="text-text-secondary border-border border-b pb-2 text-sm last:border-0"
+					>
 						{formatRow(tx)}
 					</li>
 				{/each}
 			</ul>
 			<div class="border-t pt-4">
-				<Button variant="secondary" class="w-full" onclick={() => (sheetOpen = false)}>Close</Button
+				<Button variant="secondary" class="w-full" onclick={() => (sheetOpen = false)}
+					>Close</Button
 				>
 			</div>
 		{/snippet}

@@ -56,7 +56,8 @@
 		const dismissals = { ...(userPreferences.postChecklistSuggestionDismissals ?? {}) };
 		delete dismissals[id];
 		userPreferences = await userService.updateUserPreferences({
-			postChecklistSuggestionDismissals: Object.keys(dismissals).length > 0 ? dismissals : undefined
+			postChecklistSuggestionDismissals:
+				Object.keys(dismissals).length > 0 ? dismissals : undefined
 		});
 		refreshSetupSuggestions(userPreferences);
 	}
@@ -142,7 +143,8 @@
 		} catch (error) {
 			console.error('Error clearing all data:', error);
 			devActionMessage =
-				'Error clearing data: ' + (error instanceof Error ? error.message : 'Unknown error');
+				'Error clearing data: ' +
+				(error instanceof Error ? error.message : 'Unknown error');
 		} finally {
 			isDevActionLoading = false;
 		}
@@ -278,7 +280,9 @@
 					<div class="space-y-1">
 						<Skeleton class="mb-3 h-3 w-20 rounded bg-[var(--color-bg-surface)]" />
 						{#each [1, 2] as _}
-							<Skeleton class="h-14 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
+							<Skeleton
+								class="h-14 w-full rounded-xl bg-[var(--color-bg-tertiary)]"
+							/>
 						{/each}
 					</div>
 				{/each}
@@ -308,12 +312,20 @@
 										<item.Icon class="size-4 text-[var(--color-amber)]" />
 									</div>
 									<div class="min-w-0 flex-1">
-										<p class="text-sm font-medium text-[var(--color-text-primary)]">{item.name}</p>
-										<p class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">
+										<p
+											class="text-sm font-medium text-[var(--color-text-primary)]"
+										>
+											{item.name}
+										</p>
+										<p
+											class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]"
+										>
 											{item.description}
 										</p>
 									</div>
-									<ChevronRight class="size-4 text-[var(--color-text-tertiary)]" />
+									<ChevronRight
+										class="size-4 text-[var(--color-text-tertiary)]"
+									/>
 								</button>
 							{/each}
 						</div>
@@ -354,7 +366,9 @@
 							{#each activeSetupSuggestions as suggestion (suggestion.id)}
 								<div class="flex items-center justify-between gap-3 px-5 py-4">
 									<div class="min-w-0 flex-1">
-										<p class="text-sm font-medium text-[var(--color-text-primary)]">
+										<p
+											class="text-sm font-medium text-[var(--color-text-primary)]"
+										>
 											{suggestion.title}
 										</p>
 										<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
@@ -387,7 +401,9 @@
 							{#each dismissedSetupSuggestions as suggestion (suggestion.id)}
 								<div class="flex items-center justify-between gap-3 px-5 py-4">
 									<div class="min-w-0 flex-1">
-										<p class="text-sm text-[var(--color-text-secondary)]">{suggestion.title}</p>
+										<p class="text-sm text-[var(--color-text-secondary)]">
+											{suggestion.title}
+										</p>
 									</div>
 									<button
 										type="button"
@@ -424,12 +440,20 @@
 										<item.Icon class="size-4 text-[var(--color-amber)]" />
 									</div>
 									<div class="min-w-0 flex-1">
-										<p class="text-sm font-medium text-[var(--color-text-primary)]">{item.name}</p>
-										<p class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">
+										<p
+											class="text-sm font-medium text-[var(--color-text-primary)]"
+										>
+											{item.name}
+										</p>
+										<p
+											class="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]"
+										>
 											{item.description}
 										</p>
 									</div>
-									<ChevronRight class="size-4 text-[var(--color-text-tertiary)]" />
+									<ChevronRight
+										class="size-4 text-[var(--color-text-tertiary)]"
+									/>
 								</button>
 							{/each}
 						</div>
@@ -447,7 +471,9 @@
 						class="border-border divide-border divide-y overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
 					>
 						<div class="flex items-center justify-between px-5 py-4">
-							<span class="text-sm font-medium text-[var(--color-text-primary)]">Dark mode</span>
+							<span class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Dark mode</span
+							>
 							<Switch bind:checked={darkModeEnabled} aria-label="Toggle dark mode" />
 						</div>
 						<div class="flex items-center justify-between px-5 py-4">
@@ -460,14 +486,22 @@
 							/>
 						</div>
 						<div class="flex items-center justify-between px-5 py-4">
-							<span class="text-sm font-medium text-[var(--color-text-primary)]">Analytics</span>
-							<Switch bind:checked={notificationsEnabled} aria-label="Toggle analytics" />
+							<span class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Analytics</span
+							>
+							<Switch
+								bind:checked={notificationsEnabled}
+								aria-label="Toggle analytics"
+							/>
 						</div>
 						<div class="flex items-center justify-between px-5 py-4">
 							<span class="text-sm font-medium text-[var(--color-text-primary)]"
 								>Advanced features</span
 							>
-							<Switch bind:checked={stressDetectionEnabled} aria-label="Toggle advanced features" />
+							<Switch
+								bind:checked={stressDetectionEnabled}
+								aria-label="Toggle advanced features"
+							/>
 						</div>
 						<div class="flex items-center justify-between px-5 py-4">
 							<span class="text-sm font-medium text-[var(--color-text-primary)]"
@@ -495,7 +529,9 @@
 							<div
 								class="rounded-xl border border-[var(--color-sage-green)]/30 bg-[var(--color-sage-green)]/8 px-4 py-3"
 							>
-								<p class="text-sm text-[var(--color-sage-green)]">{devActionMessage}</p>
+								<p class="text-sm text-[var(--color-sage-green)]">
+									{devActionMessage}
+								</p>
 							</div>
 						{/if}
 						<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -520,7 +556,9 @@
 
 			<!-- App footer -->
 			<div class="mt-12 pb-4 text-center">
-				<p class="font-display text-xl font-normal text-[var(--color-hero-number)]">Budgic</p>
+				<p class="font-display text-xl font-normal text-[var(--color-hero-number)]">
+					Budgic
+				</p>
 				<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">Version 1.0.0</p>
 				<p class="mt-2 text-xs text-[var(--color-text-disabled)]">© 2025 Budgic</p>
 			</div>

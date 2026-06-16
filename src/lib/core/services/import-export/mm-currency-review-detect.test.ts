@@ -33,7 +33,11 @@ describe('detectMmCurrencyReviewNeeded', () => {
 			],
 			[
 				'CURRENCY',
-				csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [{ uid: 'RUB_RUB', ISO: 'RUB', IS_DEL: '0' }])
+				csv(
+					'CURRENCY',
+					['uid', 'ISO', 'IS_DEL'],
+					[{ uid: 'RUB_RUB', ISO: 'RUB', IS_DEL: '0' }]
+				)
 			]
 		]);
 		const r = detectMmCurrencyReviewNeeded(files);
@@ -153,7 +157,11 @@ describe('detectMmCurrencyReviewNeeded', () => {
 			],
 			[
 				'CURRENCY',
-				csv('CURRENCY', ['uid', 'ISO', 'IS_DEL'], [{ uid: 'RUB_IDR', ISO: 'IDR', IS_DEL: '0' }])
+				csv(
+					'CURRENCY',
+					['uid', 'ISO', 'IS_DEL'],
+					[{ uid: 'RUB_IDR', ISO: 'IDR', IS_DEL: '0' }]
+				)
 			]
 		]);
 		const r = detectMmCurrencyReviewNeeded(files, { activeCurrencyCodes: ['RUB', 'USD'] });

@@ -29,8 +29,7 @@ export const tierChipIdleClasses: Record<NonNullable<Category['waterfallTier']>,
 		'border-rose-500/30 bg-rose-500/[0.06] text-rose-700 hover:bg-rose-500/12 hover:border-rose-500/45 dark:text-rose-300',
 	security:
 		'border-amber-500/30 bg-amber-500/[0.06] text-amber-800 hover:bg-amber-500/12 hover:border-amber-500/45 dark:text-amber-200',
-	growth:
-		'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-800 hover:bg-emerald-500/12 hover:border-emerald-500/45 dark:text-emerald-200',
+	growth: 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-800 hover:bg-emerald-500/12 hover:border-emerald-500/45 dark:text-emerald-200',
 	lifestyle:
 		'border-blue-500/30 bg-blue-500/[0.06] text-blue-800 hover:bg-blue-500/12 hover:border-blue-500/45 dark:text-blue-200',
 	unclassified:

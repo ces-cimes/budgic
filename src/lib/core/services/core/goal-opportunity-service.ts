@@ -209,7 +209,11 @@ class GoalOpportunityService {
 				total += monthly;
 			} else {
 				const { exchangeRateService } = await import('$lib/core/services');
-				const converted = await exchangeRateService.convertAmount(monthly, goal.currency, currency);
+				const converted = await exchangeRateService.convertAmount(
+					monthly,
+					goal.currency,
+					currency
+				);
 				if (converted != null) total += converted;
 				else total += monthly;
 			}
@@ -217,7 +221,11 @@ class GoalOpportunityService {
 		return total;
 	}
 
-	private buildImpactMessage(goal: Goal, req: RequiredSavingsResult, extraAmount: number): string {
+	private buildImpactMessage(
+		goal: Goal,
+		req: RequiredSavingsResult,
+		extraAmount: number
+	): string {
 		if (req.isTimeBound && req.requiredMonthly != null && req.requiredMonthly > 0) {
 			const monthsSaved = extraAmount / req.requiredMonthly;
 			if (monthsSaved >= 1) {

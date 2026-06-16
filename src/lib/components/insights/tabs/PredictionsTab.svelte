@@ -163,10 +163,14 @@
 								<div class="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
 									{#if prediction.predictedValue !== undefined && prediction.predictedValue !== null}
 										<div class="min-w-0">
-											<div class="text-muted-foreground truncate text-[10px] sm:text-xs">
+											<div
+												class="text-muted-foreground truncate text-[10px] sm:text-xs"
+											>
 												Predicted
 											</div>
-											<div class="text-foreground truncate text-xs font-semibold sm:text-sm">
+											<div
+												class="text-foreground truncate text-xs font-semibold sm:text-sm"
+											>
 												{formatCurrency(prediction.predictedValue)}
 											</div>
 										</div>
@@ -174,29 +178,41 @@
 
 									{#if prediction.currentValue !== undefined && prediction.currentValue !== null && prediction.currentValue > 0}
 										<div class="min-w-0">
-											<div class="text-muted-foreground truncate text-[10px] sm:text-xs">
+											<div
+												class="text-muted-foreground truncate text-[10px] sm:text-xs"
+											>
 												Current
 											</div>
-											<div class="text-foreground truncate text-xs font-semibold sm:text-sm">
+											<div
+												class="text-foreground truncate text-xs font-semibold sm:text-sm"
+											>
 												{formatCurrency(prediction.currentValue)}
 											</div>
 										</div>
 									{/if}
 
 									<div class="min-w-0">
-										<div class="text-muted-foreground truncate text-[10px] sm:text-xs">
+										<div
+											class="text-muted-foreground truncate text-[10px] sm:text-xs"
+										>
 											Confidence
 										</div>
-										<div class="text-foreground truncate text-xs font-semibold sm:text-sm">
+										<div
+											class="text-foreground truncate text-xs font-semibold sm:text-sm"
+										>
 											{prediction.confidence}%
 										</div>
 									</div>
 
 									<div class="min-w-0">
-										<div class="text-muted-foreground truncate text-[10px] sm:text-xs">
+										<div
+											class="text-muted-foreground truncate text-[10px] sm:text-xs"
+										>
 											Timeframe
 										</div>
-										<div class="text-foreground truncate text-xs font-semibold sm:text-sm">
+										<div
+											class="text-foreground truncate text-xs font-semibold sm:text-sm"
+										>
 											{prediction.timeframe}
 										</div>
 									</div>

@@ -179,7 +179,9 @@ class NegativeAllowanceService {
 				? allowance.periodStart
 				: new Date(allowance.periodStart);
 		const periodEnd =
-			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
+			allowance.periodEnd instanceof Date
+				? allowance.periodEnd
+				: new Date(allowance.periodEnd);
 
 		const periodStartStr = periodStart.toISOString();
 		const existing = await db.negativeAllowanceEvents

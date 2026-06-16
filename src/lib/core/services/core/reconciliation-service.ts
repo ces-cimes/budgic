@@ -132,7 +132,10 @@ class ReconciliationService {
 		const discrepancy = statementBalance - calculatedBalance;
 
 		// Get transactions for this reconciliation period
-		const transactions = await this.getTransactionsForReconciliation(accountId, validatedOptions);
+		const transactions = await this.getTransactionsForReconciliation(
+			accountId,
+			validatedOptions
+		);
 		const reconciledTransactions = transactions.filter((t) =>
 			this.isTransactionReconciled(t, validatedOptions)
 		);
@@ -225,7 +228,10 @@ class ReconciliationService {
 	/**
 	 * Record a skipped check-up as a 0-delta reconciliation session.
 	 */
-	async skipReconciliationForNow(accountId: string, notes?: string): Promise<ReconciliationRecord> {
+	async skipReconciliationForNow(
+		accountId: string,
+		notes?: string
+	): Promise<ReconciliationRecord> {
 		const account = await accountService.getAccount(accountId);
 		if (!account) {
 			throw new Error(`Account ${accountId} not found`);
@@ -330,7 +336,10 @@ class ReconciliationService {
 				amount: reconciliation.discrepancy,
 				description: `Unknown discrepancy of ${reconciliation.discrepancy}`,
 				suggestedAction: 'investigate',
-				severity: this.calculateDiscrepancySeverity(reconciliation.discrepancy, discrepancyAmount),
+				severity: this.calculateDiscrepancySeverity(
+					reconciliation.discrepancy,
+					discrepancyAmount
+				),
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null
@@ -478,7 +487,8 @@ class ReconciliationService {
 		let daysSinceLastReconciliation = 0;
 		if (lastReconciledDate) {
 			const daysDiff =
-				(new Date().getTime() - new Date(lastReconciledDate).getTime()) / (1000 * 60 * 60 * 24);
+				(new Date().getTime() - new Date(lastReconciledDate).getTime()) /
+				(1000 * 60 * 60 * 24);
 			daysSinceLastReconciliation = Math.floor(daysDiff);
 		} else {
 			daysSinceLastReconciliation = Infinity;

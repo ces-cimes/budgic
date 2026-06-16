@@ -108,7 +108,9 @@ vi.mock('$lib/core/db', () => ({
 					filter: (predicate: (tx: Transaction) => boolean) => ({
 						toArray: vi.fn(async () =>
 							Array.from(hoisted.transactionsById.values()).filter(
-								(tx) => (tx as unknown as Record<string, unknown>)[field] === value && predicate(tx)
+								(tx) =>
+									(tx as unknown as Record<string, unknown>)[field] === value &&
+									predicate(tx)
 							)
 						)
 					})
@@ -145,7 +147,11 @@ vi.mock('../core/transaction-service', () => ({
 		updateTransaction: vi.fn(async (id: string, patch: Record<string, unknown>) => {
 			const current = hoisted.transactionsById.get(id);
 			if (!current) throw new Error(`Missing transaction ${id}`);
-			const next = { ...current, ...patch, updatedAt: '2020-01-03T00:00:00.000Z' } as Transaction;
+			const next = {
+				...current,
+				...patch,
+				updatedAt: '2020-01-03T00:00:00.000Z'
+			} as Transaction;
 			hoisted.transactionsById.set(id, next);
 			return next;
 		})
@@ -444,7 +450,9 @@ describe('MoneyManagerImporter person-ledger routing', () => {
 			ensurePerson: false
 		});
 		expect(
-			Array.from(hoisted.accountsById.values()).filter((account) => account.ledgerRole === 'person')
+			Array.from(hoisted.accountsById.values()).filter(
+				(account) => account.ledgerRole === 'person'
+			)
 		).toHaveLength(0);
 		expect(result.importBatch?.personLedgerDirectRoute).toHaveLength(1);
 		expect(result.importBatch?.personLedgerCloseQueue).toBeUndefined();

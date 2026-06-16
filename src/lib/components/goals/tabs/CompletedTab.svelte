@@ -183,7 +183,9 @@
 						<div>
 							<p class="text-muted-foreground text-sm font-medium">Avg. Time</p>
 							<p class="text-2xl font-bold text-[var(--color-amber)]">
-								{getAverageCompletionTime() ? `${getAverageCompletionTime()} days` : 'N/A'}
+								{getAverageCompletionTime()
+									? `${getAverageCompletionTime()} days`
+									: 'N/A'}
 							</p>
 						</div>
 						<Clock class="h-8 w-8 text-[var(--color-amber)]" />
@@ -236,7 +238,9 @@
 									<div class="text-3xl">{getCategoryIcon(goal.category)}</div>
 									<div>
 										<div class="mb-1 flex items-center gap-2">
-											<h3 class="text-primary text-lg font-semibold">{goal.name}</h3>
+											<h3 class="text-primary text-lg font-semibold">
+												{goal.name}
+											</h3>
 											<Badge
 												class="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
 											>
@@ -244,12 +248,20 @@
 											</Badge>
 										</div>
 										{#if goal.description}
-											<p class="text-muted-foreground text-sm">{goal.description}</p>
+											<p class="text-muted-foreground text-sm">
+												{goal.description}
+											</p>
 										{/if}
-										<div class="text-muted-foreground mt-2 flex items-center gap-4 text-xs">
+										<div
+											class="text-muted-foreground mt-2 flex items-center gap-4 text-xs"
+										>
 											<span>{getCategoryName(goal.category)}</span>
 											{#if goal.completedAt}
-												<span>Completed {new Date(goal.completedAt).toLocaleDateString()}</span>
+												<span
+													>Completed {new Date(
+														goal.completedAt
+													).toLocaleDateString()}</span
+												>
 											{/if}
 										</div>
 									</div>
@@ -273,7 +285,9 @@
 								<div class="flex items-center space-x-2">
 									<Calendar class="text-muted-foreground h-4 w-4" />
 									<div>
-										<div class="text-muted-foreground text-sm">Time to Complete</div>
+										<div class="text-muted-foreground text-sm">
+											Time to Complete
+										</div>
 										<div class="text-primary font-medium">
 											{#if getDaysToComplete(goal)}
 												{getDaysToComplete(goal)} days
@@ -287,7 +301,9 @@
 								<div class="flex items-center space-x-2">
 									<TrendingUp class="text-muted-foreground h-4 w-4" />
 									<div>
-										<div class="text-muted-foreground text-sm">Completion Rate</div>
+										<div class="text-muted-foreground text-sm">
+											Completion Rate
+										</div>
 										<div class="text-primary font-medium">
 											{#if getCompletionRate(goal)}
 												{getCompletionRate(goal)}% of expected
@@ -301,10 +317,15 @@
 								<div class="flex items-center space-x-2">
 									<DollarSign class="text-muted-foreground h-4 w-4" />
 									<div>
-										<div class="text-muted-foreground text-sm">Monthly Contribution</div>
+										<div class="text-muted-foreground text-sm">
+											Monthly Contribution
+										</div>
 										<div class="text-primary font-medium">
 											{goal.monthlyContribution
-												? formatAmount(goal.monthlyContribution, goal.currency)
+												? formatAmount(
+														goal.monthlyContribution,
+														goal.currency
+													)
 												: 'Not tracked'}
 										</div>
 									</div>
@@ -318,7 +339,9 @@
 									style="background: color-mix(in oklch, var(--color-sage-green) 12%, transparent);"
 								>
 									<Award class="h-5 w-5 text-[var(--color-sage-green)]" />
-									<span class="text-sm font-medium text-[var(--color-sage-green)]">
+									<span
+										class="text-sm font-medium text-[var(--color-sage-green)]"
+									>
 										Goal achieved
 									</span>
 								</div>

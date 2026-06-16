@@ -148,7 +148,8 @@ export function detectEssentials(
 
 		const isSavingsTransfer = group.every(
 			(tx) =>
-				tx.type === 'transfer' && Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0) > 0
+				tx.type === 'transfer' &&
+				Math.abs(tx.transferDetails?.transferAmount ?? tx.amount ?? 0) > 0
 		);
 		if (isSavingsTransfer && cadence === 'monthly') {
 			out.push({

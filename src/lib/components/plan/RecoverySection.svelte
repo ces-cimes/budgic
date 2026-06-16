@@ -59,7 +59,9 @@
 							<p>{formatAmount(obligation.balance, horizon.currency)}</p>
 							<p class="text-muted-foreground">
 								{#if obligation.projectedClearanceDate}
-									Clear {dateUtils.formatMonthYear(obligation.projectedClearanceDate)}
+									Clear {dateUtils.formatMonthYear(
+										obligation.projectedClearanceDate
+									)}
 								{:else}
 									No clearance date
 								{/if}
@@ -96,7 +98,8 @@
 						style="background: {getTierColorToken(row.tier)}"
 						aria-hidden="true"
 					></span>
-					<span class="min-w-[4.5rem] font-medium">{getWaterfallTierLabel(row.tier)}</span>
+					<span class="min-w-[4.5rem] font-medium">{getWaterfallTierLabel(row.tier)}</span
+					>
 					<span class="text-muted-foreground">{tierLockCopy[row.tier] ?? ''}</span>
 					<span class="text-muted-foreground ml-auto">
 						{formatAmount(row.spent, horizon.currency)} /

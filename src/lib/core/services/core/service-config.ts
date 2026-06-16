@@ -280,7 +280,8 @@ class ServiceConfigManager {
 	private detectEnvironment(): void {
 		if (typeof window !== 'undefined') {
 			// Browser environment
-			this.environment = window.location.hostname === 'localhost' ? 'development' : 'production';
+			this.environment =
+				window.location.hostname === 'localhost' ? 'development' : 'production';
 		} else {
 			// Node.js environment
 			this.environment =

@@ -218,7 +218,9 @@
 				Add Dependency
 			</Button>
 		</div>
-		<Card.Description>Manage dependencies between transactions for optimization</Card.Description>
+		<Card.Description
+			>Manage dependencies between transactions for optimization</Card.Description
+		>
 	</Card.Header>
 	<Card.Content>
 		{#if isLoading}
@@ -261,16 +263,27 @@
 										<span class="text-sm font-medium">
 											{transaction.description || 'Untitled Transaction'}
 										</span>
-										<Badge variant={getDependencyTypeBadgeVariant(dependency.type)}>
+										<Badge
+											variant={getDependencyTypeBadgeVariant(dependency.type)}
+										>
 											{dependency.type}
 										</Badge>
 									</div>
-									<div class="text-muted-foreground flex items-center gap-4 text-xs">
+									<div
+										class="text-muted-foreground flex items-center gap-4 text-xs"
+									>
 										<span>
-											{formatAmount(transaction.amount || 0, transaction.currency)}
+											{formatAmount(
+												transaction.amount || 0,
+												transaction.currency
+											)}
 										</span>
 										<span>•</span>
-										<span>{formatDate(transaction.plannedDate || transaction.clearedDate)}</span>
+										<span
+											>{formatDate(
+												transaction.plannedDate || transaction.clearedDate
+											)}</span
+										>
 										<span>•</span>
 										<Badge variant="outline" class="text-xs">
 											{transaction.status}
@@ -298,13 +311,17 @@
 	<Dialog.Content class="max-w-2xl">
 		<Dialog.Header>
 			<Dialog.Title>Add Transaction Dependency</Dialog.Title>
-			<Dialog.Description>Select a transaction that this transaction depends on</Dialog.Description>
+			<Dialog.Description
+				>Select a transaction that this transaction depends on</Dialog.Description
+			>
 		</Dialog.Header>
 
 		<div class="space-y-4">
 			<!-- Search -->
 			<div class="relative">
-				<Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+				<Search
+					class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2"
+				/>
 				<Input
 					type="text"
 					placeholder="Search transactions..."
@@ -327,8 +344,8 @@
 				<Select.Root type="single" bind:value={selectedDependencyType}>
 					<Select.Trigger>
 						{selectedDependencyType
-							? dependencyTypes.find((t) => t.value === selectedDependencyType)?.label ||
-								'Select dependency type'
+							? dependencyTypes.find((t) => t.value === selectedDependencyType)
+									?.label || 'Select dependency type'
 							: 'Select dependency type'}
 					</Select.Trigger>
 					<Select.Content>
@@ -336,7 +353,9 @@
 							<Select.Item value={type.value} label={type.label}>
 								<div>
 									<div class="font-medium">{type.label}</div>
-									<div class="text-muted-foreground text-xs">{type.description}</div>
+									<div class="text-muted-foreground text-xs">
+										{type.description}
+									</div>
 								</div>
 							</Select.Item>
 						{/each}
@@ -373,7 +392,11 @@
 									{formatAmount(transaction.amount || 0, transaction.currency)}
 								</span>
 								<span>•</span>
-								<span>{formatDate(transaction.plannedDate || transaction.clearedDate)}</span>
+								<span
+									>{formatDate(
+										transaction.plannedDate || transaction.clearedDate
+									)}</span
+								>
 							</div>
 						</button>
 					{/each}

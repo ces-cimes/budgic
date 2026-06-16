@@ -418,7 +418,12 @@
 			const text = await file.text();
 			const data = JSON.parse(text);
 
-			if (!data || typeof data !== 'object' || !('version' in data) || !('exportDate' in data)) {
+			if (
+				!data ||
+				typeof data !== 'object' ||
+				!('version' in data) ||
+				!('exportDate' in data)
+			) {
 				throw new Error('Invalid export file format');
 			}
 
@@ -428,7 +433,8 @@
 			resetImportSelection();
 			window.location.reload();
 		} catch (err) {
-			error = 'Failed to import data: ' + (err instanceof Error ? err.message : 'Unknown error');
+			error =
+				'Failed to import data: ' + (err instanceof Error ? err.message : 'Unknown error');
 			console.error('Error importing Budgic JSON:', err);
 		} finally {
 			isImporting = false;
@@ -454,7 +460,9 @@
 		const trimmedOverride =
 			currencyOverride && Object.keys(currencyOverride).length > 0
 				? Object.fromEntries(
-						Object.entries(currencyOverride).filter(([uid, id]) => uid && id && id.trim() !== '')
+						Object.entries(currencyOverride).filter(
+							([uid, id]) => uid && id && id.trim() !== ''
+						)
 					)
 				: undefined;
 
@@ -465,11 +473,14 @@
 
 		const trimmedPersonOverride =
 			accountPersonOverride && Object.keys(accountPersonOverride).length > 0
-				? Object.fromEntries(Object.entries(accountPersonOverride).filter(([, flagged]) => flagged))
+				? Object.fromEntries(
+						Object.entries(accountPersonOverride).filter(([, flagged]) => flagged)
+					)
 				: undefined;
 
 		const trimmedPersonDirectRouteOverride =
-			accountPersonDirectRouteOverride && Object.keys(accountPersonDirectRouteOverride).length > 0
+			accountPersonDirectRouteOverride &&
+			Object.keys(accountPersonDirectRouteOverride).length > 0
 				? Object.fromEntries(
 						Object.entries(accountPersonDirectRouteOverride).filter(
 							([uid, flagged]) => flagged && accountPersonOverride?.[uid] === true
@@ -489,7 +500,8 @@
 			...(trimmedPersonDirectRouteOverride &&
 			Object.keys(trimmedPersonDirectRouteOverride).length > 0
 				? {
-						externalAccountMarkedAsPersonLedgerDirectRoute: trimmedPersonDirectRouteOverride
+						externalAccountMarkedAsPersonLedgerDirectRoute:
+							trimmedPersonDirectRouteOverride
 					}
 				: {}),
 			onProgress: (progress) => {
@@ -804,7 +816,9 @@
 			return;
 		}
 		importWizardStartStep =
-			!openClassification && wizardPersonLedgerCloseQueue.length > 0 && directRoute.length === 0
+			!openClassification &&
+			wizardPersonLedgerCloseQueue.length > 0 &&
+			directRoute.length === 0
 				? 2
 				: 1;
 		importWizardOpen = true;
@@ -1093,7 +1107,9 @@
 
 			{#if dataTab === 'export'}
 				<!-- Export -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -1113,7 +1129,8 @@
 						<div class="space-y-1.5">
 							<label
 								for="export-format"
-								class="text-sm font-medium text-[var(--color-text-primary)]">Format</label
+								class="text-sm font-medium text-[var(--color-text-primary)]"
+								>Format</label
 							>
 							<select
 								id="export-format"
@@ -1121,7 +1138,9 @@
 								class="border-border w-full max-w-xs rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
 							>
 								{#each exportFormatOptions as option}
-									<option value={option.value}>{option.label} — {option.description}</option>
+									<option value={option.value}
+										>{option.label} — {option.description}</option
+									>
 								{/each}
 							</select>
 						</div>
@@ -1136,7 +1155,9 @@
 				</div>
 			{:else if dataTab === 'import'}
 				<!-- Unified import -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border flex items-center justify-between border-b px-5 py-3">
 						<div>
 							<h2
@@ -1144,10 +1165,12 @@
 							>
 								Import data
 							</h2>
-							<p class="mt-1 text-xs leading-relaxed text-[var(--color-text-tertiary)]">
-								Supported: Budgic JSON backup · Money Manager CSV export (ASSETS, ZCATEGORY,
-								INOUTCOME, CURRENCY) · Money Manager database (.sqlite, .db). Other SQLite formats
-								are not supported yet.
+							<p
+								class="mt-1 text-xs leading-relaxed text-[var(--color-text-tertiary)]"
+							>
+								Supported: Budgic JSON backup · Money Manager CSV export (ASSETS,
+								ZCATEGORY, INOUTCOME, CURRENCY) · Money Manager database (.sqlite,
+								.db). Other SQLite formats are not supported yet.
 							</p>
 						</div>
 						{#if isMmImportSource}
@@ -1173,16 +1196,22 @@
 						{#if importSelectedFiles.length > 0}
 							<div class="space-y-1 rounded-xl bg-[var(--color-bg-surface)] p-3">
 								{#if importFormatLabel}
-									<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+									<p
+										class="text-xs font-medium text-[var(--color-text-secondary)]"
+									>
 										Detected: {importFormatLabel}
 									</p>
 								{/if}
 								<p class="text-xs text-[var(--color-text-tertiary)]">
-									{importSelectedFiles.length} file{importSelectedFiles.length > 1 ? 's' : ''}
+									{importSelectedFiles.length} file{importSelectedFiles.length > 1
+										? 's'
+										: ''}
 									selected
 								</p>
 								{#each importSelectedFiles as file}
-									<p class="text-xs text-[var(--color-text-tertiary)]">• {file.name}</p>
+									<p class="text-xs text-[var(--color-text-tertiary)]">
+										• {file.name}
+									</p>
 								{/each}
 							</div>
 						{/if}
@@ -1229,7 +1258,9 @@
 										<label class="flex cursor-pointer items-center gap-2.5">
 											<Checkbox
 												bind:checked={
-													mmImportOptions[opt.key as keyof typeof mmImportOptions] as boolean
+													mmImportOptions[
+														opt.key as keyof typeof mmImportOptions
+													] as boolean
 												}
 											/>
 											<span class="text-sm text-[var(--color-text-primary)]"
@@ -1239,10 +1270,15 @@
 									{/each}
 								</div>
 								<div class="space-y-1.5">
-									<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+									<p
+										class="text-xs font-medium text-[var(--color-text-secondary)]"
+									>
 										Conflict resolution
 									</p>
-									<Select.Root type="single" bind:value={mmImportOptions.conflictResolution}>
+									<Select.Root
+										type="single"
+										bind:value={mmImportOptions.conflictResolution}
+									>
 										<Select.Trigger class="w-full max-w-xs">
 											{mmImportOptions.conflictResolution === 'skip'
 												? 'Skip duplicates'
@@ -1254,15 +1290,21 @@
 										</Select.Trigger>
 										<Select.Content>
 											<Select.Item value="skip">Skip duplicates</Select.Item>
-											<Select.Item value="rename">Rename with suffix</Select.Item>
+											<Select.Item value="rename"
+												>Rename with suffix</Select.Item
+											>
 											<Select.Item value="merge">Merge data</Select.Item>
-											<Select.Item value="replace">Replace existing</Select.Item>
+											<Select.Item value="replace"
+												>Replace existing</Select.Item
+											>
 										</Select.Content>
 									</Select.Root>
 								</div>
 								{#if mmImportOptions.importTransactions}
 									<div class="space-y-1.5">
-										<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+										<p
+											class="text-xs font-medium text-[var(--color-text-secondary)]"
+										>
 											Re-import: same MM transaction UID
 										</p>
 										<Select.Root
@@ -1272,26 +1314,38 @@
 											<Select.Trigger class="w-full max-w-xs">
 												{mmImportOptions.mmTransactionUidConflict === 'skip'
 													? 'Skip (keep existing row)'
-													: mmImportOptions.mmTransactionUidConflict === 'merge'
+													: mmImportOptions.mmTransactionUidConflict ===
+														  'merge'
 														? 'Merge — refresh amounts/dates/FX from MM'
 														: 'Replace — full row from MM'}
 											</Select.Trigger>
 											<Select.Content>
-												<Select.Item value="skip">Skip (keep existing row)</Select.Item>
+												<Select.Item value="skip"
+													>Skip (keep existing row)</Select.Item
+												>
 												<Select.Item value="merge"
 													>Merge — refresh amounts/dates/FX from MM</Select.Item
 												>
-												<Select.Item value="replace">Replace — full row from MM</Select.Item>
+												<Select.Item value="replace"
+													>Replace — full row from MM</Select.Item
+												>
 											</Select.Content>
 										</Select.Root>
-										<p class="text-[11px] leading-snug text-[var(--color-text-tertiary)]">
-											Merge keeps your category, notes, and description; replace overwrites them
-											with the CSV.
+										<p
+											class="text-[11px] leading-snug text-[var(--color-text-tertiary)]"
+										>
+											Merge keeps your category, notes, and description;
+											replace overwrites them with the CSV.
 										</p>
 										<label class="flex cursor-pointer items-center gap-2.5">
-											<Checkbox bind:checked={mmImportOptions.includeMmUidConflictReport} />
+											<Checkbox
+												bind:checked={
+													mmImportOptions.includeMmUidConflictReport
+												}
+											/>
 											<span class="text-sm text-[var(--color-text-primary)]"
-												>Include UID conflict details in result (can be large)</span
+												>Include UID conflict details in result (can be
+												large)</span
 											>
 										</label>
 									</div>
@@ -1334,11 +1388,16 @@
 										{mmProgress.step}
 									</p>
 									<p class="text-xs text-[var(--color-text-tertiary)]">
-										{formatPercentage(mmProgress.percentage, { maxDecimals: 0 })}
+										{formatPercentage(mmProgress.percentage, {
+											maxDecimals: 0
+										})}
 									</p>
 								</div>
 								<div class="budget-progress">
-									<div class="budget-progress-fill" style="width: {mmProgress.percentage}%"></div>
+									<div
+										class="budget-progress-fill"
+										style="width: {mmProgress.percentage}%"
+									></div>
 								</div>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									{mmProgress.itemsProcessed} / {mmProgress.totalItems}
@@ -1357,11 +1416,17 @@
 										? 'text-[var(--color-sage-green)]'
 										: 'text-[var(--color-warm-coral)]'}"
 								>
-									{mmResult.success ? 'Import complete' : 'Import completed with errors'}
+									{mmResult.success
+										? 'Import complete'
+										: 'Import completed with errors'}
 								</p>
 								<div class="grid grid-cols-2 gap-3 text-xs">
 									<div>
-										<p class="mb-1 font-medium text-[var(--color-text-secondary)]">Imported</p>
+										<p
+											class="mb-1 font-medium text-[var(--color-text-secondary)]"
+										>
+											Imported
+										</p>
 										<p class="text-[var(--color-text-tertiary)]">
 											Accounts: {mmResult.statistics.accountsImported}
 										</p>
@@ -1373,13 +1438,18 @@
 										</p>
 										{#if (mmResult.statistics.transactionsMerged ?? 0) > 0 || (mmResult.statistics.transactionsReplaced ?? 0) > 0}
 											<p class="text-[var(--color-text-tertiary)]">
-												Re-import: {mmResult.statistics.transactionsMerged ?? 0} merged, {mmResult
+												Re-import: {mmResult.statistics
+													.transactionsMerged ?? 0} merged, {mmResult
 													.statistics.transactionsReplaced ?? 0} replaced
 											</p>
 										{/if}
 									</div>
 									<div>
-										<p class="mb-1 font-medium text-[var(--color-text-secondary)]">Skipped</p>
+										<p
+											class="mb-1 font-medium text-[var(--color-text-secondary)]"
+										>
+											Skipped
+										</p>
 										<p class="text-[var(--color-text-tertiary)]">
 											Accounts: {mmResult.statistics.accountsSkipped}
 										</p>
@@ -1393,8 +1463,11 @@
 								</div>
 								{#if mmResult.importBatch?.mmUidConflicts?.length}
 									<details class="text-xs text-[var(--color-text-secondary)]">
-										<summary class="cursor-pointer font-medium text-[var(--color-text-primary)]">
-											MM UID conflict details ({mmResult.importBatch.mmUidConflicts.length})
+										<summary
+											class="cursor-pointer font-medium text-[var(--color-text-primary)]"
+										>
+											MM UID conflict details ({mmResult.importBatch
+												.mmUidConflicts.length})
 										</summary>
 										<ul
 											class="mt-2 max-h-40 space-y-2 overflow-y-auto text-[var(--color-text-tertiary)]"
@@ -1451,8 +1524,10 @@
 									<li>Currency fallback: {qs.currencyFallback}</li>
 									{#if mmResult.importBatch?.splitCandidateSummary}
 										<li>
-											Possible splits: {mmResult.importBatch.splitCandidateSummary.groupCount} group(s),
-											{mmResult.importBatch.splitCandidateSummary.transactionCount} transaction(s)
+											Possible splits: {mmResult.importBatch
+												.splitCandidateSummary.groupCount} group(s),
+											{mmResult.importBatch.splitCandidateSummary
+												.transactionCount} transaction(s)
 										</li>
 									{/if}
 								</ul>
@@ -1470,7 +1545,9 @@
 								onclick={runUnifiedImport}
 								disabled={isImporting ||
 									isImportingMM ||
-									(importDetection?.kind === 'budgic-json' ? false : !mmCsvFilesReady)}
+									(importDetection?.kind === 'budgic-json'
+										? false
+										: !mmCsvFilesReady)}
 								class="rounded-xl bg-[var(--color-amber)] px-5 py-2.5 text-sm font-semibold text-[var(--color-bg-primary)] transition-opacity disabled:opacity-60"
 							>
 								{isImporting || isImportingMM
@@ -1502,9 +1579,13 @@
 								disabled={dangerBusy !== null}
 								class="w-full rounded-xl border border-[var(--color-warm-coral)]/30 bg-[var(--color-warm-coral)]/8 px-5 py-2.5 text-sm font-semibold text-[var(--color-warm-coral)] transition-colors hover:bg-[var(--color-warm-coral)]/12 disabled:opacity-50"
 							>
-								{dangerBusy === 'transactions' ? 'Working…' : 'Clear transaction data'}
+								{dangerBusy === 'transactions'
+									? 'Working…'
+									: 'Clear transaction data'}
 							</button>
-							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Removes</p>
+							<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+								Removes
+							</p>
 							<ul
 								class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]"
 							>
@@ -1512,7 +1593,9 @@
 									<li>{line}</li>
 								{/each}
 							</ul>
-							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Keeps</p>
+							<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+								Keeps
+							</p>
 							<ul
 								class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]"
 							>
@@ -1530,7 +1613,9 @@
 							>
 								{dangerBusy === 'full' ? 'Working…' : 'Full reset (all local data)'}
 							</button>
-							<p class="text-xs font-medium text-[var(--color-text-secondary)]">Removes</p>
+							<p class="text-xs font-medium text-[var(--color-text-secondary)]">
+								Removes
+							</p>
 							<ul
 								class="list-inside list-disc space-y-0.5 text-xs text-[var(--color-text-tertiary)]"
 							>
@@ -1539,8 +1624,8 @@
 								{/each}
 							</ul>
 							<p class="text-xs text-[var(--color-text-tertiary)]">
-								Reloads the app and sends you to onboarding so system data can re-initialize. Export
-								first.
+								Reloads the app and sends you to onboarding so system data can
+								re-initialize. Export first.
 							</p>
 						</div>
 					</div>
@@ -1565,9 +1650,12 @@
 									{#each splitReviewGroups as group (group.groupId)}
 										<ImportSplitReviewCard
 											{group}
-											accountName={accountNameById[group.transactions[0]?.accountId ?? '']}
+											accountName={accountNameById[
+												group.transactions[0]?.accountId ?? ''
+											]}
 											busy={splitReviewBusyGroupId !== null}
-											onconfirm={(ids) => confirmSplitGroup(group.groupId, ids)}
+											onconfirm={(ids) =>
+												confirmSplitGroup(group.groupId, ids)}
 											ondismiss={() => dismissSplitGroup(group.groupId)}
 										/>
 									{/each}
@@ -1585,20 +1673,29 @@
 										<li
 											class="border-border rounded-xl border bg-[var(--color-bg-tertiary)] px-4 py-3"
 										>
-											<p class="text-sm font-medium text-[var(--color-text-primary)]">
+											<p
+												class="text-sm font-medium text-[var(--color-text-primary)]"
+											>
 												{tx.description || 'No description'}
 											</p>
 											<p
 												class="mt-1 flex flex-wrap gap-2 text-xs text-[var(--color-text-tertiary)]"
 											>
 												{#if tx.importQuality?.amountInferred}
-													<span class="rounded bg-amber-500/15 px-1.5 py-0.5">Amount inferred</span>
+													<span
+														class="rounded bg-amber-500/15 px-1.5 py-0.5"
+														>Amount inferred</span
+													>
 												{/if}
 												{#if tx.importQuality?.dateInferred}
-													<span class="rounded bg-amber-500/15 px-1.5 py-0.5">Date inferred</span>
+													<span
+														class="rounded bg-amber-500/15 px-1.5 py-0.5"
+														>Date inferred</span
+													>
 												{/if}
 												{#if tx.importQuality?.currencyFallback}
-													<span class="rounded bg-amber-500/15 px-1.5 py-0.5"
+													<span
+														class="rounded bg-amber-500/15 px-1.5 py-0.5"
 														>Currency fallback</span
 													>
 												{/if}
@@ -1607,12 +1704,15 @@
 												<Button
 													variant="outline"
 													size="sm"
-													onclick={() => goto(`/transactions/add/${tx.id}`)}>Edit</Button
+													onclick={() =>
+														goto(`/transactions/add/${tx.id}`)}
+													>Edit</Button
 												>
 												<Button
 													variant="secondary"
 													size="sm"
-													onclick={() => confirmReviewItem(tx.id)}>Confirm</Button
+													onclick={() => confirmReviewItem(tx.id)}
+													>Confirm</Button
 												>
 												<Button
 													variant="ghost"
@@ -1645,7 +1745,9 @@
 							<div
 								class="border-border rounded-lg border bg-[var(--color-bg-tertiary)] px-3 py-2 text-xs"
 							>
-								<p class="font-medium text-[var(--color-text-primary)]">{row.field}</p>
+								<p class="font-medium text-[var(--color-text-primary)]">
+									{row.field}
+								</p>
 								<p class="text-[var(--color-text-tertiary)]">
 									{row.source} · {new Date(row.timestamp).toLocaleString()}
 								</p>
@@ -1659,7 +1761,9 @@
 									</p>
 								{/if}
 								{#if row.accountId}
-									<p class="text-[var(--color-text-tertiary)]">Account {row.accountId}</p>
+									<p class="text-[var(--color-text-tertiary)]">
+										Account {row.accountId}
+									</p>
 								{/if}
 								<pre
 									class="mt-1 overflow-x-auto text-[10px] text-[var(--color-text-tertiary)]">{JSON.stringify(

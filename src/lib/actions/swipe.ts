@@ -201,7 +201,9 @@ export function swipe(
 	};
 
 	const handleTouchMove = (e: Event) => {
-		if (!(typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0)) {
+		if (
+			!(typeof TouchEvent !== 'undefined' && e instanceof TouchEvent && e.touches.length > 0)
+		) {
 			return;
 		}
 

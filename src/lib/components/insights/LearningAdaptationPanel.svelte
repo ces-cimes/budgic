@@ -66,14 +66,19 @@
 			userCurrency = preferences?.currency || 'USD';
 
 			// Load all data in parallel
-			[patterns, allowanceSuggestions, bufferSuggestions, flexibilityResults, dataQualityIssues] =
-				await Promise.all([
-					learningAdaptationService.detectAllPatterns(180),
-					learningAdaptationService.reviewAllowanceAdjustments(),
-					learningAdaptationService.reviewBufferAdjustments(),
-					learningAdaptationService.learnFlexibilityFromFeedback(),
-					learningAdaptationService.checkDataQuality(90)
-				]);
+			[
+				patterns,
+				allowanceSuggestions,
+				bufferSuggestions,
+				flexibilityResults,
+				dataQualityIssues
+			] = await Promise.all([
+				learningAdaptationService.detectAllPatterns(180),
+				learningAdaptationService.reviewAllowanceAdjustments(),
+				learningAdaptationService.reviewBufferAdjustments(),
+				learningAdaptationService.learnFlexibilityFromFeedback(),
+				learningAdaptationService.checkDataQuality(90)
+			]);
 		} catch (err) {
 			console.error('Error loading learning data:', err);
 			error = err instanceof Error ? err.message : 'Failed to load learning data';
@@ -127,7 +132,9 @@
 
 	async function handleBufferSuggestion(suggestion: BufferAdjustmentSuggestion, accept: boolean) {
 		if (!accept) {
-			bufferSuggestions = bufferSuggestions.filter((s) => s.accountId !== suggestion.accountId);
+			bufferSuggestions = bufferSuggestions.filter(
+				(s) => s.accountId !== suggestion.accountId
+			);
 			return;
 		}
 
@@ -156,7 +163,9 @@
 					}
 				});
 
-				bufferSuggestions = bufferSuggestions.filter((s) => s.accountId !== suggestion.accountId);
+				bufferSuggestions = bufferSuggestions.filter(
+					(s) => s.accountId !== suggestion.accountId
+				);
 			}
 		} catch (err) {
 			console.error('Error applying buffer adjustment:', err);
@@ -213,7 +222,9 @@
 
 	{#if isLoading}
 		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+			<div
+				class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+			>
 				<RefreshCw class="text-muted-foreground h-8 w-8 animate-spin" />
 			</div>
 			<p class="text-muted-foreground">Analyzing patterns and learning preferences...</p>
@@ -267,11 +278,19 @@
 											<Icon class="text-primary mt-0.5 h-5 w-5" />
 											<div class="flex-1">
 												<div class="mb-1 flex items-center gap-2">
-													<span class="font-medium">{pattern.pattern.title}</span>
-													<Badge variant="outline"
-														>{getPatternTypeLabel(pattern.pattern.patternType)}</Badge
+													<span class="font-medium"
+														>{pattern.pattern.title}</span
 													>
-													<Badge variant={pattern.confidence >= 80 ? 'default' : 'secondary'}>
+													<Badge variant="outline"
+														>{getPatternTypeLabel(
+															pattern.pattern.patternType
+														)}</Badge
+													>
+													<Badge
+														variant={pattern.confidence >= 80
+															? 'default'
+															: 'secondary'}
+													>
 														{pattern.confidence}% confidence
 													</Badge>
 												</div>
@@ -279,8 +298,8 @@
 													{pattern.pattern.description}
 												</p>
 												<div class="text-muted-foreground text-xs">
-													{pattern.metadata.occurrences} occurrences over {pattern.metadata
-														.timeframe}
+													{pattern.metadata.occurrences} occurrences over {pattern
+														.metadata.timeframe}
 												</div>
 											</div>
 										</div>
@@ -302,7 +321,9 @@
 						>
 							<div class="flex items-center gap-2">
 								<Settings class="h-5 w-5" />
-								<Card.Title>Allowance Adjustments ({allowanceSuggestions.length})</Card.Title>
+								<Card.Title
+									>Allowance Adjustments ({allowanceSuggestions.length})</Card.Title
+								>
 							</div>
 							{#if showAllowanceSuggestions}
 								<ChevronUp class="h-4 w-4" />
@@ -318,7 +339,9 @@
 									<div class="rounded-lg border p-4">
 										<div class="mb-3 flex items-start justify-between">
 											<div class="flex-1">
-												<div class="mb-1 font-medium">{suggestion.categoryName}</div>
+												<div class="mb-1 font-medium">
+													{suggestion.categoryName}
+												</div>
 												<div class="text-muted-foreground mb-2 text-sm">
 													Actual spending differs from budget by {Math.round(
 														suggestion.variance * 100
@@ -327,14 +350,21 @@
 												</div>
 												<div class="flex items-center gap-4 text-sm">
 													<div>
-														<span class="text-muted-foreground">Current: </span>
+														<span class="text-muted-foreground"
+															>Current:
+														</span>
 														<span class="font-medium">
-															{formatMainCurrencyAmount(suggestion.currentAllowance, userCurrency)}
+															{formatMainCurrencyAmount(
+																suggestion.currentAllowance,
+																userCurrency
+															)}
 														</span>
 													</div>
 													<ArrowRight class="h-4 w-4" />
 													<div>
-														<span class="text-muted-foreground">Suggested: </span>
+														<span class="text-muted-foreground"
+															>Suggested:
+														</span>
 														<span class="text-primary font-medium">
 															{formatMainCurrencyAmount(
 																suggestion.suggestedAllowance,
@@ -346,14 +376,19 @@
 											</div>
 										</div>
 										<div class="flex gap-2">
-											<Button size="sm" onclick={() => handleAllowanceSuggestion(suggestion, true)}>
+											<Button
+												size="sm"
+												onclick={() =>
+													handleAllowanceSuggestion(suggestion, true)}
+											>
 												<CheckCircle2 class="mr-1 h-4 w-4" />
 												Accept
 											</Button>
 											<Button
 												size="sm"
 												variant="outline"
-												onclick={() => handleAllowanceSuggestion(suggestion, false)}
+												onclick={() =>
+													handleAllowanceSuggestion(suggestion, false)}
 											>
 												<X class="mr-1 h-4 w-4" />
 												Dismiss
@@ -377,7 +412,9 @@
 						>
 							<div class="flex items-center gap-2">
 								<Shield class="h-5 w-5" />
-								<Card.Title>Buffer Adjustments ({bufferSuggestions.length})</Card.Title>
+								<Card.Title
+									>Buffer Adjustments ({bufferSuggestions.length})</Card.Title
+								>
 							</div>
 							{#if showBufferSuggestions}
 								<ChevronUp class="h-4 w-4" />
@@ -393,7 +430,9 @@
 									<div class="rounded-lg border p-4">
 										<div class="mb-3 flex items-start justify-between">
 											<div class="flex-1">
-												<div class="mb-1 font-medium">{suggestion.accountName}</div>
+												<div class="mb-1 font-medium">
+													{suggestion.accountName}
+												</div>
 												<div class="text-muted-foreground mb-2 text-sm">
 													{suggestion.reason === 'over_buffering'
 														? 'Buffer may be higher than needed'
@@ -401,30 +440,45 @@
 												</div>
 												<div class="flex items-center gap-4 text-sm">
 													<div>
-														<span class="text-muted-foreground">Current: </span>
+														<span class="text-muted-foreground"
+															>Current:
+														</span>
 														<span class="font-medium">
-															{formatMainCurrencyAmount(suggestion.currentBuffer, userCurrency)}
+															{formatMainCurrencyAmount(
+																suggestion.currentBuffer,
+																userCurrency
+															)}
 														</span>
 													</div>
 													<ArrowRight class="h-4 w-4" />
 													<div>
-														<span class="text-muted-foreground">Suggested: </span>
+														<span class="text-muted-foreground"
+															>Suggested:
+														</span>
 														<span class="text-primary font-medium">
-															{formatMainCurrencyAmount(suggestion.suggestedBuffer, userCurrency)}
+															{formatMainCurrencyAmount(
+																suggestion.suggestedBuffer,
+																userCurrency
+															)}
 														</span>
 													</div>
 												</div>
 											</div>
 										</div>
 										<div class="flex gap-2">
-											<Button size="sm" onclick={() => handleBufferSuggestion(suggestion, true)}>
+											<Button
+												size="sm"
+												onclick={() =>
+													handleBufferSuggestion(suggestion, true)}
+											>
 												<CheckCircle2 class="mr-1 h-4 w-4" />
 												Accept
 											</Button>
 											<Button
 												size="sm"
 												variant="outline"
-												onclick={() => handleBufferSuggestion(suggestion, false)}
+												onclick={() =>
+													handleBufferSuggestion(suggestion, false)}
 											>
 												<X class="mr-1 h-4 w-4" />
 												Dismiss
@@ -448,7 +502,9 @@
 						>
 							<div class="flex items-center gap-2">
 								<Brain class="h-5 w-5" />
-								<Card.Title>Learned Flexibility ({flexibilityResults.length})</Card.Title>
+								<Card.Title
+									>Learned Flexibility ({flexibilityResults.length})</Card.Title
+								>
 							</div>
 							{#if showFlexibility}
 								<ChevronUp class="h-4 w-4" />
@@ -466,7 +522,9 @@
 											<div>
 												<div class="font-medium">{result.categoryName}</div>
 												<div class="text-muted-foreground text-sm">
-													Acceptance rate: {Math.round(result.acceptanceRate * 100)}% ({result.suggestionCount}{' '}
+													Acceptance rate: {Math.round(
+														result.acceptanceRate * 100
+													)}% ({result.suggestionCount}{' '}
 													suggestions)
 												</div>
 											</div>
@@ -477,7 +535,8 @@
 														? 'secondary'
 														: 'outline'}
 											>
-												{Math.round(result.learnedFlexibility * 100)}% flexible
+												{Math.round(result.learnedFlexibility * 100)}%
+												flexible
 											</Badge>
 										</div>
 									</div>
@@ -498,7 +557,9 @@
 						>
 							<div class="flex items-center gap-2">
 								<AlertTriangle class="text-warning h-5 w-5" />
-								<Card.Title>Data Quality Issues ({dataQualityIssues.length})</Card.Title>
+								<Card.Title
+									>Data Quality Issues ({dataQualityIssues.length})</Card.Title
+								>
 							</div>
 							{#if showDataQuality}
 								<ChevronUp class="h-4 w-4" />
@@ -511,7 +572,9 @@
 						<Card.Content>
 							<div class="space-y-3">
 								{#each dataQualityIssues as issue}
-									<div class="border-warning/50 bg-warning/10 rounded-lg border p-3">
+									<div
+										class="border-warning/50 bg-warning/10 rounded-lg border p-3"
+									>
 										<div class="flex items-start gap-3">
 											<AlertTriangle
 												class="mt-0.5 h-5 w-5 {issue.severity === 'high'
@@ -522,7 +585,9 @@
 											/>
 											<div class="flex-1">
 												<div class="mb-1 flex items-center gap-2">
-													<span class="font-medium">{issue.type.replace('_', ' ')}</span>
+													<span class="font-medium"
+														>{issue.type.replace('_', ' ')}</span
+													>
 													<Badge
 														variant={issue.severity === 'high'
 															? 'destructive'
@@ -533,9 +598,13 @@
 														{issue.severity}
 													</Badge>
 												</div>
-												<p class="text-muted-foreground text-sm">{issue.description}</p>
+												<p class="text-muted-foreground text-sm">
+													{issue.description}
+												</p>
 												{#if issue.suggestedAction}
-													<p class="text-muted-foreground mt-1 text-xs">{issue.suggestedAction}</p>
+													<p class="text-muted-foreground mt-1 text-xs">
+														{issue.suggestedAction}
+													</p>
 												{/if}
 											</div>
 										</div>
@@ -560,7 +629,8 @@
 				>
 					{#snippet children()}
 						<p class="text-muted-foreground text-sm">
-							Check back after you've added more transactions and used the optimization features.
+							Check back after you've added more transactions and used the
+							optimization features.
 						</p>
 					{/snippet}
 				</EmptyState>

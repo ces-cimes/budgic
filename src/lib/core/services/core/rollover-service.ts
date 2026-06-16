@@ -72,7 +72,9 @@ class RolloverService {
 				? allowance.periodStart
 				: new Date(allowance.periodStart);
 		const periodEnd =
-			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
+			allowance.periodEnd instanceof Date
+				? allowance.periodEnd
+				: new Date(allowance.periodEnd);
 		const currency = allowance.currency;
 
 		const categories: CategorySurplusDeficit[] = allowance.lifestyleLines.map((line) => {
@@ -179,7 +181,9 @@ class RolloverService {
 				? allowance.periodStart
 				: new Date(allowance.periodStart);
 		const periodEnd =
-			allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd);
+			allowance.periodEnd instanceof Date
+				? allowance.periodEnd
+				: new Date(allowance.periodEnd);
 		const fromPeriodStartStr = periodStart.toISOString();
 		const nextPeriodStart = getNextPeriodStart(periodEnd);
 		const forPeriodStartStr = nextPeriodStart.toISOString();
@@ -292,7 +296,8 @@ class RolloverService {
 			const delta = deltas[line.categoryId] ?? 0;
 			const budgetAmount = line.budgetAmount + delta;
 			const remaining = budgetAmount - line.spentAmount;
-			const dailyRate = line.daysRemaining > 0 ? Math.max(0, remaining) / line.daysRemaining : 0;
+			const dailyRate =
+				line.daysRemaining > 0 ? Math.max(0, remaining) / line.daysRemaining : 0;
 			return {
 				...line,
 				budgetAmount,
@@ -327,9 +332,14 @@ class RolloverService {
 	): Promise<RolloverAdjustment[]> {
 		const limit = options?.limit ?? 30;
 		const all = await db.rolloverAdjustments.toArray();
-		const filtered = all.filter((a) => !a.deletedAt && (a.accountId ?? '') === (accountId ?? ''));
+		const filtered = all.filter(
+			(a) => !a.deletedAt && (a.accountId ?? '') === (accountId ?? '')
+		);
 		return filtered
-			.sort((a, b) => new Date(b.forPeriodStart).getTime() - new Date(a.forPeriodStart).getTime())
+			.sort(
+				(a, b) =>
+					new Date(b.forPeriodStart).getTime() - new Date(a.forPeriodStart).getTime()
+			)
 			.slice(0, limit);
 	}
 }

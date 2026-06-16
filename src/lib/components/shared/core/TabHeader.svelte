@@ -64,12 +64,18 @@
 
 	function scrollActiveTabIntoView() {
 		if (tabContainer) {
-			let activeTabElement = tabContainer.querySelector(`[data-state="active"]`) as HTMLElement;
+			let activeTabElement = tabContainer.querySelector(
+				`[data-state="active"]`
+			) as HTMLElement;
 			if (!activeTabElement) {
-				activeTabElement = tabContainer.querySelector(`[value="${activeTab}"]`) as HTMLElement;
+				activeTabElement = tabContainer.querySelector(
+					`[value="${activeTab}"]`
+				) as HTMLElement;
 			}
 			if (!activeTabElement) {
-				activeTabElement = tabContainer.querySelector(`[data-value="${activeTab}"]`) as HTMLElement;
+				activeTabElement = tabContainer.querySelector(
+					`[data-value="${activeTab}"]`
+				) as HTMLElement;
 			}
 			if (activeTabElement) {
 				requestAnimationFrame(() => {
@@ -120,7 +126,11 @@
 							: 'hover:bg-secondary/20 data-[state=active]:border-primary flex items-center gap-2 rounded-none border-x-0 border-t-0 border-b-2 border-transparent bg-transparent px-4 py-2 whitespace-nowrap transition-all data-[state=active]:bg-transparent data-[state=active]:shadow-none'}
 					>
 						{#if tab.icon}
-							<tab.icon class={variant === 'pill' ? 'size-3.5 shrink-0' : 'h-4 w-4 shrink-0'} />
+							<tab.icon
+								class={variant === 'pill'
+									? 'size-3.5 shrink-0'
+									: 'h-4 w-4 shrink-0'}
+							/>
 						{/if}
 						<span class={variant === 'pill' ? 'min-w-0 shrink whitespace-nowrap' : ''}
 							>{tab.label}</span

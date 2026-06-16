@@ -26,7 +26,9 @@ export default defineConfig({
 						registerType: 'autoUpdate',
 						injectRegister: 'auto',
 						workbox: {
-							globPatterns: ['**/*.{js,css,html,ico,png,svg,wasm,woff,woff2,webmanifest}'],
+							globPatterns: [
+								'**/*.{js,css,html,ico,png,svg,wasm,woff,woff2,webmanifest}'
+							],
 							cleanupOutdatedCaches: true,
 							navigateFallback: '/index.html',
 							navigateFallbackDenylist: [/^\/api\//]

@@ -6,11 +6,11 @@ Concise map of how Budgic is wired for **roadmap and scope decisions**. For full
 
 ## Doc drift (architecture docs vs code)
 
-| Topic | Docs say | Code / repo today |
-| --- | --- | --- |
-| Service layout | Core, analytics, page services only | Also **`import-export/`**, **`intelligence/`**, root **`alerts-aggregation-service`**, **`autocomplete-service`**, **`notifications-service`** (re-exported from analytics barrel) |
-| Plan entry | `PlanService` | Singleton is **`planningService`** exported as **`planService`** from [`planning-service.ts`](../../../src/lib/core/services/pages/planning-service.ts) |
-| Routes | UX spec route tree (March 2026) | Extra top-level: **`/onboarding`**, **`/data`** (primary data hub), **`/calculator`**, **`/api/exchange-rates`**. **`/settings/data`** redirects to **`/data`**. Legacy compat redirects (remove in Milestone E): **`settings/occasions`**, **`settings/sidebar`**, **`settings/security`**. **`/accounts/reconciliation`** exists but reconcile UX lives on **`/data?tab=reconcile`**. Reconciliation attention: **Data badge = open issues only**; stale check-up → **`reconciliation_due`** insight (bell). Plan deep links in UX §2.1 (`/plan/goals/add`, etc.) are **`/plan` tabs/sheets**, not separate routes. |
+| Topic          | Docs say                            | Code / repo today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service layout | Core, analytics, page services only | Also **`import-export/`**, **`intelligence/`**, root **`alerts-aggregation-service`**, **`autocomplete-service`**, **`notifications-service`** (re-exported from analytics barrel)                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Plan entry     | `PlanService`                       | Singleton is **`planningService`** exported as **`planService`** from [`planning-service.ts`](../../../src/lib/core/services/pages/planning-service.ts)                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Routes         | UX spec route tree (March 2026)     | Extra top-level: **`/onboarding`**, **`/data`** (primary data hub), **`/calculator`**, **`/api/exchange-rates`**. **`/settings/data`** redirects to **`/data`**. Legacy compat redirects (remove in Milestone E): **`settings/occasions`**, **`settings/sidebar`**, **`settings/security`**. **`/accounts/reconciliation`** exists but reconcile UX lives on **`/data?tab=reconcile`**. Reconciliation attention: **Data badge = open issues only**; stale check-up → **`reconciliation_due`** insight (bell). Plan deep links in UX §2.1 (`/plan/goals/add`, etc.) are **`/plan` tabs/sheets**, not separate routes. |
 
 Prefer **this file + `db.ts` + exports in `services/*/index.ts`** when docs and behavior disagree.
 
@@ -20,19 +20,19 @@ Prefer **this file + `db.ts` + exports in `services/*/index.ts`** when docs and 
 
 Rows are product areas. One representative path each—not every import.
 
-| Capability | Routes (primary) | Domain entrypoints | IndexedDB stores (v29) |
-| --- | --- | --- | --- |
-| Home / dashboard | `/`, [`+page.svelte`](../../../src/routes/+page.svelte) | Aggregates via multiple services; sync via `crossRouteSyncService` | `accounts`, `transactions`, `insights`, … |
-| Transactions | `/transactions`, `/transactions/add/[...id]` | `transactionService`, `dependencyTrackingService`, `dataCorrectionService` | `transactions`, `tags`, `autocompleteUsage`, `dataCorrections` |
-| Plan (allowance, budget, goals) | `/plan`, `/settings/plan` | `planService` ← `planning-service`, `budgetService`, `goalService`, allowance via [`allowance-calculation.ts`](../../../src/lib/core/services/core/allowance-calculation.ts) | `categories`, `transactions`, `goals`, `negativeAllowanceEvents`, `envelopeBorrowings`, `rolloverAdjustments` |
-| Insights / intelligence | `/insights` | `insightsService`, `analyticsService`, `optimizationService`, `recurringTransactionIntelligenceService`, … | `insights`, `learningPatterns`, `userFeedback`, `optimizationPreferences`, `badges` |
-| Reports | `/reports` | Mostly reads `transactionService` / `analyticsService` patterns | `transactions`, `categories` |
-| Accounts | `/accounts`, `/accounts/[id]`, `/accounts/add` (+ legacy `/accounts/reconciliation`) | `accountService`, `passiveAccountService`, `reconciliationService` | `accounts`, `reconciliationRecords`, `reconciliationDiscrepancies` |
-| Settings | `/settings/*` | `userService`, `currencyConfigService`, `exchangeRateService`, `roundUpService`, `notificationsService` | `userPreferences`, `currencies`, `currencyConfigurations`, `exchangeRates`, `roundUpRules`, `merchantCategoryProfiles` |
-| Onboarding / maturity | `/onboarding` | `userService` (preferences), UI gating per [UX_SPEC](../UX_SPEC.md) §1.3 | `userPreferences`, `userActions` |
-| Import / export | `/data` (primary; `settings/data` redirects) | `MoneyManagerImporter`, `parseCSV`, `inspectSchema`, intelligence helpers (`import-pattern-hints`, merge utilities) | Same as transactions + accounts + categories on write |
-| Utilities | `/calculator` | Mostly UI | — |
-| FX (online) | `/api/exchange-rates/[base]` | Server route + `exchangeRateService` client | `exchangeRates` |
+| Capability                      | Routes (primary)                                                                     | Domain entrypoints                                                                                                                                                           | IndexedDB stores (v29)                                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Home / dashboard                | `/`, [`+page.svelte`](../../../src/routes/+page.svelte)                              | Aggregates via multiple services; sync via `crossRouteSyncService`                                                                                                           | `accounts`, `transactions`, `insights`, …                                                                              |
+| Transactions                    | `/transactions`, `/transactions/add/[...id]`                                         | `transactionService`, `dependencyTrackingService`, `dataCorrectionService`                                                                                                   | `transactions`, `tags`, `autocompleteUsage`, `dataCorrections`                                                         |
+| Plan (allowance, budget, goals) | `/plan`, `/settings/plan`                                                            | `planService` ← `planning-service`, `budgetService`, `goalService`, allowance via [`allowance-calculation.ts`](../../../src/lib/core/services/core/allowance-calculation.ts) | `categories`, `transactions`, `goals`, `negativeAllowanceEvents`, `envelopeBorrowings`, `rolloverAdjustments`          |
+| Insights / intelligence         | `/insights`                                                                          | `insightsService`, `analyticsService`, `optimizationService`, `recurringTransactionIntelligenceService`, …                                                                   | `insights`, `learningPatterns`, `userFeedback`, `optimizationPreferences`, `badges`                                    |
+| Reports                         | `/reports`                                                                           | Mostly reads `transactionService` / `analyticsService` patterns                                                                                                              | `transactions`, `categories`                                                                                           |
+| Accounts                        | `/accounts`, `/accounts/[id]`, `/accounts/add` (+ legacy `/accounts/reconciliation`) | `accountService`, `passiveAccountService`, `reconciliationService`                                                                                                           | `accounts`, `reconciliationRecords`, `reconciliationDiscrepancies`                                                     |
+| Settings                        | `/settings/*`                                                                        | `userService`, `currencyConfigService`, `exchangeRateService`, `roundUpService`, `notificationsService`                                                                      | `userPreferences`, `currencies`, `currencyConfigurations`, `exchangeRates`, `roundUpRules`, `merchantCategoryProfiles` |
+| Onboarding / maturity           | `/onboarding`                                                                        | `userService` (preferences), UI gating per [UX_SPEC](../UX_SPEC.md) §1.3                                                                                                     | `userPreferences`, `userActions`                                                                                       |
+| Import / export                 | `/data` (primary; `settings/data` redirects)                                         | `MoneyManagerImporter`, `parseCSV`, `inspectSchema`, intelligence helpers (`import-pattern-hints`, merge utilities)                                                          | Same as transactions + accounts + categories on write                                                                  |
+| Utilities                       | `/calculator`                                                                        | Mostly UI                                                                                                                                                                    | —                                                                                                                      |
+| FX (online)                     | `/api/exchange-rates/[base]`                                                         | Server route + `exchangeRateService` client                                                                                                                                  | `exchangeRates`                                                                                                        |
 
 ---
 
@@ -75,11 +75,11 @@ Cross-cutting; not a dedicated route. See UX section 7.
 
 Single route, **three in-page tabs** (UX section 3.2):
 
-| Tab | User question | Main functionality |
-| --- | --- | --- |
-| **Allowance** | “Can I spend today?” | Today card (remaining + tier breakdown), **week strip** (Mon–Sun: actual to date + projected from planned/recurring), **recovery** block when overspent, **30-day cash-flow chart** with buffer bands and payday / large planned markers. No historical date picker on this tab (history belongs in Reports). |
-| **Budget** | “How is the month configured?” | Monthly summary (planned income/expense, net), categories **grouped by waterfall tier** (Survival → Lifestyle), collapsible sections, per-row spent/budget/progress, **category edit sheet**, add-category flow (spec references `/plan/budget/categories/add` as sheet). |
-| **Goals** | “Am I hitting targets?” | Sub-tabs Overview / Active / Completed; cards with progress, contribution, dates, at-risk fixes inline; new goal CTA (spec: `/plan/goals/add`). |
+| Tab           | User question                  | Main functionality                                                                                                                                                                                                                                                                                            |
+| ------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Allowance** | “Can I spend today?”           | Today card (remaining + tier breakdown), **week strip** (Mon–Sun: actual to date + projected from planned/recurring), **recovery** block when overspent, **30-day cash-flow chart** with buffer bands and payday / large planned markers. No historical date picker on this tab (history belongs in Reports). |
+| **Budget**    | “How is the month configured?” | Monthly summary (planned income/expense, net), categories **grouped by waterfall tier** (Survival → Lifestyle), collapsible sections, per-row spent/budget/progress, **category edit sheet**, add-category flow (spec references `/plan/budget/categories/add` as sheet).                                     |
+| **Goals**     | “Am I hitting targets?”        | Sub-tabs Overview / Active / Completed; cards with progress, contribution, dates, at-risk fixes inline; new goal CTA (spec: `/plan/goals/add`).                                                                                                                                                               |
 
 Code also wires **debt acknowledgment**, **reimbursements**, **plan rules summary**, **recurring intelligence** for labels/projections—see [`plan/+page.svelte`](../../../src/routes/plan/+page.svelte) imports.
 
@@ -87,11 +87,11 @@ Code also wires **debt acknowledgment**, **reimbursements**, **plan rules summar
 
 Three tabs (UX section 3.4); **alerts** stay on the bell, not as a tab here.
 
-| Tab | Functionality |
-| --- | --- |
-| **Patterns** | Spending pulse (rotating headline insight), **recurring** detection display (“~” for inferred), **anomalies** when present, compact **stat cards** (peak day, biggest category, etc.), **upcoming** one-liner from predictions. New-user placeholder when there is fewer than two weeks of data. |
-| **Fees & Accounts** (product name; code tab id may still be `optimize`) | Utilitarian accounting lane: **fee risks**, **credit utilisation**, **interest** opportunities, account-specific mechanics. **Optimization simulator** = explicit what-if only. **No guidance-level gating** (May 2026 product decision). |
-| **Badges** | Latest earned, “almost there” progress, earned gallery; locked badges not shown until earned. |
+| Tab                                                                     | Functionality                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Patterns**                                                            | Spending pulse (rotating headline insight), **recurring** detection display (“~” for inferred), **anomalies** when present, compact **stat cards** (peak day, biggest category, etc.), **upcoming** one-liner from predictions. New-user placeholder when there is fewer than two weeks of data. |
+| **Fees & Accounts** (product name; code tab id may still be `optimize`) | Utilitarian accounting lane: **fee risks**, **credit utilisation**, **interest** opportunities, account-specific mechanics. **Optimization simulator** = explicit what-if only. **No guidance-level gating** (May 2026 product decision).                                                        |
+| **Badges**                                                              | Latest earned, “almost there” progress, earned gallery; locked badges not shown until earned.                                                                                                                                                                                                    |
 
 ### Reports (`/reports`) — Past zone, reflective
 
@@ -112,20 +112,20 @@ Three tabs (UX section 3.4); **alerts** stay on the bell, not as a tab here.
 
 Hub for preferences that shape the rest of the app. **Represented routes** (see [`src/routes/settings/`](../../../src/routes/settings/)):
 
-| Path | Typical functionality |
-| --- | --- |
-| `/settings/profile` | Name, avatar-related prefs as implemented. |
-| `/settings/display` | Theme/density/locale-adjacent display options. |
-| `/settings/currency` | Default currency, multi-currency behaviour with `currencyConfigService` / rates. |
-| `/settings/plan` | **Allowance rules**, waterfall / plan configuration (companion to Plan page cog). |
-| `/settings/navigation` | Sidebar order, **widget rotation** (per UX widget system section 6 and sidebar section 5): enable/disable and reorder **Slot A** widgets (allowance, balance, goals snapshot, upcoming bills, savings rate, net worth change); Slot B is fixed quick-add. |
-| `/settings/notifications` | Notification preferences + `notificationsService` integration surface. |
-| `/settings/data` | Redirects to **`/data`** (import/export/review/reconcile/corrections). |
-| `/settings/occasions` | Legacy redirect only — `occasions` table removed at Dexie v29 (remove route in Milestone E). |
-| `/settings/roundup` | Round-up rules UI ↔ `roundUpService` / `roundUpRules`. |
-| `/settings/security` | PIN/app lock style settings as implemented. |
-| `/settings/sidebar` | Sidebar-specific layout prefs. |
-| `/settings/accounts` | Per-account metadata helpers (e.g. APR/limit hints that unlock Optimize insights); **reconciliation check-up interval (days)**; balance-update auto-resolve threshold. |
+| Path                      | Typical functionality                                                                                                                                                                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/settings/profile`       | Name, avatar-related prefs as implemented.                                                                                                                                                                                                                |
+| `/settings/display`       | Theme/density/locale-adjacent display options.                                                                                                                                                                                                            |
+| `/settings/currency`      | Default currency, multi-currency behaviour with `currencyConfigService` / rates.                                                                                                                                                                          |
+| `/settings/plan`          | **Allowance rules**, waterfall / plan configuration (companion to Plan page cog).                                                                                                                                                                         |
+| `/settings/navigation`    | Sidebar order, **widget rotation** (per UX widget system section 6 and sidebar section 5): enable/disable and reorder **Slot A** widgets (allowance, balance, goals snapshot, upcoming bills, savings rate, net worth change); Slot B is fixed quick-add. |
+| `/settings/notifications` | Notification preferences + `notificationsService` integration surface.                                                                                                                                                                                    |
+| `/settings/data`          | Redirects to **`/data`** (import/export/review/reconcile/corrections).                                                                                                                                                                                    |
+| `/settings/occasions`     | Legacy redirect only — `occasions` table removed at Dexie v29 (remove route in Milestone E).                                                                                                                                                              |
+| `/settings/roundup`       | Round-up rules UI ↔ `roundUpService` / `roundUpRules`.                                                                                                                                                                                                    |
+| `/settings/security`      | PIN/app lock style settings as implemented.                                                                                                                                                                                                               |
+| `/settings/sidebar`       | Sidebar-specific layout prefs.                                                                                                                                                                                                                            |
+| `/settings/accounts`      | Per-account metadata helpers (e.g. APR/limit hints that unlock Optimize insights); **reconciliation check-up interval (days)**; balance-update auto-resolve threshold.                                                                                    |
 
 ### Widget system (desktop)
 
@@ -170,71 +170,71 @@ Grouped as in [`src/lib/core/services/index.ts`](../../../src/lib/core/services/
 
 ### Core ([`core/index.ts`](../../../src/lib/core/services/core/index.ts))
 
-| Export | Role |
-| --- | --- |
-| `accountService` | Accounts, balances, recalculation |
-| `passiveAccountService` | Passive / import-heavy account behavior |
-| `transactionService` | CRUD, splits/groups, balance side effects |
-| `dependencyTrackingService` | Transaction dependency graph |
-| `reconciliationService` | Reconciliation flow + discrepancies |
-| `dataCorrectionService` / `dataQualityService` | Corrections and quality checks |
-| `budgetService` | Waterfall budgets, categories |
-| `goalService` | Goals lifecycle |
-| `loanAmortizationService` | Loan schedules |
-| `roundUpService` | Round-up rules execution |
-| `goalOpportunityService` / `goalTradeoffService` | Goal analytics helpers |
-| `userService` | Preferences and user actions |
-| `negativeAllowanceService` | Negative allowance events |
-| `envelopeBorrowingService` / `rolloverService` | Envelope borrow + rollover |
-| `currencyConfigService` / `exchangeRateService` | Currency + rates |
-| `serviceCache`, `serviceConfig`, `performanceMonitor` | Cross-cutting infra |
+| Export                                                | Role                                      |
+| ----------------------------------------------------- | ----------------------------------------- |
+| `accountService`                                      | Accounts, balances, recalculation         |
+| `passiveAccountService`                               | Passive / import-heavy account behavior   |
+| `transactionService`                                  | CRUD, splits/groups, balance side effects |
+| `dependencyTrackingService`                           | Transaction dependency graph              |
+| `reconciliationService`                               | Reconciliation flow + discrepancies       |
+| `dataCorrectionService` / `dataQualityService`        | Corrections and quality checks            |
+| `budgetService`                                       | Waterfall budgets, categories             |
+| `goalService`                                         | Goals lifecycle                           |
+| `loanAmortizationService`                             | Loan schedules                            |
+| `roundUpService`                                      | Round-up rules execution                  |
+| `goalOpportunityService` / `goalTradeoffService`      | Goal analytics helpers                    |
+| `userService`                                         | Preferences and user actions              |
+| `negativeAllowanceService`                            | Negative allowance events                 |
+| `envelopeBorrowingService` / `rolloverService`        | Envelope borrow + rollover                |
+| `currencyConfigService` / `exchangeRateService`       | Currency + rates                          |
+| `serviceCache`, `serviceConfig`, `performanceMonitor` | Cross-cutting infra                       |
 
 ### Analytics ([`analytics/index.ts`](../../../src/lib/core/services/analytics/index.ts))
 
-| Export | Role |
-| --- | --- |
-| `analyticsService` | Spending / health / trends |
-| `insightsService` | Insight CRUD + generation pipeline |
-| `crossRouteSyncService` | Events across routes → downstream updates |
-| `predictionService`, `balanceProjectionService` | Forecasts |
-| `behavioralAnalysisService`, `learningAdaptationService` | Patterns + adaptation |
-| `recommendationService`, `optimizationService` | Suggestions + optimization |
-| `feeAvoidanceService`, `interestOptimizationService`, `creditUtilizationService`, `emergencyFundService` | Targeted optimizers |
-| `recurringTransactionIntelligenceService` | Recurring detection application |
-| `badgeService` | Badges |
-| `appUsageAnalyticsService` | Usage telemetry |
-| `notificationsService` | Notifications (exported from analytics barrel) |
+| Export                                                                                                   | Role                                           |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `analyticsService`                                                                                       | Spending / health / trends                     |
+| `insightsService`                                                                                        | Insight CRUD + generation pipeline             |
+| `crossRouteSyncService`                                                                                  | Events across routes → downstream updates      |
+| `predictionService`, `balanceProjectionService`                                                          | Forecasts                                      |
+| `behavioralAnalysisService`, `learningAdaptationService`                                                 | Patterns + adaptation                          |
+| `recommendationService`, `optimizationService`                                                           | Suggestions + optimization                     |
+| `feeAvoidanceService`, `interestOptimizationService`, `creditUtilizationService`, `emergencyFundService` | Targeted optimizers                            |
+| `recurringTransactionIntelligenceService`                                                                | Recurring detection application                |
+| `badgeService`                                                                                           | Badges                                         |
+| `appUsageAnalyticsService`                                                                               | Usage telemetry                                |
+| `notificationsService`                                                                                   | Notifications (exported from analytics barrel) |
 
 ### Pages ([`pages/index.ts`](../../../src/lib/core/services/pages/index.ts))
 
-| Export | Role |
-| --- | --- |
-| `analyzeService` | Insights/analyze page bundle |
-| `goalsService` | Goals page bundle |
-| `planService` | Plan page: projections, allowance, planning data |
+| Export           | Role                                             |
+| ---------------- | ------------------------------------------------ |
+| `analyzeService` | Insights/analyze page bundle                     |
+| `goalsService`   | Goals page bundle                                |
+| `planService`    | Plan page: projections, allowance, planning data |
 
 ### Import/export ([`import-export/index.ts`](../../../src/lib/core/services/import-export/index.ts))
 
-| Export | Role |
-| --- | --- |
-| `MoneyManagerImporter`, `BaseImporter` | Primary import paths |
+| Export                                        | Role                      |
+| --------------------------------------------- | ------------------------- |
+| `MoneyManagerImporter`, `BaseImporter`        | Primary import paths      |
 | `parseCSV`, `inspectSchema`, mapper utilities | CSV + schema + MM mapping |
 
 ### Intelligence ([`intelligence/index.ts`](../../../src/lib/core/services/intelligence/index.ts))
 
-| Export | Role |
-| --- | --- |
+| Export                                            | Role                             |
+| ------------------------------------------------- | -------------------------------- |
 | `TransactionSimilarityEngine`, similarity helpers | Recurring / similarity detection |
-| `automationDetector`, `detectEssentials` | Automation / essentials |
-| `merchantProfileService` | Merchant profiles |
-| `mergeDailyMicroInterestTransactions`, … | Post-import merge / interest |
+| `automationDetector`, `detectEssentials`          | Automation / essentials          |
+| `merchantProfileService`                          | Merchant profiles                |
+| `mergeDailyMicroInterestTransactions`, …          | Post-import merge / interest     |
 
 ### Root services
 
-| Export | Role |
-| --- | --- |
+| Export                                   | Role                                                                                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `refreshFeeAndNegativeAllowanceInsights` | Unified fee + negative allowance insights ([`alerts-aggregation-service.ts`](../../../src/lib/core/services/alerts-aggregation-service.ts)) |
-| `autocompleteService` | Field autocomplete learning |
+| `autocompleteService`                    | Field autocomplete learning                                                                                                                 |
 
 ---
 
@@ -286,13 +286,13 @@ flowchart LR
 
 ## When to drill deeper
 
-| Decision type | Start in |
-| --- | --- |
-| Budget / allowance semantics | `budget-service.ts`, `allowance-calculation.ts`, `planning-service.ts` |
-| Import fidelity | `money-manager-importer.ts`, `mm-transaction-uid-merge.ts`, `data-quality-service.ts` |
-| Insight or alert behavior | `insights-service.ts`, `alerts-aggregation-service.ts`, `fee-avoidance-service.ts` |
-| Onboarding / maturity gating | `user-service.ts`, onboarding route, UX_SPEC §1.3 / §8 |
+| Decision type                | Start in                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| Budget / allowance semantics | `budget-service.ts`, `allowance-calculation.ts`, `planning-service.ts`                |
+| Import fidelity              | `money-manager-importer.ts`, `mm-transaction-uid-merge.ts`, `data-quality-service.ts` |
+| Insight or alert behavior    | `insights-service.ts`, `alerts-aggregation-service.ts`, `fee-avoidance-service.ts`    |
+| Onboarding / maturity gating | `user-service.ts`, onboarding route, UX_SPEC §1.3 / §8                                |
 
 ---
 
-*Generated to implement the strategic codebase map plan; refresh after major service splits or Dexie version bumps.*
+_Generated to implement the strategic codebase map plan; refresh after major service splits or Dexie version bumps._

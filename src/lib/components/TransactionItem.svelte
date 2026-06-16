@@ -93,7 +93,9 @@
 	const displayLeftStripe = $derived(() => {
 		if (secondaryDateMode === 'calendar') {
 			const raw =
-				transaction.status === 'planned' ? transaction.plannedDate : transaction.clearedDate;
+				transaction.status === 'planned'
+					? transaction.plannedDate
+					: transaction.clearedDate;
 			if (!raw) return '';
 			try {
 				return dateUtils.formatDate(raw, 'MMM d');
@@ -471,7 +473,11 @@
 			amountForFormatting = -rawAmount;
 		}
 
-		const formattedAmount = formatTransactionAmount(amountForFormatting, displayCurrency(), true);
+		const formattedAmount = formatTransactionAmount(
+			amountForFormatting,
+			displayCurrency(),
+			true
+		);
 
 		return {
 			text: formattedAmount,
@@ -518,7 +524,9 @@
 
 	const showSplitIndicator = $derived.by(() => {
 		if (isGroup) {
-			const rep = (transaction?.representative ?? groupTransactions[0]) as Transaction | undefined;
+			const rep = (transaction?.representative ?? groupTransactions[0]) as
+				| Transaction
+				| undefined;
 			if (!rep) return false;
 			const split = resolveSplit(rep, groupTransactions);
 			return split != null && hasSplit(split);
@@ -658,8 +666,14 @@
 
 	// Get waterfall tier text color for category display (using CSS variables like amount colors)
 	const categoryTextColor = $derived(() => {
-		let tier: 'survival' | 'security' | 'growth' | 'lifestyle' | 'unclassified' | null | undefined =
-			null;
+		let tier:
+			| 'survival'
+			| 'security'
+			| 'growth'
+			| 'lifestyle'
+			| 'unclassified'
+			| null
+			| undefined = null;
 
 		if (isGroup && groupCategoryObj) {
 			tier = groupCategoryObj.waterfallTier;
@@ -748,7 +762,9 @@
 			>
 				<div class="flex items-center gap-2">
 					<!-- Left Border Area: Time Display (Fixed Width) -->
-					<div class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center">
+					<div
+						class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center"
+					>
 						{#if displayLeftStripe()}
 							<div
 								class="text-text-secondary -rotate-90 transform text-xs font-medium whitespace-nowrap"
@@ -773,7 +789,9 @@
 							</div>
 						{/if}
 						{#if transaction.memo}
-							<div class="text-text-tertiary truncate text-sm">{transaction.memo}</div>
+							<div class="text-text-tertiary truncate text-sm">
+								{transaction.memo}
+							</div>
 						{/if}
 					</div>
 
@@ -792,7 +810,9 @@
 								{formatTransferAmount(displayAmount(), displayCurrency())}
 							</div>
 							{#if planVarianceChip()}
-								<span class="text-muted-foreground mt-0.5 text-xs">{planVarianceChip()}</span>
+								<span class="text-muted-foreground mt-0.5 text-xs"
+									>{planVarianceChip()}</span
+								>
 							{/if}
 
 							<!-- Fee badge -->
@@ -849,7 +869,9 @@
 				>
 					<div class="flex items-center gap-2">
 						<!-- Left Border Area: Time Display (Fixed Width) -->
-						<div class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center">
+						<div
+							class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center"
+						>
 							{#if displayLeftStripe()}
 								<div
 									class="text-text-secondary -rotate-90 transform text-xs font-medium whitespace-nowrap"
@@ -927,7 +949,8 @@
 					aria-label="Grouped transaction details"
 				>
 					{#each groupTransactions as groupTransaction}
-						{@const groupCategory = groupTransactionCategories.get(groupTransaction.id) || null}
+						{@const groupCategory =
+							groupTransactionCategories.get(groupTransaction.id) || null}
 						<div
 							class="bg-bg-tertiary/50 border-bg-surface rounded-lg border p-3 {getCategoryBorder(
 								groupCategory
@@ -940,10 +963,14 @@
 									</div>
 									{#if groupCategory}
 										<div class="text-text-secondary mt-1 truncate text-xs">
-											{groupCategory.name} • {getWaterfallTierLabel(groupCategory.waterfallTier)}
+											{groupCategory.name} • {getWaterfallTierLabel(
+												groupCategory.waterfallTier
+											)}
 										</div>
 									{:else if groupTransaction.categoryId}
-										<div class="text-text-tertiary mt-1 truncate text-xs">Loading category...</div>
+										<div class="text-text-tertiary mt-1 truncate text-xs">
+											Loading category...
+										</div>
 									{/if}
 								</div>
 								<div class="ml-3 text-right">
@@ -1001,7 +1028,9 @@
 			>
 				<div class="flex items-center gap-2">
 					<!-- Left Border Area: Time Display (Fixed Width) -->
-					<div class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center">
+					<div
+						class="flex min-h-[3rem] w-[10px] flex-shrink-0 items-center justify-center"
+					>
 						{#if displayLeftStripe()}
 							<div
 								class="text-text-secondary -rotate-90 transform text-xs font-medium whitespace-nowrap"
@@ -1091,7 +1120,9 @@
 								{amountInfo().text}
 							</div>
 							{#if planVarianceChip()}
-								<span class="text-muted-foreground mt-0.5 text-xs">{planVarianceChip()}</span>
+								<span class="text-muted-foreground mt-0.5 text-xs"
+									>{planVarianceChip()}</span
+								>
 							{/if}
 
 							<!-- Fee badge (if applicable) -->

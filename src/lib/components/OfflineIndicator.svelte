@@ -58,7 +58,9 @@
 		aria-live="polite"
 	>
 		<div class="flex items-center space-x-2">
-			<div class="h-2 w-2 rounded-full {isOnline ? 'bg-white' : 'bg-white'} animate-pulse"></div>
+			<div
+				class="h-2 w-2 rounded-full {isOnline ? 'bg-white' : 'bg-white'} animate-pulse"
+			></div>
 			<span class="text-sm font-medium">
 				{isOnline ? 'Back Online' : "You're Offline"}
 			</span>

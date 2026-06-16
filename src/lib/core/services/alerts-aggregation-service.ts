@@ -56,7 +56,9 @@ export async function refreshFeeAndNegativeAllowanceInsights(): Promise<void> {
 					type: 'budget_exceeded',
 					severity: 'alert',
 					title: NEGATIVE_ALLOWANCE_INSIGHT_TITLE,
-					message: negativeStatus.warningMessage ?? 'Spending is over your allowance this period.',
+					message:
+						negativeStatus.warningMessage ??
+						'Spending is over your allowance this period.',
 					actionable: true,
 					actionText: 'View plan',
 					actionUrl: '/plan?tab=allowance'

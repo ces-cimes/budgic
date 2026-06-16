@@ -440,7 +440,10 @@ class GoalService {
 						(tx.transferDetails?.toAccountId ?? tx.toAccountId) === goal.linkedAccountId
 				)
 			: transactions.filter(
-					(tx) => tx.categoryId === goal.category && tx.type === 'income' && tx.status === 'cleared'
+					(tx) =>
+						tx.categoryId === goal.category &&
+						tx.type === 'income' &&
+						tx.status === 'cleared'
 				);
 
 		const currentAmount = contributingTransactions.reduce((sum, tx) => {
@@ -475,7 +478,10 @@ class GoalService {
 					currentAmount /
 					Math.max(
 						1,
-						Math.ceil((now.getTime() - new Date(goal.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+						Math.ceil(
+							(now.getTime() - new Date(goal.createdAt).getTime()) /
+								(1000 * 60 * 60 * 24)
+						)
 					);
 
 				isOnTrack = averageDailyContribution >= dailyRequiredAmount;

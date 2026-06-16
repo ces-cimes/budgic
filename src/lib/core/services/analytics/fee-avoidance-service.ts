@@ -249,7 +249,11 @@ class FeeAvoidanceService {
 	 * One liquidity-class risk per account per calendar day (avoids triple-counting overdraft/NSF/min).
 	 */
 	private deduplicateAccountRisks(risks: FeeRisk[]): FeeRisk[] {
-		const liquidityTypes = new Set<FeeType>(['overdraft', 'insufficient_funds', 'minimum_balance']);
+		const liquidityTypes = new Set<FeeType>([
+			'overdraft',
+			'insufficient_funds',
+			'minimum_balance'
+		]);
 		const liquidityPriority: Partial<Record<FeeType, number>> = {
 			overdraft: 3,
 			insufficient_funds: 2,
@@ -398,7 +402,10 @@ class FeeAvoidanceService {
 	/**
 	 * Detect insufficient funds risks
 	 */
-	private detectInsufficientFundsRisks(account: Account, projection: AccountProjection): FeeRisk[] {
+	private detectInsufficientFundsRisks(
+		account: Account,
+		projection: AccountProjection
+	): FeeRisk[] {
 		const risks: FeeRisk[] = [];
 
 		for (const daily of projection.projections) {
@@ -521,7 +528,8 @@ class FeeAvoidanceService {
 		const transactions = await transactionService.getTransactionsByAccount(account.id);
 
 		const monthlyTransfers = transactions.filter(
-			(tx) => tx.type === 'transfer' && tx.clearedDate && parseISO(tx.clearedDate) >= startOfMonth
+			(tx) =>
+				tx.type === 'transfer' && tx.clearedDate && parseISO(tx.clearedDate) >= startOfMonth
 		);
 
 		const transferCount = monthlyTransfers.length;
@@ -720,7 +728,9 @@ class FeeAvoidanceService {
 			metadata: {
 				currentBuffer: getBufferAmount(account),
 				suggestedBuffer:
-					getBufferAmount(account) + Math.abs(risk.currentValue - risk.thresholdValue) + 100
+					getBufferAmount(account) +
+					Math.abs(risk.currentValue - risk.thresholdValue) +
+					100
 			},
 			createdAt: new Date()
 		});
@@ -867,7 +877,9 @@ class FeeAvoidanceService {
 			const transaction = await db.transactions.get(txId);
 			if (!transaction || transaction.status !== 'planned') continue;
 
-			const currentDate = transaction.plannedDate ? parseISO(transaction.plannedDate) : new Date();
+			const currentDate = transaction.plannedDate
+				? parseISO(transaction.plannedDate)
+				: new Date();
 
 			// Suggest moving transaction later if it's causing the issue
 			if (transaction.type === 'expense' && isBefore(currentDate, targetDate)) {

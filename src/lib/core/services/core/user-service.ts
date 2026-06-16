@@ -53,7 +53,8 @@ class UserService {
 		const prefs = preferences as Record<string, unknown>;
 		const merged = {
 			...preferences,
-			negativeAllowanceHandling: prefs.negativeAllowanceHandling ?? 'allow_with_strong_warning',
+			negativeAllowanceHandling:
+				prefs.negativeAllowanceHandling ?? 'allow_with_strong_warning',
 			envelopeBorrowMaxPerCategoryPercent:
 				(prefs.envelopeBorrowMaxPerCategoryPercent as number) ?? 0.5,
 			envelopeBorrowRepaymentPeriods: (prefs.envelopeBorrowRepaymentPeriods as number) ?? 2,
@@ -101,9 +102,11 @@ class UserService {
 			recoveryAggressiveness: (prefs.recoveryAggressiveness as number) ?? 0.2,
 			debtRecoveryActive: prefs.debtRecoveryActive ?? false,
 			debtAcknowledgedPeriodByGroup:
-				(prefs.debtAcknowledgedPeriodByGroup as Record<string, string> | undefined) ?? undefined,
+				(prefs.debtAcknowledgedPeriodByGroup as Record<string, string> | undefined) ??
+				undefined,
 			debtPromptDismissedPeriodByGroup:
-				(prefs.debtPromptDismissedPeriodByGroup as Record<string, string> | undefined) ?? undefined,
+				(prefs.debtPromptDismissedPeriodByGroup as Record<string, string> | undefined) ??
+				undefined,
 			includeAccruedInNetWorth: prefs.includeAccruedInNetWorth ?? false,
 			balanceUpdateAutoResolveThreshold:
 				typeof prefs.balanceUpdateAutoResolveThreshold === 'number'
@@ -119,12 +122,16 @@ class UserService {
 				undefined,
 			suggestSplitsAfterAdd: prefs.suggestSplitsAfterAdd ?? true,
 			postAddSplitDismissals:
-				(prefs.postAddSplitDismissals as UserPreferences['postAddSplitDismissals']) ?? undefined,
-			reviewSessionQueueIds: (prefs.reviewSessionQueueIds as string[] | undefined) ?? undefined,
+				(prefs.postAddSplitDismissals as UserPreferences['postAddSplitDismissals']) ??
+				undefined,
+			reviewSessionQueueIds:
+				(prefs.reviewSessionQueueIds as string[] | undefined) ?? undefined,
 			reviewSessionIndex:
 				typeof prefs.reviewSessionIndex === 'number' ? prefs.reviewSessionIndex : undefined,
 			weekStartsOn:
-				typeof prefs.weekStartsOn === 'number' && prefs.weekStartsOn >= 0 && prefs.weekStartsOn <= 6
+				typeof prefs.weekStartsOn === 'number' &&
+				prefs.weekStartsOn >= 0 &&
+				prefs.weekStartsOn <= 6
 					? prefs.weekStartsOn
 					: 0,
 			recoveryModeActive: prefs.recoveryModeActive ?? false,
@@ -579,13 +586,23 @@ class UserService {
 	/**
 	 * Derive behavior maturity from recent actions. Analytics-only — never writes presentation prefs.
 	 */
-	private calculateMaturityLevel(actions: UserAction[]): 'beginner' | 'intermediate' | 'advanced' {
+	private calculateMaturityLevel(
+		actions: UserAction[]
+	): 'beginner' | 'intermediate' | 'advanced' {
 		const actionTypes = new Set(actions.map((a) => a.action));
 
 		// Define maturity criteria
-		const beginnerActions = new Set(['view_accounts', 'view_transactions', 'create_transaction']);
+		const beginnerActions = new Set([
+			'view_accounts',
+			'view_transactions',
+			'create_transaction'
+		]);
 		const intermediateActions = new Set(['create_budget', 'set_goal', 'view_insights']);
-		const advancedActions = new Set(['create_split_transaction', 'analyze_trends', 'export_data']);
+		const advancedActions = new Set([
+			'create_split_transaction',
+			'analyze_trends',
+			'export_data'
+		]);
 
 		let score = 0;
 

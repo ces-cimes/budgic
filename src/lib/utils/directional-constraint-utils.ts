@@ -156,7 +156,11 @@ export function validateDateMovementWithFlexibility(
 	}
 
 	// Then check flexibility tier
-	const flexibilityValidation = validateFlexibilityMovement(flexibilityTier, originalDate, newDate);
+	const flexibilityValidation = validateFlexibilityMovement(
+		flexibilityTier,
+		originalDate,
+		newDate
+	);
 	if (!flexibilityValidation.isValid) {
 		return flexibilityValidation;
 	}

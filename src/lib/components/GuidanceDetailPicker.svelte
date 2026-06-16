@@ -75,7 +75,9 @@
 					>
 						{option.label}
 					</p>
-					<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">{option.description}</p>
+					<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+						{option.description}
+					</p>
 				</button>
 			{/each}
 		</div>
@@ -83,7 +85,9 @@
 
 	<div class="space-y-2">
 		<p class="text-sm font-medium text-[var(--color-text-primary)]">Detail</p>
-		<p class="text-xs text-[var(--color-text-tertiary)]">How long helper text runs when shown</p>
+		<p class="text-xs text-[var(--color-text-tertiary)]">
+			How long helper text runs when shown
+		</p>
 		<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
 			{#each detailOptions as option}
 				<button
@@ -101,7 +105,9 @@
 					>
 						{option.label}
 					</p>
-					<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">{option.description}</p>
+					<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+						{option.description}
+					</p>
 				</button>
 			{/each}
 		</div>

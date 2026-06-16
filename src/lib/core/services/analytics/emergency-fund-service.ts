@@ -325,7 +325,8 @@ class EmergencyFundService {
 				deficit > 0 && monthlyEssentialExpenses > 0
 					? Math.ceil(deficit / (monthlyEssentialExpenses * 0.1)) // Assume 10% of expenses can be saved
 					: 0;
-			const recommendedMonthlyContribution = monthsToTarget > 0 ? deficit / monthsToTarget : 0;
+			const recommendedMonthlyContribution =
+				monthsToTarget > 0 ? deficit / monthsToTarget : 0;
 
 			// Get account breakdown
 			const accountBreakdown = await Promise.all(
@@ -349,7 +350,8 @@ class EmergencyFundService {
 						accountId: acc.id,
 						accountName: acc.name,
 						balance: convertedBalance,
-						percentage: currentBalance > 0 ? (convertedBalance / currentBalance) * 100 : 0
+						percentage:
+							currentBalance > 0 ? (convertedBalance / currentBalance) * 100 : 0
 					};
 				})
 			);
@@ -497,7 +499,9 @@ class EmergencyFundService {
 
 		// Rule 1: Amount > 2× largest historical unplanned expense
 		if (unplannedExpenses.length > 0) {
-			const largestExpense = Math.max(...unplannedExpenses.map((t) => Math.abs(t.amount || 0)));
+			const largestExpense = Math.max(
+				...unplannedExpenses.map((t) => Math.abs(t.amount || 0))
+			);
 			if (amount > largestExpense * 2) {
 				return true;
 			}
@@ -505,7 +509,8 @@ class EmergencyFundService {
 
 		// Rule 2: Amount > 50% of monthly total allowances
 		try {
-			const { calculateGlobalAllowance } = await import('$lib/core/services/core/budget-service');
+			const { calculateGlobalAllowance } =
+				await import('$lib/core/services/core/budget-service');
 			const globalAllowance = await calculateGlobalAllowance();
 			const monthlyAllowance = globalAllowance.total.monthly || 0;
 
@@ -578,7 +583,9 @@ class EmergencyFundService {
 					)
 				: 0;
 		const monthsToRebuild =
-			recommendedMonthlyContribution > 0 ? Math.ceil(deficit / recommendedMonthlyContribution) : 0;
+			recommendedMonthlyContribution > 0
+				? Math.ceil(deficit / recommendedMonthlyContribution)
+				: 0;
 
 		// Recovery plan suggests reduced allowances if emergency fund is significantly depleted
 		const reducedAllowances = percentageUsed > 25 || newBalance < analysis.targetAmount * 0.5;

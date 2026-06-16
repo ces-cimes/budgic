@@ -100,8 +100,8 @@
 <div class="space-y-6 py-2 sm:py-4">
 	{#if suppressNonEssential}
 		<p class="text-muted-foreground text-sm">
-			What-if simulator is hidden while recovery view is active. Fee avoidance remains available
-			above.
+			What-if simulator is hidden while recovery view is active. Fee avoidance remains
+			available above.
 		</p>
 	{:else}
 		{#if error}
@@ -117,8 +117,8 @@
 
 		<div class="space-y-3">
 			<p class="text-muted-foreground text-sm">
-				Explore <strong>what-if scenarios</strong> by shifting transaction dates between accounts. Results
-				are previews — nothing changes until you choose to apply.
+				Explore <strong>what-if scenarios</strong> by shifting transaction dates between accounts.
+				Results are previews — nothing changes until you choose to apply.
 			</p>
 			<Button onclick={runOptimization} disabled={isOptimizing || accounts.length === 0}>
 				{#if isOptimizing}
@@ -175,9 +175,13 @@
 				<Card.Content>
 					<div class="space-y-3">
 						{#each history as entry}
-							<div class="flex items-center justify-between rounded-lg border p-3 text-sm">
+							<div
+								class="flex items-center justify-between rounded-lg border p-3 text-sm"
+							>
 								<div class="flex items-center gap-2">
-									<span class="text-muted-foreground">{format(entry.runAt, 'MMM d, HH:mm')}</span>
+									<span class="text-muted-foreground"
+										>{format(entry.runAt, 'MMM d, HH:mm')}</span
+									>
 									{#if entry.applied}
 										<Badge
 											variant="secondary"
@@ -209,8 +213,8 @@
 			>
 				<Sparkles class="text-muted-foreground/50 mx-auto mb-2 h-10 w-10" />
 				<p>
-					Run the simulator to explore what-if date shifts across your accounts. No changes are made
-					until you apply.
+					Run the simulator to explore what-if date shifts across your accounts. No
+					changes are made until you apply.
 				</p>
 			</div>
 		{/if}

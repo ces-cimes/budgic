@@ -142,11 +142,16 @@
 			// Load reconciliation summaries for each account
 			const summaryPromises = accounts.map(async (account) => {
 				try {
-					const summary = await reconciliationService.getReconciliationSummary(account.id);
+					const summary = await reconciliationService.getReconciliationSummary(
+						account.id
+					);
 					reconciliationSummaries.set(account.id, summary);
 					return summary;
 				} catch (err) {
-					console.warn(`Failed to load reconciliation summary for account ${account.name}:`, err);
+					console.warn(
+						`Failed to load reconciliation summary for account ${account.name}:`,
+						err
+					);
 					return null;
 				}
 			});
@@ -156,11 +161,17 @@
 			// Load reconciliation history for each account
 			const historyPromises = accounts.map(async (account) => {
 				try {
-					const history = await reconciliationService.getReconciliationHistory(account.id, 20);
+					const history = await reconciliationService.getReconciliationHistory(
+						account.id,
+						20
+					);
 					reconciliationHistory.set(account.id, history);
 					return history;
 				} catch (err) {
-					console.warn(`Failed to load reconciliation history for account ${account.name}:`, err);
+					console.warn(
+						`Failed to load reconciliation history for account ${account.name}:`,
+						err
+					);
 					return [];
 				}
 			});
@@ -175,7 +186,8 @@
 
 	async function loadDiscrepancies(recordId: string, accountId: string) {
 		try {
-			const accountDiscrepancies = await reconciliationService.getAccountDiscrepancies(accountId);
+			const accountDiscrepancies =
+				await reconciliationService.getAccountDiscrepancies(accountId);
 			discrepancies.set(recordId, accountDiscrepancies);
 		} catch (err) {
 			console.warn(`Failed to load discrepancies for record ${recordId}:`, err);
@@ -259,7 +271,9 @@
 		<div class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
 			<div>
 				<h1 class="text-2xl font-bold">Reconciliation History</h1>
-				<p class="text-muted-foreground">Track balance reconciliations and resolve discrepancies</p>
+				<p class="text-muted-foreground">
+					Track balance reconciliations and resolve discrepancies
+				</p>
 			</div>
 			<Button onclick={() => onReconcileClick('')}>
 				<TrendingUp class="mr-2 h-4 w-4" />
@@ -301,7 +315,11 @@
 				<!-- Health Filter -->
 				<Select.Root type="single" bind:value={selectedHealthFilter}>
 					<Select.Trigger>
-						<span>{selectedHealthFilter === 'all' ? 'All Status' : selectedHealthFilter}</span>
+						<span
+							>{selectedHealthFilter === 'all'
+								? 'All Status'
+								: selectedHealthFilter}</span
+						>
 					</Select.Trigger>
 					<Select.Content>
 						<Select.Item value="all">All Status</Select.Item>
@@ -356,7 +374,9 @@
 					<CardHeader class="pb-3">
 						<CardTitle class="flex items-center justify-between text-base">
 							<span>{summary.accountName}</span>
-							<HealthIcon class="h-5 w-5 {getHealthColor(summary.reconciliationHealth)}" />
+							<HealthIcon
+								class="h-5 w-5 {getHealthColor(summary.reconciliationHealth)}"
+							/>
 						</CardTitle>
 					</CardHeader>
 					<CardContent class="space-y-4">
@@ -451,7 +471,8 @@
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-3">
 									<button
-										onclick={() => toggleRecordExpansion(record.id, record.accountId)}
+										onclick={() =>
+											toggleRecordExpansion(record.id, record.accountId)}
 										class="flex items-center gap-2 text-left"
 										aria-expanded={isExpanded}
 									>
@@ -494,24 +515,38 @@
 									<!-- Balance Details -->
 									<div class="grid grid-cols-2 gap-4">
 										<div>
-											<p class="text-muted-foreground text-sm">Statement Balance</p>
-											<p class="font-semibold">{formatCurrency(record.statementBalance, 'USD')}</p>
+											<p class="text-muted-foreground text-sm">
+												Statement Balance
+											</p>
+											<p class="font-semibold">
+												{formatCurrency(record.statementBalance, 'USD')}
+											</p>
 										</div>
 										<div>
-											<p class="text-muted-foreground text-sm">Calculated Balance</p>
-											<p class="font-semibold">{formatCurrency(record.calculatedBalance, 'USD')}</p>
+											<p class="text-muted-foreground text-sm">
+												Calculated Balance
+											</p>
+											<p class="font-semibold">
+												{formatCurrency(record.calculatedBalance, 'USD')}
+											</p>
 										</div>
 									</div>
 
 									<!-- Transaction Summary -->
 									<div class="grid grid-cols-2 gap-4">
 										<div>
-											<p class="text-muted-foreground text-sm">Total Transactions</p>
+											<p class="text-muted-foreground text-sm">
+												Total Transactions
+											</p>
 											<p class="font-semibold">{record.transactionCount}</p>
 										</div>
 										<div>
-											<p class="text-muted-foreground text-sm">Unreconciled</p>
-											<p class="font-semibold">{record.unreconciledTransactionIds.length}</p>
+											<p class="text-muted-foreground text-sm">
+												Unreconciled
+											</p>
+											<p class="font-semibold">
+												{record.unreconciledTransactionIds.length}
+											</p>
 										</div>
 									</div>
 
@@ -519,7 +554,9 @@
 									{#if record.notes}
 										<div>
 											<p class="text-muted-foreground text-sm">Notes</p>
-											<p class="bg-muted rounded p-2 text-sm">{record.notes}</p>
+											<p class="bg-muted rounded p-2 text-sm">
+												{record.notes}
+											</p>
 										</div>
 									{/if}
 
@@ -529,18 +566,36 @@
 											<p class="mb-2 text-sm font-medium">Detected Issues</p>
 											<div class="space-y-2">
 												{#each recordDiscrepancies as discrepancy (discrepancy.id)}
-													<div class="bg-muted flex items-center justify-between rounded p-2">
+													<div
+														class="bg-muted flex items-center justify-between rounded p-2"
+													>
 														<div class="flex-1">
-															<p class="text-sm">{discrepancy.description}</p>
-															<p class="text-muted-foreground text-xs"></p>
-															<p class="text-muted-foreground text-xs">
-																{discrepancy.suggestedAction.replace('_', ' ')}
+															<p class="text-sm">
+																{discrepancy.description}
+															</p>
+															<p
+																class="text-muted-foreground text-xs"
+															></p>
+															<p
+																class="text-muted-foreground text-xs"
+															>
+																{discrepancy.suggestedAction.replace(
+																	'_',
+																	' '
+																)}
 																{#if discrepancy.amount !== 0}
-																	• {CurrencyUtils.formatAmount(discrepancy.amount, 'USD')}
+																	• {CurrencyUtils.formatAmount(
+																		discrepancy.amount,
+																		'USD'
+																	)}
 																{/if}
 															</p>
 														</div>
-														<Badge variant={getSeverityVariant(discrepancy.severity)}>
+														<Badge
+															variant={getSeverityVariant(
+																discrepancy.severity
+															)}
+														>
 															{discrepancy.severity}
 														</Badge>
 													</div>

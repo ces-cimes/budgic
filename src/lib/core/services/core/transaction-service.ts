@@ -183,7 +183,8 @@ class TransactionService {
 	private async createRepaymentScheduleForCreditSpend(tx: Transaction): Promise<void> {
 		if (tx.type !== 'expense' || tx.status !== 'cleared' || !tx.accountId) return;
 		const creditAccount = await accountService.getAccount(tx.accountId);
-		if (!creditAccount || creditAccount.type !== 'credit' || !creditAccount.repaymentConfig) return;
+		if (!creditAccount || creditAccount.type !== 'credit' || !creditAccount.repaymentConfig)
+			return;
 		let sourceChecking = creditAccount.linkedAccountId
 			? ((await accountService.getAccount(creditAccount.linkedAccountId)) ?? undefined)
 			: undefined;
@@ -340,7 +341,10 @@ class TransactionService {
 			}
 
 			// Convert fee amount if fee is on this account
-			if (transaction.transferDetails.feeAmount && transaction.transferDetails.feeAmount > 0) {
+			if (
+				transaction.transferDetails.feeAmount &&
+				transaction.transferDetails.feeAmount > 0
+			) {
 				const feeAccountId = transaction.transferDetails.feeAccountId || accountId;
 				if (feeAccountId === accountId) {
 					const feeConverted = await exchangeRateService.convertAmount(
@@ -362,7 +366,8 @@ class TransactionService {
 			// Store conversion metadata
 			if (result.accountAmount !== undefined) {
 				result.currencyConversion = {
-					exchangeRate: result.accountAmount / (transaction.transferDetails.transferAmount || 1),
+					exchangeRate:
+						result.accountAmount / (transaction.transferDetails.transferAmount || 1),
 					conversionDate: transactionDate.toISOString(),
 					sourceCurrency: transactionCurrency,
 					targetCurrency: accountCurrency
@@ -473,7 +478,10 @@ class TransactionService {
 
 		if (!hasAccountAmount && data.accountId) {
 			// Calculate conversion for source account only if not already provided
-			const conversions = await this.calculateCurrencyConversions(transactionData, data.accountId);
+			const conversions = await this.calculateCurrencyConversions(
+				transactionData,
+				data.accountId
+			);
 			transactionData = { ...transactionData, ...conversions };
 		}
 
@@ -572,7 +580,9 @@ class TransactionService {
 		if (transaction.status === 'cleared') {
 			merchantProfileService
 				.onTransactionSaved(transaction)
-				.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
+				.catch((err) =>
+					console.warn('merchantProfileService.onTransactionSaved failed', err)
+				);
 		}
 
 		await invalidateTransactionCaches();
@@ -627,12 +637,15 @@ class TransactionService {
 				updatedData.transferDetails &&
 				updatedData.transferDetails.toAccountAmount === undefined
 			) {
-				const transferConversions = await this.calculateTransferDestinationConversion(updatedData);
+				const transferConversions =
+					await this.calculateTransferDestinationConversion(updatedData);
 				updatedData = { ...updatedData, ...transferConversions };
 			}
 		}
 
-		const automationFromFee = automationFromTransferFeeType(updatedData.transferDetails?.feeType);
+		const automationFromFee = automationFromTransferFeeType(
+			updatedData.transferDetails?.feeType
+		);
 
 		let updatedTransaction: Transaction = {
 			...updatedData,
@@ -715,7 +728,9 @@ class TransactionService {
 		if (updatedTransaction.status === 'cleared') {
 			merchantProfileService
 				.onTransactionSaved(updatedTransaction)
-				.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
+				.catch((err) =>
+					console.warn('merchantProfileService.onTransactionSaved failed', err)
+				);
 		}
 
 		await invalidateTransactionCaches();
@@ -773,7 +788,8 @@ class TransactionService {
 			return result;
 		}
 
-		const allowedUpdates: Partial<Pick<Transaction, 'categoryId' | 'status' | 'accountId'>> = {};
+		const allowedUpdates: Partial<Pick<Transaction, 'categoryId' | 'status' | 'accountId'>> =
+			{};
 		if (updates.categoryId !== undefined) {
 			allowedUpdates.categoryId = updates.categoryId;
 		}
@@ -909,7 +925,10 @@ class TransactionService {
 					result.failed += 1;
 					result.errors.push({
 						id: tx.id,
-						reason: error instanceof Error ? error.message : 'Unknown bulk description error'
+						reason:
+							error instanceof Error
+								? error.message
+								: 'Unknown bulk description error'
 					});
 				}
 			}
@@ -967,7 +986,10 @@ class TransactionService {
 					result.failed += 1;
 					result.errors.push({
 						id: tx.id,
-						reason: error instanceof Error ? error.message : 'Unknown bulk description set error'
+						reason:
+							error instanceof Error
+								? error.message
+								: 'Unknown bulk description set error'
 					});
 				}
 			}
@@ -1053,7 +1075,10 @@ class TransactionService {
 				if (needsRecalculation) {
 					const accountId = updatedData.accountId || tx.accountId;
 					if (accountId) {
-						const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+						const conversions = await this.calculateCurrencyConversions(
+							updatedData,
+							accountId
+						);
 						updatedData = { ...updatedData, ...conversions };
 					}
 					if (
@@ -1174,7 +1199,10 @@ class TransactionService {
 				if (needsRecalculation) {
 					const accountId = updatedData.accountId || tx.accountId;
 					if (accountId) {
-						const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+						const conversions = await this.calculateCurrencyConversions(
+							updatedData,
+							accountId
+						);
 						updatedData = { ...updatedData, ...conversions };
 					}
 					if (
@@ -1311,7 +1339,10 @@ class TransactionService {
 					result.failed += 1;
 					result.errors.push({
 						id: tx.id,
-						reason: error instanceof Error ? error.message : 'Unknown bulk notes/reference error'
+						reason:
+							error instanceof Error
+								? error.message
+								: 'Unknown bulk notes/reference error'
 					});
 				}
 			}
@@ -1392,7 +1423,10 @@ class TransactionService {
 							: baseAmount * (1 + value / 100);
 				if (!Number.isFinite(newAmount)) {
 					result.failed += 1;
-					result.errors.push({ id: tx.id, reason: 'Adjusted amount is not a valid number' });
+					result.errors.push({
+						id: tx.id,
+						reason: 'Adjusted amount is not a valid number'
+					});
 					continue;
 				}
 				if (newAmount === baseAmount) {
@@ -1408,7 +1442,10 @@ class TransactionService {
 
 				const accountId = updatedData.accountId;
 				if (accountId) {
-					const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+					const conversions = await this.calculateCurrencyConversions(
+						updatedData,
+						accountId
+					);
 					updatedData = { ...updatedData, ...conversions };
 				}
 
@@ -1449,7 +1486,10 @@ class TransactionService {
 	/**
 	 * Set transaction currency for non-transfer rows. Clears cached conversion so amounts are recomputed.
 	 */
-	async bulkSetTransactionCurrency(ids: string[], currency: string): Promise<BulkOperationResult> {
+	async bulkSetTransactionCurrency(
+		ids: string[],
+		currency: string
+	): Promise<BulkOperationResult> {
 		const trimmed = currency.trim();
 		if (!trimmed) {
 			throw new Error('Currency code cannot be empty');
@@ -1500,7 +1540,10 @@ class TransactionService {
 
 				const accountId = updatedData.accountId;
 				if (accountId) {
-					const conversions = await this.calculateCurrencyConversions(updatedData, accountId);
+					const conversions = await this.calculateCurrencyConversions(
+						updatedData,
+						accountId
+					);
 					updatedData = { ...updatedData, ...conversions };
 				}
 
@@ -1632,7 +1675,10 @@ class TransactionService {
 	 */
 	async getTransactionsByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
 		try {
-			const arr = await db.transactions.where('clearedDate').between(startDate, endDate).toArray();
+			const arr = await db.transactions
+				.where('clearedDate')
+				.between(startDate, endDate)
+				.toArray();
 			return arr.filter((t): t is Transaction => t != null);
 		} catch (error) {
 			console.error('[TransactionService] Error in getTransactionsByDateRange:', error);
@@ -1668,7 +1714,10 @@ class TransactionService {
 				.toArray();
 			return arr.filter((t): t is Transaction => t != null && !t.deletedAt);
 		} catch (error) {
-			console.error('[TransactionService] Error in getPlannedTransactionsByDateRange:', error);
+			console.error(
+				'[TransactionService] Error in getPlannedTransactionsByDateRange:',
+				error
+			);
 			return [];
 		}
 	}
@@ -1726,7 +1775,9 @@ class TransactionService {
 		if (clearedForLearning) {
 			merchantProfileService
 				.onTransactionSaved(clearedForLearning)
-				.catch((err) => console.warn('merchantProfileService.onTransactionSaved failed', err));
+				.catch((err) =>
+					console.warn('merchantProfileService.onTransactionSaved failed', err)
+				);
 		}
 
 		return groupId;

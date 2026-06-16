@@ -74,7 +74,10 @@
 							? 'text-green-500'
 							: 'text-red-500'}"
 					>
-						{analysis.netAnnualInterest >= 0 ? '+' : ''}{formatMainCurrencyAmount(analysis.netAnnualInterest, userCurrency)}
+						{analysis.netAnnualInterest >= 0 ? '+' : ''}{formatMainCurrencyAmount(
+							analysis.netAnnualInterest,
+							userCurrency
+						)}
 					</span>
 				</div>
 				{#if analysis.optimizationPotential > 0}
@@ -109,17 +112,26 @@
 			<!-- Top recommendations -->
 			{#if analysis.recommendations.length > 0}
 				<div class="border-border space-y-2 border-t pt-3">
-					<p class="text-muted-foreground mb-1 text-xs font-medium tracking-wider uppercase">
+					<p
+						class="text-muted-foreground mb-1 text-xs font-medium tracking-wider uppercase"
+					>
 						Suggestions
 					</p>
 					{#each topRecommendations(analysis.recommendations) as rec}
-						<div class="flex items-start justify-between gap-2 rounded-lg border p-2.5 text-sm">
+						<div
+							class="flex items-start justify-between gap-2 rounded-lg border p-2.5 text-sm"
+						>
 							<div class="min-w-0 flex-1">
 								<p class="font-medium">{rec.title}</p>
-								<p class="text-muted-foreground truncate text-xs">{rec.description}</p>
+								<p class="text-muted-foreground truncate text-xs">
+									{rec.description}
+								</p>
 							</div>
 							<span class="shrink-0 text-xs font-medium text-green-500">
-								+{formatMainCurrencyAmount(rec.estimatedAnnualValue, userCurrency)}/yr
+								+{formatMainCurrencyAmount(
+									rec.estimatedAnnualValue,
+									userCurrency
+								)}/yr
 							</span>
 						</div>
 					{/each}

@@ -87,7 +87,9 @@
 
 	function handleHeaderAddTypeSelect(type: Transaction['type'], status: Transaction['status']) {
 		headerAddPopoverOpen = false;
-		goto(`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
+		goto(
+			`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`
+		);
 	}
 
 	function exitSelectionMode() {
@@ -367,7 +369,9 @@
 			}
 		} catch (error) {
 			logBulkException('notes', error);
-			toast.error(error instanceof Error ? error.message : 'Failed to update notes or reference');
+			toast.error(
+				error instanceof Error ? error.message : 'Failed to update notes or reference'
+			);
 		} finally {
 			isBulkProcessing = false;
 			isBulkDialogOpen = false;
@@ -379,7 +383,10 @@
 		isBulkProcessing = true;
 		try {
 			const ids = await resolveSelectedTransactionIds();
-			const result = await transactionService.bulkAdjustTransactionAmounts(ids, { mode, value });
+			const result = await transactionService.bulkAdjustTransactionAmounts(ids, {
+				mode,
+				value
+			});
 			if (result.success > 0) {
 				showBulkResultToast(result, 'updated', 'amount');
 				selectedIds = new Set();
@@ -437,7 +444,9 @@
 					showBulkResultToast(result, 'updated', 'currency');
 				}
 			} else {
-				toast.info('No currencies changed (rows already use that currency or none were eligible).');
+				toast.info(
+					'No currencies changed (rows already use that currency or none were eligible).'
+				);
 			}
 		} catch (error) {
 			logBulkException('currency', error);
@@ -606,7 +615,9 @@
 						sideOffset={6}
 					>
 						<div class="p-2">
-							<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
+							<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">
+								Choose type
+							</p>
 							<TypePicker onSelect={handleHeaderAddTypeSelect} />
 						</div>
 					</Popover.Content>
@@ -636,7 +647,9 @@
 						class="squircle-2xl squircle-border squircle-fill-tertiary flex items-center gap-3 px-4 py-3"
 						style="animation-delay: {i * 40}ms"
 					>
-						<Skeleton class="size-9 shrink-0 rounded-full bg-[var(--color-bg-surface)]" />
+						<Skeleton
+							class="size-9 shrink-0 rounded-full bg-[var(--color-bg-surface)]"
+						/>
 						<div class="flex-1 space-y-2">
 							<Skeleton class="h-3.5 w-2/3 bg-[var(--color-bg-surface)]" />
 							<Skeleton class="h-2.5 w-1/3 bg-[var(--color-bg-surface)]" />

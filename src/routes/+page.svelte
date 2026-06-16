@@ -26,7 +26,6 @@
 	import {
 		planService,
 		budgetService,
-		userService as userServiceImport,
 		negativeAllowanceService,
 		classifyFinancialState
 	} from '$lib/core/services';
@@ -38,7 +37,10 @@
 	} from '$lib/core/services/core/negative-allowance-service';
 	import type { Insight } from '$lib/core/db';
 	import { db } from '$lib/core/db';
-	import { tierRowsFromBudgetSummary, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
+	import {
+		tierRowsFromBudgetSummary,
+		type AllowanceTierRow
+	} from '$lib/utils/budget-tier-display';
 	import {
 		computeRecoveryHorizon,
 		type RecoveryHorizonSnapshot
@@ -46,13 +48,15 @@
 	import { alertActionUrlForInsight } from '$lib/utils/alert-tiers';
 	import { notificationsService } from '$lib/core/services';
 	import { dateUtils } from '$lib/utils/date-utils';
+	import { reportError } from '$lib/stores/error-store.svelte';
+	import type { Account, Transaction, Category, Goal } from '$lib/core/db';
 
 	const { data } = $props<{ data: any }>();
 
-	let accounts = $state<any[]>([]);
+	let accounts = $state<Account[]>([]);
 	let totalBalance = $state(0);
-	let recentTransactions = $state<any[]>([]);
-	let budgetCategories = $state<Record<string, any>>({});
+	let recentTransactions = $state<Transaction[]>([]);
+	let budgetCategories = $state<Record<string, Category>>({});
 	let userCurrency = $state<string>('USD');
 	let username = $state('');
 	let globalAllowance = $state<EnhancedAllowance | null>(null);
@@ -70,7 +74,7 @@
 	let attentionGroups = $state<Insight[][]>([]);
 	let weekStartsOn = $state(0);
 	let isLoaded = $state(false);
-	let activeGoals = $state<any[]>([]);
+	let activeGoals = $state<Goal[]>([]);
 	let thisWeekSpent = $state<number>(0);
 	let thisWeekPlanned = $state<number | null>(null);
 	let firstRunChecklistComplete = $state(false);
@@ -78,7 +82,9 @@
 	let transactionCount = $state(0);
 	let userPrefs = $state<UserPreferences | null>(null);
 	let unclassifiedTransactionCount = $state(0);
-	let postChecklistSuggestions = $state<ReturnType<typeof getEligiblePostChecklistSuggestions>>([]);
+	let postChecklistSuggestions = $state<ReturnType<typeof getEligiblePostChecklistSuggestions>>(
+		[]
+	);
 	let accruedNetWorthDelta = $state(0);
 	let financialState = $state<FinancialStateResult | null>(null);
 	let recoveryModeActive = $state(false);
@@ -99,12 +105,14 @@
 			debtRecoveryActive = preferences?.debtRecoveryActive ?? false;
 			userPrefs = preferences;
 
-			const [accountsData, balanceData, transactionsData, categoriesData] = await Promise.all([
-				accountService.getAccounts(),
-				accountService.getTotalBalance(),
-				transactionService.getAllTransactions(),
-				db.getActiveCategories()
-			]);
+			const [accountsData, balanceData, transactionsData, categoriesData] = await Promise.all(
+				[
+					accountService.getAccounts(),
+					accountService.getTotalBalance(),
+					transactionService.getAllTransactions(),
+					db.getActiveCategories()
+				]
+			);
 
 			accounts = accountsData;
 			totalBalance = balanceData;
@@ -114,14 +122,14 @@
 			} else {
 				accruedNetWorthDelta = 0;
 			}
-			recentTransactions = transactionsData.filter((t: any) => t && !t.deletedAt).slice(0, 8);
-			transactionCount = transactionsData.filter((t: any) => t && !t.deletedAt).length;
+			recentTransactions = transactionsData.filter((t) => t && !t.deletedAt).slice(0, 8);
+			transactionCount = transactionsData.filter((t) => t && !t.deletedAt).length;
 			budgetCategories = categoriesData.reduce(
-				(acc: Record<string, any>, category: any) => {
+				(acc, category) => {
 					acc[category.id] = category;
 					return acc;
 				},
-				{} as Record<string, any>
+				{} as Record<string, Category>
 			);
 
 			await loadGlobalAllowance();
@@ -129,7 +137,7 @@
 			attentionGroups = await insightsService.getPanelAlertGroupsForHome(3);
 			await loadGoalsAndThisWeek();
 		} catch (error) {
-			console.error('Error loading dashboard data:', error);
+			reportError(error instanceof Error ? error : new Error(String(error)));
 		} finally {
 			isLoaded = true;
 		}
@@ -192,9 +200,10 @@
 		debtRecoveryActive?: boolean;
 	}) {
 		if (Object.keys(patch).length === 0) return; // exit-dismiss: no pref change needed
-		const updated = await userServiceImport.updateUserPreferences(patch);
+		const updated = await userService.updateUserPreferences(patch);
 		if (patch.recoveryModeActive !== undefined) recoveryModeActive = patch.recoveryModeActive;
-		if (patch.recoveryModeDeclined !== undefined) recoveryModeDeclined = patch.recoveryModeDeclined;
+		if (patch.recoveryModeDeclined !== undefined)
+			recoveryModeDeclined = patch.recoveryModeDeclined;
 		if (patch.debtRecoveryActive !== undefined) debtRecoveryActive = patch.debtRecoveryActive;
 		userPrefs = updated;
 		if (patch.recoveryModeActive !== undefined) {
@@ -213,7 +222,7 @@
 				dailyAllowance: globalAllowance?.total?.dailySafe ?? 0
 			});
 		} catch (error) {
-			console.error('Error loading recovery horizon:', error);
+			reportError(error instanceof Error ? error : new Error(String(error)));
 			recoveryHorizon = null;
 		}
 	}
@@ -232,7 +241,7 @@
 			unclassifiedTransactionCount = budgetSummary?.unclassifiedTransactionCount ?? 0;
 			allowanceTierRows = tierRowsFromBudgetSummary(budgetSummary);
 			if (globalAllowance) {
-				const prefs = await userServiceImport.getUserPreferences();
+				const prefs = await userService.getUserPreferences();
 				const handling =
 					(prefs as { negativeAllowanceHandling?: string }).negativeAllowanceHandling ??
 					'allow_with_strong_warning';
@@ -263,7 +272,7 @@
 			}
 			await loadRecoveryHorizon();
 		} catch (error) {
-			console.error('Error loading global allowance:', error);
+			reportError(error instanceof Error ? error : new Error(String(error)));
 			allowanceTierRows = [];
 		} finally {
 			isLoadingAllowance = false;
@@ -282,7 +291,9 @@
 			const weekTransactions = allTx.filter((t: any) => {
 				if (!t || t.deletedAt) return false;
 				const d = new Date(t.clearedDate || t.plannedDate || t.createdAt);
-				return d >= weekStart && d < weekEnd && t.type === 'expense' && t.status === 'cleared';
+				return (
+					d >= weekStart && d < weekEnd && t.type === 'expense' && t.status === 'cleared'
+				);
 			});
 			thisWeekSpent = weekTransactions.reduce(
 				(sum: number, t: any) => sum + Math.abs(t.amount || 0),
@@ -294,7 +305,7 @@
 				thisWeekPlanned = (allowance.total.monthly / 30) * 7;
 			}
 		} catch (error) {
-			console.error('Error loading goals or weekly data:', error);
+			reportError(error instanceof Error ? error : new Error(String(error)));
 		}
 	}
 
@@ -485,7 +496,8 @@
 						<button
 							type="button"
 							class="text-muted-foreground text-xs transition-colors hover:text-[var(--color-text-primary)]"
-							onclick={() => window.dispatchEvent(new CustomEvent('open-alerts-panel'))}
+							onclick={() =>
+								window.dispatchEvent(new CustomEvent('open-alerts-panel'))}
 						>
 							All alerts →
 						</button>
@@ -500,7 +512,9 @@
 								onclick={() => handleAttentionGroupClick(group)}
 							>
 								<div class="min-w-0 flex-1">
-									<div class="truncate text-sm font-medium text-[var(--color-warm-coral)]">
+									<div
+										class="truncate text-sm font-medium text-[var(--color-warm-coral)]"
+									>
 										{alert.title}
 										{#if group.length > 1}
 											<span class="text-muted-foreground font-normal"
@@ -508,7 +522,9 @@
 											>
 										{/if}
 									</div>
-									<div class="text-muted-foreground truncate text-xs">{alert.message}</div>
+									<div class="text-muted-foreground truncate text-xs">
+										{alert.message}
+									</div>
 								</div>
 								<span class="text-muted-foreground ml-2 shrink-0 text-xs"
 									>{attentionCtaLabel(alert)}</span
@@ -521,7 +537,9 @@
 
 			<!-- ── Spending pace (weekly plan slice, not daily allowance) ── -->
 			<section class="animate-card-enter" style="animation-delay: 140ms">
-				<h2 class="text-muted-foreground mb-3 text-xs font-semibold tracking-widest uppercase">
+				<h2
+					class="text-muted-foreground mb-3 text-xs font-semibold tracking-widest uppercase"
+				>
 					Spending pace
 				</h2>
 				<div class="squircle-4xl squircle-border bg-card px-4 py-4">
@@ -547,10 +565,14 @@
 								class="h-2 max-w-24 flex-1 overflow-hidden rounded-full bg-[var(--color-bg-surface)]"
 							>
 								<div
-									class="h-full rounded-full transition-all {thisWeekSpent > thisWeekPlanned
+									class="h-full rounded-full transition-all {thisWeekSpent >
+									thisWeekPlanned
 										? 'bg-[var(--color-warm-coral)]'
 										: 'bg-[var(--color-sage-green)]'}"
-									style="width: {Math.min(100, (thisWeekSpent / thisWeekPlanned) * 100)}%"
+									style="width: {Math.min(
+										100,
+										(thisWeekSpent / thisWeekPlanned) * 100
+									)}%"
 								></div>
 							</div>
 						{/if}
@@ -561,7 +583,9 @@
 			<!-- ── Recent transactions ── -->
 			<section class="animate-card-enter" style="animation-delay: 180ms">
 				<div class="mb-3 flex items-center justify-between">
-					<h2 class="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
+					<h2
+						class="text-muted-foreground text-xs font-semibold tracking-widest uppercase"
+					>
 						Recent
 					</h2>
 					<a
@@ -575,10 +599,16 @@
 				{#if !isLoaded}
 					<div class="squircle-4xl squircle-border bg-card overflow-hidden">
 						{#each Array(4) as _}
-							<div class="border-border flex items-center gap-3 border-b px-4 py-3.5 last:border-0">
+							<div
+								class="border-border flex items-center gap-3 border-b px-4 py-3.5 last:border-0"
+							>
 								<div class="flex-1 space-y-1.5">
-									<Skeleton class="h-3.5 w-32 rounded bg-[var(--color-bg-surface)]" />
-									<Skeleton class="h-2.5 w-20 rounded bg-[var(--color-bg-surface)]" />
+									<Skeleton
+										class="h-3.5 w-32 rounded bg-[var(--color-bg-surface)]"
+									/>
+									<Skeleton
+										class="h-2.5 w-20 rounded bg-[var(--color-bg-surface)]"
+									/>
 								</div>
 								<Skeleton class="h-3.5 w-16 rounded bg-[var(--color-bg-surface)]" />
 							</div>
@@ -600,8 +630,12 @@
 					<div class="squircle-4xl squircle-border bg-card overflow-hidden">
 						{#each groupedTransactions() as [dateLabel, txGroup], gi}
 							<!-- Date group header -->
-							<div class="border-border border-b bg-[var(--color-bg-secondary)] px-4 py-2">
-								<span class="text-muted-foreground text-xs font-medium tracking-widest uppercase">
+							<div
+								class="border-border border-b bg-[var(--color-bg-secondary)] px-4 py-2"
+							>
+								<span
+									class="text-muted-foreground text-xs font-medium tracking-widest uppercase"
+								>
 									{dateLabel}
 								</span>
 							</div>
@@ -620,7 +654,9 @@
 											{transaction.description || 'No description'}
 										</div>
 										<div class="text-muted-foreground mt-0.5 text-xs">
-											{getCategoryName(transaction)} · {getAccountName(transaction.accountId)}
+											{getCategoryName(transaction)} · {getAccountName(
+												transaction.accountId
+											)}
 										</div>
 									</div>
 									<div
@@ -645,7 +681,9 @@
 			{#if activeGoals.length > 0}
 				<section class="animate-card-enter" style="animation-delay: 220ms">
 					<div class="mb-3 flex items-center justify-between">
-						<h2 class="text-muted-foreground text-xs font-semibold tracking-widest uppercase">
+						<h2
+							class="text-muted-foreground text-xs font-semibold tracking-widest uppercase"
+						>
 							Goals
 						</h2>
 						<a
@@ -662,14 +700,20 @@
 								class="squircle-2xl squircle-border bg-card flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-bg-surface)]"
 							>
 								<div class="min-w-0 flex-1">
-									<p class="truncate text-sm font-medium">{goal.name || 'Goal'}</p>
+									<p class="truncate text-sm font-medium">
+										{goal.name || 'Goal'}
+									</p>
 									<div
 										class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-bg-surface)]"
 									>
 										<div
 											class="h-full rounded-full bg-[var(--color-amber)] transition-all"
 											style="width: {goal.targetAmount > 0
-												? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100)
+												? Math.min(
+														100,
+														(goal.currentAmount / goal.targetAmount) *
+															100
+													)
 												: 0}%"
 										></div>
 									</div>

@@ -156,7 +156,9 @@ export function getSmartGroupLabel(groupKey: string): string {
 				const dateStr = groupKey.split('_')[1];
 				const date = new Date(dateStr);
 				const today = new Date();
-				const daysDiff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+				const daysDiff = Math.ceil(
+					(date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+				);
 
 				if (daysDiff <= 14) {
 					return `In ${daysDiff} days`;
@@ -171,7 +173,9 @@ export function getSmartGroupLabel(groupKey: string): string {
 				const dateStr = groupKey.split('_')[1];
 				const date = new Date(dateStr);
 				const today = new Date();
-				const daysDiff = Math.ceil((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+				const daysDiff = Math.ceil(
+					(today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+				);
 
 				if (daysDiff <= 14) {
 					return `${daysDiff} days ago`;

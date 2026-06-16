@@ -93,13 +93,20 @@
 			<div class="relative z-10 text-center">
 				<!-- Icon -->
 				<div class="mb-4 flex justify-center">
-					<div class="rounded-full p-4 {getRarityBg(badge.rarity)} {getRarityColor(badge.rarity)}">
+					<div
+						class="rounded-full p-4 {getRarityBg(badge.rarity)} {getRarityColor(
+							badge.rarity
+						)}"
+					>
 						<Icon class="h-12 w-12" />
 					</div>
 				</div>
 
 				<!-- Title -->
-				<h2 id="celebration-title" class="mb-2 text-2xl font-bold {getRarityColor(badge.rarity)}">
+				<h2
+					id="celebration-title"
+					class="mb-2 text-2xl font-bold {getRarityColor(badge.rarity)}"
+				>
 					Achievement Unlocked!
 				</h2>
 

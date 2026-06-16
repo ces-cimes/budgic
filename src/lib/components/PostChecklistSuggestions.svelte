@@ -25,7 +25,9 @@
 				class="border-border flex flex-col gap-2 rounded-xl border bg-[var(--color-bg-surface)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
 			>
 				<div class="min-w-0 flex-1">
-					<p class="text-sm font-medium text-[var(--color-text-primary)]">{suggestion.title}</p>
+					<p class="text-sm font-medium text-[var(--color-text-primary)]">
+						{suggestion.title}
+					</p>
 					<p class="text-muted-foreground mt-0.5 text-xs">{suggestion.helper}</p>
 				</div>
 				<div class="flex shrink-0 items-center gap-2">

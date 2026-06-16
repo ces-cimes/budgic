@@ -73,7 +73,8 @@
 					0
 				);
 				const spent = spentFromSummary ?? spentLocal;
-				const fxQuality: FxConversionQuality = allocated > 0 && alloc ? alloc.fxQuality : 'ok';
+				const fxQuality: FxConversionQuality =
+					allocated > 0 && alloc ? alloc.fxQuality : 'ok';
 
 				return {
 					id: category.id,
@@ -316,15 +317,21 @@
 			<CardContent class="space-y-4">
 				<div class="grid grid-cols-3 gap-4">
 					<div class="text-center">
-						<div class="text-primary text-2xl font-bold">{formatCurrency(getTotalAllocated())}</div>
+						<div class="text-primary text-2xl font-bold">
+							{formatCurrency(getTotalAllocated())}
+						</div>
 						<div class="text-muted-foreground text-sm">Total Allocated</div>
 					</div>
 					<div class="text-center">
-						<div class="text-warning text-2xl font-bold">{formatCurrency(getTotalSpent())}</div>
+						<div class="text-warning text-2xl font-bold">
+							{formatCurrency(getTotalSpent())}
+						</div>
 						<div class="text-muted-foreground text-sm">Total Spent</div>
 					</div>
 					<div class="text-center">
-						<div class="text-success text-2xl font-bold">{formatCurrency(getTotalRemaining())}</div>
+						<div class="text-success text-2xl font-bold">
+							{formatCurrency(getTotalRemaining())}
+						</div>
 						<div class="text-muted-foreground text-sm">Remaining</div>
 					</div>
 				</div>
@@ -335,10 +342,15 @@
 						<div class="flex items-center justify-between text-sm">
 							<span class="text-muted-foreground">Overall Budget Usage</span>
 							<span class="font-medium"
-								>{formatPercentage((getTotalSpent() / getTotalAllocated()) * 100)}</span
+								>{formatPercentage(
+									(getTotalSpent() / getTotalAllocated()) * 100
+								)}</span
 							>
 						</div>
-						<Progress value={(getTotalSpent() / getTotalAllocated()) * 100} class="h-2" />
+						<Progress
+							value={(getTotalSpent() / getTotalAllocated()) * 100}
+							class="h-2"
+						/>
 					</div>
 				{/if}
 			</CardContent>
@@ -388,10 +400,14 @@
 								</div>
 								<Progress value={spendingPercentage} class="h-2" />
 								<div class="flex items-center justify-between text-sm">
-									<span class="text-muted-foreground flex flex-wrap items-center gap-1">
+									<span
+										class="text-muted-foreground flex flex-wrap items-center gap-1"
+									>
 										{#if category.fxQuality !== 'ok'}
 											<Tooltip.Root>
-												<Tooltip.Trigger class="inline-flex cursor-help items-baseline gap-0.5">
+												<Tooltip.Trigger
+													class="inline-flex cursor-help items-baseline gap-0.5"
+												>
 													<span class="text-muted-foreground">~</span>
 													<span>{formatCurrency(category.spent)}</span>
 												</Tooltip.Trigger>
@@ -422,16 +438,22 @@
 							<div class="grid grid-cols-2 gap-4 text-sm">
 								<div>
 									<div class="text-muted-foreground">Allocated</div>
-									<div class="font-medium">{formatCurrency(category.allocated)}</div>
+									<div class="font-medium">
+										{formatCurrency(category.allocated)}
+									</div>
 								</div>
 								<div>
 									<div class="text-muted-foreground">Spent</div>
 									<div
-										class="font-medium {getStatusColor(category)} flex flex-wrap items-center gap-1"
+										class="font-medium {getStatusColor(
+											category
+										)} flex flex-wrap items-center gap-1"
 									>
 										{#if category.fxQuality !== 'ok'}
 											<Tooltip.Root>
-												<Tooltip.Trigger class="inline-flex cursor-help items-baseline gap-0.5">
+												<Tooltip.Trigger
+													class="inline-flex cursor-help items-baseline gap-0.5"
+												>
 													<span class="text-muted-foreground">~</span>
 													<span>{formatCurrency(category.spent)}</span>
 												</Tooltip.Trigger>
@@ -456,7 +478,9 @@
 
 							<!-- Warning if over budget -->
 							{#if category.spent > category.allocated}
-								<div class="bg-destructive/10 border-destructive/20 rounded-lg border p-3">
+								<div
+									class="bg-destructive/10 border-destructive/20 rounded-lg border p-3"
+								>
 									<div class="text-destructive flex items-center gap-2 text-sm">
 										<AlertCircle size={14} />
 										<span class="font-medium">Over Budget</span>
@@ -471,7 +495,9 @@
 						{:else}
 							<!-- No Budget Set -->
 							<div class="py-4 text-center">
-								<div class="text-muted-foreground mb-2 text-sm">No budget allocated</div>
+								<div class="text-muted-foreground mb-2 text-sm">
+									No budget allocated
+								</div>
 								<Button
 									variant="outline"
 									size="sm"
@@ -522,7 +548,9 @@
 					<div class="text-center">
 						<DollarSign class="mx-auto mb-2" size={20} />
 						<div class="font-medium">Manage Categories</div>
-						<div class="text-muted-foreground text-xs">View and edit all categories</div>
+						<div class="text-muted-foreground text-xs">
+							View and edit all categories
+						</div>
 					</div>
 				</Button>
 			</div>

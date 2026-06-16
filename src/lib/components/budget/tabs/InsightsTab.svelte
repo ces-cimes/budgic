@@ -122,7 +122,8 @@
 					<div class="flex items-start justify-between">
 						<div class="flex items-center gap-2">
 							<TypeIcon size={16} class={getTypeColor(insight.type)} />
-							<CardTitle class="text-lg">{insight.title ?? insight.message}</CardTitle>
+							<CardTitle class="text-lg">{insight.title ?? insight.message}</CardTitle
+							>
 						</div>
 						<div class="flex items-center gap-2">
 							<PriorityIcon size={14} class={getPriorityColor(priority)} />
@@ -143,7 +144,9 @@
 					</Badge>
 				</CardHeader>
 				<CardContent class="space-y-3">
-					<p class="text-muted-foreground text-sm">{insight.description ?? insight.message}</p>
+					<p class="text-muted-foreground text-sm">
+						{insight.description ?? insight.message}
+					</p>
 
 					{#if insight.action}
 						<div class="bg-muted/50 rounded-lg p-3">
@@ -155,7 +158,11 @@
 					{#if insight.impact != null}
 						<div class="flex items-center gap-2 text-sm">
 							<span class="text-muted-foreground">Potential Impact:</span>
-							<span class="font-medium {insight.impact >= 0 ? 'text-success' : 'text-destructive'}">
+							<span
+								class="font-medium {insight.impact >= 0
+									? 'text-success'
+									: 'text-destructive'}"
+							>
 								{insight.impact >= 0 ? '+' : ''}{formatCurrency(insight.impact)}
 							</span>
 						</div>

@@ -32,8 +32,8 @@
 		<Dialog.Header>
 			<Dialog.Title>Delete {entityName}</Dialog.Title>
 			<Dialog.Description>
-				Are you sure you want to delete this {entityName.toLowerCase()}? This action cannot be
-				undone.
+				Are you sure you want to delete this {entityName.toLowerCase()}? This action cannot
+				be undone.
 				{#if entityDetails}
 					<br />
 					<br />
@@ -49,7 +49,9 @@
 			</Dialog.Description>
 		</Dialog.Header>
 		<Dialog.Footer class="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
-			<Button.Root variant="outline" onclick={onCancel} disabled={isDeleting}>Cancel</Button.Root>
+			<Button.Root variant="outline" onclick={onCancel} disabled={isDeleting}
+				>Cancel</Button.Root
+			>
 			<Button.Root
 				variant="destructive"
 				onclick={onConfirm}

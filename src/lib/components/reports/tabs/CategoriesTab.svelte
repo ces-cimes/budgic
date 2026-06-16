@@ -63,11 +63,16 @@
 				{#each categoryData as category (category.name)}
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-3">
-							<div class="h-4 w-4 rounded" style="background-color: {category.color}"></div>
+							<div
+								class="h-4 w-4 rounded"
+								style="background-color: {category.color}"
+							></div>
 							<span class="text-primary text-sm font-medium">{category.name}</span>
 						</div>
 						<div class="text-right">
-							<div class="text-primary text-sm font-semibold">{formatAmount(category.amount)}</div>
+							<div class="text-primary text-sm font-semibold">
+								{formatAmount(category.amount)}
+							</div>
 							<div class="text-muted-foreground text-xs">
 								{formatPercentage(category.percentage)}
 							</div>
@@ -86,7 +91,9 @@
 						<div class="flex items-center gap-3">
 							{#if category.trend}
 								<TrendingUp
-									class="h-4 w-4 {category.trend.isPositive ? 'text-green-500' : 'text-red-500'}"
+									class="h-4 w-4 {category.trend.isPositive
+										? 'text-green-500'
+										: 'text-red-500'}"
 								/>
 							{:else}
 								<Minus class="text-muted-foreground h-4 w-4" aria-hidden="true" />
@@ -94,8 +101,14 @@
 							<span class="text-primary text-sm font-medium">{category.name}</span>
 						</div>
 						{#if category.trend}
-							<div class="text-sm {category.trend.isPositive ? 'text-green-500' : 'text-red-500'}">
-								{category.trend.isPositive ? '+' : ''}{formatPercentage(category.trend.value)}
+							<div
+								class="text-sm {category.trend.isPositive
+									? 'text-green-500'
+									: 'text-red-500'}"
+							>
+								{category.trend.isPositive ? '+' : ''}{formatPercentage(
+									category.trend.value
+								)}
 							</div>
 						{:else}
 							<div class="text-muted-foreground text-xs">—</div>

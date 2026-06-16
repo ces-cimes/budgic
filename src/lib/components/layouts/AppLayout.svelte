@@ -25,7 +25,9 @@
 	function handleTypeSelect(type: Transaction['type'], status: Transaction['status']) {
 		closeTypePicker();
 		fabPopoverOpen = false;
-		goto(`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
+		goto(
+			`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`
+		);
 	}
 </script>
 
@@ -90,7 +92,9 @@
 					sideOffset={8}
 				>
 					<div class="p-2">
-						<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
+						<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">
+							Choose type
+						</p>
 						<TypePicker onSelect={handleTypeSelect} />
 					</div>
 				</Popover.Content>

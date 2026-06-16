@@ -289,7 +289,8 @@ export class MoneyManagerImporter extends BaseImporter {
 							(reimbursement.personId === target.person.id ||
 								reimbursement.person === target.person.displayName) &&
 							reimbursement.currency === currency &&
-							(reimbursement.status === 'expecting' || reimbursement.status === 'owed') &&
+							(reimbursement.status === 'expecting' ||
+								reimbursement.status === 'owed') &&
 							Math.abs(reimbursement.amount - amount) < 0.01
 					)
 			)
@@ -356,7 +357,11 @@ export class MoneyManagerImporter extends BaseImporter {
 		}
 
 		if (existingByMmUid && uidMode === 'merge') {
-			const merged = await this.finishMmUidReimportMerge(existingByMmUid, fresh, mmUid as string);
+			const merged = await this.finishMmUidReimportMerge(
+				existingByMmUid,
+				fresh,
+				mmUid as string
+			);
 			if (!merged) return false;
 			savedId = existingByMmUid.id;
 		} else if (existingByMmUid && uidMode === 'replace') {
@@ -673,7 +678,8 @@ export class MoneyManagerImporter extends BaseImporter {
 				const markedPersonLedger =
 					this.options.externalAccountMarkedAsPersonLedger?.[accountUid] === true;
 				const directRouteRequested =
-					this.options.externalAccountMarkedAsPersonLedgerDirectRoute?.[accountUid] === true;
+					this.options.externalAccountMarkedAsPersonLedgerDirectRoute?.[accountUid] ===
+					true;
 				const externalKeys = this.buildMmAccountExternalKeys(accountUid);
 				const personLedgerTarget =
 					markedPersonLedger || directRouteRequested
@@ -707,7 +713,10 @@ export class MoneyManagerImporter extends BaseImporter {
 				const currencyUid = row.currencyUid || 'RUB_RUB';
 				const currencyId = this.currencyMappings.get(currencyUid);
 				if (!currencyId) {
-					const currencyCode = extractCurrencyCode(currencyUid, this.csvFiles.get('CURRENCY'));
+					const currencyCode = extractCurrencyCode(
+						currencyUid,
+						this.csvFiles.get('CURRENCY')
+					);
 					const currency = await db.getCurrencyByCode(currencyCode);
 					if (currency) {
 						this.currencyMappings.set(currencyUid, currency.id);
@@ -914,7 +923,9 @@ export class MoneyManagerImporter extends BaseImporter {
 
 			// Check for duplicate
 			const categoryName = row.NAME || '';
-			const finalName = parentName ? flattenCategoryName(categoryName, parentName) : categoryName;
+			const finalName = parentName
+				? flattenCategoryName(categoryName, parentName)
+				: categoryName;
 
 			const existingCategories = await db.getActiveCategories();
 			const duplicate = existingCategories.find(
@@ -938,7 +949,9 @@ export class MoneyManagerImporter extends BaseImporter {
 				priority: getCategoryPriority(row.ORDERSEQ),
 				budgetAmount: undefined,
 				color: undefined,
-				description: parentName ? `Imported from MM: ${parentName} > ${categoryName}` : undefined,
+				description: parentName
+					? `Imported from MM: ${parentName} > ${categoryName}`
+					: undefined,
 				isActive: true,
 				createdAt: parseTimestamp(row.C_UTIME),
 				updatedAt: parseTimestamp(row.C_UTIME),
@@ -1044,9 +1057,13 @@ export class MoneyManagerImporter extends BaseImporter {
 					if (pair && pair.transferOut && pair.transferIn) {
 						const imported =
 							(pair.transferOut.assetUid &&
-								this.personLedgerDirectRouteTargets.has(pair.transferOut.assetUid)) ||
+								this.personLedgerDirectRouteTargets.has(
+									pair.transferOut.assetUid
+								)) ||
 							(pair.transferOut.toAssetUid &&
-								this.personLedgerDirectRouteTargets.has(pair.transferOut.toAssetUid)) ||
+								this.personLedgerDirectRouteTargets.has(
+									pair.transferOut.toAssetUid
+								)) ||
 							(pair.transferIn.assetUid &&
 								this.personLedgerDirectRouteTargets.has(pair.transferIn.assetUid))
 								? await this.importDirectRoutedTransferTransaction(pair)
@@ -1066,7 +1083,10 @@ export class MoneyManagerImporter extends BaseImporter {
 					? this.personLedgerDirectRouteTargets.get(row.assetUid)
 					: undefined;
 				if (directRouteTarget) {
-					const imported = await this.importDirectRoutedRegularTransaction(row, directRouteTarget);
+					const imported = await this.importDirectRoutedRegularTransaction(
+						row,
+						directRouteTarget
+					);
 					if (imported) {
 						this.statistics.transactionsImported++;
 					} else {
@@ -1296,10 +1316,18 @@ export class MoneyManagerImporter extends BaseImporter {
 		};
 
 		if (existingByMmUid && uidMode === 'merge') {
-			return await this.finishMmUidReimportMerge(existingByMmUid, transaction, mmUid as string);
+			return await this.finishMmUidReimportMerge(
+				existingByMmUid,
+				transaction,
+				mmUid as string
+			);
 		}
 		if (existingByMmUid && uidMode === 'replace') {
-			return await this.finishMmUidReimportReplace(existingByMmUid, transaction, mmUid as string);
+			return await this.finishMmUidReimportReplace(
+				existingByMmUid,
+				transaction,
+				mmUid as string
+			);
 		}
 
 		// Skip balance recalculation during import - will be done at the end
@@ -1396,7 +1424,9 @@ export class MoneyManagerImporter extends BaseImporter {
 		// - DO_TYPE 3 (transfer out): assetUid = source account, toAssetUid = destination account
 		// - DO_TYPE 4 (transfer in): assetUid = destination account, toAssetUid = source account
 		// We use the transfer out row (DO_TYPE 3) as the source of truth for the transfer direction
-		const fromAccountId = outRow.assetUid ? this.accountMappings.get(outRow.assetUid) : undefined;
+		const fromAccountId = outRow.assetUid
+			? this.accountMappings.get(outRow.assetUid)
+			: undefined;
 
 		// Use toAssetUid from the transfer out row (DO_TYPE 3) to get the destination account
 		// This is more reliable than using inRow.assetUid, as toAssetUid explicitly indicates the destination
@@ -1541,10 +1571,18 @@ export class MoneyManagerImporter extends BaseImporter {
 		};
 
 		if (existingByMmUid && uidMode === 'merge') {
-			return await this.finishMmUidReimportMerge(existingByMmUid, transaction, mmUid as string);
+			return await this.finishMmUidReimportMerge(
+				existingByMmUid,
+				transaction,
+				mmUid as string
+			);
 		}
 		if (existingByMmUid && uidMode === 'replace') {
-			return await this.finishMmUidReimportReplace(existingByMmUid, transaction, mmUid as string);
+			return await this.finishMmUidReimportReplace(
+				existingByMmUid,
+				transaction,
+				mmUid as string
+			);
 		}
 
 		// Skip balance recalculation during import - will be done at the end
@@ -1606,7 +1644,9 @@ export class MoneyManagerImporter extends BaseImporter {
 					accountIdsAffected: Array.from(this.importedAccountIds),
 					...(this.personAccountPreFlaggedNames.length > 0
 						? {
-								personAccountPreFlaggedNames: [...new Set(this.personAccountPreFlaggedNames)]
+								personAccountPreFlaggedNames: [
+									...new Set(this.personAccountPreFlaggedNames)
+								]
 							}
 						: {}),
 					...(this.personLedgerDirectRoute.length > 0
@@ -1647,7 +1687,9 @@ export class MoneyManagerImporter extends BaseImporter {
 				(id) => !removedIds.includes(id)
 			);
 			await recalculateBalancesForAccounts(touchedAccountIds);
-			this.addWarning(`Merged ${removedIds.length} micro-interest row(s) into daily summaries`);
+			this.addWarning(
+				`Merged ${removedIds.length} micro-interest row(s) into daily summaries`
+			);
 		}
 
 		const finalTransactions = (
@@ -1678,7 +1720,10 @@ export class MoneyManagerImporter extends BaseImporter {
 			splitCandidateGroups.length > 0
 				? {
 						groupCount: splitCandidateGroups.length,
-						transactionCount: splitCandidateGroups.reduce((n, g) => n + g.transactionIds.length, 0)
+						transactionCount: splitCandidateGroups.reduce(
+							(n, g) => n + g.transactionIds.length,
+							0
+						)
 					}
 				: undefined;
 
@@ -1713,7 +1758,8 @@ export class MoneyManagerImporter extends BaseImporter {
 		).sort((a, b) => b.allowanceImpact - a.allowanceImpact);
 
 		const unclassifiedForHints = taggedFinalTransactions.filter(
-			(tx) => tx.type === 'expense' && tx.status === 'cleared' && !tx.categoryId && !tx.deletedAt
+			(tx) =>
+				tx.type === 'expense' && tx.status === 'cleared' && !tx.categoryId && !tx.deletedAt
 		);
 		const patternHints = buildUnclassifiedPatternHints(unclassifiedForHints);
 
@@ -1772,10 +1818,14 @@ export class MoneyManagerImporter extends BaseImporter {
 			wizardExpenseTransactionIds,
 			wizardExpenseAbsByTransactionId,
 			...(splitCandidateSummary ? { splitCandidateSummary, splitCandidateGroups } : {}),
-			...(this.mmUidConflictReport.length > 0 ? { mmUidConflicts: this.mmUidConflictReport } : {}),
+			...(this.mmUidConflictReport.length > 0
+				? { mmUidConflicts: this.mmUidConflictReport }
+				: {}),
 			...(this.personAccountPreFlaggedNames.length > 0
 				? {
-						personAccountPreFlaggedNames: [...new Set(this.personAccountPreFlaggedNames)]
+						personAccountPreFlaggedNames: [
+							...new Set(this.personAccountPreFlaggedNames)
+						]
 					}
 				: {}),
 			...(this.personLedgerDirectRoute.length > 0

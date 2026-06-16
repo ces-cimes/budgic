@@ -88,7 +88,12 @@
 						<h3 class="text-sm font-semibold {getRarityTextColor(badge.rarity)}">
 							Achievement Unlocked!
 						</h3>
-						<Button onclick={dismiss} variant="ghost" size="sm" class="h-6 w-6 flex-shrink-0 p-0">
+						<Button
+							onclick={dismiss}
+							variant="ghost"
+							size="sm"
+							class="h-6 w-6 flex-shrink-0 p-0"
+						>
 							<X class="h-4 w-4" />
 						</Button>
 					</div>

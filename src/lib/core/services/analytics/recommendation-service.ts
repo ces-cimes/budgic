@@ -16,7 +16,15 @@ import { formatAmount, formatPercentage, getUserMainCurrency } from '$lib/utils/
 
 export interface Recommendation {
 	id: string;
-	type: 'budget' | 'spending' | 'goal' | 'behavior' | 'feature' | 'timing' | 'category' | 'credit';
+	type:
+		| 'budget'
+		| 'spending'
+		| 'goal'
+		| 'behavior'
+		| 'feature'
+		| 'timing'
+		| 'category'
+		| 'credit';
 	priority: 'low' | 'medium' | 'high' | 'urgent';
 	title: string;
 	description: string;
@@ -172,7 +180,8 @@ class RecommendationService {
 				estimatedImpact: 'medium',
 				metadata: {
 					frequency: context.spendingPatterns.velocityPatterns.transactionFrequency,
-					averageAmount: context.spendingPatterns.velocityPatterns.averageTransactionAmount
+					averageAmount:
+						context.spendingPatterns.velocityPatterns.averageTransactionAmount
 				},
 				createdAt: new Date().toISOString()
 			});
@@ -220,7 +229,12 @@ class RecommendationService {
 					: null;
 
 				// Goal behind schedule
-				if (timeRemaining !== null && timeRemaining > 0 && progress < 0.5 && timeRemaining < 90) {
+				if (
+					timeRemaining !== null &&
+					timeRemaining > 0 &&
+					progress < 0.5 &&
+					timeRemaining < 90
+				) {
 					recommendations.push({
 						id: `goal-behind-${goal.id}`,
 						type: 'goal',
@@ -256,13 +270,17 @@ class RecommendationService {
 		});
 
 		// Suggest creating a goal if none exist
-		if (context.goals.length === 0 && context.userProfile.behaviorMaturityLevel !== 'beginner') {
+		if (
+			context.goals.length === 0 &&
+			context.userProfile.behaviorMaturityLevel !== 'beginner'
+		) {
 			recommendations.push({
 				id: 'goal-create-first',
 				type: 'goal',
 				priority: 'medium',
 				title: 'Create Your First Goal',
-				description: 'Setting financial goals helps you stay focused and track your progress.',
+				description:
+					'Setting financial goals helps you stay focused and track your progress.',
 				actionable: true,
 				actionText: 'Create Goal',
 				actionUrl: '/plan?tab=goals',

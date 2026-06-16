@@ -13,7 +13,10 @@ vi.mock('$lib/core/db', async (importOriginal) => {
 
 vi.mock('$lib/core/services', () => ({
 	userService: {
-		getUserPreferences: vi.fn(async () => ({ currency: 'USD', includeAccruedInNetWorth: false }))
+		getUserPreferences: vi.fn(async () => ({
+			currency: 'USD',
+			includeAccruedInNetWorth: false
+		}))
 	},
 	exchangeRateService: {
 		convertAmount: vi.fn()

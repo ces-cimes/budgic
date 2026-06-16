@@ -69,7 +69,9 @@
 
 	function handleSlotBTypeSelect(type: Transaction['type'], status: Transaction['status']) {
 		slotBPopoverOpen = false;
-		goto(`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`);
+		goto(
+			`/transactions/add?type=${encodeURIComponent(type)}&status=${encodeURIComponent(status)}`
+		);
 	}
 
 	function isActive(path: string) {
@@ -149,20 +151,26 @@
 						class="truncate text-lg font-semibold text-[var(--color-text-primary)] group-data-[collapsible=icon]:hidden"
 						>Budgic</span
 					>
-					<Sidebar.Trigger class="ml-auto size-8 shrink-0 group-data-[collapsible=icon]:ml-0" />
+					<Sidebar.Trigger
+						class="ml-auto size-8 shrink-0 group-data-[collapsible=icon]:ml-0"
+					/>
 				</div>
 			</Sidebar.Header>
 
 			<div class="flex min-h-0 flex-1 flex-col gap-2 overflow-auto">
 				<!-- Main: Home, Transactions, Plan (+ tabs), Insights (+ tabs) -->
 				<Sidebar.Group>
-					<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden">Main</Sidebar.GroupLabel>
+					<Sidebar.GroupLabel class="group-data-[collapsible=icon]:hidden"
+						>Main</Sidebar.GroupLabel
+					>
 					<Sidebar.GroupContent>
 						<Sidebar.Menu>
 							{#if loading}
 								{#each Array(4) as _, i}
 									<Sidebar.MenuItem>
-										<Skeleton class="h-10 w-full rounded-md bg-[var(--color-bg-tertiary)]" />
+										<Skeleton
+											class="h-10 w-full rounded-md bg-[var(--color-bg-tertiary)]"
+										/>
 									</Sidebar.MenuItem>
 								{/each}
 							{:else}
@@ -171,7 +179,8 @@
 									{@const badgeValue = item.badge?.countKey
 										? badges.get(item.badge.countKey)
 										: undefined}
-									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
+									{@const showBadge =
+										item.badge && badgeValue !== undefined && badgeValue !== 0}
 									{#if item.tabs?.length}
 										<SidebarNavCollapsible
 											{item}
@@ -214,7 +223,8 @@
 									{@const badgeValue = item.badge?.countKey
 										? badges.get(item.badge.countKey)
 										: undefined}
-									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
+									{@const showBadge =
+										item.badge && badgeValue !== undefined && badgeValue !== 0}
 									{#if item.tabs?.length}
 										<SidebarNavCollapsible
 											{item}
@@ -262,7 +272,8 @@
 										aria-label="Add transaction"
 									>
 										<Plus class="h-4 w-4 shrink-0" />
-										<span class="truncate text-sm group-data-[collapsible=icon]:hidden"
+										<span
+											class="truncate text-sm group-data-[collapsible=icon]:hidden"
 											>Add transaction</span
 										>
 									</Popover.Trigger>
@@ -273,7 +284,11 @@
 										sideOffset={8}
 									>
 										<div class="p-2">
-											<p class="text-muted-foreground px-2 pb-2 text-xs font-medium">Choose type</p>
+											<p
+												class="text-muted-foreground px-2 pb-2 text-xs font-medium"
+											>
+												Choose type
+											</p>
 											<TypePicker onSelect={handleSlotBTypeSelect} />
 										</div>
 									</Popover.Content>
@@ -291,7 +306,8 @@
 									{@const badgeValue = item.badge?.countKey
 										? badges.get(item.badge.countKey)
 										: undefined}
-									{@const showBadge = item.badge && badgeValue !== undefined && badgeValue !== 0}
+									{@const showBadge =
+										item.badge && badgeValue !== undefined && badgeValue !== 0}
 									{#if item.opensPanel}
 										<Sidebar.MenuItem>
 											<Sidebar.MenuButton
@@ -299,7 +315,10 @@
 												isActive={false}
 												tooltipContent={item.label}
 												tooltipContentProps={{ class: 'rounded-lg' }}
-												onclick={() => window.dispatchEvent(new CustomEvent('open-alerts-panel'))}
+												onclick={() =>
+													window.dispatchEvent(
+														new CustomEvent('open-alerts-panel')
+													)}
 											>
 												{#snippet child({ props })}
 													<button
@@ -315,10 +334,16 @@
 															class="flex-1 truncate text-left text-sm group-data-[collapsible=icon]:hidden"
 															>{item.label}</span
 														>
-														<div class="ml-auto shrink-0 overflow-visible">
+														<div
+															class="ml-auto shrink-0 overflow-visible"
+														>
 															<AlertBadge
-																count={typeof badgeValue === 'number' ? badgeValue : 0}
-																variant={alertsBadgeVariant === 'warning'
+																count={typeof badgeValue ===
+																'number'
+																	? badgeValue
+																	: 0}
+																variant={alertsBadgeVariant ===
+																'warning'
 																	? 'warning'
 																	: 'destructive'}
 															/>

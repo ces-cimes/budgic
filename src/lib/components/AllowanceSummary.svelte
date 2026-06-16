@@ -4,7 +4,10 @@
 		NegativeAllowanceStatus,
 		RecoverySuggestion
 	} from '$lib/core/services/core/negative-allowance-service';
-	import { computeTierSegmentLayout, type AllowanceTierRow } from '$lib/utils/budget-tier-display';
+	import {
+		computeTierSegmentLayout,
+		type AllowanceTierRow
+	} from '$lib/utils/budget-tier-display';
 	import { formatAmount, formatTransactionAmount } from '$lib/utils/currency-utils';
 	import { dateUtils } from '$lib/utils/date-utils';
 	import { TrendingDown, Lightbulb } from '@lucide/svelte';
@@ -107,7 +110,9 @@
 				</p>
 				<!-- Hero: weekly surplus in recovery view, daily allowance otherwise -->
 				<div
-					class="text-hero-sm {isOverBudget || isOverspent ? 'text-[var(--color-warm-coral)]' : ''}"
+					class="text-hero-sm {isOverBudget || isOverspent
+						? 'text-[var(--color-warm-coral)]'
+						: ''}"
 				>
 					{#if showRecoveryHero}
 						{formatAmount(recoveryHorizon!.weeklySurplus, recoveryHorizon!.currency)}
@@ -123,12 +128,19 @@
 			<div class="shrink-0 text-right">
 				{#if showRecoveryHero}
 					<p class="text-muted-foreground mb-0.5 text-xs">Obligations</p>
-					<div class="text-amount text-sm font-semibold text-[var(--color-text-secondary)]">
-						{formatAmount(recoveryHorizon!.totalObligationBalance, recoveryHorizon!.currency)}
+					<div
+						class="text-amount text-sm font-semibold text-[var(--color-text-secondary)]"
+					>
+						{formatAmount(
+							recoveryHorizon!.totalObligationBalance,
+							recoveryHorizon!.currency
+						)}
 					</div>
 					<p class="text-muted-foreground mt-0.5 text-[10px]">
 						{#if recoveryHorizon!.aggregateClearanceDate}
-							Clear {dateUtils.formatMonthYear(recoveryHorizon!.aggregateClearanceDate)}
+							Clear {dateUtils.formatMonthYear(
+								recoveryHorizon!.aggregateClearanceDate
+							)}
 						{:else}
 							Clearance unknown
 						{/if}
@@ -154,8 +166,8 @@
 		{#if passiveAccrualNote != null && !showRecoveryHero}
 			<p class="text-muted-foreground text-[10px] leading-snug">
 				Safe to spend includes about
-				{formatAmount(passiveAccrualNote, allowance.total.currency)} estimated savings accrual not yet
-				logged as income.
+				{formatAmount(passiveAccrualNote, allowance.total.currency)} estimated savings accrual
+				not yet logged as income.
 			</p>
 		{/if}
 
@@ -169,7 +181,10 @@
 			</div>
 		{:else if showTierBar}
 			<!-- Normal mode: tier-coloured segmented allowance bar (Milestone E) -->
-			<TierSegmentedAllowanceBar segments={tierSegments} currency={allowance.total.currency} />
+			<TierSegmentedAllowanceBar
+				segments={tierSegments}
+				currency={allowance.total.currency}
+			/>
 		{/if}
 
 		<!-- Over-budget warning -->
@@ -211,7 +226,9 @@
 					</p>
 				</div>
 				<div class="flex items-center justify-between gap-3 text-[10px]">
-					<span class="text-[var(--color-text-tertiary)]">If all unclassified counted</span>
+					<span class="text-[var(--color-text-tertiary)]"
+						>If all unclassified counted</span
+					>
 					<span
 						class="font-medium {conservativeRemaining < 0
 							? 'text-[var(--color-warm-coral)]'

@@ -227,7 +227,10 @@ class CreditUtilizationService {
 					accountName: accountAnalysis.accountName,
 					recommendedAction: `Pay down ${
 						accountAnalysis.recommendedPaymentForTarget
-							? formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency)
+							? formatAmount(
+									accountAnalysis.recommendedPaymentForTarget,
+									accountAnalysis.currency
+								)
 							: 'your balance'
 					} to reach optimal utilization.`,
 					estimatedImpact: {
@@ -253,7 +256,10 @@ class CreditUtilizationService {
 					accountName: accountAnalysis.accountName,
 					recommendedAction: `Consider paying down ${
 						accountAnalysis.recommendedPaymentForTarget
-							? formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency)
+							? formatAmount(
+									accountAnalysis.recommendedPaymentForTarget,
+									accountAnalysis.currency
+								)
 							: 'your balance'
 					} to improve your credit score.`,
 					estimatedImpact: {
@@ -278,7 +284,10 @@ class CreditUtilizationService {
 					accountName: accountAnalysis.accountName,
 					recommendedAction: `Consider paying down ${
 						accountAnalysis.recommendedPaymentForTarget
-							? formatAmount(accountAnalysis.recommendedPaymentForTarget, accountAnalysis.currency)
+							? formatAmount(
+									accountAnalysis.recommendedPaymentForTarget,
+									accountAnalysis.currency
+								)
 							: 'your balance'
 					} to reach optimal utilization.`,
 					estimatedImpact: {
@@ -388,7 +397,9 @@ class CreditUtilizationService {
 		}
 
 		// Sort accounts by utilization (highest first)
-		const sortedAccounts = [...aggregate.accounts].sort((a, b) => b.utilization - a.utilization);
+		const sortedAccounts = [...aggregate.accounts].sort(
+			(a, b) => b.utilization - a.utilization
+		);
 
 		const recommendations: Array<{
 			accountId: string;
@@ -431,7 +442,8 @@ class CreditUtilizationService {
 		for (const rec of recommendations) {
 			projectedTotalDebt -= rec.recommendedPayment;
 		}
-		const projectedAggregateUtilization = (projectedTotalDebt / aggregate.totalCreditLimit) * 100;
+		const projectedAggregateUtilization =
+			(projectedTotalDebt / aggregate.totalCreditLimit) * 100;
 
 		return {
 			recommendations,

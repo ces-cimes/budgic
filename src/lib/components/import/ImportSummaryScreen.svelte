@@ -82,14 +82,21 @@
 <div class="space-y-4">
 	<h3 class="text-lg font-semibold text-[var(--color-text-primary)]">Import summary</h3>
 	<div class="space-y-2 rounded-xl bg-[var(--color-bg-surface)] p-4 text-sm">
-		<p><span class="text-[var(--color-text-tertiary)]">Transactions:</span> {transactionCount}</p>
-		<p><span class="text-[var(--color-text-tertiary)]">Accounts affected:</span> {accountCount}</p>
+		<p>
+			<span class="text-[var(--color-text-tertiary)]">Transactions:</span>
+			{transactionCount}
+		</p>
+		<p>
+			<span class="text-[var(--color-text-tertiary)]">Accounts affected:</span>
+			{accountCount}
+		</p>
 		<p>
 			<span class="text-[var(--color-text-tertiary)]">Date range:</span>
 			{fmtDate(dateRange?.start)} - {fmtDate(dateRange?.end)}
 		</p>
 		<p class="pt-1 text-[var(--color-text-secondary)]">
-			Detected automation noise: {roundUpCount} round-up entries ({roundUpAmount.toFixed(2)}) and
+			Detected automation noise: {roundUpCount} round-up entries ({roundUpAmount.toFixed(2)})
+			and
 			{interestCount} micro-interest entries.
 		</p>
 	</div>
@@ -97,7 +104,9 @@
 		<div
 			class="space-y-2 rounded-xl border border-[var(--color-info)]/30 bg-[var(--color-info)]/10 p-4"
 		>
-			<p class="text-sm font-medium text-[var(--color-text-primary)]">Balance-based tracking</p>
+			<p class="text-sm font-medium text-[var(--color-text-primary)]">
+				Balance-based tracking
+			</p>
 			{#each passiveBalanceHints as h (h.accountId)}
 				<p class="text-xs text-[var(--color-text-secondary)]">
 					<span class="font-medium">{h.accountName}:</span>
@@ -114,13 +123,13 @@
 				Direct-routed person ledgers
 			</p>
 			<p class="text-xs text-[var(--color-text-secondary)]">
-				{directRouteNames.join(', ')}. Those movements were routed straight to the anchor wallet,
-				and no temporary wallet was created.
+				{directRouteNames.join(', ')}. Those movements were routed straight to the anchor
+				wallet, and no temporary wallet was created.
 			</p>
 			{#if hasPersonLedgerCloseStep}
 				<p class="text-xs text-[var(--color-text-tertiary)]">
-					The later close step is only for fallback person ledgers that still opened a temporary
-					wallet.
+					The later close step is only for fallback person ledgers that still opened a
+					temporary wallet.
 				</p>
 			{/if}
 		</div>
@@ -145,8 +154,8 @@
 			<p class="text-xs text-[var(--color-text-tertiary)]">
 				Tag recent activity as gift (lifestyle) or reimbursement.
 				{#if hasPersonLedgerCloseStep}
-					A later wizard step will close fallback person ledgers that still opened a temporary
-					wallet.
+					A later wizard step will close fallback person ledgers that still opened a
+					temporary wallet.
 				{:else}
 					Close these from the account page when you are ready.
 				{/if}
@@ -188,7 +197,8 @@
 									<button
 										type="button"
 										class="shrink-0 rounded border border-[var(--color-border)] px-1.5 py-0.5 hover:bg-[var(--color-bg-surface)]"
-										onclick={() => onTagPersonTxReimbursement(tx.id, panel.name)}
+										onclick={() =>
+											onTagPersonTxReimbursement(tx.id, panel.name)}
 									>
 										Reimburse
 									</button>

@@ -61,9 +61,13 @@
 		const result: OutstandingItem[] = [];
 		for (const tx of transactions) {
 			for (const reimbursement of tx.reimbursements || []) {
-				if (reimbursement.status !== 'expecting' && reimbursement.status !== 'owed') continue;
+				if (reimbursement.status !== 'expecting' && reimbursement.status !== 'owed')
+					continue;
 				const txDate = tx.clearedDate || tx.plannedDate || tx.createdAt;
-				const ageDays = Math.max(0, Math.floor((now - new Date(txDate).getTime()) / 86400000));
+				const ageDays = Math.max(
+					0,
+					Math.floor((now - new Date(txDate).getTime()) / 86400000)
+				);
 				result.push({
 					transactionId: tx.id,
 					transactionDescription: tx.description || 'Untitled transaction',
@@ -147,7 +151,9 @@
 
 <section class="squircle-4xl squircle-border squircle-fill-tertiary space-y-4 p-5">
 	<div>
-		<h3 class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase">
+		<h3
+			class="text-xs font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
+		>
 			Outstanding reimbursements
 		</h3>
 		<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
@@ -175,7 +181,9 @@
 				</div>
 				{#each expectingItems as item (itemKey(item))}
 					<div
-						class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(item.ageDays)}"
+						class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(
+							item.ageDays
+						)}"
 					>
 						<div class="flex items-start justify-between gap-2">
 							<div>
@@ -185,29 +193,44 @@
 								</p>
 							</div>
 							<p class="text-sm font-semibold">
-								{formatTransactionAmount(item.reimbursement.amount, item.reimbursement.currency)}
+								{formatTransactionAmount(
+									item.reimbursement.amount,
+									item.reimbursement.currency
+								)}
 							</p>
 						</div>
 						<div class="mt-2 flex items-center justify-between gap-2">
-							<span class="text-xs text-[var(--color-text-tertiary)]">{ageLabel(item.ageDays)}</span
+							<span class="text-xs text-[var(--color-text-tertiary)]"
+								>{ageLabel(item.ageDays)}</span
 							>
 							<div class="flex items-center gap-2">
-								<Button variant="ghost" size="sm" onclick={() => markForgiven(item)}>Forgive</Button
+								<Button variant="ghost" size="sm" onclick={() => markForgiven(item)}
+									>Forgive</Button
 								>
 								{#if settlingKey === itemKey(item)}
 									<div class="flex items-center gap-2">
-										<Select.Root type="single" bind:value={selectedSettlementTx}>
-											<Select.Trigger class="w-56">Pick settlement transaction</Select.Trigger>
+										<Select.Root
+											type="single"
+											bind:value={selectedSettlementTx}
+										>
+											<Select.Trigger class="w-56"
+												>Pick settlement transaction</Select.Trigger
+											>
 											<Select.Content>
 												{#each settlementCandidates as tx (tx.id)}
 													<Select.Item value={tx.id}>
 														{tx.description || 'Income transaction'} ·
-														{formatTransactionAmount(tx.amount || 0, tx.currency)}
+														{formatTransactionAmount(
+															tx.amount || 0,
+															tx.currency
+														)}
 													</Select.Item>
 												{/each}
 											</Select.Content>
 										</Select.Root>
-										<Button size="sm" onclick={() => markSettled(item)}>Mark settled</Button>
+										<Button size="sm" onclick={() => markSettled(item)}
+											>Mark settled</Button
+										>
 									</div>
 								{:else}
 									<Button
@@ -231,12 +254,17 @@
 				<div class="flex items-center justify-between">
 					<p class="text-sm font-medium">I owe</p>
 					<p class="text-sm font-semibold">
-						{formatTransactionAmount(owedTotal, owedItems[0]?.reimbursement.currency || 'USD')}
+						{formatTransactionAmount(
+							owedTotal,
+							owedItems[0]?.reimbursement.currency || 'USD'
+						)}
 					</p>
 				</div>
 				{#each owedItems as item (itemKey(item))}
 					<div
-						class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(item.ageDays)}"
+						class="rounded-xl border border-[var(--color-border)] p-3 {ageTintClass(
+							item.ageDays
+						)}"
 					>
 						<div class="flex items-start justify-between gap-2">
 							<div>
@@ -246,11 +274,16 @@
 								</p>
 							</div>
 							<p class="text-sm font-semibold">
-								{formatTransactionAmount(item.reimbursement.amount, item.reimbursement.currency)}
+								{formatTransactionAmount(
+									item.reimbursement.amount,
+									item.reimbursement.currency
+								)}
 							</p>
 						</div>
 						<div class="mt-2 flex items-center justify-end">
-							<Button variant="ghost" size="sm" onclick={() => markForgiven(item)}>Forgive</Button>
+							<Button variant="ghost" size="sm" onclick={() => markForgiven(item)}
+								>Forgive</Button
+							>
 						</div>
 					</div>
 				{/each}

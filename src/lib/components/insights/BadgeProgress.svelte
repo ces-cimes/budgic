@@ -76,9 +76,9 @@
 	<!-- Icon -->
 	<div class="flex-shrink-0">
 		<div
-			class="rounded-full p-2 {isUnlocked ? getRarityBg(badge.rarity) : 'bg-muted'} {isUnlocked
-				? getRarityColor(badge.rarity)
-				: 'text-muted-foreground'}"
+			class="rounded-full p-2 {isUnlocked
+				? getRarityBg(badge.rarity)
+				: 'bg-muted'} {isUnlocked ? getRarityColor(badge.rarity) : 'text-muted-foreground'}"
 		>
 			{#if getIcon(badge.badgeType)}
 				{@const Icon = getIcon(badge.badgeType)}
@@ -99,9 +99,9 @@
 			</h3>
 			{#if isUnlocked}
 				<span
-					class="rounded-full px-2 py-0.5 text-xs {getRarityBg(badge.rarity)} {getRarityColor(
+					class="rounded-full px-2 py-0.5 text-xs {getRarityBg(
 						badge.rarity
-					)} ml-2 capitalize"
+					)} {getRarityColor(badge.rarity)} ml-2 capitalize"
 				>
 					{badge.rarity}
 				</span>

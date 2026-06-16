@@ -145,7 +145,8 @@
 
 		<div class="relative flex items-center gap-2">
 			<div
-				class="h-4 w-4 flex-shrink-0 text-[{options[4].borderColor}] group-hover:text-[{options[4]
+				class="h-4 w-4 flex-shrink-0 text-[{options[4]
+					.borderColor}] group-hover:text-[{options[4]
 					.accentColor}] transition-colors duration-250"
 			>
 				<svg
@@ -197,7 +198,8 @@
 			></div>
 			<div class="relative flex items-center gap-2">
 				<div
-					class="h-4 w-4 flex-shrink-0 text-[{options[2].borderColor}] group-hover:text-[{options[2]
+					class="h-4 w-4 flex-shrink-0 text-[{options[2]
+						.borderColor}] group-hover:text-[{options[2]
 						.borderColor}] transition-colors duration-250"
 				>
 					<svg
@@ -215,7 +217,8 @@
 				</div>
 				<span
 					class="text-foreground relative text-sm font-medium group-hover:text-[{options[2]
-						.borderColor}] truncate transition-colors duration-250">{options[2].label}</span
+						.borderColor}] truncate transition-colors duration-250"
+					>{options[2].label}</span
 				>
 			</div>
 		</button>
@@ -246,7 +249,8 @@
 			></div>
 			<div class="relative flex items-center gap-2">
 				<div
-					class="h-4 w-4 flex-shrink-0 text-[{options[3].borderColor}] group-hover:text-[{options[3]
+					class="h-4 w-4 flex-shrink-0 text-[{options[3]
+						.borderColor}] group-hover:text-[{options[3]
 						.borderColor}] transition-colors duration-250"
 				>
 					<svg
@@ -267,7 +271,8 @@
 				</div>
 				<span
 					class="text-foreground relative text-sm font-medium group-hover:text-[{options[3]
-						.borderColor}] truncate transition-colors duration-250">{options[3].label}</span
+						.borderColor}] truncate transition-colors duration-250"
+					>{options[3].label}</span
 				>
 			</div>
 		</button>
@@ -302,7 +307,8 @@
 			></div>
 			<div class="relative flex items-center gap-2">
 				<div
-					class="h-4 w-4 flex-shrink-0 text-[{options[0].borderColor}] group-hover:text-[{options[0]
+					class="h-4 w-4 flex-shrink-0 text-[{options[0]
+						.borderColor}] group-hover:text-[{options[0]
 						.borderColor}] transition-colors duration-250"
 				>
 					<svg
@@ -351,7 +357,8 @@
 			></div>
 			<div class="relative flex items-center gap-2">
 				<div
-					class="h-4 w-4 flex-shrink-0 text-[{options[1].borderColor}] group-hover:text-[{options[1]
+					class="h-4 w-4 flex-shrink-0 text-[{options[1]
+						.borderColor}] group-hover:text-[{options[1]
 						.borderColor}] transition-colors duration-250"
 				>
 					<svg

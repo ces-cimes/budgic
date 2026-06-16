@@ -11,11 +11,17 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<Header title="Notifications" backButtonLabel="Back to settings" backButtonLink="/settings" />
+		<Header
+			title="Notifications"
+			backButtonLabel="Back to settings"
+			backButtonLink="/settings"
+		/>
 	{/snippet}
 
 	<div class="mx-auto max-w-2xl px-4 py-6">
-		<div class="border-border rounded-2xl border bg-[var(--color-bg-tertiary)] p-12 text-center">
+		<div
+			class="border-border rounded-2xl border bg-[var(--color-bg-tertiary)] p-12 text-center"
+		>
 			<div
 				class="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-[var(--color-amber-subtle)]"
 			>

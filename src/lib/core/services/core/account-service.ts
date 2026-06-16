@@ -365,7 +365,8 @@ class AccountService {
 					balanceForTotal = passiveAccountService.projectBalance(account, new Date());
 				} else {
 					balanceForTotal =
-						account.lastConfirmedBalance !== undefined && account.lastConfirmedBalance !== null
+						account.lastConfirmedBalance !== undefined &&
+						account.lastConfirmedBalance !== null
 							? account.lastConfirmedBalance
 							: account.currentBalance;
 				}
@@ -410,7 +411,11 @@ class AccountService {
 
 		const convert = async (account: Account, amount: number) => {
 			if (account.currency === mainCurrency) return amount;
-			const c = await exchangeRateService.convertAmount(amount, account.currency, mainCurrency);
+			const c = await exchangeRateService.convertAmount(
+				amount,
+				account.currency,
+				mainCurrency
+			);
 			return c ?? amount;
 		};
 
@@ -519,12 +524,16 @@ class AccountService {
 		}
 
 		if (Math.abs(gap) <= autoResolveThreshold) {
-			await reconciliationService.performReconciliation(params.accountId, params.enteredBalance, {
-				tolerance,
-				autoResolveSmallDiscrepancies: true,
-				autoResolveThreshold,
-				includePendingTransactions: false
-			});
+			await reconciliationService.performReconciliation(
+				params.accountId,
+				params.enteredBalance,
+				{
+					tolerance,
+					autoResolveSmallDiscrepancies: true,
+					autoResolveThreshold,
+					includePendingTransactions: false
+				}
+			);
 			await this.updateAccount(params.accountId, {
 				lastConfirmedBalance: params.enteredBalance,
 				lastConfirmedAt: now
@@ -643,9 +652,14 @@ class AccountService {
 					currency: account.currency,
 					amount: amt,
 					clearedDate: now,
-					description: params.classification === 'interest-charge' ? 'Interest charge' : 'Bank fee',
+					description:
+						params.classification === 'interest-charge'
+							? 'Interest charge'
+							: 'Bank fee',
 					automation:
-						params.classification === 'interest-charge' ? 'interest-charge' : 'transfer-fee',
+						params.classification === 'interest-charge'
+							? 'interest-charge'
+							: 'transfer-fee',
 					categoryId: expenseCat
 				},
 				false

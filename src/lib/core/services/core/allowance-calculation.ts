@@ -524,7 +524,9 @@ function calculateHistoricalSpending(
 	historicalExpenses.forEach((amount, index) => {
 		const transaction = transactions.find((t) => {
 			const tier = t.categoryId ? tierByCategoryId.get(t.categoryId) : undefined;
-			return expenseCountsTowardAllowanceAnalytics(t, tier) && Math.abs(t.amount || 0) === amount;
+			return (
+				expenseCountsTowardAllowanceAnalytics(t, tier) && Math.abs(t.amount || 0) === amount
+			);
 		});
 		if (transaction?.clearedDate) {
 			const date = new Date(transaction.clearedDate);
@@ -956,11 +958,33 @@ async function calculateGlobalAllowanceLegacy(
 	const { accountCountsInNetWorth } = await import('$lib/core/db');
 	const activeAccounts = accounts.filter(
 		(a) =>
-			a.isActive && (a.type === 'checking' || a.type === 'savings') && accountCountsInNetWorth(a)
+			a.isActive &&
+			(a.type === 'checking' || a.type === 'savings') &&
+			accountCountsInNetWorth(a)
 	);
 
 	if (activeAccounts.length === 0) {
-		throw new Error('No active accounts found');
+		const { userService } = await import('$lib/core/services');
+		const preferences = await userService.getUserPreferences();
+		const userCurrency = preferences?.currency || 'USD';
+		const daysRemaining = Math.max(1, end.getDate() - now.getDate());
+		return {
+			total: {
+				dailySafe: 0,
+				monthly: 0,
+				remaining: 0,
+				spentSoFar: 0,
+				daysRemaining,
+				currency: userCurrency,
+				methodWeights: { historical: 0, buffer: 0, velocity: 0 },
+				methodResults: { buffer: 0, velocity: 0 },
+				projectedBalance: 0,
+				confidence: 0
+			},
+			periodStart: start,
+			periodEnd: end,
+			recommendations: []
+		};
 	}
 
 	// Get user's main currency
@@ -1066,7 +1090,9 @@ async function calculateGlobalAllowanceLegacy(
 			if (converted !== null) {
 				totalBufferAmount += converted;
 			} else {
-				console.warn(`Failed to convert buffer from ${account.currency} to ${userCurrency}`);
+				console.warn(
+					`Failed to convert buffer from ${account.currency} to ${userCurrency}`
+				);
 				totalBufferAmount += buffer;
 			}
 		}

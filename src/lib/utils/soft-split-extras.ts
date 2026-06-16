@@ -76,7 +76,10 @@ export function buildSplitResultFromForm(
 	const sumE = clamped.reduce((a, x) => a + x.weight, 0);
 	let primaryW = 1 - sumE;
 	if (primaryW < SPLIT_MIN_SLICE - 1e-12) return undefined;
-	const weights = roundWeightSum([{ categoryId: primaryCategoryId, weight: primaryW }, ...clamped]);
+	const weights = roundWeightSum([
+		{ categoryId: primaryCategoryId, weight: primaryW },
+		...clamped
+	]);
 	const primaryId = primaryCategoryIdFromWeights(weights);
 	return { weights, primaryId };
 }

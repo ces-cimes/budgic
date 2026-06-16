@@ -1,7 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { recommendationService, type Recommendation } from '$lib/core/services';
-	import { Lightbulb, AlertCircle, Target, TrendingUp, Settings, Clock, Tag } from '@lucide/svelte';
+	import {
+		Lightbulb,
+		AlertCircle,
+		Target,
+		TrendingUp,
+		Settings,
+		Clock,
+		Tag
+	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 
@@ -94,9 +102,21 @@
 <div class="recommendations-list {className}">
 	{#if isLoading}
 		<div class="py-8 text-center">
-			<div class="bg-muted mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full">
-				<svg class="text-muted-foreground h-6 w-6 animate-spin" fill="none" viewBox="0 0 24 24">
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+			<div
+				class="bg-muted mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+			>
+				<svg
+					class="text-muted-foreground h-6 w-6 animate-spin"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle
+						class="opacity-25"
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="4"
 					></circle>
 					<path
 						class="opacity-75"
@@ -114,7 +134,9 @@
 			>
 				<AlertCircle class="h-6 w-6 text-red-600 dark:text-red-400" />
 			</div>
-			<h3 class="text-foreground mb-1 text-sm font-semibold">Error Loading Recommendations</h3>
+			<h3 class="text-foreground mb-1 text-sm font-semibold">
+				Error Loading Recommendations
+			</h3>
 			<p class="text-muted-foreground mb-3 text-xs">{error}</p>
 			<button
 				onclick={loadRecommendations}
@@ -144,7 +166,9 @@
 					<div class="flex items-start gap-3">
 						<!-- Icon -->
 						<div class="mt-0.5 flex-shrink-0">
-							<div class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
+							<div
+								class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg"
+							>
 								<Icon class="text-primary h-4 w-4" />
 							</div>
 						</div>
@@ -172,11 +196,20 @@
 							</div>
 
 							<!-- Metadata -->
-							<div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-2 text-xs">
+							<div
+								class="text-muted-foreground mt-2 flex flex-wrap items-center gap-2 text-xs"
+							>
 								<span
-									class="flex items-center gap-1 {getImpactColor(recommendation.estimatedImpact)}"
+									class="flex items-center gap-1 {getImpactColor(
+										recommendation.estimatedImpact
+									)}"
 								>
-									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg
+										class="h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
 										<path
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -188,7 +221,12 @@
 								</span>
 
 								<span class="flex items-center gap-1">
-									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg
+										class="h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
 										<path
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -208,7 +246,12 @@
 										class="text-primary bg-primary/10 hover:bg-primary/20 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
 									>
 										{recommendation.actionText}
-										<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<svg
+											class="h-3 w-3"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
 											<path
 												stroke-linecap="round"
 												stroke-linejoin="round"

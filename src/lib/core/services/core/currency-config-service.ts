@@ -80,7 +80,10 @@ class CurrencyConfigService {
 	async updateCurrencyConfig(
 		currencyCode: string,
 		updates: Partial<
-			Omit<CurrencyConfiguration, 'id' | 'currencyCode' | 'createdAt' | 'updatedAt' | 'deletedAt'>
+			Omit<
+				CurrencyConfiguration,
+				'id' | 'currencyCode' | 'createdAt' | 'updatedAt' | 'deletedAt'
+			>
 		>
 	): Promise<CurrencyConfiguration> {
 		// Check if configuration already exists

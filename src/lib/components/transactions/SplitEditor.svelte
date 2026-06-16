@@ -67,7 +67,8 @@
 	function splitExtrasEqual(a: SplitExtra[], b: SplitExtra[]): boolean {
 		if (a.length !== b.length) return false;
 		return a.every(
-			(x, i) => x.categoryId === b[i]?.categoryId && Math.abs(x.weight - (b[i]?.weight ?? 0)) < 1e-9
+			(x, i) =>
+				x.categoryId === b[i]?.categoryId && Math.abs(x.weight - (b[i]?.weight ?? 0)) < 1e-9
 		);
 	}
 
@@ -327,7 +328,11 @@
 									placeholder="Additional category…"
 									allowClear={false}
 									fieldKey="transaction.category.split"
-									selectionContext={{ transactionType, status, accountId: accountId || undefined }}
+									selectionContext={{
+										transactionType,
+										status,
+										accountId: accountId || undefined
+									}}
 									onValueChange={() => {
 										extras = extras.map((e) => ({ ...e }));
 										source = 'manual';
@@ -386,11 +391,16 @@
 						{#if lone?.categoryId}
 							<div class="space-y-1.5">
 								<div class="flex justify-between gap-2 text-xs">
-									<span class="text-foreground min-w-0 truncate font-medium">{primaryLabel}</span>
-									<span class="text-muted-foreground shrink-0 tabular-nums"
-										>{Math.round((1 - lone.weight) * 100)}% · {Math.round(lone.weight * 100)}%</span
+									<span class="text-foreground min-w-0 truncate font-medium"
+										>{primaryLabel}</span
 									>
-									<span class="text-foreground min-w-0 truncate text-right font-medium"
+									<span class="text-muted-foreground shrink-0 tabular-nums"
+										>{Math.round((1 - lone.weight) * 100)}% · {Math.round(
+											lone.weight * 100
+										)}%</span
+									>
+									<span
+										class="text-foreground min-w-0 truncate text-right font-medium"
 										>{extraLabel}</span
 									>
 								</div>
@@ -402,14 +412,22 @@
 									class="w-full accent-[var(--color-amber)]"
 									value={Math.round((1 - lone.weight) * 100)}
 									oninput={(e) => {
-										onSoftSplitSliderInput(parseInt((e.target as HTMLInputElement).value, 10));
+										onSoftSplitSliderInput(
+											parseInt((e.target as HTMLInputElement).value, 10)
+										);
 									}}
 								/>
 								{#if amount}
 									<p class="text-muted-foreground text-xs tabular-nums">
-										{formatAmount(Math.abs(amount) * (1 - lone.weight), currency || 'USD')}
+										{formatAmount(
+											Math.abs(amount) * (1 - lone.weight),
+											currency || 'USD'
+										)}
 										·
-										{formatAmount(Math.abs(amount) * lone.weight, currency || 'USD')}
+										{formatAmount(
+											Math.abs(amount) * lone.weight,
+											currency || 'USD'
+										)}
 									</p>
 								{/if}
 							</div>
@@ -421,8 +439,8 @@
 							{#each splitCategoryWeightsBuilt.weights as w}
 								<li class="flex justify-between gap-2">
 									<span class="min-w-0 truncate"
-										>{categoryOptions.find((o) => o.value === w.categoryId)?.label ??
-											w.categoryId}</span
+										>{categoryOptions.find((o) => o.value === w.categoryId)
+											?.label ?? w.categoryId}</span
 									>
 									<span class="shrink-0"
 										>{Math.round(w.weight * 100)}% · {formatAmount(
@@ -442,19 +460,25 @@
 			{:else}
 				<div class="space-y-3 pt-0.5">
 					<div class="flex items-center gap-2">
-						<span class="text-muted-foreground min-w-0 flex-1 truncate text-sm">{primaryLabel}</span
+						<span class="text-muted-foreground min-w-0 flex-1 truncate text-sm"
+							>{primaryLabel}</span
 						>
 						<input
 							type="number"
 							min="0"
 							step="0.01"
 							class="border-input h-9 w-28 rounded-md border px-2 text-sm tabular-nums"
-							value={exactAmounts.find((r) => r.categoryId === primaryCategoryId)?.amount ??
-								(exactAmounts[0]?.categoryId === primaryCategoryId ? exactAmounts[0]?.amount : '')}
+							value={exactAmounts.find((r) => r.categoryId === primaryCategoryId)
+								?.amount ??
+								(exactAmounts[0]?.categoryId === primaryCategoryId
+									? exactAmounts[0]?.amount
+									: '')}
 							oninput={(e) => {
 								const v = parseFloat((e.target as HTMLInputElement).value);
 								const amt = Number.isFinite(v) ? v : 0;
-								const idx = exactAmounts.findIndex((r) => r.categoryId === primaryCategoryId);
+								const idx = exactAmounts.findIndex(
+									(r) => r.categoryId === primaryCategoryId
+								);
 								if (idx >= 0) {
 									exactAmounts = exactAmounts.map((r, i) =>
 										i === idx ? { ...r, amount: amt } : r
@@ -462,7 +486,9 @@
 								} else {
 									exactAmounts = [
 										{ categoryId: primaryCategoryId, amount: amt },
-										...exactAmounts.filter((r) => r.categoryId !== primaryCategoryId)
+										...exactAmounts.filter(
+											(r) => r.categoryId !== primaryCategoryId
+										)
 									];
 								}
 								source = 'manual';

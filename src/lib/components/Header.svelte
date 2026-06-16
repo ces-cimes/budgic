@@ -79,7 +79,10 @@
 			>
 				<ArrowLeft size={16} />
 			</Button>
-			<Separator orientation="vertical" class="mx-0.5 shrink-0 data-[orientation=vertical]:h-4" />
+			<Separator
+				orientation="vertical"
+				class="mx-0.5 shrink-0 data-[orientation=vertical]:h-4"
+			/>
 		{/if}
 
 		<div class="min-w-0 flex-1">
@@ -106,7 +109,8 @@
 						variant={buttonConfig.variant ?? 'ghost'}
 						size={buttonConfig.size ?? 'sm'}
 						disabled={buttonConfig.disabled}
-						class="{buttonConfig.className ?? ''} text-muted-foreground hover:text-foreground"
+						class="{buttonConfig.className ??
+							''} text-muted-foreground hover:text-foreground"
 						target={buttonConfig.target}
 						rel={buttonConfig.rel}
 					>

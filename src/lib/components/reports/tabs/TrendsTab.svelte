@@ -39,7 +39,11 @@
 {:else}
 	<div class="space-y-6 py-2 sm:py-4">
 		<!-- Time Range Selector -->
-		<TimeRangeSelector value={timeRange} options={timeRangeOptions} onChange={onTimeRangeChange} />
+		<TimeRangeSelector
+			value={timeRange}
+			options={timeRangeOptions}
+			onChange={onTimeRangeChange}
+		/>
 
 		<!-- Trend Cards -->
 		<div class="space-y-4">

@@ -78,7 +78,9 @@
 			const rows = await Promise.all(
 				accounts.map(async (account) => {
 					try {
-						const summary = await reconciliationService.getReconciliationSummary(account.id);
+						const summary = await reconciliationService.getReconciliationSummary(
+							account.id
+						);
 						return { account, summary };
 					} catch (err) {
 						console.warn(`Failed to load summary for account ${account.name}:`, err);
@@ -94,7 +96,11 @@
 					needsCheckup++;
 				}
 				if (
-					accountHasOpenReconciliationIssues(summary, summary.ledgerBalance, summary.currentBalance)
+					accountHasOpenReconciliationIssues(
+						summary,
+						summary.ledgerBalance,
+						summary.currentBalance
+					)
 				) {
 					openIssues++;
 				}
@@ -115,7 +121,8 @@
 				lastReconciled: lastReconciledDate
 			};
 		} catch (err) {
-			statsError = err instanceof Error ? err.message : 'Failed to load reconciliation statistics';
+			statsError =
+				err instanceof Error ? err.message : 'Failed to load reconciliation statistics';
 		} finally {
 			isLoadingStats = false;
 		}
@@ -175,8 +182,8 @@
 		Compare stored balances to your bank statement.
 		<strong class="font-medium text-[var(--color-text-secondary)]">Needs check-up</strong> — no
 		reconciliation within {checkupIntervalDays} days (bell alert, not the Data badge).
-		<strong class="font-medium text-[var(--color-text-secondary)]">Open issues</strong> — unresolved discrepancy
-		records or a material ledger gap needing action.
+		<strong class="font-medium text-[var(--color-text-secondary)]">Open issues</strong> — unresolved
+		discrepancy records or a material ledger gap needing action.
 	</p>
 	<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 		{#if isLoadingStats}
@@ -286,7 +293,11 @@
 		description="Past sessions and discrepancies for your accounts."
 	>
 		{#snippet children()}
-			<ReconciliationHistory {selectedAccountId} embedded onReconcileClick={handleReconcileClick} />
+			<ReconciliationHistory
+				{selectedAccountId}
+				embedded
+				onReconcileClick={handleReconcileClick}
+			/>
 		{/snippet}
 	</DialogDrawer>
 </div>

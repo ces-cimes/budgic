@@ -140,7 +140,9 @@ export async function pickFiles(options: FilePickerOptions = {}): Promise<FilePi
 					if (file.blob) {
 						const fileObj = new File([file.blob], file.name, {
 							type: file.mimeType || 'application/octet-stream',
-							lastModified: file.modifiedAt ? new Date(file.modifiedAt).getTime() : Date.now()
+							lastModified: file.modifiedAt
+								? new Date(file.modifiedAt).getTime()
+								: Date.now()
 						});
 						return fileObj;
 					}
@@ -169,7 +171,9 @@ export async function pickFiles(options: FilePickerOptions = {}): Promise<FilePi
 						// Create File object from blob
 						const fileObj = new File([blob], file.name, {
 							type: file.mimeType || 'application/octet-stream',
-							lastModified: file.modifiedAt ? new Date(file.modifiedAt).getTime() : Date.now()
+							lastModified: file.modifiedAt
+								? new Date(file.modifiedAt).getTime()
+								: Date.now()
 						});
 						return fileObj;
 					}
@@ -185,7 +189,9 @@ export async function pickFiles(options: FilePickerOptions = {}): Promise<FilePi
 
 							const fileObj = new File([blob], file.name, {
 								type: file.mimeType || blob.type || 'application/octet-stream',
-								lastModified: file.modifiedAt ? new Date(file.modifiedAt).getTime() : Date.now()
+								lastModified: file.modifiedAt
+									? new Date(file.modifiedAt).getTime()
+									: Date.now()
 							});
 							return fileObj;
 						} catch (fetchError) {

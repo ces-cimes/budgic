@@ -134,7 +134,8 @@
 			? 0
 			: Math.min(
 					1,
-					(-swipeOffset - HINT_LABEL_START_PX) / (HINT_LABEL_FULL_PX - HINT_LABEL_START_PX)
+					(-swipeOffset - HINT_LABEL_START_PX) /
+						(HINT_LABEL_FULL_PX - HINT_LABEL_START_PX)
 				)
 	);
 
@@ -403,7 +404,9 @@
 						<Icon class="h-4 w-4 {iconColor}" />
 					</span>
 					<div class="min-w-0 flex-1">
-						<div class="mb-0.5 flex min-w-0 items-center justify-between gap-x-2 gap-y-0.5">
+						<div
+							class="mb-0.5 flex min-w-0 items-center justify-between gap-x-2 gap-y-0.5"
+						>
 							<span
 								class="text-[10px] font-semibold tracking-wider uppercase {displaySeverity ===
 								'alert'
@@ -455,7 +458,9 @@
 								onclick={handleExpandClick}
 							>
 								<ChevronDown
-									class="h-4 w-4 transition-transform duration-200 {isExpanded ? 'rotate-180' : ''}"
+									class="h-4 w-4 transition-transform duration-200 {isExpanded
+										? 'rotate-180'
+										: ''}"
 									aria-hidden="true"
 								/>
 							</button>

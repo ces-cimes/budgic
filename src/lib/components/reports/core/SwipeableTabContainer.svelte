@@ -126,16 +126,22 @@
 	function scrollActiveTabIntoView() {
 		if (tabContainer) {
 			// Try multiple selectors to find the active tab
-			let activeTabElement = tabContainer.querySelector(`[data-state="active"]`) as HTMLElement;
+			let activeTabElement = tabContainer.querySelector(
+				`[data-state="active"]`
+			) as HTMLElement;
 
 			// Fallback: find by value attribute
 			if (!activeTabElement) {
-				activeTabElement = tabContainer.querySelector(`[value="${activeTab}"]`) as HTMLElement;
+				activeTabElement = tabContainer.querySelector(
+					`[value="${activeTab}"]`
+				) as HTMLElement;
 			}
 
 			// Fallback: find by tab ID in the trigger
 			if (!activeTabElement) {
-				activeTabElement = tabContainer.querySelector(`[data-value="${activeTab}"]`) as HTMLElement;
+				activeTabElement = tabContainer.querySelector(
+					`[data-value="${activeTab}"]`
+				) as HTMLElement;
 			}
 
 			if (activeTabElement) {

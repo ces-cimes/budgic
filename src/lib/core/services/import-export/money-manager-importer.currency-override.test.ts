@@ -66,9 +66,11 @@ vi.mock('$lib/core/db', () => ({
 			add: vi.fn(async () => {})
 		},
 		accounts: {
-			add: vi.fn(async (acc: { id: string; currency: string; type?: string; name?: string }) => {
-				hoisted.accountsById.set(acc.id, acc);
-			}),
+			add: vi.fn(
+				async (acc: { id: string; currency: string; type?: string; name?: string }) => {
+					hoisted.accountsById.set(acc.id, acc);
+				}
+			),
 			get: vi.fn(async (id: string) => hoisted.accountsById.get(id) ?? undefined),
 			toArray: vi.fn(async () => [...hoisted.accountsById.values()])
 		},
@@ -150,7 +152,10 @@ vi.mock('./base-importer', async (importOriginal) => {
 });
 
 vi.mock('$lib/utils/category-utils', () => ({
-	getOrCreateUncategorizedCategory: vi.fn(async () => ({ id: 'uncat-exp', name: 'Uncategorized' })),
+	getOrCreateUncategorizedCategory: vi.fn(async () => ({
+		id: 'uncat-exp',
+		name: 'Uncategorized'
+	})),
 	getOrCreateUncategorizedIncomeCategory: vi.fn(async () => ({
 		id: 'uncat-inc',
 		name: 'Uncategorized income'

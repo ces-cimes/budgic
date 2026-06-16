@@ -211,12 +211,14 @@
 
 		const actualPolylinePoints = actualIndices
 			.map(
-				(index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`
+				(index) =>
+					`${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`
 			)
 			.join(' ');
 		const forecastPolylinePoints = forecastIndices
 			.map(
-				(index) => `${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`
+				(index) =>
+					`${getXPosition(index, points.length)},${getYPosition(points[index].balance)}`
 			)
 			.join(' ');
 
@@ -280,7 +282,9 @@
 			<div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3">
 				<Card>
 					<CardHeader class="pb-3">
-						<CardTitle class="text-muted-foreground text-sm font-medium">Minimum Balance</CardTitle>
+						<CardTitle class="text-muted-foreground text-sm font-medium"
+							>Minimum Balance</CardTitle
+						>
 					</CardHeader>
 					<CardContent>
 						<div class="flex items-center gap-2">
@@ -294,7 +298,10 @@
 								</div>
 								{#if selectedProjection.minimumBalanceDate}
 									<div class="text-muted-foreground text-xs">
-										{format(selectedProjection.minimumBalanceDate, 'MMM d, yyyy')}
+										{format(
+											selectedProjection.minimumBalanceDate,
+											'MMM d, yyyy'
+										)}
 									</div>
 								{/if}
 							</div>
@@ -304,7 +311,8 @@
 
 				<Card>
 					<CardHeader class="pb-3">
-						<CardTitle class="text-muted-foreground text-sm font-medium">Low Balance Days</CardTitle
+						<CardTitle class="text-muted-foreground text-sm font-medium"
+							>Low Balance Days</CardTitle
 						>
 					</CardHeader>
 					<CardContent>
@@ -326,7 +334,9 @@
 
 				<Card>
 					<CardHeader class="pb-3">
-						<CardTitle class="text-muted-foreground text-sm font-medium">Below Buffer</CardTitle>
+						<CardTitle class="text-muted-foreground text-sm font-medium"
+							>Below Buffer</CardTitle
+						>
 					</CardHeader>
 					<CardContent>
 						<div class="flex items-center gap-2">
@@ -358,7 +368,11 @@
 					<div class="space-y-4">
 						<!-- Simple Line Chart Visualization -->
 						<div class="relative h-64 w-full">
-							<svg class="h-full w-full" viewBox="0 0 800 200" preserveAspectRatio="none">
+							<svg
+								class="h-full w-full"
+								viewBox="0 0 800 200"
+								preserveAspectRatio="none"
+							>
 								<!-- Buffer line -->
 								<line
 									x1="0"
@@ -438,11 +452,16 @@
 							<div
 								class="text-muted-foreground absolute right-0 bottom-0 left-0 flex justify-between px-2 text-xs"
 							>
-								<span>{formatDate(selectedProjection.projections[0]?.date || new Date())}</span>
 								<span
 									>{formatDate(
-										selectedProjection.projections[selectedProjection.projections.length - 1]
-											?.date || new Date()
+										selectedProjection.projections[0]?.date || new Date()
+									)}</span
+								>
+								<span
+									>{formatDate(
+										selectedProjection.projections[
+											selectedProjection.projections.length - 1
+										]?.date || new Date()
 									)}</span
 								>
 							</div>
@@ -456,7 +475,9 @@
 									<span class="text-muted-foreground">Actual balance</span>
 								</div>
 								<div class="flex items-center gap-2">
-									<div class="h-0.5 w-4 border-t-2 border-dashed border-[var(--color-amber)]"></div>
+									<div
+										class="h-0.5 w-4 border-t-2 border-dashed border-[var(--color-amber)]"
+									></div>
 									<span class="text-muted-foreground">Projected balance</span>
 								</div>
 								<div class="flex items-center gap-2">
@@ -495,7 +516,10 @@
 									</span>
 									<span class="text-muted-foreground">on</span>
 									<span class="font-medium">
-										{format(selectedProjection.minimumBalanceDate, 'MMM d, yyyy')}
+										{format(
+											selectedProjection.minimumBalanceDate,
+											'MMM d, yyyy'
+										)}
 									</span>
 								</div>
 							</div>
@@ -508,7 +532,9 @@
 			{#if selectedProjection.belowBufferDays > 0}
 				<Card class="mt-4 border-yellow-500/50">
 					<CardHeader>
-						<CardTitle class="flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+						<CardTitle
+							class="flex items-center gap-2 text-yellow-600 dark:text-yellow-400"
+						>
 							<AlertTriangle class="h-5 w-5" />
 							Low Balance Alerts
 						</CardTitle>
@@ -519,7 +545,8 @@
 								Your account will go below the buffer on <strong
 									>{selectedProjection.belowBufferDays}</strong
 								>
-								day{selectedProjection.belowBufferDays !== 1 ? 's' : ''} in the next {daysAhead} days.
+								day{selectedProjection.belowBufferDays !== 1 ? 's' : ''} in the next {daysAhead}
+								days.
 							</p>
 							{#if selectedProjection.minimumBalanceDate}
 								<p class="text-sm">
@@ -529,7 +556,10 @@
 											selectedProjection.currency
 										)}</strong
 									>
-									on {format(selectedProjection.minimumBalanceDate, 'MMMM d, yyyy')}.
+									on {format(
+										selectedProjection.minimumBalanceDate,
+										'MMMM d, yyyy'
+									)}.
 								</p>
 							{/if}
 						</div>

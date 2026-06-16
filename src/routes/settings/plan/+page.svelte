@@ -23,7 +23,8 @@
 
 	const NEGATIVE_ALLOWANCE_LABELS: Record<NegativeAllowanceHandling, string> = {
 		block_with_warning: 'Block with warning – alert and require override',
-		allow_with_strong_warning: 'Allow with strong warning – permit but flag for review (default)',
+		allow_with_strong_warning:
+			'Allow with strong warning – permit but flag for review (default)',
 		borrow_from_future: "Borrow from future – use next period's allowance",
 		borrow_from_other_categories: 'Borrow from other categories – envelope borrowing'
 	};
@@ -84,7 +85,9 @@
 				);
 				envelopeBorrowRepaymentPeriods = (p.envelopeBorrowRepaymentPeriods as number) ?? 2;
 				envelopeBorrowTotalLimit =
-					(p.envelopeBorrowTotalLimit as number) != null ? String(p.envelopeBorrowTotalLimit) : '';
+					(p.envelopeBorrowTotalLimit as number) != null
+						? String(p.envelopeBorrowTotalLimit)
+						: '';
 				envelopeBorrowRequireConfirmationRepeated =
 					(p.envelopeBorrowRequireConfirmationRepeated as boolean) ?? true;
 				const rsb = p.rolloverSurplusBehavior;
@@ -108,10 +111,15 @@
 						? String(p.savingsOpportunityMinSurplus)
 						: '';
 				budgetAlertWarningAtPercent =
-					typeof p.budgetAlertWarningAtPercent === 'number' ? p.budgetAlertWarningAtPercent : 80;
+					typeof p.budgetAlertWarningAtPercent === 'number'
+						? p.budgetAlertWarningAtPercent
+						: 80;
 				budgetAlertCriticalAtPercent =
-					typeof p.budgetAlertCriticalAtPercent === 'number' ? p.budgetAlertCriticalAtPercent : 100;
-				maxDebtPeriodDays = typeof p.maxDebtPeriodDays === 'number' ? p.maxDebtPeriodDays : 90;
+					typeof p.budgetAlertCriticalAtPercent === 'number'
+						? p.budgetAlertCriticalAtPercent
+						: 100;
+				maxDebtPeriodDays =
+					typeof p.maxDebtPeriodDays === 'number' ? p.maxDebtPeriodDays : 90;
 				recoveryAggressivenessPercent =
 					typeof p.recoveryAggressiveness === 'number'
 						? Math.round(p.recoveryAggressiveness * 100)
@@ -146,8 +154,11 @@
 			const updates: Record<string, unknown> = {
 				negativeAllowanceHandling,
 				reimbursementAllowanceMode,
-				defaultReimbursementAnchorAccountId: defaultReimbursementAnchorAccountId || undefined,
-				personLedgerAutomaticThreshold: normalizeAutomaticThreshold(personLedgerAutomaticThreshold),
+				defaultReimbursementAnchorAccountId:
+					defaultReimbursementAnchorAccountId || undefined,
+				personLedgerAutomaticThreshold: normalizeAutomaticThreshold(
+					personLedgerAutomaticThreshold
+				),
 				envelopeBorrowMaxPerCategoryPercent: envelopeBorrowMaxPerCategoryPercent / 100,
 				envelopeBorrowRepaymentPeriods,
 				envelopeBorrowTotalLimit:
@@ -157,13 +168,17 @@
 				rolloverSurplusHybridRatio: rolloverSurplusHybridRatio / 100,
 				rolloverDeficitBehavior,
 				savingsOpportunityMinSurplus:
-					savingsOpportunityMinSurplus !== '' && !Number.isNaN(Number(savingsOpportunityMinSurplus))
+					savingsOpportunityMinSurplus !== '' &&
+					!Number.isNaN(Number(savingsOpportunityMinSurplus))
 						? Number(savingsOpportunityMinSurplus)
 						: undefined,
 				budgetAlertWarningAtPercent: warn,
 				budgetAlertCriticalAtPercent: crit,
 				maxDebtPeriodDays,
-				recoveryAggressiveness: Math.min(0.5, Math.max(0.1, recoveryAggressivenessPercent / 100)),
+				recoveryAggressiveness: Math.min(
+					0.5,
+					Math.max(0.1, recoveryAggressivenessPercent / 100)
+				),
 				debtRecoveryActive,
 				recoveryModeActive
 			};
@@ -196,7 +211,9 @@
 		{:else}
 			<div class="space-y-6">
 				<!-- Negative allowance -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -210,7 +227,8 @@
 					<div class="space-y-2 px-5 py-4">
 						<label
 							for="negative-allowance-handling"
-							class="text-sm font-medium text-[var(--color-text-primary)]">Handling</label
+							class="text-sm font-medium text-[var(--color-text-primary)]"
+							>Handling</label
 						>
 						<Select
 							type="single"
@@ -223,7 +241,8 @@
 								class="max-w-md"
 								aria-label="Choose how to handle overspending"
 							>
-								{NEGATIVE_ALLOWANCE_LABELS[negativeAllowanceHandling] ?? 'Choose behaviour'}
+								{NEGATIVE_ALLOWANCE_LABELS[negativeAllowanceHandling] ??
+									'Choose behaviour'}
 							</SelectTrigger>
 							<SelectContent>
 								<SelectItem value="block_with_warning"
@@ -241,12 +260,15 @@
 							</SelectContent>
 						</Select>
 						<p class="text-xs text-[var(--color-text-tertiary)]">
-							"Allow with strong warning" permits spending but surfaces recovery suggestions.
+							"Allow with strong warning" permits spending but surfaces recovery
+							suggestions.
 						</p>
 					</div>
 				</div>
 
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -254,8 +276,8 @@
 							Budget — debt tolerance
 						</h2>
 						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-							Controls how aggressively Budgic sets aside allowance after you acknowledge
-							intentional debt (Phase 5).
+							Controls how aggressively Budgic sets aside allowance after you
+							acknowledge intentional debt (Phase 5).
 						</p>
 					</div>
 					<div class="space-y-4 px-5 py-4">
@@ -273,7 +295,9 @@
 								bind:value={maxDebtPeriodDays}
 								class="w-full accent-[var(--color-amber)]"
 							/>
-							<p class="text-xs text-[var(--color-text-tertiary)]">{maxDebtPeriodDays} days</p>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								{maxDebtPeriodDays} days
+							</p>
 						</div>
 						<div class="space-y-1.5">
 							<label
@@ -301,7 +325,8 @@
 									Apply recovery deduction to allowance projection
 								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
-									When on, forward allowance deducts the recovery % from available cash flow.
+									When on, forward allowance deducts the recovery % from available
+									cash flow.
 								</p>
 							</div>
 							<Switch bind:checked={debtRecoveryActive} />
@@ -314,8 +339,8 @@
 									Recovery-focused view
 								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
-									Shows recovery horizon and plan sections. Can be set automatically by the home
-									prompt.
+									Shows recovery horizon and plan sections. Can be set
+									automatically by the home prompt.
 								</p>
 							</div>
 							<Switch bind:checked={recoveryModeActive} />
@@ -323,7 +348,9 @@
 					</div>
 				</div>
 
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -343,7 +370,8 @@
 							type="single"
 							value={reimbursementAllowanceMode}
 							onValueChange={(v) =>
-								v && (reimbursementAllowanceMode = v as 'conservative' | 'optimistic')}
+								v &&
+								(reimbursementAllowanceMode = v as 'conservative' | 'optimistic')}
 						>
 							<SelectTrigger id="reimbursement-allowance-mode" class="max-w-md">
 								{reimbursementAllowanceMode === 'optimistic'
@@ -362,7 +390,9 @@
 					</div>
 				</div>
 
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -370,26 +400,29 @@
 							Default reimbursement account
 						</h2>
 						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-							Anchor wallet for new reimbursements and person-ledger migration when inference has no
-							better match.
+							Anchor wallet for new reimbursements and person-ledger migration when
+							inference has no better match.
 						</p>
 					</div>
 					<div class="space-y-2 px-5 py-4">
 						<label
 							for="default-reimbursement-anchor"
-							class="text-sm font-medium text-[var(--color-text-primary)]">Account</label
+							class="text-sm font-medium text-[var(--color-text-primary)]"
+							>Account</label
 						>
 						<Select
 							type="single"
 							value={defaultReimbursementAnchorAccountId || '__none__'}
 							onValueChange={(v) => {
-								defaultReimbursementAnchorAccountId = v && v !== '__none__' ? v : '';
+								defaultReimbursementAnchorAccountId =
+									v && v !== '__none__' ? v : '';
 							}}
 						>
 							<SelectTrigger id="default-reimbursement-anchor" class="max-w-md">
 								{defaultReimbursementAnchorAccountId
-									? (walletAccounts.find((a) => a.id === defaultReimbursementAnchorAccountId)
-											?.name ?? 'Selected account')
+									? (walletAccounts.find(
+											(a) => a.id === defaultReimbursementAnchorAccountId
+										)?.name ?? 'Selected account')
 									: 'Not set'}
 							</SelectTrigger>
 							<SelectContent>
@@ -402,7 +435,9 @@
 					</div>
 				</div>
 
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -410,8 +445,8 @@
 							Automatic person-ledger migration
 						</h2>
 						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-							Default confidence levels when using automatic mode in Close person account (at least
-							one required).
+							Default confidence levels when using automatic mode in Close person
+							account (at least one required).
 						</p>
 					</div>
 					<div class="flex flex-wrap gap-4 px-5 py-4">
@@ -458,7 +493,9 @@
 				</div>
 
 				<!-- Budget category alerts (bell / insights) -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -466,8 +503,8 @@
 							Budget alert thresholds
 						</h2>
 						<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-							When category spending crosses these percentages of the category budget, Budgic
-							creates High (approaching) or Critical (exceeded) alerts.
+							When category spending crosses these percentages of the category budget,
+							Budgic creates High (approaching) or Critical (exceeded) alerts.
 						</p>
 					</div>
 					<div class="space-y-4 px-5 py-4">
@@ -505,8 +542,8 @@
 									class="border-border w-24 rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
 								/>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
-									Must be at least 100% and greater than the warn threshold (adjusted on save if
-									needed).
+									Must be at least 100% and greater than the warn threshold
+									(adjusted on save if needed).
 								</p>
 							</div>
 						</div>
@@ -514,7 +551,9 @@
 				</div>
 
 				<!-- Envelope borrowing -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -591,7 +630,9 @@
 				</div>
 
 				<!-- Rollover -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -613,7 +654,8 @@
 								type="single"
 								value={rolloverSurplusBehavior}
 								onValueChange={(v) =>
-									v && (rolloverSurplusBehavior = v as typeof rolloverSurplusBehavior)}
+									v &&
+									(rolloverSurplusBehavior = v as typeof rolloverSurplusBehavior)}
 							>
 								<SelectTrigger id="rollover-surplus" class="max-w-sm">
 									{rolloverSurplusBehavior === 'rollover_next'
@@ -623,8 +665,12 @@
 											: 'Hybrid (split)'}
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="rollover_next">Roll over to next period</SelectItem>
-									<SelectItem value="to_savings_goals">Reallocate to savings goals</SelectItem>
+									<SelectItem value="rollover_next"
+										>Roll over to next period</SelectItem
+									>
+									<SelectItem value="to_savings_goals"
+										>Reallocate to savings goals</SelectItem
+									>
 									<SelectItem value="hybrid">Hybrid (split)</SelectItem>
 								</SelectContent>
 							</Select>
@@ -656,7 +702,8 @@
 								type="single"
 								value={rolloverDeficitBehavior}
 								onValueChange={(v) =>
-									v && (rolloverDeficitBehavior = v as typeof rolloverDeficitBehavior)}
+									v &&
+									(rolloverDeficitBehavior = v as typeof rolloverDeficitBehavior)}
 							>
 								<SelectTrigger id="rollover-deficit" class="max-w-sm">
 									{rolloverDeficitBehavior === 'reduce_next_period'
@@ -666,8 +713,12 @@
 											: 'One-time exception'}
 								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="reduce_next_period">Reduce next period allowance</SelectItem>
-									<SelectItem value="borrow_from_other">Borrow from other categories</SelectItem>
+									<SelectItem value="reduce_next_period"
+										>Reduce next period allowance</SelectItem
+									>
+									<SelectItem value="borrow_from_other"
+										>Borrow from other categories</SelectItem
+									>
 									<SelectItem value="one_time_exception"
 										>One-time exception (no adjustment)</SelectItem
 									>
@@ -678,7 +729,9 @@
 				</div>
 
 				<!-- Savings opportunities -->
-				<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+				<div
+					class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+				>
 					<div class="border-border border-b px-5 py-3">
 						<h2
 							class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"

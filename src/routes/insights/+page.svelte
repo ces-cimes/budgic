@@ -7,7 +7,12 @@
 	import { TrendingUp, Award, RefreshCw, Shield, AlertTriangle } from '@lucide/svelte';
 
 	// Shared components
-	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
+	import {
+		TabHeader,
+		TabContent,
+		TabContentWrapper,
+		type TabConfig
+	} from '$lib/components/shared';
 
 	// Insights-specific components
 	import { BadgesTab } from '$lib/components/insights/tabs';
@@ -66,7 +71,8 @@
 		const urlParams = new URLSearchParams($page.url.search);
 		let tabParam = urlParams.get('tab');
 		if (tabParam === 'overview' || tabParam === 'alerts') tabParam = 'patterns';
-		if (['recurring', 'predictions', 'learning'].includes(tabParam ?? '')) tabParam = 'patterns';
+		if (['recurring', 'predictions', 'learning'].includes(tabParam ?? ''))
+			tabParam = 'patterns';
 		if (tabParam && insightsTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
 		}
@@ -153,7 +159,10 @@
 				<div
 					class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20"
 				>
-					<AlertTriangle class="h-8 w-8 text-red-600 dark:text-red-400" aria-hidden="true" />
+					<AlertTriangle
+						class="h-8 w-8 text-red-600 dark:text-red-400"
+						aria-hidden="true"
+					/>
 				</div>
 				<h2 class="text-foreground mb-2 text-lg font-semibold">Could not load insights</h2>
 				<p class="text-muted-foreground mb-4">{error}</p>
@@ -169,7 +178,11 @@
 		{:else}
 			<TabContentWrapper tabs={insightsTabs} {activeTab} onTabChange={handleTabChange}>
 				{#snippet children()}
-					<TabContent tabId="patterns" isActive={activeTab === 'patterns'} tabs={insightsTabs}>
+					<TabContent
+						tabId="patterns"
+						isActive={activeTab === 'patterns'}
+						tabs={insightsTabs}
+					>
 						<PatternsTabContent
 							{isLoading}
 							{userCurrency}
@@ -205,7 +218,9 @@
 									>
 										Accounts
 									</h2>
-									<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+									<div
+										class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+									>
 										<CreditUtilizationCard {userCurrency} />
 										{#if !recoveryModeActive}
 											<InterestOpportunitiesCard {userCurrency} />
@@ -224,15 +239,19 @@
 									</section>
 								{:else}
 									<p class="text-muted-foreground text-sm">
-										What-if simulator is hidden while recovery view is active. Fee avoidance remains
-										available above.
+										What-if simulator is hidden while recovery view is active.
+										Fee avoidance remains available above.
 									</p>
 								{/if}
 							</div>
 						</TabContent>
 					{/if}
 
-					<TabContent tabId="badges" isActive={activeTab === 'badges'} tabs={insightsTabs}>
+					<TabContent
+						tabId="badges"
+						isActive={activeTab === 'badges'}
+						tabs={insightsTabs}
+					>
 						<BadgesTab {isLoading} />
 					</TabContent>
 				{/snippet}

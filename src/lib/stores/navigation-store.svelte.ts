@@ -358,7 +358,9 @@ class NavigationStore {
 
 				const summaryPromises = accounts.map(async (account) => {
 					try {
-						const summary = await reconciliationService.getReconciliationSummary(account.id);
+						const summary = await reconciliationService.getReconciliationSummary(
+							account.id
+						);
 						if (
 							accountHasOpenReconciliationIssues(
 								summary,
@@ -369,7 +371,10 @@ class NavigationStore {
 							openIssues++;
 						}
 					} catch (err) {
-						console.debug(`Failed to get reconciliation summary for account ${account.name}:`, err);
+						console.debug(
+							`Failed to get reconciliation summary for account ${account.name}:`,
+							err
+						);
 					}
 				});
 
@@ -475,7 +480,10 @@ class NavigationStore {
 				},
 				{} as Record<string, any>
 			);
-			localStorage.setItem('budgic-navigation-visibility', JSON.stringify(visibilitySettings));
+			localStorage.setItem(
+				'budgic-navigation-visibility',
+				JSON.stringify(visibilitySettings)
+			);
 		} catch (error) {
 			console.error('Error updating item visibility:', error);
 			throw error;

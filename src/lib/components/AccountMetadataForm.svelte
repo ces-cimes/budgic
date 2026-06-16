@@ -37,7 +37,10 @@
 		}
 	});
 
-	function updateField(field: keyof AccountMetadata, value: string | number | boolean | undefined) {
+	function updateField(
+		field: keyof AccountMetadata,
+		value: string | number | boolean | undefined
+	) {
 		if (value === '' || value === null) {
 			const newMetadata = { ...metadataState };
 			delete newMetadata[field];

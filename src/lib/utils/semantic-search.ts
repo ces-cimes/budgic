@@ -184,11 +184,31 @@ export const SEMANTIC_MAPPINGS: Record<string, string[]> = {
 		'power',
 		'utility'
 	],
-	internet: ['wifi', 'broadband', 'cable', 'fiber', 'dsl', 'comcast', 'verizon', 'att', 'spectrum'],
+	internet: [
+		'wifi',
+		'broadband',
+		'cable',
+		'fiber',
+		'dsl',
+		'comcast',
+		'verizon',
+		'att',
+		'spectrum'
+	],
 	phone: ['mobile', 'cell', 'verizon', 'att', 'tmobile', 'sprint', 'cellular', 'telephone'],
 
 	// Retail & Shopping
-	retail: ['amazon', 'ebay', 'shop', 'store', 'mall', 'shopping', 'purchase', 'buy', 'marketplace'],
+	retail: [
+		'amazon',
+		'ebay',
+		'shop',
+		'store',
+		'mall',
+		'shopping',
+		'purchase',
+		'buy',
+		'marketplace'
+	],
 	amazon: ['retail', 'shopping', 'purchase', 'buy', 'marketplace', 'prime', 'online'],
 	shopping: ['retail', 'store', 'mall', 'purchase', 'buy', 'marketplace', 'shop'],
 

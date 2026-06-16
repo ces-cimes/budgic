@@ -457,7 +457,9 @@
 			);
 			phase8Surface = surface;
 
-			const cleared = (rangeTxs || []).filter((t) => t && !t.deletedAt && t.status === 'cleared');
+			const cleared = (rangeTxs || []).filter(
+				(t) => t && !t.deletedAt && t.status === 'cleared'
+			);
 			const firstTx = firstCleared ?? null;
 			const firstDate = firstTx
 				? new Date(firstTx.clearedDate || firstTx.createdAt || 0)
@@ -484,7 +486,8 @@
 						.join(' ')
 						.trim();
 					spendingPulse =
-						text || 'Your spending looks consistent. No notable patterns to highlight this week.';
+						text ||
+						'Your spending looks consistent. No notable patterns to highlight this week.';
 				} else {
 					spendingPulse =
 						'Your spending looks consistent. No notable patterns to highlight this week.';
@@ -500,8 +503,15 @@
 				.reduce((s, t) => s + Math.abs(t.amount || 0), 0);
 			const months = days / 30;
 			const totalMonthlySpend = months > 0 ? expenseSum / months : 0;
-			const recurringPatterns = await recurringTransactionIntelligenceService.detectPatterns(90, 2);
-			recurringList = await buildRecurringRows(recurringPatterns, userCurrency, totalMonthlySpend);
+			const recurringPatterns = await recurringTransactionIntelligenceService.detectPatterns(
+				90,
+				2
+			);
+			recurringList = await buildRecurringRows(
+				recurringPatterns,
+				userCurrency,
+				totalMonthlySpend
+			);
 
 			// Unusual Activity: only surface unusual_amount anomalies — the most actionable type.
 			// unusual_timing / unusual_category are low-signal without additional context.
@@ -530,12 +540,17 @@
 						p.matchingTransactionIds.includes(a.transactionId) ||
 						(tx?.description &&
 							p.descriptionPattern &&
-							tx.description.toLowerCase().includes(p.descriptionPattern.toLowerCase()))
+							tx.description
+								.toLowerCase()
+								.includes(p.descriptionPattern.toLowerCase()))
 				);
 				let context: string | undefined;
 				if (matchingPattern && matchingPattern.averageAmount > 0) {
 					const ratio = Math.abs(rawAmount) / matchingPattern.averageAmount;
-					const typical = formatAmount(matchingPattern.averageAmount, tx?.currency ?? userCurrency);
+					const typical = formatAmount(
+						matchingPattern.averageAmount,
+						tx?.currency ?? userCurrency
+					);
 					context = `${ratio.toFixed(1)}× your typical ${typical}`;
 				}
 
@@ -575,7 +590,9 @@
 			weekEnd.setDate(weekEnd.getDate() + 7);
 			let weekTotal = 0;
 			for (const p of recurringPatterns) {
-				const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(p.id);
+				const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(
+					p.id
+				);
 				if (pred?.nextOccurrenceDate) {
 					const d = new Date(pred.nextOccurrenceDate);
 					if (d >= weekStart && d < weekEnd) weekTotal += pred.predictedAmount || 0;
@@ -680,10 +697,14 @@
 					</p>
 					{#if phase8Surface}
 						{#if phase8Surface.spendComparativeLine}
-							<p class="text-muted-foreground text-xs">{phase8Surface.spendComparativeLine}</p>
+							<p class="text-muted-foreground text-xs">
+								{phase8Surface.spendComparativeLine}
+							</p>
 						{/if}
 						{#if phase8Surface.incomeComparativeLine}
-							<p class="text-muted-foreground text-xs">{phase8Surface.incomeComparativeLine}</p>
+							<p class="text-muted-foreground text-xs">
+								{phase8Surface.incomeComparativeLine}
+							</p>
 						{/if}
 						{#if phase8Surface.savingsTrendSymbol}
 							<p class="text-muted-foreground text-xs">
@@ -691,7 +712,9 @@
 							</p>
 						{/if}
 						{#if phase8Surface.feeDriftLine}
-							<p class="text-muted-foreground text-xs">{phase8Surface.feeDriftLine}</p>
+							<p class="text-muted-foreground text-xs">
+								{phase8Surface.feeDriftLine}
+							</p>
 						{/if}
 						{#if phase8Surface.shadowEstimatedNote}
 							<p class="text-muted-foreground text-xs italic">
@@ -710,14 +733,19 @@
 						onclick={handleDataQualityBarClick}
 					>
 						<div class="mb-2 flex items-center justify-between gap-2">
-							<span class="text-muted-foreground text-xs font-semibold tracking-widest uppercase"
+							<span
+								class="text-muted-foreground text-xs font-semibold tracking-widest uppercase"
 								>Data quality</span
 							>
 							<span class="text-foreground text-sm font-medium"
 								>{Math.round(dataQualityRatio * 100)}% classified</span
 							>
 						</div>
-						<Progress value={Math.round(dataQualityRatio * 100)} max={100} class="h-1.5" />
+						<Progress
+							value={Math.round(dataQualityRatio * 100)}
+							max={100}
+							class="h-1.5"
+						/>
 						{#if unclassifiedTxCount > 0}
 							<p class="text-muted-foreground mt-2 text-xs">
 								Tap to review unclassified transactions.
@@ -730,8 +758,8 @@
 			{#if !loading}
 				<section class="border-border bg-card mt-3 rounded-xl border px-4 py-3">
 					<p class="text-muted-foreground mb-2 text-xs">
-						When merchant profiles are very stable, apply their mean split to past matching cleared
-						expenses (optional).
+						When merchant profiles are very stable, apply their mean split to past
+						matching cleared expenses (optional).
 					</p>
 					<Button
 						type="button"
@@ -781,21 +809,32 @@
 										>
 											<!-- direction badge: ↑ income (green), ↓ expense (muted-red), ⇄ transfer (info) -->
 											{#if item.type === 'income'}
-												<span class="inline-flex shrink-0 items-center gap-0">
-													<span class="text-xs text-[var(--color-sage-green)]" aria-hidden="true"
-														>↑</span
+												<span
+													class="inline-flex shrink-0 items-center gap-0"
+												>
+													<span
+														class="text-xs text-[var(--color-sage-green)]"
+														aria-hidden="true">↑</span
 													>
 													<span class="sr-only">Income</span>
 												</span>
 											{:else if item.type === 'transfer'}
-												<span class="inline-flex shrink-0 items-center gap-0">
-													<span class="text-xs text-[var(--color-info)]" aria-hidden="true">⇄</span>
+												<span
+													class="inline-flex shrink-0 items-center gap-0"
+												>
+													<span
+														class="text-xs text-[var(--color-info)]"
+														aria-hidden="true">⇄</span
+													>
 													<span class="sr-only">Transfer</span>
 												</span>
 											{:else}
-												<span class="inline-flex shrink-0 items-center gap-0">
-													<span class="text-xs text-[var(--color-expense)]" aria-hidden="true"
-														>↓</span
+												<span
+													class="inline-flex shrink-0 items-center gap-0"
+												>
+													<span
+														class="text-xs text-[var(--color-expense)]"
+														aria-hidden="true">↓</span
 													>
 													<span class="sr-only">Expense</span>
 												</span>
@@ -813,7 +852,9 @@
 														item.waterfallTier!
 													]}"
 												>
-													{tierChipDefs.find((c) => c.tier === item.waterfallTier)?.label}
+													{tierChipDefs.find(
+														(c) => c.tier === item.waterfallTier
+													)?.label}
 												</span>
 											{/if}
 											{#if item.needsReview}
@@ -859,7 +900,9 @@
 			</section>
 
 			<!-- 3. Unusual Activity — only unusual_amount, with context ratio and pattern link -->
-			{@const visibleAnomalies = anomalies.filter((a) => !isAnomalyDismissed(a.transactionId))}
+			{@const visibleAnomalies = anomalies.filter(
+				(a) => !isAnomalyDismissed(a.transactionId)
+			)}
 			{#if visibleAnomalies.length > 0}
 				<section>
 					<div class="mb-2">
@@ -878,16 +921,22 @@
 								<div class="px-4 py-3">
 									<div class="flex items-start gap-2">
 										<div class="min-w-0 flex-1">
-											<p class="text-foreground truncate text-base font-semibold">
+											<p
+												class="text-foreground truncate text-base font-semibold"
+											>
 												{a.description ?? 'Transaction'}
 											</p>
 											{#if a.categoryName}
-												<p class="text-muted-foreground mt-0.5 truncate text-sm">
+												<p
+													class="text-muted-foreground mt-0.5 truncate text-sm"
+												>
 													{a.categoryName}
 												</p>
 											{/if}
 											{#if a.context}
-												<p class="mt-1 text-xs font-medium text-[var(--color-warning)]">
+												<p
+													class="mt-1 text-xs font-medium text-[var(--color-warning)]"
+												>
 													{a.context}
 												</p>
 											{/if}
@@ -900,7 +949,11 @@
 														? 'text-[var(--color-info)]'
 														: 'text-foreground'}"
 											>
-												{formatTransactionAmount(a.amount ?? 0, a.currency ?? userCurrency, true)}
+												{formatTransactionAmount(
+													a.amount ?? 0,
+													a.currency ?? userCurrency,
+													true
+												)}
 											</span>
 										</div>
 									</div>
@@ -908,7 +961,8 @@
 										<button
 											type="button"
 											class="text-muted-foreground hover:text-foreground text-xs font-medium underline-offset-2 hover:underline"
-											onclick={() => goto(`/transactions/add/${a.transactionId}`)}
+											onclick={() =>
+												goto(`/transactions/add/${a.transactionId}`)}
 										>
 											View transaction
 										</button>
@@ -950,35 +1004,51 @@
 				{#if patternStats}
 					<div class="grid grid-cols-2 gap-2">
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+							<p
+								class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase"
+							>
 								Peak day
 							</p>
 							<p class="text-sm font-medium">{patternStats.peakDay}</p>
 						</div>
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+							<p
+								class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase"
+							>
 								Peak time
 							</p>
 							<p class="text-sm font-medium">{patternStats.peakTime}</p>
 						</div>
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+							<p
+								class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase"
+							>
 								Biggest category
 							</p>
-							<p class="truncate text-sm font-medium" title={patternStats.biggestCategory}>
+							<p
+								class="truncate text-sm font-medium"
+								title={patternStats.biggestCategory}
+							>
 								{patternStats.biggestCategory}
 							</p>
 						</div>
 						<div class="squircle-2xl squircle-border bg-card px-3 py-3">
-							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+							<p
+								class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase"
+							>
 								Most frequent
 							</p>
-							<p class="truncate text-sm font-medium" title={patternStats.mostFrequentCategory}>
+							<p
+								class="truncate text-sm font-medium"
+								title={patternStats.mostFrequentCategory}
+							>
 								{patternStats.mostFrequentCategory}
 							</p>
 						</div>
 						<div class="squircle-2xl squircle-border bg-card col-span-2 px-3 py-3">
-							<p class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase">
+							<p
+								class="text-muted-foreground text-[10px] font-semibold tracking-widest uppercase"
+							>
 								Average transaction
 							</p>
 							<p class="text-sm font-medium">
@@ -1019,8 +1089,9 @@
 			<div class="border-border border-t pt-4">
 				<div class="border-border bg-muted/20 mb-3 rounded-lg border px-3 py-2">
 					<p class="text-muted-foreground text-xs">
-						<strong class="text-[var(--color-text-tertiary)]">App usage</strong> — for reference only.
-						This data is used to improve your experience and is not part of your financial insights.
+						<strong class="text-[var(--color-text-tertiary)]">App usage</strong> — for reference
+						only. This data is used to improve your experience and is not part of your financial
+						insights.
 					</p>
 				</div>
 				<AppUsageAnalytics days={30} compactWhenEmpty />

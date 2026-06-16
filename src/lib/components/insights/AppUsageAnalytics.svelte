@@ -63,9 +63,21 @@
 <div class="app-usage-analytics {className}">
 	{#if isLoading}
 		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-				<svg class="text-muted-foreground h-8 w-8 animate-spin" fill="none" viewBox="0 0 24 24">
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+			<div
+				class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+			>
+				<svg
+					class="text-muted-foreground h-8 w-8 animate-spin"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle
+						class="opacity-25"
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="4"
 					></circle>
 					<path
 						class="opacity-75"
@@ -190,7 +202,9 @@
 					</div>
 					<div>
 						<p class="text-muted-foreground mb-1 text-xs">Session Frequency</p>
-						<p class="text-foreground font-semibold capitalize">{metrics.sessionFrequency}</p>
+						<p class="text-foreground font-semibold capitalize">
+							{metrics.sessionFrequency}
+						</p>
 					</div>
 					<div>
 						<p class="text-muted-foreground mb-1 text-xs">Avg Actions/Session</p>
@@ -209,7 +223,9 @@
 						{#each metrics.featureUsage.slice(0, 5) as feature (feature.feature)}
 							<div class="flex items-center justify-between">
 								<div class="flex-1">
-									<p class="text-foreground text-sm font-medium">{feature.feature}</p>
+									<p class="text-foreground text-sm font-medium">
+										{feature.feature}
+									</p>
 									<p class="text-muted-foreground text-xs">
 										{feature.usageCount} uses • {feature.percentage.toFixed(1)}%
 									</p>

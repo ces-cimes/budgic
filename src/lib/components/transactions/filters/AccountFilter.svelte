@@ -72,7 +72,9 @@
 
 	<!-- Accounts -->
 	<div class="space-y-2">
-		<p class="text-muted-foreground text-xs font-medium" id="filter-accounts-heading">Accounts</p>
+		<p class="text-muted-foreground text-xs font-medium" id="filter-accounts-heading">
+			Accounts
+		</p>
 		<div
 			class="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2"
 			role="group"

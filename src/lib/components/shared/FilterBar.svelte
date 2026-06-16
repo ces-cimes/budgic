@@ -87,7 +87,11 @@
 		<div class="flex flex-1 items-center gap-3">
 			<!-- Category Select -->
 			<div class="max-w-xs min-w-0 flex-1">
-				<Select.Root type="single" value={localSelectValue} onValueChange={handleSelectChange}>
+				<Select.Root
+					type="single"
+					value={localSelectValue}
+					onValueChange={handleSelectChange}
+				>
 					<Select.Trigger class="w-full">
 						<span class="truncate">
 							{selectOptions.find((opt) => opt.value === localSelectValue)?.label ||
@@ -100,7 +104,9 @@
 								<div class="flex flex-col">
 									<span>{option.label}</span>
 									{#if option.description}
-										<span class="text-muted-foreground text-xs">{option.description}</span>
+										<span class="text-muted-foreground text-xs"
+											>{option.description}</span
+										>
 									{/if}
 								</div>
 							</Select.Item>
@@ -194,12 +200,18 @@
 				<div class="space-y-6 p-4">
 					<!-- Category Filter -->
 					<div class="space-y-2">
-						<label for="mobile-category-select" class="text-sm font-medium">Category</label>
-						<Select.Root type="single" value={localSelectValue} onValueChange={handleSelectChange}>
+						<label for="mobile-category-select" class="text-sm font-medium"
+							>Category</label
+						>
+						<Select.Root
+							type="single"
+							value={localSelectValue}
+							onValueChange={handleSelectChange}
+						>
 							<Select.Trigger class="w-full">
 								<span class="truncate">
-									{selectOptions.find((opt) => opt.value === localSelectValue)?.label ||
-										selectPlaceholder}
+									{selectOptions.find((opt) => opt.value === localSelectValue)
+										?.label || selectPlaceholder}
 								</span>
 							</Select.Trigger>
 							<Select.Content>
@@ -208,7 +220,9 @@
 										<div class="flex flex-col">
 											<span>{option.label}</span>
 											{#if option.description}
-												<span class="text-muted-foreground text-xs">{option.description}</span>
+												<span class="text-muted-foreground text-xs"
+													>{option.description}</span
+												>
 											{/if}
 										</div>
 									</Select.Item>
@@ -245,9 +259,13 @@
 							<h3 class="text-sm font-medium">Summary</h3>
 							<div class="grid grid-cols-2 gap-2">
 								{#each badges as badge}
-									<div class="bg-muted flex items-center justify-between rounded-lg p-3">
+									<div
+										class="bg-muted flex items-center justify-between rounded-lg p-3"
+									>
 										<span class="text-sm">{badge.label}</span>
-										<Badge variant={badge.variant || 'secondary'}>{badge.count}</Badge>
+										<Badge variant={badge.variant || 'secondary'}
+											>{badge.count}</Badge
+										>
 									</div>
 								{/each}
 							</div>
@@ -256,7 +274,11 @@
 				</div>
 
 				<Drawer.Footer class="flex gap-2">
-					<Button variant="outline" onclick={() => (showMobileFilters = false)} class="flex-1">
+					<Button
+						variant="outline"
+						onclick={() => (showMobileFilters = false)}
+						class="flex-1"
+					>
 						Close
 					</Button>
 				</Drawer.Footer>

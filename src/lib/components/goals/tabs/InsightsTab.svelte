@@ -181,7 +181,9 @@
 								{/if}
 								<div>
 									<h4 class="text-primary mb-1 font-medium">{insight.title}</h4>
-									<p class="text-muted-foreground text-sm">{insight.description}</p>
+									<p class="text-muted-foreground text-sm">
+										{insight.description}
+									</p>
 								</div>
 							</div>
 							<div class="flex items-center gap-2">
@@ -217,7 +219,9 @@
 						<Target class="h-5 w-5" />
 						Actionable Recommendations
 					</Card.Title>
-					<Card.Description>Insights you can act on to improve your goal progress</Card.Description>
+					<Card.Description
+						>Insights you can act on to improve your goal progress</Card.Description
+					>
 				</Card.Header>
 				<Card.Content class="space-y-3">
 					{#each getActionableInsights() as insight (insight.id)}
@@ -225,26 +229,52 @@
 							<div class="flex items-start space-x-3">
 								{#if insight.type === 'achievement'}
 									{@const Icon = Award}
-									<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+									<Icon
+										class="h-5 w-5 {getInsightColor(
+											insight.type
+										)} mt-0.5 flex-shrink-0"
+									/>
 								{:else if insight.type === 'milestone'}
 									{@const Icon = CheckCircle}
-									<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+									<Icon
+										class="h-5 w-5 {getInsightColor(
+											insight.type
+										)} mt-0.5 flex-shrink-0"
+									/>
 								{:else if insight.type === 'recommendation'}
 									{@const Icon = Lightbulb}
-									<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+									<Icon
+										class="h-5 w-5 {getInsightColor(
+											insight.type
+										)} mt-0.5 flex-shrink-0"
+									/>
 								{:else if insight.type === 'warning'}
 									{@const Icon = AlertCircle}
-									<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+									<Icon
+										class="h-5 w-5 {getInsightColor(
+											insight.type
+										)} mt-0.5 flex-shrink-0"
+									/>
 								{:else if insight.type === 'celebration'}
 									{@const Icon = Award}
-									<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+									<Icon
+										class="h-5 w-5 {getInsightColor(
+											insight.type
+										)} mt-0.5 flex-shrink-0"
+									/>
 								{:else if insight.type === 'optimization'}
 									{@const Icon = TrendingUp}
-									<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+									<Icon
+										class="h-5 w-5 {getInsightColor(
+											insight.type
+										)} mt-0.5 flex-shrink-0"
+									/>
 								{/if}
 								<div>
 									<h4 class="text-primary mb-1 font-medium">{insight.title}</h4>
-									<p class="text-muted-foreground text-sm">{insight.description}</p>
+									<p class="text-muted-foreground text-sm">
+										{insight.description}
+									</p>
 									<div class="mt-2 flex items-center gap-2">
 										<Badge class={getPriorityColor(insight.priority)}>
 											{insight.priority}
@@ -317,26 +347,54 @@
 								<div class="flex items-start space-x-3">
 									{#if insight.type === 'achievement'}
 										{@const Icon = Award}
-										<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+										<Icon
+											class="h-5 w-5 {getInsightColor(
+												insight.type
+											)} mt-0.5 flex-shrink-0"
+										/>
 									{:else if insight.type === 'milestone'}
 										{@const Icon = CheckCircle}
-										<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+										<Icon
+											class="h-5 w-5 {getInsightColor(
+												insight.type
+											)} mt-0.5 flex-shrink-0"
+										/>
 									{:else if insight.type === 'recommendation'}
 										{@const Icon = Lightbulb}
-										<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+										<Icon
+											class="h-5 w-5 {getInsightColor(
+												insight.type
+											)} mt-0.5 flex-shrink-0"
+										/>
 									{:else if insight.type === 'warning'}
 										{@const Icon = AlertCircle}
-										<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+										<Icon
+											class="h-5 w-5 {getInsightColor(
+												insight.type
+											)} mt-0.5 flex-shrink-0"
+										/>
 									{:else if insight.type === 'celebration'}
 										{@const Icon = Award}
-										<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+										<Icon
+											class="h-5 w-5 {getInsightColor(
+												insight.type
+											)} mt-0.5 flex-shrink-0"
+										/>
 									{:else if insight.type === 'optimization'}
 										{@const Icon = TrendingUp}
-										<Icon class="h-5 w-5 {getInsightColor(insight.type)} mt-0.5 flex-shrink-0" />
+										<Icon
+											class="h-5 w-5 {getInsightColor(
+												insight.type
+											)} mt-0.5 flex-shrink-0"
+										/>
 									{/if}
 									<div>
-										<h4 class="text-primary mb-1 font-medium">{insight.title}</h4>
-										<p class="text-muted-foreground text-sm">{insight.description}</p>
+										<h4 class="text-primary mb-1 font-medium">
+											{insight.title}
+										</h4>
+										<p class="text-muted-foreground text-sm">
+											{insight.description}
+										</p>
 										<div class="mt-2 flex items-center gap-2">
 											<Badge class={getPriorityColor(insight.priority)}>
 												{insight.priority}
@@ -379,8 +437,8 @@
 				<Lightbulb class="text-muted-foreground mx-auto mb-4 h-16 w-16" />
 				<h3 class="text-primary mb-2 text-xl font-semibold">No Insights Yet</h3>
 				<p class="text-muted-foreground mx-auto mb-6 max-w-md">
-					As you work on your goals, we'll generate personalized insights and recommendations to
-					help you succeed.
+					As you work on your goals, we'll generate personalized insights and
+					recommendations to help you succeed.
 				</p>
 				<Button.Root onclick={() => goto('/plan?tab=goals')}>View Active Goals</Button.Root>
 			</Card.Content>
@@ -404,11 +462,15 @@
 						<div class="text-muted-foreground text-sm">Total Goals</div>
 					</div>
 					<div class="text-center">
-						<div class="text-2xl font-bold text-green-500">{goalsData.completedGoals}</div>
+						<div class="text-2xl font-bold text-green-500">
+							{goalsData.completedGoals}
+						</div>
 						<div class="text-muted-foreground text-sm">Completed</div>
 					</div>
 					<div class="text-center">
-						<div class="text-2xl font-bold text-[var(--color-info)]">{goalsData.activeGoals}</div>
+						<div class="text-2xl font-bold text-[var(--color-info)]">
+							{goalsData.activeGoals}
+						</div>
 						<div class="text-muted-foreground text-sm">Active</div>
 					</div>
 					<div class="text-center">

@@ -30,9 +30,9 @@
 		negativeStatus?.isNegative && negativeStatus.handlingMode === 'borrow_from_other_categories'
 	);
 
-	let activeBorrows = $state<Awaited<ReturnType<typeof envelopeBorrowingService.getActiveBorrows>>>(
-		[]
-	);
+	let activeBorrows = $state<
+		Awaited<ReturnType<typeof envelopeBorrowingService.getActiveBorrows>>
+	>([]);
 	let paybackSuggestions = $state<PaybackSuggestion[]>([]);
 	let chronicSummary = $state<Awaited<
 		ReturnType<typeof envelopeBorrowingService.getChronicBorrowingSummary>
@@ -107,7 +107,9 @@
 						? allowance.periodStart
 						: new Date(allowance.periodStart),
 				periodEnd:
-					allowance.periodEnd instanceof Date ? allowance.periodEnd : new Date(allowance.periodEnd),
+					allowance.periodEnd instanceof Date
+						? allowance.periodEnd
+						: new Date(allowance.periodEnd),
 				userConfirmedRepeated: chronicSummary?.shouldRequireConfirmation ? true : undefined
 			});
 			borrowAmount = 0;
@@ -126,7 +128,12 @@
 	}
 
 	$effect(() => {
-		if (isBorrowMode && overByAndCategory && lenderCandidates.length > 0 && borrowAmount === 0) {
+		if (
+			isBorrowMode &&
+			overByAndCategory &&
+			lenderCandidates.length > 0 &&
+			borrowAmount === 0
+		) {
 			borrowAmount = overByAndCategory.overBy;
 			selectedFromCategoryId = lenderCandidates[0].categoryId;
 		}
@@ -155,9 +162,12 @@
 				<ul class="space-y-2">
 					{#each activeBorrows as borrow}
 						{@const outstanding = borrow.amount - borrow.repaidAmount}
-						<li class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
+						<li
+							class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+						>
 							<div>
-								<span class="font-medium">{categoryLabel(borrow.fromCategory)}</span>
+								<span class="font-medium">{categoryLabel(borrow.fromCategory)}</span
+								>
 								<span class="text-muted-foreground"> → </span>
 								<span class="font-medium">{categoryLabel(borrow.toCategory)}</span>
 								<span class="text-muted-foreground ml-1">
@@ -188,8 +198,10 @@
 				<ul class="text-muted-foreground space-y-1 text-sm">
 					{#each paybackSuggestions as suggestion}
 						<li>
-							Repay {formatTransactionAmount(suggestion.suggestedAmount, suggestion.currency)} from {suggestion.fromCategoryName ??
-								suggestion.fromCategoryId}
+							Repay {formatTransactionAmount(
+								suggestion.suggestedAmount,
+								suggestion.currency
+							)} from {suggestion.fromCategoryName ?? suggestion.fromCategoryId}
 							to {suggestion.toCategoryName ?? suggestion.toCategoryId} (due {new Date(
 								suggestion.dueRepayBy
 							).toLocaleDateString()})
@@ -217,7 +229,9 @@
 							>
 								<SelectTrigger id="from-category" class="mt-1 w-full">
 									{(() => {
-										const c = lenderCandidates.find((x) => x.categoryId === selectedFromCategoryId);
+										const c = lenderCandidates.find(
+											(x) => x.categoryId === selectedFromCategoryId
+										);
 										return c
 											? `${c.categoryName}: ${formatTransactionAmount(c.available, c.currency)} available`
 											: selectedFromCategoryId;
@@ -226,7 +240,10 @@
 								<SelectContent>
 									{#each lenderCandidates as c}
 										<SelectItem value={c.categoryId}>
-											{c.categoryName}: {formatTransactionAmount(c.available, c.currency)} available
+											{c.categoryName}: {formatTransactionAmount(
+												c.available,
+												c.currency
+											)} available
 										</SelectItem>
 									{/each}
 								</SelectContent>

@@ -1,0 +1,28 @@
+#!/bin/sh
+# Pre-commit hook — Budgic enforcement layer
+echo "🔍 Running pre-commit checks..."
+
+# 1. Prettier check (BLOCK)
+echo "  → Checking Prettier formatting..."
+npx prettier --check .
+if [ $? -ne 0 ]; then
+  echo "❌ PRETTIER FAILURES — Run: npx prettier --write ."
+  exit 1
+fi
+
+# 2. Console.log detector (WARN)
+echo "  → Checking for console.log..."
+CONSOLE_LOGS=$(git diff --cached --name-only --diff-filter=ACM -- "*.ts" "*.svelte" | xargs grep -l "console\.log" 2>/dev/null | grep -v "\.test\." | grep -v "vitest" | grep -v "devLog")
+if [ -n "$CONSOLE_LOGS" ]; then
+  echo "  ⚠️  console.log found — consider using devLog()"
+fi
+
+# 3. BUGS.md non-empty warning (WARN)
+if [ -f "docs/actionable/1_BUGS.md" ]; then
+  UNCHECKED=$(grep -c "^\- \[ \]" docs/actionable/1_BUGS.md 2>/dev/null)
+  if [ "$UNCHECKED" -gt 0 ]; then
+    echo "  ⚠️  1_BUGS.md has $UNCHECKED unchecked items"
+  fi
+fi
+
+echo "✅ All checks passed."

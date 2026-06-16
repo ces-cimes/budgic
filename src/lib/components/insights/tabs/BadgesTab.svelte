@@ -96,12 +96,16 @@
 							<p class="text-muted-foreground text-[10px] sm:text-xs">Achievements</p>
 							<p class="text-foreground text-lg font-bold sm:text-2xl">
 								{unlockedCount}
-								<span class="text-muted-foreground text-sm sm:text-lg">/ {totalCount}</span>
+								<span class="text-muted-foreground text-sm sm:text-lg"
+									>/ {totalCount}</span
+								>
 							</p>
 						</div>
 						<div class="text-right">
 							<p class="text-muted-foreground text-[10px] sm:text-xs">Progress</p>
-							<p class="text-foreground text-lg font-bold sm:text-2xl">{unlockedPercentage}%</p>
+							<p class="text-foreground text-lg font-bold sm:text-2xl">
+								{unlockedPercentage}%
+							</p>
 						</div>
 					</div>
 					<div class="bg-muted h-2 w-full rounded-full">
@@ -126,7 +130,9 @@
 							<span class="truncate">
 								{filterType === 'all'
 									? 'All Types'
-									: filterType.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+									: filterType
+											.replace(/_/g, ' ')
+											.replace(/\b\w/g, (l) => l.toUpperCase())}
 							</span>
 						</Select.Trigger>
 						<Select.Content>

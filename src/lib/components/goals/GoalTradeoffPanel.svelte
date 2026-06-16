@@ -101,8 +101,8 @@
 				<div>
 					<Card.Title>Goal trade-off analysis</Card.Title>
 					<Card.Description>
-						See how shifting money between goals affects target dates. Allocations are by priority
-						(critical first).
+						See how shifting money between goals affects target dates. Allocations are
+						by priority (critical first).
 					</Card.Description>
 				</div>
 			</div>
@@ -115,14 +115,19 @@
 			{:else if allocationPreview}
 				<!-- Allocation by priority -->
 				<div>
-					<p class="text-primary mb-2 text-sm font-medium">Current allocation (by priority)</p>
+					<p class="text-primary mb-2 text-sm font-medium">
+						Current allocation (by priority)
+					</p>
 					<p class="text-muted-foreground mb-2 text-xs">
 						Total for goals: {formatAmount(
 							allocationPreview.totalAvailableInUserCurrency,
 							userCurrency
 						)}/mo
 						{#if allocationPreview.totalShortfall > 0}
-							· Shortfall: {formatAmount(allocationPreview.totalShortfall, userCurrency)}
+							· Shortfall: {formatAmount(
+								allocationPreview.totalShortfall,
+								userCurrency
+							)}
 						{/if}
 					</p>
 					<div class="max-h-48 space-y-1.5 overflow-y-auto">
@@ -131,18 +136,29 @@
 								class="bg-muted/50 flex items-center justify-between rounded-md px-2 py-1.5 text-sm"
 							>
 								<div class="flex min-w-0 items-center gap-2">
-									<Badge class={getPriorityColor(alloc.priority)} variant="secondary">
+									<Badge
+										class={getPriorityColor(alloc.priority)}
+										variant="secondary"
+									>
 										{alloc.priority}
 									</Badge>
-									<span class="text-primary truncate font-medium">{alloc.goalName}</span>
+									<span class="text-primary truncate font-medium"
+										>{alloc.goalName}</span
+									>
 								</div>
 								<div class="flex shrink-0 items-center gap-2">
 									<span class="text-muted-foreground">
-										{formatAmount(alloc.allocatedInUserCurrency, userCurrency)}/mo
+										{formatAmount(
+											alloc.allocatedInUserCurrency,
+											userCurrency
+										)}/mo
 									</span>
 									{#if alloc.shortfallInUserCurrency > 0}
 										<span class="text-destructive text-xs">
-											(need {formatAmount(alloc.requiredMonthlyInUserCurrency, userCurrency)})
+											(need {formatAmount(
+												alloc.requiredMonthlyInUserCurrency,
+												userCurrency
+											)})
 										</span>
 									{/if}
 								</div>
@@ -202,7 +218,10 @@
 										<li class="flex items-center gap-2">
 											<TrendingDown class="h-4 w-4 shrink-0 text-amber-600" />
 											<span
-												><strong class="text-primary">{impact.goalName}</strong> — {impact.message}</span
+												><strong class="text-primary"
+													>{impact.goalName}</strong
+												>
+												— {impact.message}</span
 											>
 										</li>
 									{/each}

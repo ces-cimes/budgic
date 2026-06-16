@@ -2,7 +2,14 @@
 	import { onMount } from 'svelte';
 	import { insightsService } from '$lib/core/services';
 	import { formatCurrencyAmount } from '$lib/utils/currency-utils';
-	import { TrendingUp, TrendingDown, Minus, Clock, Calendar, AlertTriangle } from '@lucide/svelte';
+	import {
+		TrendingUp,
+		TrendingDown,
+		Minus,
+		Clock,
+		Calendar,
+		AlertTriangle
+	} from '@lucide/svelte';
 	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	interface Props {
@@ -66,9 +73,21 @@
 <div class="spending-patterns {className}">
 	{#if isLoading}
 		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-				<svg class="text-muted-foreground h-8 w-8 animate-spin" fill="none" viewBox="0 0 24 24">
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+			<div
+				class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+			>
+				<svg
+					class="text-muted-foreground h-8 w-8 animate-spin"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle
+						class="opacity-25"
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="4"
 					></circle>
 					<path
 						class="opacity-75"
@@ -114,30 +133,49 @@
 					</h3>
 					<div class="space-y-3">
 						{#each spendingPatterns.categoryPatterns.slice(0, 5) as category (category.categoryId)}
-							{@const TrendIcon = category.trendSuppressed ? null : getTrendIcon(category.trend)}
+							{@const TrendIcon = category.trendSuppressed
+								? null
+								: getTrendIcon(category.trend)}
 							<div class="bg-card border-border rounded-lg border p-4">
 								<div class="mb-2 flex items-center justify-between">
 									<div class="flex-1">
-										<h4 class="text-foreground text-sm font-semibold">{category.categoryName}</h4>
+										<h4 class="text-foreground text-sm font-semibold">
+											{category.categoryName}
+										</h4>
 										<p class="text-muted-foreground mt-0.5 text-xs">
-											{category.frequency} transactions • {category.percentageOfTotal.toFixed(1)}%
-											of total
+											{category.frequency} transactions • {category.percentageOfTotal.toFixed(
+												1
+											)}% of total
 										</p>
 									</div>
 									<div class="flex items-center gap-2">
 										{#if category.trendSuppressed}
 											<span class="text-muted-foreground text-xs">—</span>
 										{:else if TrendIcon}
-											<TrendIcon class="h-4 w-4 {getTrendColor(category.trend)}" />
-											<span class="text-sm font-medium {getTrendColor(category.trend)}">
+											<TrendIcon
+												class="h-4 w-4 {getTrendColor(category.trend)}"
+											/>
+											<span
+												class="text-sm font-medium {getTrendColor(
+													category.trend
+												)}"
+											>
 												{category.trend}
 											</span>
 										{/if}
 									</div>
 								</div>
-								<div class="text-muted-foreground flex items-center justify-between text-xs">
-									<span>Avg: {formatCurrencyAmount(category.averageAmount, userCurrency)}</span>
-									<span>{category.percentageOfTotal.toFixed(1)}% of spending</span>
+								<div
+									class="text-muted-foreground flex items-center justify-between text-xs"
+								>
+									<span
+										>Avg: {formatCurrencyAmount(
+											category.averageAmount,
+											userCurrency
+										)}</span
+									>
+									<span>{category.percentageOfTotal.toFixed(1)}% of spending</span
+									>
 								</div>
 							</div>
 						{/each}
@@ -171,10 +209,13 @@
 								<div class="flex items-center gap-4">
 									<div class="flex-1">
 										<div class="mb-1 flex items-center justify-between">
-											<span class="text-muted-foreground text-xs">Weekend</span>
+											<span class="text-muted-foreground text-xs"
+												>Weekend</span
+											>
 											<span class="text-foreground text-xs font-medium">
 												{formatCurrencyAmount(
-													spendingPatterns.timingPatterns.weekendVsWeekday.weekend,
+													spendingPatterns.timingPatterns.weekendVsWeekday
+														.weekend,
 													userCurrency
 												)}
 											</span>
@@ -182,19 +223,25 @@
 										<div class="bg-muted h-2 overflow-hidden rounded-full">
 											<div
 												class="bg-primary h-full"
-												style="width: {(spendingPatterns.timingPatterns.weekendVsWeekday.weekend /
-													(spendingPatterns.timingPatterns.weekendVsWeekday.weekend +
-														spendingPatterns.timingPatterns.weekendVsWeekday.weekday)) *
+												style="width: {(spendingPatterns.timingPatterns
+													.weekendVsWeekday.weekend /
+													(spendingPatterns.timingPatterns
+														.weekendVsWeekday.weekend +
+														spendingPatterns.timingPatterns
+															.weekendVsWeekday.weekday)) *
 													100}%"
 											></div>
 										</div>
 									</div>
 									<div class="flex-1">
 										<div class="mb-1 flex items-center justify-between">
-											<span class="text-muted-foreground text-xs">Weekday</span>
+											<span class="text-muted-foreground text-xs"
+												>Weekday</span
+											>
 											<span class="text-foreground text-xs font-medium">
 												{formatCurrencyAmount(
-													spendingPatterns.timingPatterns.weekendVsWeekday.weekday,
+													spendingPatterns.timingPatterns.weekendVsWeekday
+														.weekday,
 													userCurrency
 												)}
 											</span>
@@ -202,9 +249,12 @@
 										<div class="bg-muted h-2 overflow-hidden rounded-full">
 											<div
 												class="bg-secondary h-full"
-												style="width: {(spendingPatterns.timingPatterns.weekendVsWeekday.weekday /
-													(spendingPatterns.timingPatterns.weekendVsWeekday.weekend +
-														spendingPatterns.timingPatterns.weekendVsWeekday.weekday)) *
+												style="width: {(spendingPatterns.timingPatterns
+													.weekendVsWeekday.weekday /
+													(spendingPatterns.timingPatterns
+														.weekendVsWeekday.weekend +
+														spendingPatterns.timingPatterns
+															.weekendVsWeekday.weekday)) *
 													100}%"
 											></div>
 										</div>
@@ -237,7 +287,9 @@
 							<div>
 								<p class="text-muted-foreground mb-1 text-xs">Frequency</p>
 								<p class="text-foreground text-sm font-semibold">
-									{spendingPatterns.velocityPatterns.transactionFrequency.toFixed(1)}/day
+									{spendingPatterns.velocityPatterns.transactionFrequency.toFixed(
+										1
+									)}/day
 								</p>
 							</div>
 							<div>
@@ -246,7 +298,8 @@
 									class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium {spendingPatterns
 										.velocityPatterns.spendingVelocity === 'high'
 										? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-										: spendingPatterns.velocityPatterns.spendingVelocity === 'medium'
+										: spendingPatterns.velocityPatterns.spendingVelocity ===
+											  'medium'
 											? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400'
 											: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'}"
 								>

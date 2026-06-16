@@ -186,14 +186,16 @@
 				<Card.Content class="space-y-4">
 					<div class="bg-muted/50 border-border rounded-lg border p-3">
 						<div class="flex items-start gap-2">
-							<AlertCircle class="text-muted-foreground mt-0.5 h-4 w-4 flex-shrink-0" />
+							<AlertCircle
+								class="text-muted-foreground mt-0.5 h-4 w-4 flex-shrink-0"
+							/>
 							<div class="text-muted-foreground space-y-1 text-xs">
 								<p class="text-foreground font-medium">About the Score:</p>
 								<p>
-									The optimization score evaluates your financial plan's health. Lower (more
-									negative) scores indicate more issues like buffer violations or fees. The <strong
-										>improvement</strong
-									> value shows how much better the optimized plan is compared to your current plan. A
+									The optimization score evaluates your financial plan's health.
+									Lower (more negative) scores indicate more issues like buffer
+									violations or fees. The <strong>improvement</strong> value shows how
+									much better the optimized plan is compared to your current plan. A
 									positive improvement means the optimization found a better arrangement.
 								</p>
 							</div>
@@ -203,7 +205,9 @@
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 						<div class="space-y-2">
 							<div class="text-muted-foreground text-sm">Baseline Score</div>
-							<div class="text-2xl font-semibold">{formatScore(result.baselineScore)}</div>
+							<div class="text-2xl font-semibold">
+								{formatScore(result.baselineScore)}
+							</div>
 							<div class="text-muted-foreground text-xs">Current plan</div>
 							<div class="text-muted-foreground/70 text-xs">
 								Raw: {result.baselineScore.toFixed(0)}
@@ -222,14 +226,18 @@
 						<div class="space-y-2">
 							<div class="text-muted-foreground text-sm">Improvement</div>
 							<div class="text-2xl font-semibold text-green-600 dark:text-green-400">
-								{result.improvement >= 0 ? '+' : ''}{formatScore(result.improvement)}
+								{result.improvement >= 0 ? '+' : ''}{formatScore(
+									result.improvement
+								)}
 							</div>
 							<div class="text-muted-foreground text-xs">
 								({formatPercentage(improvementPercentage())} better)
 							</div>
 							{#if Math.abs(result.improvement) >= 1_000}
 								<div class="text-muted-foreground/70 text-xs">
-									Raw: {result.improvement >= 0 ? '+' : ''}{result.improvement.toFixed(0)}
+									Raw: {result.improvement >= 0
+										? '+'
+										: ''}{result.improvement.toFixed(0)}
 								</div>
 							{/if}
 						</div>
@@ -252,7 +260,9 @@
 						</div>
 						<div class="space-y-1">
 							<div class="text-muted-foreground text-xs">Transactions Moved</div>
-							<div class="text-sm font-medium">{result.metadata.transactionsMoved}</div>
+							<div class="text-sm font-medium">
+								{result.metadata.transactionsMoved}
+							</div>
 						</div>
 						<div class="space-y-1">
 							<div class="text-muted-foreground text-xs">Execution Time</div>
@@ -285,7 +295,10 @@
 										<div class="font-medium">{improvement.description}</div>
 										{#if improvement.value > 0}
 											<div class="text-muted-foreground text-sm">
-												Value: {formatMainCurrencyAmount(improvement.value, userCurrency)}
+												Value: {formatMainCurrencyAmount(
+													improvement.value,
+													userCurrency
+												)}
 											</div>
 										{/if}
 									</div>
@@ -301,8 +314,8 @@
 					<Card.Header>
 						<Card.Title>Transaction Adjustments</Card.Title>
 						<Card.Description>
-							{result.optimizedPlan.movements.length} transaction{result.optimizedPlan.movements
-								.length !== 1
+							{result.optimizedPlan.movements.length} transaction{result.optimizedPlan
+								.movements.length !== 1
 								? 's'
 								: ''}
 							will be adjusted
@@ -312,7 +325,9 @@
 						<div class="space-y-4">
 							{#if movementsByImpact().high.length > 0}
 								<div class="space-y-2">
-									<div class="text-sm font-medium text-amber-600 dark:text-amber-400">
+									<div
+										class="text-sm font-medium text-amber-600 dark:text-amber-400"
+									>
 										High Impact ({movementsByImpact().high.length})
 									</div>
 									<div class="space-y-2">
@@ -324,9 +339,14 @@
 													<div class="font-medium">
 														{getTransactionName(movement.transactionId)}
 													</div>
-													<div class="text-muted-foreground flex items-center gap-2 text-sm">
+													<div
+														class="text-muted-foreground flex items-center gap-2 text-sm"
+													>
 														<Calendar class="h-3 w-3" />
-														{format(movement.originalDate, 'MMM d, yyyy')}
+														{format(
+															movement.originalDate,
+															'MMM d, yyyy'
+														)}
 														<ArrowRight class="h-3 w-3" />
 														{format(movement.newDate, 'MMM d, yyyy')}
 													</div>
@@ -347,14 +367,21 @@
 									</div>
 									<div class="space-y-2">
 										{#each movementsByImpact().medium as movement}
-											<div class="flex items-center justify-between rounded-lg border p-3">
+											<div
+												class="flex items-center justify-between rounded-lg border p-3"
+											>
 												<div class="flex-1">
 													<div class="font-medium">
 														{getTransactionName(movement.transactionId)}
 													</div>
-													<div class="text-muted-foreground flex items-center gap-2 text-sm">
+													<div
+														class="text-muted-foreground flex items-center gap-2 text-sm"
+													>
 														<Calendar class="h-3 w-3" />
-														{format(movement.originalDate, 'MMM d, yyyy')}
+														{format(
+															movement.originalDate,
+															'MMM d, yyyy'
+														)}
 														<ArrowRight class="h-3 w-3" />
 														{format(movement.newDate, 'MMM d, yyyy')}
 													</div>
@@ -375,7 +402,9 @@
 									</div>
 									<div class="space-y-1">
 										{#each movementsByImpact().low as movement}
-											<div class="flex items-center justify-between rounded p-2 text-sm">
+											<div
+												class="flex items-center justify-between rounded p-2 text-sm"
+											>
 												<div class="text-muted-foreground flex-1">
 													{getTransactionName(movement.transactionId)}
 												</div>
@@ -404,7 +433,9 @@
 									<div class="mb-2 flex items-start justify-between">
 										<div class="flex-1">
 											<div class="mb-1 flex items-center gap-2">
-												<Card.Title class="text-base">{recommendation.title}</Card.Title>
+												<Card.Title class="text-base"
+													>{recommendation.title}</Card.Title
+												>
 												<Badge
 													variant={recommendation.priority === 'urgent'
 														? 'destructive'
@@ -423,7 +454,9 @@
 										</div>
 									</div>
 									{#if recommendation.estimatedSavings !== undefined && recommendation.estimatedSavings > 0}
-										<div class="mb-2 text-sm font-medium text-green-600 dark:text-green-400">
+										<div
+											class="mb-2 text-sm font-medium text-green-600 dark:text-green-400"
+										>
 											Estimated Savings: {formatMainCurrencyAmount(
 												recommendation.estimatedSavings,
 												userCurrency
@@ -432,12 +465,15 @@
 									{/if}
 									<div class="mt-2 flex gap-2">
 										{#if recommendation.actionable && onApply}
-											<Button size="sm" onclick={handleApply}>Apply Optimization</Button>
+											<Button size="sm" onclick={handleApply}
+												>Apply Optimization</Button
+											>
 										{/if}
 										<Button
 											size="sm"
 											variant="outline"
-											onclick={() => handleFeedback(recommendation.id, 'accepted')}
+											onclick={() =>
+												handleFeedback(recommendation.id, 'accepted')}
 										>
 											<CheckCircle2 class="mr-1 h-4 w-4" />
 											Helpful
@@ -445,7 +481,8 @@
 										<Button
 											size="sm"
 											variant="ghost"
-											onclick={() => handleFeedback(recommendation.id, 'rejected')}
+											onclick={() =>
+												handleFeedback(recommendation.id, 'rejected')}
 										>
 											<X class="mr-1 h-4 w-4" />
 											Not Helpful

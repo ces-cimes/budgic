@@ -71,7 +71,9 @@ describe('getMaxSuggestions', () => {
 	});
 
 	it('allows all eligible for balanced+standard', () => {
-		expect(getMaxSuggestions({ guidanceTone: 'balanced', explanationDetail: 'standard' })).toBe(3);
+		expect(getMaxSuggestions({ guidanceTone: 'balanced', explanationDetail: 'standard' })).toBe(
+			3
+		);
 	});
 });
 

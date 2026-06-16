@@ -56,7 +56,8 @@
 				explanationDetail = preferences.explanationDetail ?? 'standard';
 				analyticsEnabled = preferences.analyticsEnabled ?? true;
 				backupEnabled = preferences.backupEnabled ?? true;
-				insightsShadowCategoryBreakdown = preferences.insightsShadowCategoryBreakdown ?? false;
+				insightsShadowCategoryBreakdown =
+					preferences.insightsShadowCategoryBreakdown ?? false;
 			}
 		} catch (err) {
 			error = 'Failed to load profile settings';
@@ -150,7 +151,9 @@
 							Basic information
 						</h2>
 						<div class="space-y-1.5">
-							<label for="username" class="text-sm font-medium text-[var(--color-text-primary)]"
+							<label
+								for="username"
+								class="text-sm font-medium text-[var(--color-text-primary)]"
 								>Name</label
 							>
 							<input
@@ -160,7 +163,9 @@
 								required
 								class="border-border w-full max-w-xs rounded-xl border bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-amber)]"
 							/>
-							<p class="text-xs text-[var(--color-text-tertiary)]">Displayed throughout the app</p>
+							<p class="text-xs text-[var(--color-text-tertiary)]">
+								Displayed throughout the app
+							</p>
 						</div>
 					</div>
 					<div class="space-y-3 px-5 py-4">
@@ -198,7 +203,9 @@
 								<BarChart2 class="size-4 text-[var(--color-amber)]" />
 							</div>
 							<div>
-								<p class="text-sm font-medium text-[var(--color-text-primary)]">Analytics</p>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									Analytics
+								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									Help improve the app by sharing usage data
 								</p>
@@ -214,7 +221,9 @@
 								<HardDrive class="size-4 text-[var(--color-amber)]" />
 							</div>
 							<div>
-								<p class="text-sm font-medium text-[var(--color-text-primary)]">Data backup</p>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									Data backup
+								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
 									Automatically back up your financial data
 								</p>
@@ -228,10 +237,13 @@
 						</p>
 					{/if}
 					<div class="border-border border-t px-5 py-4">
-						<p class="text-sm font-medium text-[var(--color-text-primary)]">Device ID</p>
+						<p class="text-sm font-medium text-[var(--color-text-primary)]">
+							Device ID
+						</p>
 						<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
 							Send this to the admin to enable server backup on
-							<code class="text-[var(--color-text-secondary)]">budgic.example.ru</code>.
+							<code class="text-[var(--color-text-secondary)]">budgic.example.ru</code
+							>.
 						</p>
 						<div class="mt-2 flex flex-wrap items-center gap-2">
 							<code
@@ -260,8 +272,8 @@
 									~estimated category breakdown
 								</p>
 								<p class="text-xs text-[var(--color-text-tertiary)]">
-									When Insights has stable merchant profiles, category pattern stats can reflect
-									inferred splits. Nothing stored is modified.
+									When Insights has stable merchant profiles, category pattern
+									stats can reflect inferred splits. Nothing stored is modified.
 								</p>
 							</div>
 						</div>

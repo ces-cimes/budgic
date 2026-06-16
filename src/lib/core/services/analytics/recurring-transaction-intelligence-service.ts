@@ -178,7 +178,8 @@ function groupSameEventTransactions(txs: Transaction[]): Transaction[] {
 				// first (base) transaction is a transfer leg with no category assigned.
 				const catCounts = new Map<string, number>();
 				for (const tx of eventTxs) {
-					if (tx.categoryId) catCounts.set(tx.categoryId, (catCounts.get(tx.categoryId) ?? 0) + 1);
+					if (tx.categoryId)
+						catCounts.set(tx.categoryId, (catCounts.get(tx.categoryId) ?? 0) + 1);
 				}
 				const bestCatId = [...catCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 				const synthetic: Transaction = {
@@ -331,7 +332,10 @@ class RecurringTransactionIntelligenceService {
 		);
 	}
 
-	private async _detectPatterns(days: number, minOccurrences: number): Promise<RecurringPattern[]> {
+	private async _detectPatterns(
+		days: number,
+		minOccurrences: number
+	): Promise<RecurringPattern[]> {
 		const canonical = await this._getCanonical();
 		return this._deriveFromCanonical(canonical, days, minOccurrences);
 	}
@@ -360,7 +364,11 @@ class RecurringTransactionIntelligenceService {
 			const dbRow = await db.recurringPatternsCache.get(RECURRING_CANONICAL_CACHE_KEY);
 			if (dbRow && Date.now() - new Date(dbRow.computedAt).getTime() < 24 * 60 * 60 * 1000) {
 				const patterns = dbRow.patterns as RecurringPattern[];
-				serviceCache.set(RECURRING_CANONICAL_SERVICE_CACHE_KEY, patterns, PATTERN_CACHE_TTL);
+				serviceCache.set(
+					RECURRING_CANONICAL_SERVICE_CACHE_KEY,
+					patterns,
+					PATTERN_CACHE_TTL
+				);
 				for (const p of patterns) this.patternCache.set(p.id, p);
 				devLog(`[Recurring] loaded ${patterns.length} patterns from IndexedDB cache`);
 				recordRecurringCanonicalTier('indexeddb');
@@ -375,7 +383,11 @@ class RecurringTransactionIntelligenceService {
 			recordRecurringCanonicalTier('cold_start');
 			this._canonicalInFlight = this._runDetection(365, 2)
 				.then(async (result) => {
-					serviceCache.set(RECURRING_CANONICAL_SERVICE_CACHE_KEY, result, PATTERN_CACHE_TTL);
+					serviceCache.set(
+						RECURRING_CANONICAL_SERVICE_CACHE_KEY,
+						result,
+						PATTERN_CACHE_TTL
+					);
 					try {
 						await db.recurringPatternsCache.put({
 							id: RECURRING_CANONICAL_CACHE_KEY,
@@ -493,7 +505,8 @@ class RecurringTransactionIntelligenceService {
 			if (a.occurrences !== b.occurrences) return b.occurrences - a.occurrences;
 			const urgencyDiff = approxDaysUntilNext(a) - approxDaysUntilNext(b);
 			if (Math.abs(urgencyDiff) > 2) return urgencyDiff; // soonest next first
-			if (Math.abs(a.dateRelevancy - b.dateRelevancy) > 5) return b.dateRelevancy - a.dateRelevancy;
+			if (Math.abs(a.dateRelevancy - b.dateRelevancy) > 5)
+				return b.dateRelevancy - a.dateRelevancy;
 			return b.confidence - a.confidence;
 		});
 
@@ -780,7 +793,9 @@ class RecurringTransactionIntelligenceService {
 		}
 
 		// 2. serviceCache (in-memory canonical array)
-		const canonical = serviceCache.get<RecurringPattern[]>(RECURRING_CANONICAL_SERVICE_CACHE_KEY);
+		const canonical = serviceCache.get<RecurringPattern[]>(
+			RECURRING_CANONICAL_SERVICE_CACHE_KEY
+		);
 		if (canonical) {
 			const patched = canonical.map((p) =>
 				p.id === patternId ? { ...p, learnedCategoryId: categoryId } : p
@@ -888,7 +903,9 @@ class RecurringTransactionIntelligenceService {
 		// amount=0 in the DB while the UI resolves the real value from the counterpart leg.
 		// Treating zeros as genuine occurrences would pull averageAmount to zero.
 		// If ALL amounts are zero we keep them (no data to fall back to).
-		const amounts = rawAmounts.some((a) => a > 0) ? rawAmounts.filter((a) => a > 0) : rawAmounts;
+		const amounts = rawAmounts.some((a) => a > 0)
+			? rawAmounts.filter((a) => a > 0)
+			: rawAmounts;
 
 		// IQR outlier filter: exclude one-off anomalies (e.g. rent + realtor cut in one month)
 		// from the amount prediction while keeping them in historicalAmounts for display.
@@ -941,7 +958,9 @@ class RecurringTransactionIntelligenceService {
 			// callers (e.g. applyPatternTier) can reliably bulkGet from IndexedDB.
 			// Synthetic transactions encode their originals in `notes` as a comma list.
 			matchingTransactionIds: group.flatMap((tx) =>
-				tx.id.startsWith('synthetic:') ? (tx.notes ?? '').split(',').filter(Boolean) : [tx.id]
+				tx.id.startsWith('synthetic:')
+					? (tx.notes ?? '').split(',').filter(Boolean)
+					: [tx.id]
 			),
 			descriptionPattern: this.extractDescriptionPattern(group),
 			categoryConfidence: 0,
@@ -1107,8 +1126,11 @@ class RecurringTransactionIntelligenceService {
 				avg: amts.reduce((s, a) => s + a, 0) / amts.length
 			}));
 
-			const overallAvg = monthlyAverages.reduce((s, m) => s + m.avg, 0) / monthlyAverages.length;
-			const maxDeviation = Math.max(...monthlyAverages.map((m) => Math.abs(m.avg - overallAvg)));
+			const overallAvg =
+				monthlyAverages.reduce((s, m) => s + m.avg, 0) / monthlyAverages.length;
+			const maxDeviation = Math.max(
+				...monthlyAverages.map((m) => Math.abs(m.avg - overallAvg))
+			);
 
 			if (maxDeviation / overallAvg > 0.15) {
 				return 'seasonal';
@@ -1262,7 +1284,8 @@ class RecurringTransactionIntelligenceService {
 				return Math.floor(differenceInDays(now, lastDate) / 14);
 			case 'monthly':
 				return (
-					(now.getFullYear() - lastDate.getFullYear()) * 12 + (now.getMonth() - lastDate.getMonth())
+					(now.getFullYear() - lastDate.getFullYear()) * 12 +
+					(now.getMonth() - lastDate.getMonth())
 				);
 			case 'quarterly':
 				return Math.floor(
@@ -1320,7 +1343,9 @@ class RecurringTransactionIntelligenceService {
 		return notes.join('; ') || 'Standard pattern';
 	}
 
-	private async detectMissingOccurrences(pattern: RecurringPattern): Promise<RecurringConflict[]> {
+	private async detectMissingOccurrences(
+		pattern: RecurringPattern
+	): Promise<RecurringConflict[]> {
 		// Auto-resolve missing occurrences by marking pattern as inactive
 		// Don't create conflicts - patterns that stop appearing are simply inactive
 		// This is handled by isPatternActive() method
@@ -1381,7 +1406,9 @@ class RecurringTransactionIntelligenceService {
 					transactions[i - 1].createdAt
 			);
 			const currDate = parseISO(
-				transactions[i].clearedDate || transactions[i].plannedDate || transactions[i].createdAt
+				transactions[i].clearedDate ||
+					transactions[i].plannedDate ||
+					transactions[i].createdAt
 			);
 			const daysBetween = differenceInDays(currDate, prevDate);
 

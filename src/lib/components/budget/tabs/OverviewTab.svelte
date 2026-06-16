@@ -97,7 +97,9 @@
 			<CardHeader class="pb-3">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<div class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg">
+						<div
+							class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-lg"
+						>
 							<DollarSign class="text-primary" size={16} />
 						</div>
 						<CardTitle class="text-primary text-lg">Daily Allowance</CardTitle>
@@ -169,7 +171,11 @@
 			{#if accountId}
 				<AddPlannedTransaction {accountId} onTransactionAdded={onAddPlannedTransaction} />
 			{:else}
-				<Button onclick={onAddPlannedTransaction} class="w-full justify-start" variant="outline">
+				<Button
+					onclick={onAddPlannedTransaction}
+					class="w-full justify-start"
+					variant="outline"
+				>
 					<Plus class="mr-2" size={16} />
 					Add Planned Transaction
 				</Button>

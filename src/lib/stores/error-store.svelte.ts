@@ -1,7 +1,8 @@
-// Replace stores with runes
+// Error store — centralized error tracking
+// Usage: import { reportError, appErrors } from '$lib/stores/error-store.svelte';
+
 let appErrors = $state<Array<{ id: string; error: Error }>>([]);
 
-// Fallback UUID generation for older browsers
 function generateUUID(): string {
 	if (typeof crypto !== 'undefined' && crypto.randomUUID) {
 		return crypto.randomUUID();
@@ -14,8 +15,13 @@ function generateUUID(): string {
 }
 
 export function reportError(error: Error) {
-	appErrors = [...appErrors, { id: generateUUID(), error }];
+	appErrors.push({ id: generateUUID(), error });
 }
 
-// Export the reactive state
-export { appErrors };
+export function clearErrors() {
+	appErrors.length = 0;
+}
+
+export function getErrors() {
+	return appErrors;
+}

@@ -168,7 +168,9 @@
 			aria-expanded={expanded}
 			aria-label={expanded ? 'Collapse' : 'Expand'}
 		>
-			<ChevronDown class="h-4 w-4 transition-transform {expanded ? 'rotate-0' : '-rotate-90'}" />
+			<ChevronDown
+				class="h-4 w-4 transition-transform {expanded ? 'rotate-0' : '-rotate-90'}"
+			/>
 		</button>
 	</div>
 	{#if expanded}

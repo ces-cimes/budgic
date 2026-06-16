@@ -81,7 +81,9 @@
 	const PaceIcon = $derived(paceBadge.icon);
 
 	const confidencePercent = $derived(
-		confidence ? Math.round(confidence.ratio * 100) : Math.round(allowance.total.confidence * 100)
+		confidence
+			? Math.round(confidence.ratio * 100)
+			: Math.round(allowance.total.confidence * 100)
 	);
 
 	const showAllowanceRangeBand = $derived(Boolean(confidence) && confidence?.tier !== 'high');
@@ -109,9 +111,18 @@
 			<AlertTitle>Forward projection (cash-flow view)</AlertTitle>
 			<AlertDescription>
 				<p class="text-muted-foreground text-xs">
-					Committed {formatTransactionAmount(projection.committed, projection.currency, false)} · Planned{' '}
-					{formatTransactionAmount(projection.planned, projection.currency, false)} · Uncertainty ±{' '}
-					{formatTransactionAmount(projection.uncertaintyBand, projection.currency, false)}
+					Committed {formatTransactionAmount(
+						projection.committed,
+						projection.currency,
+						false
+					)} · Planned{' '}
+					{formatTransactionAmount(projection.planned, projection.currency, false)} · Uncertainty
+					±{' '}
+					{formatTransactionAmount(
+						projection.uncertaintyBand,
+						projection.currency,
+						false
+					)}
 				</p>
 				<p class="mt-1 text-xs font-medium">
 					Available (point){' '}
@@ -165,8 +176,8 @@
 				<div
 					class="bg-muted/50 border-border text-muted-foreground rounded-lg border px-4 py-3 text-sm"
 				>
-					No lifestyle category budgets yet — showing a simplified estimate. Add lifestyle budgets
-					for a tier-attributed daily allowance.
+					No lifestyle category budgets yet — showing a simplified estimate. Add lifestyle
+					budgets for a tier-attributed daily allowance.
 				</div>
 			{/if}
 
@@ -180,7 +191,10 @@
 					<Badge variant={paceBadge.variant}>{paceBadge.label}</Badge>
 					<span class="text-muted-foreground text-xs"
 						>Pace {allowance.pace.toFixed(2)}× · {allowance.lifestyleRemaining > 0
-							? formatTransactionAmount(allowance.lifestyleRemaining, allowance.currency)
+							? formatTransactionAmount(
+									allowance.lifestyleRemaining,
+									allowance.currency
+								)
 							: '0'} left</span
 					>
 				</div>
@@ -190,7 +204,8 @@
 				<div class="bg-muted/40 mt-2 space-y-2 rounded-md px-3 py-2 text-left">
 					<p class="text-muted-foreground text-xs font-medium">
 						Remaining range
-						<span class={confidence?.tier === 'low' ? 'text-destructive' : 'text-warning'}
+						<span
+							class={confidence?.tier === 'low' ? 'text-destructive' : 'text-warning'}
 							>({confidence?.tier} confidence)</span
 						>
 					</p>
@@ -248,18 +263,27 @@
 								<div class="flex justify-between">
 									<span class="text-muted-foreground">Daily rate</span>
 									<span class="font-medium"
-										>{formatTransactionAmount(line.dailyRate, allowance.currency)}</span
+										>{formatTransactionAmount(
+											line.dailyRate,
+											allowance.currency
+										)}</span
 									>
 								</div>
 								<div class="flex justify-between">
 									<span class="text-muted-foreground">Remaining</span>
 									<span class="font-medium"
-										>{formatTransactionAmount(line.remaining, allowance.currency)}</span
+										>{formatTransactionAmount(
+											line.remaining,
+											allowance.currency
+										)}</span
 									>
 								</div>
 								<Progress
 									value={line.budgetAmount > 0
-										? Math.min(100, (line.spentAmount / line.budgetAmount) * 100)
+										? Math.min(
+												100,
+												(line.spentAmount / line.budgetAmount) * 100
+											)
 										: 0}
 									max={100}
 									class="h-2"
@@ -284,7 +308,9 @@
 					Recommendations ({allowance.recommendations.length})
 				</span>
 				<ChevronDown
-					class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+					class="h-4 w-4 transition-transform {showRecommendationsExpanded
+						? 'rotate-180'
+						: ''}"
 				/>
 			</button>
 			{#if showRecommendationsExpanded}

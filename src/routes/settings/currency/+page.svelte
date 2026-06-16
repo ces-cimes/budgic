@@ -18,7 +18,11 @@
 	import DialogDrawer from '$lib/components/shared/DialogDrawer.svelte';
 	import { CalcExpressionInput } from '$lib/components/ui/calculator/index.ts';
 	import * as Select from '$lib/components/ui/select/index.ts';
-	import { formatAmount, sortCurrencies, sortInactiveCurrencies } from '$lib/utils/currency-utils';
+	import {
+		formatAmount,
+		sortCurrencies,
+		sortInactiveCurrencies
+	} from '$lib/utils/currency-utils';
 	import type { CurrencyConfiguration, Currency, ExchangeRate } from '$lib/core/db';
 	import {
 		RefreshCw,
@@ -72,9 +76,9 @@
 	// Exchange rates
 	let exchangeRates = $state<ExchangeRate[]>([]);
 	let editingRate = $state<string | null>(null);
-	let editedRates = $state<Map<string, { fromCurrency: string; toCurrency: string; rate: number }>>(
-		new Map()
-	);
+	let editedRates = $state<
+		Map<string, { fromCurrency: string; toCurrency: string; rate: number }>
+	>(new Map());
 	let showAddRateForm = $state(false);
 	let newRate = $state({ fromCurrency: 'USD', toCurrency: 'EUR', rate: 1 });
 
@@ -500,7 +504,10 @@
 					`[CurrencySettings] Successfully regenerated predictions with currency: ${mainCurrency}`
 				);
 			} catch (insightErr) {
-				console.error('[CurrencySettings] Error regenerating prediction insights:', insightErr);
+				console.error(
+					'[CurrencySettings] Error regenerating prediction insights:',
+					insightErr
+				);
 				// Don't fail the currency change if insight regeneration fails
 			}
 
@@ -729,7 +736,9 @@
 		try {
 			await exchangeRateService.resetRateToAPI(rate.fromCurrency, rate.toCurrency);
 			await loadExchangeRates();
-			toast.success(`Exchange rate ${rate.fromCurrency} → ${rate.toCurrency} reset to API value`);
+			toast.success(
+				`Exchange rate ${rate.fromCurrency} → ${rate.toCurrency} reset to API value`
+			);
 		} catch (err) {
 			const errorMsg = `Failed to reset rate to API: ${err instanceof Error ? err.message : 'Unknown error'}`;
 			error = errorMsg;
@@ -812,11 +821,21 @@
 						);
 						if (rate === null) {
 							// Set default rate of 1, user can update later
-							await exchangeRateService.setExchangeRate(mainCurrency, currency.code, 1, today);
+							await exchangeRateService.setExchangeRate(
+								mainCurrency,
+								currency.code,
+								1,
+								today
+							);
 						}
 					} catch {
 						// If API fails, set default rate
-						await exchangeRateService.setExchangeRate(mainCurrency, currency.code, 1, today);
+						await exchangeRateService.setExchangeRate(
+							mainCurrency,
+							currency.code,
+							1,
+							today
+						);
 					}
 				}
 			}
@@ -915,7 +934,8 @@
 
 		// Can't delete main currency
 		if (currency.code === mainCurrency) {
-			const errorMsg = 'Cannot delete the main currency. Please change your main currency first.';
+			const errorMsg =
+				'Cannot delete the main currency. Please change your main currency first.';
 			error = errorMsg;
 			toast.error(errorMsg);
 			return;
@@ -1010,9 +1030,10 @@
 					onSwipeEnd: handlePullEnd
 				}
 			: undefined}
-		style="transform: translateY({Math.min(pullDistance, PULL_THRESHOLD)}px); transition: {isPulling
-			? 'none'
-			: 'transform 200ms ease-out'};"
+		style="transform: translateY({Math.min(
+			pullDistance,
+			PULL_THRESHOLD
+		)}px); transition: {isPulling ? 'none' : 'transform 200ms ease-out'};"
 	>
 		<!-- Pull to Refresh Indicator -->
 		{#if sidebar.isMobile && pullDistance > 0}
@@ -1021,17 +1042,27 @@
 				style="opacity: {Math.min(pullDistance / PULL_THRESHOLD, 1)};"
 			>
 				<RefreshCw
-					class="text-primary h-5 w-5 {pullDistance >= PULL_THRESHOLD ? 'animate-spin' : ''}"
-					style="transform: rotate({Math.min((pullDistance / PULL_THRESHOLD) * 360, 360)}deg);"
+					class="text-primary h-5 w-5 {pullDistance >= PULL_THRESHOLD
+						? 'animate-spin'
+						: ''}"
+					style="transform: rotate({Math.min(
+						(pullDistance / PULL_THRESHOLD) * 360,
+						360
+					)}deg);"
 				/>
 				<span class="text-muted-foreground ml-2 text-sm">
-					{pullDistance >= PULL_THRESHOLD ? 'Release to refresh...' : 'Pull to refresh...'}
+					{pullDistance >= PULL_THRESHOLD
+						? 'Release to refresh...'
+						: 'Pull to refresh...'}
 				</span>
 			</div>
 		{/if}
 
 		{#if error && lastErrorAction}
-			<Alert.Root variant="destructive" class="animate-in slide-in-from-top-2 fade-in duration-300">
+			<Alert.Root
+				variant="destructive"
+				class="animate-in slide-in-from-top-2 fade-in duration-300"
+			>
 				<AlertCircle class="h-4 w-4" />
 				<Alert.Title>Error</Alert.Title>
 				<Alert.Description class="flex items-center justify-between gap-4">
@@ -1064,7 +1095,8 @@
 				<Card.Header>
 					<Card.Title>Main Currency & Active Currencies</Card.Title>
 					<Card.Description>
-						Select your primary currency and manage which currencies are active in your app
+						Select your primary currency and manage which currencies are active in your
+						app
 					</Card.Description>
 				</Card.Header>
 				<Card.Content class="space-y-4">
@@ -1078,11 +1110,15 @@
 						<Select.Root type="single" bind:value={mainCurrency}>
 							<Select.Trigger class="w-full" id="main-currency">
 								{#if mainCurrency}
-									{@const option = currencyOptions.find((o) => o.value === mainCurrency)}
+									{@const option = currencyOptions.find(
+										(o) => o.value === mainCurrency
+									)}
 									{#if option}
 										<span class="flex w-full items-center justify-between">
 											<span>{option.label}</span>
-											<span class="text-muted-foreground ml-2">{option.symbol}</span>
+											<span class="text-muted-foreground ml-2"
+												>{option.symbol}</span
+											>
 										</span>
 									{:else}
 										{mainCurrency}
@@ -1096,14 +1132,17 @@
 									<Select.Item value={option.value}>
 										<span class="flex w-full items-center justify-between">
 											<span>{option.label}</span>
-											<span class="text-muted-foreground ml-2">{option.symbol}</span>
+											<span class="text-muted-foreground ml-2"
+												>{option.symbol}</span
+											>
 										</span>
 									</Select.Item>
 								{/each}
 							</Select.Content>
 						</Select.Root>
 						<p class="text-muted-foreground text-xs">
-							Your main currency is used for displaying totals and calculations throughout the app
+							Your main currency is used for displaying totals and calculations
+							throughout the app
 						</p>
 					</div>
 
@@ -1128,18 +1167,24 @@
 								sheetContentClass="max-w-2xl sm:max-w-lg"
 							>
 								{#snippet children()}
-									<div class="max-h-[calc(100vh-8rem)] space-y-6 overflow-y-auto py-4">
+									<div
+										class="max-h-[calc(100vh-8rem)] space-y-6 overflow-y-auto py-4"
+									>
 										<div class="space-y-4">
 											<div class="space-y-2">
-												<Label.Root for="new-currency-code">Currency Code (ISO 4217)</Label.Root>
+												<Label.Root for="new-currency-code"
+													>Currency Code (ISO 4217)</Label.Root
+												>
 												<Input.Root
 													id="new-currency-code"
 													type="text"
 													placeholder="USD"
 													value={newCurrency.code}
 													oninput={(e) => {
-														const target = e.currentTarget as HTMLInputElement;
-														newCurrency.code = target.value.toUpperCase();
+														const target =
+															e.currentTarget as HTMLInputElement;
+														newCurrency.code =
+															target.value.toUpperCase();
 													}}
 												/>
 												<p class="text-muted-foreground text-xs">
@@ -1147,7 +1192,9 @@
 												</p>
 											</div>
 											<div class="space-y-2">
-												<Label.Root for="new-currency-name">Currency Name</Label.Root>
+												<Label.Root for="new-currency-name"
+													>Currency Name</Label.Root
+												>
 												<Input.Root
 													id="new-currency-name"
 													type="text"
@@ -1156,7 +1203,9 @@
 												/>
 											</div>
 											<div class="space-y-2">
-												<Label.Root for="new-currency-symbol">Symbol</Label.Root>
+												<Label.Root for="new-currency-symbol"
+													>Symbol</Label.Root
+												>
 												<Input.Root
 													id="new-currency-symbol"
 													type="text"
@@ -1165,21 +1214,32 @@
 												/>
 											</div>
 											<div class="space-y-2">
-												<Label.Root for="new-currency-placement">Symbol Placement</Label.Root>
-												<Select.Root type="single" bind:value={newCurrency.placement}>
+												<Label.Root for="new-currency-placement"
+													>Symbol Placement</Label.Root
+												>
+												<Select.Root
+													type="single"
+													bind:value={newCurrency.placement}
+												>
 													<Select.Trigger id="new-currency-placement">
 														{newCurrency.placement === 'before'
 															? 'Before amount ($100)'
 															: 'After amount (100₽)'}
 													</Select.Trigger>
 													<Select.Content>
-														<Select.Item value="before">Before amount ($100)</Select.Item>
-														<Select.Item value="after">After amount (100₽)</Select.Item>
+														<Select.Item value="before"
+															>Before amount ($100)</Select.Item
+														>
+														<Select.Item value="after"
+															>After amount (100₽)</Select.Item
+														>
 													</Select.Content>
 												</Select.Root>
 											</div>
 											<div class="space-y-2">
-												<Label.Root for="new-currency-decimals">Decimal Places</Label.Root>
+												<Label.Root for="new-currency-decimals"
+													>Decimal Places</Label.Root
+												>
 												<Input.Root
 													id="new-currency-decimals"
 													type="number"
@@ -1187,7 +1247,8 @@
 													max="18"
 													value={newCurrency.decimalPlaces.toString()}
 													oninput={(e) => {
-														const target = e.currentTarget as HTMLInputElement;
+														const target =
+															e.currentTarget as HTMLInputElement;
 														const parsed = parseInt(target.value);
 														if (!isNaN(parsed)) {
 															newCurrency.decimalPlaces = parsed;
@@ -1248,7 +1309,10 @@
 										onclick={(e) => {
 											// Don't open drawer if clicking on drag handle or action buttons
 											const target = e.target as HTMLElement;
-											if (!target.closest('.drag-handle') && !target.closest('button')) {
+											if (
+												!target.closest('.drag-handle') &&
+												!target.closest('button')
+											) {
 												openConfigDrawer(currency);
 											}
 										}}
@@ -1256,7 +1320,10 @@
 											if (e.key === 'Enter' || e.key === ' ') {
 												e.preventDefault();
 												const target = e.target as HTMLElement;
-												if (!target.closest('.drag-handle') && !target.closest('button')) {
+												if (
+													!target.closest('.drag-handle') &&
+													!target.closest('button')
+												) {
 													openConfigDrawer(currency);
 												}
 											}
@@ -1266,7 +1333,8 @@
 											: 'hover:bg-muted/50'} {dragOverIndex === index
 											? 'border-primary bg-primary/10'
 											: ''}"
-										style="animation: slideIn 0.3s ease-out {index * 0.05}s both"
+										style="animation: slideIn 0.3s ease-out {index *
+											0.05}s both"
 									>
 										<Tooltip.Root>
 											<Tooltip.Trigger>
@@ -1283,7 +1351,9 @@
 											<div class="min-w-0 flex-1">
 												<div class="flex items-center gap-2 font-medium">
 													<span class="truncate">{currency.name}</span>
-													<span class="text-muted-foreground">({currency.code})</span>
+													<span class="text-muted-foreground"
+														>({currency.code})</span
+													>
 													{#if isMain}
 														<Tooltip.Root>
 															<Tooltip.Trigger>
@@ -1293,15 +1363,24 @@
 																>
 															</Tooltip.Trigger>
 															<Tooltip.Content>
-																<p>This is your main currency used for totals and calculations</p>
+																<p>
+																	This is your main currency used
+																	for totals and calculations
+																</p>
 															</Tooltip.Content>
 														</Tooltip.Root>
 													{/if}
 												</div>
-												<div class="text-muted-foreground flex items-center gap-2 text-sm">
+												<div
+													class="text-muted-foreground flex items-center gap-2 text-sm"
+												>
 													<span>{currency.symbol}</span>
 													<span>•</span>
-													<span>{currency.isSystem ? 'System' : 'Custom'}</span>
+													<span
+														>{currency.isSystem
+															? 'System'
+															: 'Custom'}</span
+													>
 												</div>
 											</div>
 										</div>
@@ -1318,7 +1397,8 @@
 														<Button.Root
 															variant="outline"
 															size="sm"
-															onclick={() => toggleCurrencyActive(currency)}
+															onclick={() =>
+																toggleCurrencyActive(currency)}
 															disabled={isSaving}
 															class="transition-transform hover:scale-110 active:scale-95"
 															title="Deactivate currency"
@@ -1337,7 +1417,8 @@
 														<Button.Root
 															variant="outline"
 															size="sm"
-															onclick={() => openDeleteCurrencyDialog(currency)}
+															onclick={() =>
+																openDeleteCurrencyDialog(currency)}
 															disabled={isSaving}
 															class="hover:text-destructive transition-transform hover:scale-110 active:scale-95"
 															title="Delete currency"
@@ -1359,12 +1440,14 @@
 										<Button.Root
 											variant="ghost"
 											size="sm"
-											onclick={() => (showInactiveCurrencies = !showInactiveCurrencies)}
+											onclick={() =>
+												(showInactiveCurrencies = !showInactiveCurrencies)}
 											class="hover:bg-muted mb-2 w-full transition-all duration-200"
 										>
 											<span class="flex items-center justify-center gap-2">
 												<span
-													>{showInactiveCurrencies ? 'Hide' : 'Show'} Inactive Currencies ({inactiveCurrencies.length})</span
+													>{showInactiveCurrencies ? 'Hide' : 'Show'} Inactive
+													Currencies ({inactiveCurrencies.length})</span
 												>
 												<svg
 													class="h-4 w-4 transition-transform duration-200 {showInactiveCurrencies
@@ -1401,29 +1484,47 @@
 															}
 														}}
 														onkeydown={(e) => {
-															if (e.key === 'Enter' || e.key === ' ') {
+															if (
+																e.key === 'Enter' ||
+																e.key === ' '
+															) {
 																e.preventDefault();
-																const target = e.target as HTMLElement;
+																const target =
+																	e.target as HTMLElement;
 																if (!target.closest('button')) {
 																	openConfigDrawer(currency);
 																}
 															}
 														}}
 														class="hover:bg-muted/30 group flex cursor-pointer items-center justify-between rounded-lg border p-3 opacity-60 transition-all duration-200 hover:opacity-100 hover:shadow-md"
-														style="animation: fadeIn 0.3s ease-out {index * 0.05}s both"
+														style="animation: fadeIn 0.3s ease-out {index *
+															0.05}s both"
 													>
-														<div class="flex min-w-0 flex-1 items-center gap-3">
+														<div
+															class="flex min-w-0 flex-1 items-center gap-3"
+														>
 															<div class="min-w-0 flex-1">
 																<div
 																	class="text-muted-foreground flex items-center gap-2 font-medium"
 																>
-																	<span class="truncate">{currency.name}</span>
-																	<span class="text-muted-foreground">({currency.code})</span>
+																	<span class="truncate"
+																		>{currency.name}</span
+																	>
+																	<span
+																		class="text-muted-foreground"
+																		>({currency.code})</span
+																	>
 																</div>
-																<div class="text-muted-foreground flex items-center gap-2 text-sm">
+																<div
+																	class="text-muted-foreground flex items-center gap-2 text-sm"
+																>
 																	<span>{currency.symbol}</span>
 																	<span>•</span>
-																	<span>{currency.isSystem ? 'System' : 'Custom'}</span>
+																	<span
+																		>{currency.isSystem
+																			? 'System'
+																			: 'Custom'}</span
+																	>
 																</div>
 															</div>
 														</div>
@@ -1439,7 +1540,10 @@
 																	<Button.Root
 																		variant="outline"
 																		size="sm"
-																		onclick={() => toggleCurrencyActive(currency)}
+																		onclick={() =>
+																			toggleCurrencyActive(
+																				currency
+																			)}
 																		disabled={isSaving}
 																		class="hover:text-primary transition-transform hover:scale-110 active:scale-95"
 																		title="Activate currency"
@@ -1457,12 +1561,17 @@
 																		<Button.Root
 																			variant="outline"
 																			size="sm"
-																			onclick={() => openDeleteCurrencyDialog(currency)}
+																			onclick={() =>
+																				openDeleteCurrencyDialog(
+																					currency
+																				)}
 																			disabled={isSaving}
 																			class="hover:text-destructive transition-transform hover:scale-110 active:scale-95"
 																			title="Delete currency"
 																		>
-																			<Trash2 class="h-4 w-4" />
+																			<Trash2
+																				class="h-4 w-4"
+																			/>
 																		</Button.Root>
 																	</Tooltip.Trigger>
 																	<Tooltip.Content>
@@ -1488,9 +1597,9 @@
 				<Card.Header>
 					<Card.Title>Exchange Rates</Card.Title>
 					<Card.Description>
-						View and edit conversion rates. Click "Update from API" to fetch current rates (required
-						for correct multi-currency totals). You can also add or edit rates manually for
-						currencies that can't be fetched.
+						View and edit conversion rates. Click "Update from API" to fetch current
+						rates (required for correct multi-currency totals). You can also add or edit
+						rates manually for currencies that can't be fetched.
 					</Card.Description>
 				</Card.Header>
 				<Card.Content class="space-y-4">
@@ -1520,15 +1629,17 @@
 						>
 							<h3 class="font-semibold">Add Manual Rate</h3>
 							<p class="text-muted-foreground text-sm">
-								1 from-currency = rate to-currency (e.g. 1 USD = 78 RUB means rate 78 for USD→RUB)
+								1 from-currency = rate to-currency (e.g. 1 USD = 78 RUB means rate
+								78 for USD→RUB)
 							</p>
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 								<div class="space-y-2">
 									<Label.Root for="new-rate-from">From</Label.Root>
 									<Select.Root type="single" bind:value={newRate.fromCurrency}>
 										<Select.Trigger id="new-rate-from">
-											{currencyOptions.find((o) => o.value === newRate.fromCurrency)?.label ||
-												newRate.fromCurrency}
+											{currencyOptions.find(
+												(o) => o.value === newRate.fromCurrency
+											)?.label || newRate.fromCurrency}
 										</Select.Trigger>
 										<Select.Content>
 											{#each currencyOptions as o}
@@ -1541,8 +1652,9 @@
 									<Label.Root for="new-rate-to">To</Label.Root>
 									<Select.Root type="single" bind:value={newRate.toCurrency}>
 										<Select.Trigger id="new-rate-to">
-											{currencyOptions.find((o) => o.value === newRate.toCurrency)?.label ||
-												newRate.toCurrency}
+											{currencyOptions.find(
+												(o) => o.value === newRate.toCurrency
+											)?.label || newRate.toCurrency}
 										</Select.Trigger>
 										<Select.Content>
 											{#each currencyOptions as o}
@@ -1560,7 +1672,9 @@
 										step="0.000001"
 										value={newRate.rate}
 										oninput={(e) => {
-											const v = parseFloat((e.currentTarget as HTMLInputElement).value);
+											const v = parseFloat(
+												(e.currentTarget as HTMLInputElement).value
+											);
 											newRate.rate = isNaN(v) ? 1 : v;
 										}}
 									/>
@@ -1575,7 +1689,11 @@
 									variant="outline"
 									onclick={() => {
 										showAddRateForm = false;
-										newRate = { fromCurrency: mainCurrency, toCurrency: 'EUR', rate: 1 };
+										newRate = {
+											fromCurrency: mainCurrency,
+											toCurrency: 'EUR',
+											rate: 1
+										};
 									}}
 									disabled={isSaving}
 								>
@@ -1597,7 +1715,11 @@
 						>
 							{#snippet children()}
 								<div class="flex flex-wrap justify-center gap-2">
-									<Button.Root variant="outline" onclick={updateRatesFromAPI} disabled={isSaving}>
+									<Button.Root
+										variant="outline"
+										onclick={updateRatesFromAPI}
+										disabled={isSaving}
+									>
 										<RefreshCw class="mr-2 h-4 w-4" />
 										Update from API
 									</Button.Root>
@@ -1618,12 +1740,24 @@
 								<table class="w-full">
 									<thead class="bg-muted">
 										<tr>
-											<th class="px-4 py-3 text-left text-sm font-medium">From</th>
-											<th class="px-4 py-3 text-left text-sm font-medium">To</th>
-											<th class="px-4 py-3 text-left text-sm font-medium">Rate</th>
-											<th class="px-4 py-3 text-left text-sm font-medium">Source</th>
-											<th class="px-4 py-3 text-left text-sm font-medium">Last Updated</th>
-											<th class="px-4 py-3 text-right text-sm font-medium">Actions</th>
+											<th class="px-4 py-3 text-left text-sm font-medium"
+												>From</th
+											>
+											<th class="px-4 py-3 text-left text-sm font-medium"
+												>To</th
+											>
+											<th class="px-4 py-3 text-left text-sm font-medium"
+												>Rate</th
+											>
+											<th class="px-4 py-3 text-left text-sm font-medium"
+												>Source</th
+											>
+											<th class="px-4 py-3 text-left text-sm font-medium"
+												>Last Updated</th
+											>
+											<th class="px-4 py-3 text-right text-sm font-medium"
+												>Actions</th
+											>
 										</tr>
 									</thead>
 									<tbody>
@@ -1633,8 +1767,9 @@
 												class="hover:bg-muted/50 border-t transition-all duration-150 {isEditing
 													? 'bg-muted/70'
 													: ''}"
-												style="animation: fadeIn 0.2s ease-out {exchangeRates.indexOf(rate) *
-													0.03}s both"
+												style="animation: fadeIn 0.2s ease-out {exchangeRates.indexOf(
+													rate
+												) * 0.03}s both"
 											>
 												<td class="px-4 py-3">
 													{#if isEditing}
@@ -1647,17 +1782,26 @@
 															value={fromCurrencyValue}
 															onValueChange={(value) => {
 																if (value) {
-																	updateRateValue(rate.id, 'fromCurrency', value);
+																	updateRateValue(
+																		rate.id,
+																		'fromCurrency',
+																		value
+																	);
 																}
 															}}
 														>
 															<Select.Trigger class="w-full text-sm">
-																{currencyOptions.find((o) => o.value === fromCurrencyValue)
-																	?.label || fromCurrencyValue}
+																{currencyOptions.find(
+																	(o) =>
+																		o.value ===
+																		fromCurrencyValue
+																)?.label || fromCurrencyValue}
 															</Select.Trigger>
 															<Select.Content>
 																{#each currencyOptions as o}
-																	<Select.Item value={o.value}>{o.label}</Select.Item>
+																	<Select.Item value={o.value}
+																		>{o.label}</Select.Item
+																	>
 																{/each}
 															</Select.Content>
 														</Select.Root>
@@ -1667,23 +1811,34 @@
 												</td>
 												<td class="px-4 py-3">
 													{#if isEditing}
-														{@const toCurrencyValue = getRateValue(rate.id, 'toCurrency') as string}
+														{@const toCurrencyValue = getRateValue(
+															rate.id,
+															'toCurrency'
+														) as string}
 														<Select.Root
 															type="single"
 															value={toCurrencyValue}
 															onValueChange={(value) => {
 																if (value) {
-																	updateRateValue(rate.id, 'toCurrency', value);
+																	updateRateValue(
+																		rate.id,
+																		'toCurrency',
+																		value
+																	);
 																}
 															}}
 														>
 															<Select.Trigger class="w-full text-sm">
-																{currencyOptions.find((o) => o.value === toCurrencyValue)?.label ||
-																	toCurrencyValue}
+																{currencyOptions.find(
+																	(o) =>
+																		o.value === toCurrencyValue
+																)?.label || toCurrencyValue}
 															</Select.Trigger>
 															<Select.Content>
 																{#each currencyOptions as o}
-																	<Select.Item value={o.value}>{o.label}</Select.Item>
+																	<Select.Item value={o.value}
+																		>{o.label}</Select.Item
+																	>
 																{/each}
 															</Select.Content>
 														</Select.Root>
@@ -1697,12 +1852,21 @@
 															type="number"
 															min="0"
 															step="0.000001"
-															value={getRateValue(rate.id, 'rate') as number}
+															value={getRateValue(
+																rate.id,
+																'rate'
+															) as number}
 															oninput={(e) => {
-																const t = e.currentTarget as HTMLInputElement;
-																updateRateValue(rate.id, 'rate', parseFloat(t.value) || 0);
+																const t =
+																	e.currentTarget as HTMLInputElement;
+																updateRateValue(
+																	rate.id,
+																	'rate',
+																	parseFloat(t.value) || 0
+																);
 															}}
-															onkeydown={(e) => handleRateEditKeydown(e, rate.id)}
+															onkeydown={(e) =>
+																handleRateEditKeydown(e, rate.id)}
 															class="w-24"
 														/>
 													{:else}
@@ -1711,7 +1875,9 @@
 												</td>
 												<td class="px-4 py-3">
 													<span class="text-muted-foreground text-xs">
-														{rate.source === 'manual' ? 'Manual' : 'API'}
+														{rate.source === 'manual'
+															? 'Manual'
+															: 'API'}
 													</span>
 												</td>
 												<td class="px-4 py-3">
@@ -1721,7 +1887,9 @@
 																? 'font-medium text-amber-600 dark:text-amber-400'
 																: 'text-muted-foreground'}"
 														>
-															{new Date(rate.date).toLocaleDateString()}
+															{new Date(
+																rate.date
+															).toLocaleDateString()}
 														</span>
 														{#if isRateOutdated(rate)}
 															<Tooltip.Root>
@@ -1732,7 +1900,10 @@
 																	/>
 																</Tooltip.Trigger>
 																<Tooltip.Content>
-																	<p>This rate is more than 1 day old. Consider updating it.</p>
+																	<p>
+																		This rate is more than 1 day
+																		old. Consider updating it.
+																	</p>
 																</Tooltip.Content>
 															</Tooltip.Root>
 														{/if}
@@ -1751,7 +1922,8 @@
 															</Button.Root>
 															<Button.Root
 																size="sm"
-																onclick={() => saveExchangeRate(rate.id)}
+																onclick={() =>
+																	saveExchangeRate(rate.id)}
 																disabled={isSaving}
 															>
 																<Save class="mr-1 h-4 w-4" />
@@ -1762,8 +1934,10 @@
 														<Button.Root
 															variant="outline"
 															size="sm"
-															onclick={() => startEditingRate(rate.id)}
-															disabled={isSaving || editingRate !== null}
+															onclick={() =>
+																startEditingRate(rate.id)}
+															disabled={isSaving ||
+																editingRate !== null}
 														>
 															<Edit2 class="h-4 w-4" />
 														</Button.Root>
@@ -1771,7 +1945,8 @@
 															variant="outline"
 															size="sm"
 															onclick={() => resetRateToAPI(rate.id)}
-															disabled={isSaving || editingRate !== null}
+															disabled={isSaving ||
+																editingRate !== null}
 														>
 															<RefreshCw class="h-4 w-4" />
 														</Button.Root>
@@ -1807,9 +1982,12 @@
 								<div class="flex items-center justify-between">
 									<div>
 										{#if config?.isCustom}
-											<span class="text-muted-foreground text-xs">Customized Configuration</span>
+											<span class="text-muted-foreground text-xs"
+												>Customized Configuration</span
+											>
 										{:else}
-											<span class="text-muted-foreground text-xs">System Default Configuration</span
+											<span class="text-muted-foreground text-xs"
+												>System Default Configuration</span
 											>
 										{/if}
 									</div>
@@ -1835,7 +2013,8 @@
 											<Button.Root
 												variant="outline"
 												size="sm"
-												onclick={() => openResetDefaultsDialog(currency.code)}
+												onclick={() =>
+													openResetDefaultsDialog(currency.code)}
 												disabled={isSaving}
 											>
 												<RefreshCw class="mr-2 h-4 w-4" />
@@ -1856,25 +2035,39 @@
 								{#if isEditing}
 									<div class="grid grid-cols-1 gap-4">
 										<div class="space-y-2">
-											<Label.Root for="currency-name-drawer">Currency Name</Label.Root>
+											<Label.Root for="currency-name-drawer"
+												>Currency Name</Label.Root
+											>
 											<Input.Root
 												id="currency-name-drawer"
 												type="text"
 												value={editedCurrencyName}
 												oninput={(e) => {
-													editedCurrencyName = (e.currentTarget as HTMLInputElement).value;
+													editedCurrencyName = (
+														e.currentTarget as HTMLInputElement
+													).value;
 												}}
 												placeholder="Enter currency name"
 											/>
-											<p class="text-muted-foreground text-xs">Display name for this currency</p>
+											<p class="text-muted-foreground text-xs">
+												Display name for this currency
+											</p>
 										</div>
 										<div class="space-y-2">
-											<Label.Root for="checking-buffer-drawer">Checking Buffer</Label.Root>
+											<Label.Root for="checking-buffer-drawer"
+												>Checking Buffer</Label.Root
+											>
 											<CalcExpressionInput
 												id="checking-buffer-drawer"
-												value={Number(getValue(currency.code, 'defaultCheckingBuffer')) || 0}
+												value={Number(
+													getValue(currency.code, 'defaultCheckingBuffer')
+												) || 0}
 												onValueChange={(n) =>
-													updateValue(currency.code, 'defaultCheckingBuffer', n)}
+													updateValue(
+														currency.code,
+														'defaultCheckingBuffer',
+														n
+													)}
 												decimalPlaces={2}
 												min={0}
 											/>
@@ -1883,11 +2076,20 @@
 											</p>
 										</div>
 										<div class="space-y-2">
-											<Label.Root for="savings-buffer-drawer">Savings Buffer</Label.Root>
+											<Label.Root for="savings-buffer-drawer"
+												>Savings Buffer</Label.Root
+											>
 											<CalcExpressionInput
 												id="savings-buffer-drawer"
-												value={Number(getValue(currency.code, 'defaultSavingsBuffer')) || 0}
-												onValueChange={(n) => updateValue(currency.code, 'defaultSavingsBuffer', n)}
+												value={Number(
+													getValue(currency.code, 'defaultSavingsBuffer')
+												) || 0}
+												onValueChange={(n) =>
+													updateValue(
+														currency.code,
+														'defaultSavingsBuffer',
+														n
+													)}
 												decimalPlaces={2}
 												min={0}
 											/>
@@ -1896,69 +2098,112 @@
 											</p>
 										</div>
 										<div class="space-y-2">
-											<Label.Root for="min-balance-drawer">Minimum Balance</Label.Root>
+											<Label.Root for="min-balance-drawer"
+												>Minimum Balance</Label.Root
+											>
 											<CalcExpressionInput
 												id="min-balance-drawer"
-												value={Number(getValue(currency.code, 'defaultMinimumBalance')) || 0}
+												value={Number(
+													getValue(currency.code, 'defaultMinimumBalance')
+												) || 0}
 												onValueChange={(n) =>
-													updateValue(currency.code, 'defaultMinimumBalance', n)}
+													updateValue(
+														currency.code,
+														'defaultMinimumBalance',
+														n
+													)}
 												decimalPlaces={2}
 											/>
 											<p class="text-muted-foreground text-xs">
-												Default minimum balance (can be negative for credit accounts)
+												Default minimum balance (can be negative for credit
+												accounts)
 											</p>
 										</div>
 										<div class="space-y-2">
-											<Label.Root for="max-amount-drawer">Max Amount Limit</Label.Root>
+											<Label.Root for="max-amount-drawer"
+												>Max Amount Limit</Label.Root
+											>
 											<CalcExpressionInput
 												id="max-amount-drawer"
-												value={Number(getValue(currency.code, 'maxAmountLimit')) || 0}
-												onValueChange={(n) => updateValue(currency.code, 'maxAmountLimit', n)}
+												value={Number(
+													getValue(currency.code, 'maxAmountLimit')
+												) || 0}
+												onValueChange={(n) =>
+													updateValue(currency.code, 'maxAmountLimit', n)}
 												decimalPlaces={2}
 												min={0}
 											/>
 											<p class="text-muted-foreground text-xs">
-												Maximum transaction amount limit (leave empty for unlimited)
+												Maximum transaction amount limit (leave empty for
+												unlimited)
 											</p>
 										</div>
 									</div>
 								{:else}
 									<div class="space-y-4">
-										<div class="flex items-center justify-between border-b py-2">
-											<span class="text-muted-foreground">Checking Buffer:</span>
+										<div
+											class="flex items-center justify-between border-b py-2"
+										>
+											<span class="text-muted-foreground"
+												>Checking Buffer:</span
+											>
 											<span class="font-medium">
 												{#if config?.defaultCheckingBuffer !== undefined}
-													{formatAmount(config.defaultCheckingBuffer, currency.code)}
+													{formatAmount(
+														config.defaultCheckingBuffer,
+														currency.code
+													)}
 												{:else}
 													Not set
 												{/if}
 											</span>
 										</div>
-										<div class="flex items-center justify-between border-b py-2">
-											<span class="text-muted-foreground">Savings Buffer:</span>
+										<div
+											class="flex items-center justify-between border-b py-2"
+										>
+											<span class="text-muted-foreground"
+												>Savings Buffer:</span
+											>
 											<span class="font-medium">
 												{#if config?.defaultSavingsBuffer !== undefined}
-													{formatAmount(config.defaultSavingsBuffer, currency.code)}
+													{formatAmount(
+														config.defaultSavingsBuffer,
+														currency.code
+													)}
 												{:else}
 													Not set
 												{/if}
 											</span>
 										</div>
-										<div class="flex items-center justify-between border-b py-2">
-											<span class="text-muted-foreground">Minimum Balance:</span>
+										<div
+											class="flex items-center justify-between border-b py-2"
+										>
+											<span class="text-muted-foreground"
+												>Minimum Balance:</span
+											>
 											<span class="font-medium">
 												{#if config?.defaultMinimumBalance !== undefined}
-													{formatAmount(config.defaultMinimumBalance, currency.code)}
+													{formatAmount(
+														config.defaultMinimumBalance,
+														currency.code
+													)}
 												{:else}
 													Not set
 												{/if}
 											</span>
 										</div>
-										<div class="flex items-center justify-between border-b py-2">
-											<span class="text-muted-foreground">Max Amount Limit:</span>
+										<div
+											class="flex items-center justify-between border-b py-2"
+										>
+											<span class="text-muted-foreground"
+												>Max Amount Limit:</span
+											>
 											<span class="font-medium">
 												{#if config?.maxAmountLimit !== undefined}
-													{formatAmount(config.maxAmountLimit, currency.code)}
+													{formatAmount(
+														config.maxAmountLimit,
+														currency.code
+													)}
 												{:else}
 													Not set
 												{/if}
@@ -1978,8 +2223,8 @@
 					<AlertDialog.Header>
 						<AlertDialog.Title>Reset to Defaults</AlertDialog.Title>
 						<AlertDialog.Description>
-							Are you sure you want to reset {resetDefaultsCurrencyCode} configuration to system defaults?
-							This will overwrite any custom settings you've configured.
+							Are you sure you want to reset {resetDefaultsCurrencyCode} configuration to
+							system defaults? This will overwrite any custom settings you've configured.
 						</AlertDialog.Description>
 					</AlertDialog.Header>
 					<AlertDialog.Footer>
@@ -2007,10 +2252,12 @@
 							Changing main currency from {oldMainCurrency} to {mainCurrency}.
 							<br />
 							<br />
-							Would you like to automatically convert existing exchange rates to the new main currency?
+							Would you like to automatically convert existing exchange rates to the new
+							main currency?
 							<br />
 							<br />
-							If you choose "No", you'll need to manually set exchange rates for the new main currency.
+							If you choose "No", you'll need to manually set exchange rates for the new
+							main currency.
 						</AlertDialog.Description>
 					</AlertDialog.Header>
 					<AlertDialog.Footer>

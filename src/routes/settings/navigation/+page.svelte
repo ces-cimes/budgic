@@ -272,8 +272,8 @@
 			class="rounded-xl border border-[var(--color-amber)]/20 bg-[var(--color-amber-subtle)] px-4 py-3"
 		>
 			<p class="text-xs text-[var(--color-text-secondary)]">
-				Drag items to reorder. The first 4 visible items appear in the mobile bar; the rest are in
-				the "More" menu.
+				Drag items to reorder. The first 4 visible items appear in the mobile bar; the rest
+				are in the "More" menu.
 			</p>
 		</div>
 
@@ -284,7 +284,9 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]">
+			<div
+				class="border-border overflow-hidden rounded-2xl border bg-[var(--color-bg-tertiary)]"
+			>
 				<div class="border-border border-b px-5 py-2.5">
 					<h2
 						class="text-[10px] font-semibold tracking-widest text-[var(--color-text-tertiary)] uppercase"
@@ -307,19 +309,27 @@
 								? 'bg-[var(--color-amber-subtle)]'
 								: 'hover:bg-[var(--color-bg-surface)]'}"
 						>
-							<GripVertical class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
+							<GripVertical
+								class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
+							/>
 							<div
 								class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)]"
 							>
 								<IconComponent class="size-4 text-[var(--color-text-secondary)]" />
 							</div>
 							<div class="min-w-0 flex-1">
-								<p class="text-sm font-medium text-[var(--color-text-primary)]">{item.label}</p>
-								<p class="truncate text-xs text-[var(--color-text-tertiary)]">{item.path}</p>
+								<p class="text-sm font-medium text-[var(--color-text-primary)]">
+									{item.label}
+								</p>
+								<p class="truncate text-xs text-[var(--color-text-tertiary)]">
+									{item.path}
+								</p>
 							</div>
 							<div class="flex shrink-0 items-center gap-3">
 								<div class="flex items-center gap-1.5" title="Mobile">
-									<Smartphone class="size-3.5 text-[var(--color-text-tertiary)]" />
+									<Smartphone
+										class="size-3.5 text-[var(--color-text-tertiary)]"
+									/>
 									<Switch
 										checked={item.showInMobile}
 										onCheckedChange={(checked) =>
@@ -359,8 +369,8 @@
 					Widget rotation
 				</h2>
 				<p class="mb-4 px-1 text-xs text-[var(--color-text-tertiary)]">
-					Choose which widgets appear in the desktop sidebar and their order. The first enabled
-					widget is the default.
+					Choose which widgets appear in the desktop sidebar and their order. The first
+					enabled widget is the default.
 				</p>
 				{#if widgetError}
 					<div
@@ -372,7 +382,9 @@
 				{#if widgetLoading}
 					<div class="space-y-2">
 						{#each [1, 2, 3] as _}
-							<Skeleton class="h-14 w-full rounded-xl bg-[var(--color-bg-tertiary)]" />
+							<Skeleton
+								class="h-14 w-full rounded-xl bg-[var(--color-bg-tertiary)]"
+							/>
 						{/each}
 					</div>
 				{:else}
@@ -394,10 +406,18 @@
 									ondragend={widgetDragEnd}
 									role="listitem"
 								>
-									<GripVertical class="size-4 shrink-0 text-[var(--color-text-tertiary)]" />
+									<GripVertical
+										class="size-4 shrink-0 text-[var(--color-text-tertiary)]"
+									/>
 									<div class="min-w-0 flex-1">
-										<p class="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</p>
-										<p class="text-xs text-[var(--color-text-tertiary)]">{meta.description}</p>
+										<p
+											class="text-sm font-medium text-[var(--color-text-primary)]"
+										>
+											{meta.label}
+										</p>
+										<p class="text-xs text-[var(--color-text-tertiary)]">
+											{meta.description}
+										</p>
 									</div>
 									<Switch
 										checked={true}
@@ -409,11 +429,20 @@
 							{/each}
 							{#each SIDEBAR_FOOTER_CARD_IDS.filter((id) => !enabledWidgetIds.includes(id)) as id (`disabled-${id}`)}
 								{@const meta = SIDEBAR_FOOTER_CARDS[id]}
-								<div class="flex items-center gap-3 px-4 py-3 opacity-50" role="listitem">
+								<div
+									class="flex items-center gap-3 px-4 py-3 opacity-50"
+									role="listitem"
+								>
 									<span class="size-4 shrink-0"></span>
 									<div class="min-w-0 flex-1">
-										<p class="text-sm font-medium text-[var(--color-text-primary)]">{meta.label}</p>
-										<p class="text-xs text-[var(--color-text-tertiary)]">{meta.description}</p>
+										<p
+											class="text-sm font-medium text-[var(--color-text-primary)]"
+										>
+											{meta.label}
+										</p>
+										<p class="text-xs text-[var(--color-text-tertiary)]">
+											{meta.description}
+										</p>
 									</div>
 									<Switch
 										checked={false}

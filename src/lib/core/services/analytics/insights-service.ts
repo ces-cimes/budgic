@@ -243,7 +243,10 @@ class InsightsService {
 		const { groupPanelAlertsForDisplay, splitByTier } = await import('$lib/utils/alert-tiers');
 		const unread = await this.getUnreadInsights();
 		const { critical, high } = splitByTier(unread);
-		const groups = [...groupPanelAlertsForDisplay(critical), ...groupPanelAlertsForDisplay(high)];
+		const groups = [
+			...groupPanelAlertsForDisplay(critical),
+			...groupPanelAlertsForDisplay(high)
+		];
 		return groups.slice(0, limit);
 	}
 
@@ -393,7 +396,9 @@ class InsightsService {
 					.toArray();
 
 				if (existingPredictions.length > 0) {
-					await Promise.all(existingPredictions.map((insight) => db.markInsightAsRead(insight.id)));
+					await Promise.all(
+						existingPredictions.map((insight) => db.markInsightAsRead(insight.id))
+					);
 				}
 
 				this.lastPredictionUpdate = now;
@@ -549,7 +554,12 @@ class InsightsService {
 			}
 
 			// Behind schedule insights — same signal as Home sort (`goalService.isOnTrack`)
-			if (goal.targetDate && goal.status === 'active' && progressData && !progressData.isOnTrack) {
+			if (
+				goal.targetDate &&
+				goal.status === 'active' &&
+				progressData &&
+				!progressData.isOnTrack
+			) {
 				insights.push({
 					id: generateUUID(),
 					type: 'goal_milestone',
@@ -1450,7 +1460,8 @@ class InsightsService {
 		const severityOrder: Record<string, number> = { alert: 0, warning: 1, info: 2, success: 3 };
 		const prioritizedInsights = insights.sort((a, b) => {
 			// First by severity
-			const severityDiff = (severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99);
+			const severityDiff =
+				(severityOrder[a.severity] || 99) - (severityOrder[b.severity] || 99);
 			if (severityDiff !== 0) return severityDiff;
 
 			// Then by actionable
@@ -1523,11 +1534,15 @@ class InsightsService {
 								? JSON.parse(insight.metadata)
 								: insight.metadata;
 						if (metadata.accountId) {
-							const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+							const oneDayAgo = new Date(
+								Date.now() - 24 * 60 * 60 * 1000
+							).toISOString();
 							const allPredictions = await db.insights
 								.where('type')
 								.equals('prediction')
-								.filter((i) => i.isActive && !i.dismissedAt && i.createdAt > oneDayAgo)
+								.filter(
+									(i) => i.isActive && !i.dismissedAt && i.createdAt > oneDayAgo
+								)
 								.toArray();
 
 							existingInsight =
@@ -1535,8 +1550,13 @@ class InsightsService {
 									if (!i.metadata) return false;
 									try {
 										const iMetadata =
-											typeof i.metadata === 'string' ? JSON.parse(i.metadata) : i.metadata;
-										return iMetadata.accountId === metadata.accountId && i.title === insight.title;
+											typeof i.metadata === 'string'
+												? JSON.parse(i.metadata)
+												: i.metadata;
+										return (
+											iMetadata.accountId === metadata.accountId &&
+											i.title === insight.title
+										);
 									} catch {
 										return false;
 									}
@@ -1555,7 +1575,10 @@ class InsightsService {
 						.equals(insight.type)
 						.filter(
 							(i) =>
-								i.isActive && !i.dismissedAt && i.title === insight.title && i.createdAt > oneDayAgo
+								i.isActive &&
+								!i.dismissedAt &&
+								i.title === insight.title &&
+								i.createdAt > oneDayAgo
 						)
 						.first();
 				}
@@ -1626,7 +1649,8 @@ class InsightsService {
 
 		const recentTransactions = validTransactions.filter(
 			(tx) =>
-				tx.status === 'cleared' && new Date(tx.clearedDate || tx.createdAt).getTime() > sevenDaysAgo
+				tx.status === 'cleared' &&
+				new Date(tx.clearedDate || tx.createdAt).getTime() > sevenDaysAgo
 		);
 
 		const historicalTransactions = validTransactions.filter(
@@ -1735,7 +1759,9 @@ class InsightsService {
 				.slice(0, 15); // Limit to top 15 budget risks
 
 			for (const analysis of significantRisks) {
-				const percentage = Math.round((analysis.predictedSpending / analysis.budgetAmount) * 100);
+				const percentage = Math.round(
+					(analysis.predictedSpending / analysis.budgetAmount) * 100
+				);
 
 				let severity: Insight['severity'] = 'info';
 				if (analysis.riskProbability > 70) severity = 'alert';
@@ -1838,7 +1864,10 @@ class InsightsService {
 	 */
 	async invalidatePredictionInsights(): Promise<void> {
 		// Get all prediction insights including already inactive ones to ensure complete cleanup
-		const allPredictionInsights = await db.insights.where('type').equals('prediction').toArray();
+		const allPredictionInsights = await db.insights
+			.where('type')
+			.equals('prediction')
+			.toArray();
 
 		const activePredictions = allPredictionInsights.filter((i) => i.isActive && !i.dismissedAt);
 		devLog(
@@ -1924,10 +1953,12 @@ class InsightsService {
 			// Determine risk level based on severity
 			let riskLevel: 'low' | 'medium' | 'high' = 'medium';
 			if (insight.severity === 'alert') riskLevel = 'high';
-			else if (insight.severity === 'success' || insight.severity === 'info') riskLevel = 'low';
+			else if (insight.severity === 'success' || insight.severity === 'info')
+				riskLevel = 'low';
 
 			// Parse metadata for values
-			const predictedValue = metadata.predictedAmount || metadata.predictedValue || insight.amount;
+			const predictedValue =
+				metadata.predictedAmount || metadata.predictedValue || insight.amount;
 			const currentValue = metadata.currentAmount || metadata.currentValue;
 			const variance =
 				predictedValue && currentValue ? predictedValue - currentValue : metadata.variance;
@@ -1970,7 +2001,9 @@ class InsightsService {
 						| undefined
 				},
 				createdAt: insight.createdAt,
-				expiresAt: insight.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+				expiresAt:
+					insight.expiresAt ||
+					new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 			};
 		});
 	}
@@ -2017,7 +2050,8 @@ class InsightsService {
 			else if (insight.severity === 'success' || insight.severity === 'info') impact = 'low';
 
 			// Extract recommendation from actionText or message
-			const recommendation = insight.actionText || this._extractRecommendation(insight.message);
+			const recommendation =
+				insight.actionText || this._extractRecommendation(insight.message);
 
 			return {
 				id: insight.id,
@@ -2112,7 +2146,10 @@ class InsightsService {
 		const prefs = await userService.getUserPreferences();
 		if (!prefs.insightsShadowCategoryBreakdown) return transactions;
 
-		const cache = new Map<string, Awaited<ReturnType<typeof merchantProfileService.getProfile>>>();
+		const cache = new Map<
+			string,
+			Awaited<ReturnType<typeof merchantProfileService.getProfile>>
+		>();
 		const profileFor = async (mk: string, accountId?: string) => {
 			const k = `${mk}|||${accountId ?? ''}`;
 			let p = cache.get(k);
@@ -2153,7 +2190,10 @@ class InsightsService {
 				categoryId: w.categoryId,
 				weight: w.meanWeight / sum
 			}));
-			const primary = normalized.reduce((a, b) => (b.weight > a.weight ? b : a), normalized[0]!);
+			const primary = normalized.reduce(
+				(a, b) => (b.weight > a.weight ? b : a),
+				normalized[0]!
+			);
 			out.push({
 				...tx,
 				categoryId: primary.categoryId,
@@ -2216,7 +2256,11 @@ class InsightsService {
 
 		// Category patterns
 		const categoryPatternSource = await this.applyShadowCategoryRedistribution(transactions);
-		const categoryPatterns = this.analyzeCategoryPatterns(categoryPatternSource, categoryMap, days);
+		const categoryPatterns = this.analyzeCategoryPatterns(
+			categoryPatternSource,
+			categoryMap,
+			days
+		);
 
 		// Timing patterns
 		const timingPatterns = this.analyzeTimingPatterns(transactions);
@@ -2313,7 +2357,9 @@ class InsightsService {
 			const secondHalf = chronologicAmounts.slice(midpoint);
 
 			const firstHalfAvg =
-				firstHalf.length > 0 ? firstHalf.reduce((sum, amt) => sum + amt, 0) / firstHalf.length : 0;
+				firstHalf.length > 0
+					? firstHalf.reduce((sum, amt) => sum + amt, 0) / firstHalf.length
+					: 0;
 			const secondHalfAvg =
 				secondHalf.length > 0
 					? secondHalf.reduce((sum, amt) => sum + amt, 0) / secondHalf.length
@@ -2359,7 +2405,15 @@ class InsightsService {
 		let weekendTotal = 0;
 		let weekdayTotal = 0;
 
-		const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+		const dayNames = [
+			'Sunday',
+			'Monday',
+			'Tuesday',
+			'Wednesday',
+			'Thursday',
+			'Friday',
+			'Saturday'
+		];
 
 		transactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate || tx.createdAt);
@@ -2505,7 +2559,8 @@ class InsightsService {
 		});
 
 		const avgHourCount =
-			Array.from(hourCounts.values()).reduce((sum, count) => sum + count, 0) / hourCounts.size;
+			Array.from(hourCounts.values()).reduce((sum, count) => sum + count, 0) /
+			hourCounts.size;
 		transactions.forEach((tx) => {
 			const date = new Date(tx.clearedDate || tx.createdAt);
 			const hour = date.getHours();
@@ -2570,7 +2625,8 @@ class InsightsService {
 				const account = accounts.find((a) => a.id === alert.accountId);
 				if (!account) continue;
 
-				const formatAccountCurrency = (amount: number) => formatAmount(amount, account.currency);
+				const formatAccountCurrency = (amount: number) =>
+					formatAmount(amount, account.currency);
 
 				insights.push(
 					await this.createInsight({
@@ -2637,8 +2693,10 @@ class InsightsService {
 		shadowCategoryViewEnabled: boolean;
 		shadowEstimatedNote: string | null;
 	}> {
-		return performanceMonitor.monitor('InsightsService', 'getPhase8PatternsSurfaceMetrics', () =>
-			this._getPhase8PatternsSurfaceMetrics(mainCurrency, precomputedFeeDriftPatterns)
+		return performanceMonitor.monitor(
+			'InsightsService',
+			'getPhase8PatternsSurfaceMetrics',
+			() => this._getPhase8PatternsSurfaceMetrics(mainCurrency, precomputedFeeDriftPatterns)
 		);
 	}
 
@@ -2662,7 +2720,10 @@ class InsightsService {
 			.between(lowerIso, Dexie.maxKey, true, true)
 			.and(
 				(t) =>
-					Boolean(t) && !t.deletedAt && t.status === 'cleared' && typeof t.clearedDate === 'string'
+					Boolean(t) &&
+					!t.deletedAt &&
+					t.status === 'cleared' &&
+					typeof t.clearedDate === 'string'
 			)
 			.toArray();
 
@@ -2674,7 +2735,13 @@ class InsightsService {
 
 		const buckets = [0, 1, 2, 3].map((i) => {
 			const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-			return { y: d.getFullYear(), m: d.getMonth(), expense: 0, income: 0, savingsTransfer: 0 };
+			return {
+				y: d.getFullYear(),
+				m: d.getMonth(),
+				expense: 0,
+				income: 0,
+				savingsTransfer: 0
+			};
 		});
 
 		for (const t of txs) {
@@ -2725,7 +2792,12 @@ class InsightsService {
 			for (const p of patterns) {
 				if (p.metadata?.type !== 'expense') continue;
 				const amts = [...p.historicalAmounts].slice(-3).map((x) => Math.abs(x));
-				if (amts.length >= 3 && amts[1] >= amts[0] && amts[2] >= amts[1] && amts[2] > amts[0]) {
+				if (
+					amts.length >= 3 &&
+					amts[1] >= amts[0] &&
+					amts[2] >= amts[1] &&
+					amts[2] > amts[0]
+				) {
 					const label = p.metadata?.notes || p.descriptionPattern || 'Bill';
 					const delta = amts[2] - amts[0];
 					feeDriftLine = `Your ${label} has increased ${formatTransactionAmount(delta, mainCurrency, true)} over recent charges`;

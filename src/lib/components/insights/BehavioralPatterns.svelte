@@ -73,9 +73,21 @@
 <div class="behavioral-patterns {className}">
 	{#if isLoading}
 		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-				<svg class="text-muted-foreground h-8 w-8 animate-spin" fill="none" viewBox="0 0 24 24">
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+			<div
+				class="bg-muted mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+			>
+				<svg
+					class="text-muted-foreground h-8 w-8 animate-spin"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle
+						class="opacity-25"
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="4"
 					></circle>
 					<path
 						class="opacity-75"
@@ -132,7 +144,9 @@
 					<div class="flex items-start gap-3">
 						<!-- Icon -->
 						<div class="mt-1 flex-shrink-0">
-							<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
+							<div
+								class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg"
+							>
 								<Icon class="text-primary h-5 w-5" />
 							</div>
 						</div>
@@ -158,9 +172,16 @@
 							</div>
 
 							<!-- Metadata -->
-							<div class="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs">
+							<div
+								class="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 text-xs"
+							>
 								<span class="flex items-center gap-1">
-									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg
+										class="h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
 										<path
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -172,7 +193,12 @@
 								</span>
 
 								<span class="flex items-center gap-1">
-									<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<svg
+										class="h-3 w-3"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
 										<path
 											stroke-linecap="round"
 											stroke-linejoin="round"
@@ -185,7 +211,12 @@
 
 								{#if pattern.metadata.timeframe}
 									<span class="flex items-center gap-1">
-										<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<svg
+											class="h-3 w-3"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
 											<path
 												stroke-linecap="round"
 												stroke-linejoin="round"
@@ -200,7 +231,9 @@
 
 							<!-- Recommendation -->
 							{#if pattern.actionable && pattern.recommendation}
-								<div class="bg-secondary/50 border-border mt-3 rounded-lg border p-3">
+								<div
+									class="bg-secondary/50 border-border mt-3 rounded-lg border p-3"
+								>
 									<div class="flex items-start gap-2">
 										<svg
 											class="text-primary mt-0.5 h-4 w-4 flex-shrink-0"
@@ -216,8 +249,12 @@
 											/>
 										</svg>
 										<div class="flex-1">
-											<p class="text-foreground mb-1 text-xs font-medium">Recommendation</p>
-											<p class="text-muted-foreground text-xs">{pattern.recommendation}</p>
+											<p class="text-foreground mb-1 text-xs font-medium">
+												Recommendation
+											</p>
+											<p class="text-muted-foreground text-xs">
+												{pattern.recommendation}
+											</p>
 										</div>
 									</div>
 								</div>

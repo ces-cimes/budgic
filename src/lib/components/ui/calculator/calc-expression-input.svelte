@@ -245,7 +245,8 @@
 			hero
 				? 'font-display w-full min-w-[12rem] border-0 border-b-2 border-[var(--color-amber)] bg-transparent text-center text-4xl text-[var(--color-hero-number)] outline-none placeholder:text-[var(--color-text-disabled)] focus:border-[var(--color-amber)]'
 				: 'border-input bg-background selection:bg-primary dark:bg-input/30 selection:text-primary-foreground ring-offset-background placeholder:text-muted-foreground flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none md:text-sm',
-			!hero && 'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
+			!hero &&
+				'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
 			shake && 'ring-destructive/50 border-destructive ring-2',
 			!hero && 'pr-14',
 			props.inputClass

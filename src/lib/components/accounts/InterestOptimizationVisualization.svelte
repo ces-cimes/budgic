@@ -126,12 +126,17 @@
 						? 'text-success'
 						: 'text-destructive'}"
 				>
-					{formatPercentage(accountAnalysis.currentInterest.interestRate, { maxDecimals: 2 })}
+					{formatPercentage(accountAnalysis.currentInterest.interestRate, {
+						maxDecimals: 2
+					})}
 				</div>
 				<div class="flex items-center justify-center gap-2">
 					{#if accountAnalysis.currentInterest.isEarning}
 						<TrendingUp class="text-success h-4 w-4" />
-						<Badge variant="default" class="bg-success/10 text-success border-success/50">
+						<Badge
+							variant="default"
+							class="bg-success/10 text-success border-success/50"
+						>
 							Earning Interest
 						</Badge>
 					{:else}
@@ -259,18 +264,26 @@
 							Opportunities ({accountAnalysis.optimizationOpportunities.length})
 						</span>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showOpportunities ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showOpportunities
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 					{#if showOpportunities}
 						<div class="mt-2 space-y-2">
 							{#each accountAnalysis.optimizationOpportunities as opp}
-								<div class="rounded-lg border p-3 {getPriorityBgColor(opp.priority)}">
+								<div
+									class="rounded-lg border p-3 {getPriorityBgColor(opp.priority)}"
+								>
 									<div class="flex items-start gap-2">
-										<AlertCircle class="mt-0.5 h-4 w-4 {getPriorityColor(opp.priority)}" />
+										<AlertCircle
+											class="mt-0.5 h-4 w-4 {getPriorityColor(opp.priority)}"
+										/>
 										<div class="flex-1">
 											<div class="text-sm font-medium">{opp.title}</div>
-											<div class="text-muted-foreground mt-1 text-xs">{opp.description}</div>
+											<div class="text-muted-foreground mt-1 text-xs">
+												{opp.description}
+											</div>
 											<div class="text-info mt-1 text-xs">
 												Potential value: {formatTransactionAmount(
 													opp.estimatedValue,
@@ -298,7 +311,9 @@
 							Recommendations ({accountAnalysis.recommendedActions.length})
 						</span>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 					{#if showRecommendationsExpanded}
@@ -310,13 +325,21 @@
 										: rec.priority === 'medium'
 											? Info
 											: Info}
-								<div class="rounded-lg border p-3 {getPriorityBgColor(rec.priority)}">
+								<div
+									class="rounded-lg border p-3 {getPriorityBgColor(rec.priority)}"
+								>
 									<div class="flex items-start gap-2">
-										<Icon class="mt-0.5 h-4 w-4 {getPriorityColor(rec.priority)}" />
+										<Icon
+											class="mt-0.5 h-4 w-4 {getPriorityColor(rec.priority)}"
+										/>
 										<div class="flex-1">
 											<div class="text-sm font-medium">{rec.title}</div>
-											<div class="text-muted-foreground mt-1 text-xs">{rec.description}</div>
-											<div class="mt-1 text-xs font-medium">{rec.recommendedAction}</div>
+											<div class="text-muted-foreground mt-1 text-xs">
+												{rec.description}
+											</div>
+											<div class="mt-1 text-xs font-medium">
+												{rec.recommendedAction}
+											</div>
 											<div class="text-info mt-1 text-xs">
 												Estimated value: {formatTransactionAmount(
 													rec.estimatedAnnualValue,
@@ -365,8 +388,9 @@
 				Overall Interest Analysis
 			</CardTitle>
 			<CardDescription>
-				Across {aggregateAnalysis.savingsAccounts.length + aggregateAnalysis.debtAccounts.length} account{aggregateAnalysis
-					.savingsAccounts.length +
+				Across {aggregateAnalysis.savingsAccounts.length +
+					aggregateAnalysis.debtAccounts.length} account{aggregateAnalysis.savingsAccounts
+					.length +
 					aggregateAnalysis.debtAccounts.length !==
 				1
 					? 's'
@@ -407,8 +431,8 @@
 						-{formatTransactionAmount(aggregateAnalysis.totalAnnualCosts, 'USD')}
 					</div>
 					<div class="text-muted-foreground mt-1 text-xs">
-						{aggregateAnalysis.debtAccounts.length} debt account{aggregateAnalysis.debtAccounts
-							.length !== 1
+						{aggregateAnalysis.debtAccounts.length} debt account{aggregateAnalysis
+							.debtAccounts.length !== 1
 							? 's'
 							: ''}
 					</div>
@@ -420,7 +444,10 @@
 				<div class="border-t pt-4">
 					<div class="mb-2 text-sm font-medium">Optimization Potential</div>
 					<div class="text-info text-lg font-semibold">
-						{formatTransactionAmount(aggregateAnalysis.optimizationPotential, 'USD')}/year
+						{formatTransactionAmount(
+							aggregateAnalysis.optimizationPotential,
+							'USD'
+						)}/year
 					</div>
 					<div class="text-muted-foreground mt-1 text-xs">
 						Potential savings or earnings from optimization
@@ -437,20 +464,31 @@
 					>
 						<span class="text-sm font-medium">Account Details</span>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showAccountDetails ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showAccountDetails
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 					{#if showAccountDetails}
 						<div class="mt-2 space-y-2">
 							<!-- Savings Accounts -->
 							{#if aggregateAnalysis.savingsAccounts.length > 0}
-								<div class="text-muted-foreground mb-1 text-xs font-medium">Savings Accounts</div>
+								<div class="text-muted-foreground mb-1 text-xs font-medium">
+									Savings Accounts
+								</div>
 								{#each aggregateAnalysis.savingsAccounts as savings}
-									<div class="border-success/50 bg-success/10 rounded-lg border p-3">
+									<div
+										class="border-success/50 bg-success/10 rounded-lg border p-3"
+									>
 										<div class="mb-2 flex items-center justify-between">
 											<div class="font-medium">{savings.accountName}</div>
-											<Badge variant="default" class="bg-success/10 text-success border-success/50">
-												{formatPercentage(savings.interestRate, { maxDecimals: 2 })}
+											<Badge
+												variant="default"
+												class="bg-success/10 text-success border-success/50"
+											>
+												{formatPercentage(savings.interestRate, {
+													maxDecimals: 2
+												})}
 											</Badge>
 										</div>
 										<div class="text-muted-foreground text-xs">
@@ -465,17 +503,26 @@
 
 							<!-- Debt Accounts -->
 							{#if aggregateAnalysis.debtAccounts.length > 0}
-								<div class="text-muted-foreground mt-2 mb-1 text-xs font-medium">Debt Accounts</div>
+								<div class="text-muted-foreground mt-2 mb-1 text-xs font-medium">
+									Debt Accounts
+								</div>
 								{#each aggregateAnalysis.debtAccounts as debt}
-									<div class="border-destructive/50 bg-destructive/10 rounded-lg border p-3">
+									<div
+										class="border-destructive/50 bg-destructive/10 rounded-lg border p-3"
+									>
 										<div class="mb-2 flex items-center justify-between">
 											<div class="font-medium">{debt.accountName}</div>
 											<Badge variant="destructive">
-												{formatPercentage(debt.interestRate, { maxDecimals: 2 })}
+												{formatPercentage(debt.interestRate, {
+													maxDecimals: 2
+												})}
 											</Badge>
 										</div>
 										<div class="text-muted-foreground text-xs">
-											Costing {formatTransactionAmount(debt.annualInterest, debt.currency)}/year
+											Costing {formatTransactionAmount(
+												debt.annualInterest,
+												debt.currency
+											)}/year
 										</div>
 									</div>
 								{/each}
@@ -497,7 +544,9 @@
 							Recommendations ({aggregateAnalysis.recommendations.length})
 						</span>
 						<ChevronDown
-							class="h-4 w-4 transition-transform {showRecommendationsExpanded ? 'rotate-180' : ''}"
+							class="h-4 w-4 transition-transform {showRecommendationsExpanded
+								? 'rotate-180'
+								: ''}"
 						/>
 					</button>
 					{#if showRecommendationsExpanded}
@@ -509,13 +558,21 @@
 										: rec.priority === 'medium'
 											? Info
 											: Info}
-								<div class="rounded-lg border p-3 {getPriorityBgColor(rec.priority)}">
+								<div
+									class="rounded-lg border p-3 {getPriorityBgColor(rec.priority)}"
+								>
 									<div class="flex items-start gap-2">
-										<Icon class="mt-0.5 h-4 w-4 {getPriorityColor(rec.priority)}" />
+										<Icon
+											class="mt-0.5 h-4 w-4 {getPriorityColor(rec.priority)}"
+										/>
 										<div class="flex-1">
 											<div class="text-sm font-medium">{rec.title}</div>
-											<div class="text-muted-foreground mt-1 text-xs">{rec.description}</div>
-											<div class="mt-1 text-xs font-medium">{rec.recommendedAction}</div>
+											<div class="text-muted-foreground mt-1 text-xs">
+												{rec.description}
+											</div>
+											<div class="mt-1 text-xs font-medium">
+												{rec.recommendedAction}
+											</div>
 											<div class="text-info mt-1 text-xs">
 												Estimated value: {formatTransactionAmount(
 													rec.estimatedAnnualValue,

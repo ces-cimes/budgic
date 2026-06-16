@@ -30,7 +30,8 @@ export function accountNeedsReconciliationCheckup(
 		return false;
 	}
 	return (
-		summary.daysSinceLastReconciliation > intervalDays || summary.daysSinceLastReconciliation === -1
+		summary.daysSinceLastReconciliation > intervalDays ||
+		summary.daysSinceLastReconciliation === -1
 	);
 }
 

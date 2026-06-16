@@ -127,11 +127,15 @@ describe('TransactionSimilarityEngine matching and clustering', () => {
 
 describe('similarity profiles', () => {
 	it('resolves all canonical profiles', () => {
-		expect(resolveSimilarityProfile('RECURRING_DETECTION_CONFIG')).toBe(RECURRING_DETECTION_CONFIG);
+		expect(resolveSimilarityProfile('RECURRING_DETECTION_CONFIG')).toBe(
+			RECURRING_DETECTION_CONFIG
+		);
 		expect(resolveSimilarityProfile('AUTOCOMPLETE_CONTEXT_CONFIG')).toBe(
 			AUTOCOMPLETE_CONTEXT_CONFIG
 		);
-		expect(resolveSimilarityProfile('ESSENTIAL_DETECTION_CONFIG')).toBe(ESSENTIAL_DETECTION_CONFIG);
+		expect(resolveSimilarityProfile('ESSENTIAL_DETECTION_CONFIG')).toBe(
+			ESSENTIAL_DETECTION_CONFIG
+		);
 	});
 
 	it('RECURRING_DETECTION_CONFIG uses doc-aligned threshold and dimension weights', () => {

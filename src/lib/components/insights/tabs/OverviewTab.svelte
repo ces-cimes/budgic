@@ -176,7 +176,10 @@
 						Priority
 					</h2>
 					<InsightList
-						insights={[...insightsByCategory().alerts, ...insightsByCategory().warnings]}
+						insights={[
+							...insightsByCategory().alerts,
+							...insightsByCategory().warnings
+						]}
 						{onDismiss}
 						{onAction}
 					/>
@@ -226,7 +229,9 @@
 			{#if hasCreditAccounts}
 				<div>
 					<div class="mb-3 flex items-center justify-between sm:mb-4">
-						<h2 class="text-foreground text-base font-semibold sm:text-lg">Credit Utilization</h2>
+						<h2 class="text-foreground text-base font-semibold sm:text-lg">
+							Credit Utilization
+						</h2>
 					</div>
 					<CreditUtilizationVisualization
 						showAggregate={true}
@@ -239,7 +244,9 @@
 			<!-- Emergency Fund Status -->
 			<div>
 				<div class="mb-3 flex items-center justify-between sm:mb-4">
-					<h2 class="text-foreground text-base font-semibold sm:text-lg">Emergency Fund Status</h2>
+					<h2 class="text-foreground text-base font-semibold sm:text-lg">
+						Emergency Fund Status
+					</h2>
 				</div>
 				<EmergencyFundVisualization showDetails={true} showRecommendations={true} />
 			</div>
@@ -269,7 +276,11 @@
 								<RefreshCw class="mr-2 h-4 w-4" />
 								Refresh Insights
 							</Button>
-							<Button onclick={() => onAction?.('add-transaction')} variant="outline" size="sm">
+							<Button
+								onclick={() => onAction?.('add-transaction')}
+								variant="outline"
+								size="sm"
+							>
 								<Plus class="mr-2 h-4 w-4" />
 								Add Transaction
 							</Button>

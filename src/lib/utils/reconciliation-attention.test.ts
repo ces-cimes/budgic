@@ -29,13 +29,15 @@ describe('reconciliation-attention', () => {
 	});
 
 	it('accountHasOpenReconciliationIssues counts unresolved discrepancies', () => {
-		expect(accountHasOpenReconciliationIssues({ unresolvedDiscrepancies: 2 }, 100, 100)).toBe(true);
+		expect(accountHasOpenReconciliationIssues({ unresolvedDiscrepancies: 2 }, 100, 100)).toBe(
+			true
+		);
 	});
 
 	it('accountHasOpenReconciliationIssues counts material ledger gap', () => {
-		expect(accountHasOpenReconciliationIssues({ unresolvedDiscrepancies: 0 }, 100, 105, 0.01)).toBe(
-			true
-		);
+		expect(
+			accountHasOpenReconciliationIssues({ unresolvedDiscrepancies: 0 }, 100, 105, 0.01)
+		).toBe(true);
 		expect(
 			accountHasOpenReconciliationIssues({ unresolvedDiscrepancies: 0 }, 100, 100.005, 0.01)
 		).toBe(false);

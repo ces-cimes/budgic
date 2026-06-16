@@ -275,7 +275,11 @@ class AutocompleteService {
 		if (!normalizedDescription) return null;
 
 		const merchantKey = normaliseMerchantKey(normalizedDescription);
-		const stats = await this.getAmountStatsForMerchant(merchantKey, normalizedDescription, filter);
+		const stats = await this.getAmountStatsForMerchant(
+			merchantKey,
+			normalizedDescription,
+			filter
+		);
 		const dateInference = await this.getDateInferenceForMerchant(
 			merchantKey,
 			normalizedDescription,
@@ -304,7 +308,10 @@ class AutocompleteService {
 		const filtered = usageRows.filter((row) => {
 			if (!row.context) return false;
 			try {
-				const parsed = JSON.parse(row.context) as { fromAccountId?: string; toAccountId?: string };
+				const parsed = JSON.parse(row.context) as {
+					fromAccountId?: string;
+					toAccountId?: string;
+				};
 				if (parsed.fromAccountId !== fromAccountId || parsed.toAccountId !== toAccountId)
 					return false;
 			} catch {
@@ -347,7 +354,8 @@ class AutocompleteService {
 		const tags = await db.tags.where('normalizedName').startsWith(query).toArray();
 		return tags
 			.sort(
-				(a, b) => b.usageCount - a.usageCount || a.normalizedName.localeCompare(b.normalizedName)
+				(a, b) =>
+					b.usageCount - a.usageCount || a.normalizedName.localeCompare(b.normalizedName)
 			)
 			.slice(0, limit)
 			.map((tag) => tag.name);
@@ -378,7 +386,9 @@ class AutocompleteService {
 			.map(([accountId, frequency]) => ({
 				accountId,
 				frequency,
-				typicalAmount: this.computeMedian((amountsByDestination.get(accountId) ?? []).slice(0, 10))
+				typicalAmount: this.computeMedian(
+					(amountsByDestination.get(accountId) ?? []).slice(0, 10)
+				)
 			}))
 			.sort((a, b) => b.frequency - a.frequency)
 			.slice(0, limit);
@@ -420,7 +430,9 @@ class AutocompleteService {
 					value,
 					score: normalizedSelection * recencyScore,
 					selectionFrequency: aggregate.selectionFrequency,
-					lastSelected: aggregate.lastSelectedMs ? new Date(aggregate.lastSelectedMs) : undefined
+					lastSelected: aggregate.lastSelectedMs
+						? new Date(aggregate.lastSelectedMs)
+						: undefined
 				};
 			})
 			.sort((a, b) => {
@@ -602,7 +614,9 @@ class AutocompleteService {
 			'transactions:snapshot',
 			async () => {
 				const rows = await db.getActiveTransactions();
-				return rows.filter((tx): tx is Transaction => tx != null && typeof tx.type === 'string');
+				return rows.filter(
+					(tx): tx is Transaction => tx != null && typeof tx.type === 'string'
+				);
 			},
 			SNAPSHOT_TTL
 		);
@@ -618,7 +632,10 @@ class AutocompleteService {
 
 	private computeRecencyScore(lastSelectedMs: number | null | undefined, nowMs: number): number {
 		if (!lastSelectedMs) return 0;
-		const daysSinceLastSelection = Math.max(0, (nowMs - lastSelectedMs) / (24 * 60 * 60 * 1000));
+		const daysSinceLastSelection = Math.max(
+			0,
+			(nowMs - lastSelectedMs) / (24 * 60 * 60 * 1000)
+		);
 		return Math.exp(-RECENCY_DECAY * daysSinceLastSelection);
 	}
 
@@ -698,7 +715,9 @@ class AutocompleteService {
 					this.normalizeFrequency(aggregate.selectionFrequency) *
 					this.computeRecencyScore(aggregate.lastSelectedMs, nowMs),
 				selectionFrequency: aggregate.selectionFrequency,
-				lastSelected: aggregate.lastSelectedMs ? new Date(aggregate.lastSelectedMs) : undefined
+				lastSelected: aggregate.lastSelectedMs
+					? new Date(aggregate.lastSelectedMs)
+					: undefined
 			}))
 			.sort((a, b) => b.score - a.score || b.selectionFrequency - a.selectionFrequency);
 	}
@@ -718,7 +737,10 @@ class AutocompleteService {
 			const normalized = this.normalizeDescription(tx.description);
 			if (!normalized) continue;
 			const key = normaliseMerchantKey(normalized) || normalized.toLowerCase();
-			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase())
+			if (
+				key !== merchantKey &&
+				normalized.toLowerCase() !== fallbackDescription.toLowerCase()
+			)
 				continue;
 			amounts.push(Math.abs(tx.amount ?? 0));
 		}
@@ -728,7 +750,8 @@ class AutocompleteService {
 		const median = this.computeMedian(sorted);
 		if (median === null) return null;
 		const mean = sorted.reduce((sum, value) => sum + value, 0) / sorted.length;
-		const variance = sorted.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sorted.length;
+		const variance =
+			sorted.reduce((sum, value) => sum + (value - mean) ** 2, 0) / sorted.length;
 		return { median, stddev: Math.sqrt(variance), sampleSize: sorted.length };
 	}
 
@@ -746,9 +769,10 @@ class AutocompleteService {
 					return patternKey.length > 0 && patternKey === merchantKey;
 				});
 			if (merchantPattern && merchantPattern.confidence > 75) {
-				const prediction = await recurringTransactionIntelligenceService.predictNextOccurrence(
-					merchantPattern.id
-				);
+				const prediction =
+					await recurringTransactionIntelligenceService.predictNextOccurrence(
+						merchantPattern.id
+					);
 				if (prediction) {
 					return {
 						nextDate: prediction.nextOccurrenceDate,
@@ -757,7 +781,10 @@ class AutocompleteService {
 				}
 			}
 		} catch (error) {
-			console.warn('Recurring intelligence date inference failed, using local fallback', error);
+			console.warn(
+				'Recurring intelligence date inference failed, using local fallback',
+				error
+			);
 		}
 
 		const transactions = await this.getTransactionsSnapshot();
@@ -769,7 +796,10 @@ class AutocompleteService {
 			const normalized = this.normalizeDescription(tx.description);
 			if (!normalized) continue;
 			const key = normaliseMerchantKey(normalized) || normalized.toLowerCase();
-			if (key !== merchantKey && normalized.toLowerCase() !== fallbackDescription.toLowerCase())
+			if (
+				key !== merchantKey &&
+				normalized.toLowerCase() !== fallbackDescription.toLowerCase()
+			)
 				continue;
 			const timestamp = tx.clearedDate ?? tx.plannedDate ?? tx.createdAt;
 			const parsed = new Date(timestamp);

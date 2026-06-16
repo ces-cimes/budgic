@@ -17,12 +17,18 @@
 
 <PageLayout>
 	{#snippet topBar()}
-		<Header title="Calculator" showBackButton={true} backButtonLink="/" backButtonLabel="Home" />
+		<Header
+			title="Calculator"
+			showBackButton={true}
+			backButtonLink="/"
+			backButtonLabel="Home"
+		/>
 	{/snippet}
 
 	<div class="mx-auto max-w-md space-y-4 px-4 py-6">
 		<p class="text-muted-foreground text-sm">
-			Enter amounts with + − × ÷ and parentheses. Result updates as you tap; press = to commit.
+			Enter amounts with + − × ÷ and parentheses. Result updates as you tap; press = to
+			commit.
 		</p>
 		<div class="flex gap-2">
 			<Button type="button" variant="outline" size="sm" onclick={clearAll}>Clear</Button>

@@ -99,7 +99,9 @@
 
 			<!-- Advanced Filters (collapsible) -->
 			<details class="group">
-				<summary class="text-primary hover:text-primary/80 cursor-pointer text-sm font-medium">
+				<summary
+					class="text-primary hover:text-primary/80 cursor-pointer text-sm font-medium"
+				>
 					Advanced Filters
 				</summary>
 				<div class="mt-4 space-y-4">
@@ -137,7 +139,8 @@
 									type="radio"
 									name="recurring"
 									checked={filters.recurring === true}
-									onchange={() => onFiltersChange({ ...filters, recurring: true })}
+									onchange={() =>
+										onFiltersChange({ ...filters, recurring: true })}
 									class="h-4 w-4"
 								/>
 								<span class="text-primary text-sm">Recurring only</span>
@@ -147,7 +150,8 @@
 									type="radio"
 									name="recurring"
 									checked={filters.recurring === false}
-									onchange={() => onFiltersChange({ ...filters, recurring: false })}
+									onchange={() =>
+										onFiltersChange({ ...filters, recurring: false })}
 									class="h-4 w-4"
 								/>
 								<span class="text-primary text-sm">Non-recurring only</span>
@@ -157,7 +161,8 @@
 									type="radio"
 									name="recurring"
 									checked={filters.recurring === undefined}
-									onchange={() => onFiltersChange({ ...filters, recurring: undefined })}
+									onchange={() =>
+										onFiltersChange({ ...filters, recurring: undefined })}
 									class="h-4 w-4"
 								/>
 								<span class="text-primary text-sm">All</span>

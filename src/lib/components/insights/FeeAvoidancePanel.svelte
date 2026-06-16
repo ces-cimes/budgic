@@ -84,7 +84,9 @@
 			if (accountId) {
 				const strategy = await feeAvoidanceService.generateFeeAvoidanceStrategy(accountId);
 				strategies =
-					strategy.risks.length > 0 || strategy.recommendations.length > 0 ? [strategy] : [];
+					strategy.risks.length > 0 || strategy.recommendations.length > 0
+						? [strategy]
+						: [];
 				selectedStrategy = strategies[0] || null;
 			} else if (showAllAccounts) {
 				strategies = await feeAvoidanceService.generateAllFeeAvoidanceStrategies();
@@ -100,7 +102,10 @@
 						? [
 								{
 									accountId: accountId || '',
-									totalPotentialSavings: risks.reduce((sum, r) => sum + r.estimatedAmount, 0),
+									totalPotentialSavings: risks.reduce(
+										(sum, r) => sum + r.estimatedAmount,
+										0
+									),
 									recommendations: [],
 									risks,
 									autoAdjustableTransactions: [],
@@ -288,11 +293,15 @@
 							<div class="flex items-center gap-2">
 								<DollarSign class="h-5 w-5 text-orange-500" />
 								<h3 class="text-text-primary text-lg font-semibold">
-									Potential Savings: {formatCurrency(totalPotentialSavings, 'USD')}
+									Potential Savings: {formatCurrency(
+										totalPotentialSavings,
+										'USD'
+									)}
 								</h3>
 							</div>
 							<p class="text-text-secondary text-sm">
-								{allRisks.length} fee risk{allRisks.length !== 1 ? 's' : ''} detected across your accounts
+								{allRisks.length} fee risk{allRisks.length !== 1 ? 's' : ''} detected
+								across your accounts
 							</p>
 						</div>
 						{#if hasHighPriorityRisks}
@@ -329,7 +338,8 @@
 								<div class="flex min-w-0 flex-1 items-start gap-3">
 									<div class="mt-1">
 										<Icon
-											class="h-5 w-5 {risk.likelihood === 'imminent' || risk.likelihood === 'high'
+											class="h-5 w-5 {risk.likelihood === 'imminent' ||
+											risk.likelihood === 'high'
 												? 'text-red-500'
 												: risk.likelihood === 'medium'
 													? 'text-yellow-500'
@@ -339,28 +349,40 @@
 									<div class="min-w-0 flex-1 space-y-2">
 										<div class="flex items-start justify-between gap-2">
 											<div class="min-w-0 flex-1">
-												<h4 class="text-text-primary text-base font-semibold">
+												<h4
+													class="text-text-primary text-base font-semibold"
+												>
 													{risk.triggerCondition}
 												</h4>
 												<p class="text-text-secondary text-sm">
 													{risk.accountName}
 												</p>
 											</div>
-											<Badge class={getLikelihoodColor(risk.likelihood)} variant="outline">
+											<Badge
+												class={getLikelihoodColor(risk.likelihood)}
+												variant="outline"
+											>
 												{risk.likelihood}
 											</Badge>
 										</div>
 
 										<div class="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
 											<div>
-												<div class="text-text-tertiary text-xs">Estimated Fee</div>
+												<div class="text-text-tertiary text-xs">
+													Estimated Fee
+												</div>
 												<div class="text-text-primary font-semibold">
-													{formatCurrency(risk.estimatedAmount, risk.currency)}
+													{formatCurrency(
+														risk.estimatedAmount,
+														risk.currency
+													)}
 												</div>
 											</div>
 											{#if risk.daysUntilOccurrence !== null}
 												<div>
-													<div class="text-text-tertiary text-xs">Days Until</div>
+													<div class="text-text-tertiary text-xs">
+														Days Until
+													</div>
 													<div class="text-text-primary font-semibold">
 														{risk.daysUntilOccurrence}
 													</div>
@@ -368,15 +390,21 @@
 											{/if}
 											{#if risk.occurrenceDate}
 												<div>
-													<div class="text-text-tertiary text-xs">Date</div>
+													<div class="text-text-tertiary text-xs">
+														Date
+													</div>
 													<div class="text-text-primary font-semibold">
 														{formatDate(risk.occurrenceDate)}
 													</div>
 												</div>
 											{/if}
 											<div>
-												<div class="text-text-tertiary text-xs">Confidence</div>
-												<div class="text-text-primary font-semibold">{risk.confidence}%</div>
+												<div class="text-text-tertiary text-xs">
+													Confidence
+												</div>
+												<div class="text-text-primary font-semibold">
+													{risk.confidence}%
+												</div>
 											</div>
 										</div>
 
@@ -384,15 +412,25 @@
 											<div class="border-border mt-3 space-y-2 border-t pt-3">
 												<div class="grid grid-cols-2 gap-3 text-sm">
 													<div>
-														<div class="text-text-tertiary text-xs">Current Value</div>
+														<div class="text-text-tertiary text-xs">
+															Current Value
+														</div>
 														<div class="text-text-primary">
-															{formatCurrency(risk.currentValue, risk.currency)}
+															{formatCurrency(
+																risk.currentValue,
+																risk.currency
+															)}
 														</div>
 													</div>
 													<div>
-														<div class="text-text-tertiary text-xs">Threshold</div>
+														<div class="text-text-tertiary text-xs">
+															Threshold
+														</div>
 														<div class="text-text-primary">
-															{formatCurrency(risk.thresholdValue, risk.currency)}
+															{formatCurrency(
+																risk.thresholdValue,
+																risk.currency
+															)}
 														</div>
 													</div>
 												</div>
@@ -409,7 +447,9 @@
 									}}
 								>
 									<ArrowRight
-										class="h-4 w-4 transition-transform {expandedRisks.has(risk.id)
+										class="h-4 w-4 transition-transform {expandedRisks.has(
+											risk.id
+										)
 											? 'rotate-90'
 											: ''}"
 									/>
@@ -419,7 +459,11 @@
 					{/each}
 
 					{#if allRisks.length > maxRisksToShow}
-						<Button variant="outline" class="w-full" onclick={() => (maxRisksToShow += 10)}>
+						<Button
+							variant="outline"
+							class="w-full"
+							onclick={() => (maxRisksToShow += 10)}
+						>
 							<span>Show {Math.min(10, allRisks.length - maxRisksToShow)} More</span>
 						</Button>
 					{/if}
@@ -446,27 +490,41 @@
 											<h4 class="text-text-primary text-base font-semibold">
 												{recommendation.title}
 											</h4>
-											<Badge class={getPriorityColor(recommendation.priority)} variant="outline">
+											<Badge
+												class={getPriorityColor(recommendation.priority)}
+												variant="outline"
+											>
 												{recommendation.priority}
 											</Badge>
 										</div>
-										<p class="text-text-secondary text-sm">{recommendation.description}</p>
+										<p class="text-text-secondary text-sm">
+											{recommendation.description}
+										</p>
 
 										<div class="grid grid-cols-3 gap-3 text-sm">
 											<div>
-												<div class="text-text-tertiary text-xs">Savings</div>
+												<div class="text-text-tertiary text-xs">
+													Savings
+												</div>
 												<div class="font-semibold text-green-500">
-													{formatCurrency(recommendation.estimatedSavings, 'USD')}
+													{formatCurrency(
+														recommendation.estimatedSavings,
+														'USD'
+													)}
 												</div>
 											</div>
 											<div>
 												<div class="text-text-tertiary text-xs">Effort</div>
-												<div class="text-text-primary font-semibold capitalize">
+												<div
+													class="text-text-primary font-semibold capitalize"
+												>
 													{recommendation.effort}
 												</div>
 											</div>
 											<div>
-												<div class="text-text-tertiary text-xs">Confidence</div>
+												<div class="text-text-tertiary text-xs">
+													Confidence
+												</div>
 												<div class="text-text-primary font-semibold">
 													{recommendation.confidence}%
 												</div>
@@ -475,19 +533,26 @@
 
 										{#if recommendation.suggestedTransactionChanges && recommendation.suggestedTransactionChanges.length > 0}
 											<div class="border-border mt-3 border-t pt-3">
-												<div class="text-text-primary mb-2 text-sm font-medium">
-													Suggested Changes ({recommendation.suggestedTransactionChanges.length})
+												<div
+													class="text-text-primary mb-2 text-sm font-medium"
+												>
+													Suggested Changes ({recommendation
+														.suggestedTransactionChanges.length})
 												</div>
 												<Button
 													variant="secondary"
 													size="sm"
 													onclick={() =>
-														applyAdjustments(recommendation.suggestedTransactionChanges!)}
+														applyAdjustments(
+															recommendation.suggestedTransactionChanges!
+														)}
 													disabled={applyingAdjustments}
 												>
 													<Calendar class="mr-2 h-4 w-4" />
 													<span>
-														{applyingAdjustments ? 'Applying...' : 'Apply Adjustments'}
+														{applyingAdjustments
+															? 'Applying...'
+															: 'Apply Adjustments'}
 													</span>
 												</Button>
 											</div>

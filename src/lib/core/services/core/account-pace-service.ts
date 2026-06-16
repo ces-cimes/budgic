@@ -28,7 +28,8 @@ async function sumAccountExpensesInRange(
 	const { exchangeRateService } = await import('$lib/core/services');
 	let total = 0;
 	for (const tx of transactions) {
-		if (tx.accountId !== accountId || tx.type !== 'expense' || tx.status !== 'cleared') continue;
+		if (tx.accountId !== accountId || tx.type !== 'expense' || tx.status !== 'cleared')
+			continue;
 		if (!tx.clearedDate) continue;
 		const tier = tx.categoryId ? tierByCategoryId.get(tx.categoryId) : undefined;
 		if (!expenseCountsTowardAllowanceAnalytics(tx, tier)) continue;
@@ -38,7 +39,12 @@ async function sumAccountExpensesInRange(
 		const txCurrency = tx.currency || mainCurrency;
 		let converted = amount;
 		if (txCurrency !== mainCurrency) {
-			const conv = await exchangeRateService.convertAmount(amount, txCurrency, mainCurrency, cd);
+			const conv = await exchangeRateService.convertAmount(
+				amount,
+				txCurrency,
+				mainCurrency,
+				cd
+			);
 			if (conv !== null) converted = conv;
 		}
 		total += converted;

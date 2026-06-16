@@ -69,7 +69,9 @@
 						class="flex items-center justify-between gap-2 rounded-lg py-1.5 transition-colors hover:bg-[var(--color-bg-surface)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-amber)]"
 					>
 						<span class="text-sm text-[var(--color-text-primary)]">{step.label}</span>
-						<span class="shrink-0 text-xs font-medium text-[var(--color-amber)]">{step.cta} →</span>
+						<span class="shrink-0 text-xs font-medium text-[var(--color-amber)]"
+							>{step.cta} →</span
+						>
 					</a>
 				{/if}
 			</li>

@@ -175,9 +175,21 @@
 	<!-- Loading State -->
 	{#if isLoading}
 		<div class="py-12 text-center">
-			<div class="bg-muted mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full">
-				<svg class="text-muted-foreground h-10 w-10 animate-spin" fill="none" viewBox="0 0 24 24">
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
+			<div
+				class="bg-muted mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full"
+			>
+				<svg
+					class="text-muted-foreground h-10 w-10 animate-spin"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle
+						class="opacity-25"
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="4"
 					></circle>
 					<path
 						class="opacity-75"
@@ -229,12 +241,16 @@
 						<div class="space-y-2">
 							<div class="flex items-center justify-between text-sm">
 								<span class="text-muted-foreground">Progress</span>
-								<span class="font-medium">{formatPercentage(progressPercentage)}</span>
+								<span class="font-medium"
+									>{formatPercentage(progressPercentage)}</span
+								>
 							</div>
 							<Progress value={progressPercentage} class="h-2" />
 							<div class="flex items-center justify-between text-sm">
 								<span class="text-muted-foreground">
-									{formatCurrency(goal.currentAmount)} of {formatCurrency(goal.targetAmount)}
+									{formatCurrency(goal.currentAmount)} of {formatCurrency(
+										goal.targetAmount
+									)}
 								</span>
 								<span class="text-muted-foreground">
 									{formatCurrency(goal.targetAmount - goal.currentAmount)} remaining
@@ -254,7 +270,9 @@
 									})}
 								</div>
 								<div class="text-muted-foreground text-xs">
-									{daysUntilTarget > 0 ? `${daysUntilTarget} days left` : 'Overdue'}
+									{daysUntilTarget > 0
+										? `${daysUntilTarget} days left`
+										: 'Overdue'}
 								</div>
 							</div>
 							<div>
@@ -271,7 +289,9 @@
 								(goal.targetAmount - goal.currentAmount) /
 								Math.max(1, Math.ceil(daysUntilTarget / 30))}
 							<div class="bg-muted/50 rounded-lg p-3">
-								<div class="text-muted-foreground text-xs">Monthly contribution needed</div>
+								<div class="text-muted-foreground text-xs">
+									Monthly contribution needed
+								</div>
 								<div class="text-primary font-semibold">
 									{formatCurrency(monthlyContribution)}
 								</div>

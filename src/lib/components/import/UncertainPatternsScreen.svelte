@@ -21,14 +21,18 @@
 	</p>
 
 	{#if patternHints.length === 0}
-		<p class="text-sm text-[var(--color-text-tertiary)]">No strong clusters found in this batch.</p>
+		<p class="text-sm text-[var(--color-text-tertiary)]">
+			No strong clusters found in this batch.
+		</p>
 	{:else}
 		<ul class="max-h-72 space-y-2 overflow-y-auto">
 			{#each patternHints as h (h.hintId)}
 				<li
 					class="rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2 text-xs"
 				>
-					<p class="font-medium text-[var(--color-text-primary)]">{h.representativeDescription}</p>
+					<p class="font-medium text-[var(--color-text-primary)]">
+						{h.representativeDescription}
+					</p>
 					<p class="text-[var(--color-text-tertiary)]">
 						{h.transactionIds.length} tx · {h.totalAbsAmount.toFixed(2)} total
 					</p>

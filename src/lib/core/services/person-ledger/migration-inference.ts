@@ -283,7 +283,12 @@ export async function inferProposalsForLedger(
 				if (walletTx) consumed.add(walletTx.id);
 				for (const id of sourceIds) consumed.add(id);
 
-				const candidates = rankSettlementCandidates(anchorTxs, person, amount, ledgerTx.currency);
+				const candidates = rankSettlementCandidates(
+					anchorTxs,
+					person,
+					amount,
+					ledgerTx.currency
+				);
 
 				proposals.push({
 					id: generateUUID(),
@@ -367,7 +372,12 @@ export async function inferProposalsForLedger(
 		if (ledgerTx.type === 'income') {
 			const amount = Math.abs(ledgerTx.amount ?? 0);
 			if (amount <= AMOUNT_TOLERANCE) continue;
-			const candidates = rankSettlementCandidates(anchorTxs, person, amount, ledgerTx.currency);
+			const candidates = rankSettlementCandidates(
+				anchorTxs,
+				person,
+				amount,
+				ledgerTx.currency
+			);
 			const sourceIds = expandSourceIds(ledgerTx, groupMap, consumed);
 			if (sourceIds.length === 0) continue;
 			for (const id of sourceIds) consumed.add(id);

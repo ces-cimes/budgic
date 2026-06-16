@@ -22,9 +22,9 @@ function tx(overrides: Partial<Transaction> & { id: string; clearedDate: string 
 
 describe('isEligibleForSplitDetection', () => {
 	it('rejects grouped and transfer rows', () => {
-		expect(isEligibleForSplitDetection(tx({ id: '1', clearedDate: '2024-01-01T12:00:00Z' }))).toBe(
-			true
-		);
+		expect(
+			isEligibleForSplitDetection(tx({ id: '1', clearedDate: '2024-01-01T12:00:00Z' }))
+		).toBe(true);
 		expect(
 			isEligibleForSplitDetection(
 				tx({ id: '2', clearedDate: '2024-01-01T12:00:00Z', groupId: 'g1' })

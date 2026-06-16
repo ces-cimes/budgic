@@ -54,7 +54,8 @@ async function getSqlite3Module(): Promise<Sqlite3Module> {
 	if (!sqlite3ModulePromise) {
 		sqlite3ModulePromise = (async () => {
 			const mod = await import('@sqlite.org/sqlite-wasm');
-			const isNode = typeof process !== 'undefined' && typeof process.versions?.node === 'string';
+			const isNode =
+				typeof process !== 'undefined' && typeof process.versions?.node === 'string';
 
 			if (isNode) {
 				const { readFileSync } = await import('node:fs');
@@ -114,7 +115,14 @@ export async function openMoneyManagerSqlite(file: File): Promise<{
 			sqlite3.wasm.dealloc(p);
 		}
 	};
-	const rc = sqlite3.capi.sqlite3_deserialize(db.pointer, 'main', p, bytes.length, bytes.length, 0);
+	const rc = sqlite3.capi.sqlite3_deserialize(
+		db.pointer,
+		'main',
+		p,
+		bytes.length,
+		bytes.length,
+		0
+	);
 	db.checkRc(rc);
 	return { sqlite3, db };
 }

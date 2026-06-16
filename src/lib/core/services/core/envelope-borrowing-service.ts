@@ -171,7 +171,11 @@ class EnvelopeBorrowingService {
 		}
 
 		const totalLimit = preferences.envelopeBorrowTotalLimit;
-		if (totalLimit != null && totalLimit > 0 && totalOutstanding + requestedAmount > totalLimit) {
+		if (
+			totalLimit != null &&
+			totalLimit > 0 &&
+			totalOutstanding + requestedAmount > totalLimit
+		) {
 			return {
 				allowed: false,
 				totalOutstanding,
@@ -233,7 +237,10 @@ class EnvelopeBorrowingService {
 	}
 
 	async getChronicBorrowingSummary(accountId?: string): Promise<ChronicBorrowingSummary> {
-		const history = await this.getBorrowingHistory(accountId, { limit: 24, includeRepaid: true });
+		const history = await this.getBorrowingHistory(accountId, {
+			limit: 24,
+			includeRepaid: true
+		});
 		const now = new Date();
 		const threePeriodsAgo = new Date(now);
 		threePeriodsAgo.setMonth(threePeriodsAgo.getMonth() - 3);

@@ -67,7 +67,10 @@
 				></span>
 				<span>{getWaterfallTierLabel(segment.tier)}</span>
 				<span>
-					{formatAmount(segment.spent, currency)} / {formatAmount(segment.allocated, currency)}
+					{formatAmount(segment.spent, currency)} / {formatAmount(
+						segment.allocated,
+						currency
+					)}
 				</span>
 			</div>
 		{/each}

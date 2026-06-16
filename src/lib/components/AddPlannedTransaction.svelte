@@ -228,7 +228,10 @@
 	}
 
 	const submitDisabled = $derived(
-		isLoading || !amount?.trim() || !plannedDate || (transactionType === 'transfer' && !toAccountId)
+		isLoading ||
+			!amount?.trim() ||
+			!plannedDate ||
+			(transactionType === 'transfer' && !toAccountId)
 	);
 
 	const previewAmountNum = $derived.by(() => {
@@ -370,7 +373,8 @@
 					<div class="text-muted-foreground">
 						{#if transactionType === 'transfer'}
 							{formatAmount(Math.abs(previewAmountNum), userCurrency)} transfer → {toAccountId
-								? (destinationAccounts.find((a) => a.id === toAccountId)?.name ?? '…')
+								? (destinationAccounts.find((a) => a.id === toAccountId)?.name ??
+									'…')
 								: '…'}{#if description.trim()}
 								{' • '}{description.trim()}{/if}
 							{' • '}{formatDate(plannedDate)}
@@ -388,7 +392,12 @@
 
 			<!-- Actions -->
 			<div class="flex gap-3 pt-4">
-				<Button type="button" variant="outline" class="flex-1" onclick={() => (isOpen = false)}>
+				<Button
+					type="button"
+					variant="outline"
+					class="flex-1"
+					onclick={() => (isOpen = false)}
+				>
 					Cancel
 				</Button>
 				<Button type="submit" class="flex-1" disabled={submitDisabled}>

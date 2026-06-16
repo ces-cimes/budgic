@@ -314,7 +314,9 @@
 						>
 							<SelectTrigger id="account-select" aria-describedby="account-error">
 								<span
-									>{selectedAccount ? selectedAccount.name : 'Select an account to reconcile'}</span
+									>{selectedAccount
+										? selectedAccount.name
+										: 'Select an account to reconcile'}</span
 								>
 							</SelectTrigger>
 							<SelectContent>
@@ -339,13 +341,18 @@
 						<!-- Current Balance Display -->
 						<div class="bg-muted grid grid-cols-2 gap-4 rounded-lg p-4">
 							<div>
-								<Label class="text-muted-foreground text-sm">Calculated Balance</Label>
+								<Label class="text-muted-foreground text-sm"
+									>Calculated Balance</Label
+								>
 								<div class="flex items-center gap-2">
 									{#if isLoadingBalance}
 										<Skeleton class="bg-muted-foreground/20 h-6 w-20 rounded" />
 									{:else}
 										<span class="text-lg font-semibold">
-											{CurrencyUtils.formatAmount(calculatedBalance, selectedAccount.currency)}
+											{CurrencyUtils.formatAmount(
+												calculatedBalance,
+												selectedAccount.currency
+											)}
 										</span>
 									{/if}
 								</div>
@@ -372,8 +379,8 @@
 								Balance matches ledger — mark reconciled
 							</Button>
 							<p class="text-muted-foreground text-xs">
-								Uses the same ledger basis as “Calculated Balance” above (cleared-only unless you
-								enable pending).
+								Uses the same ledger basis as “Calculated Balance” above
+								(cleared-only unless you enable pending).
 							</p>
 						</div>
 
@@ -390,11 +397,17 @@
 								decimalPlaces={2}
 								placeholder="Enter balance from your statement"
 								required
-								inputClass={validationErrors.statementBalance ? 'border-destructive' : ''}
+								inputClass={validationErrors.statementBalance
+									? 'border-destructive'
+									: ''}
 								oninput={() => validateForm()}
 							/>
 							{#if validationErrors.statementBalance}
-								<p id="statement-error" class="text-destructive text-sm" role="alert">
+								<p
+									id="statement-error"
+									class="text-destructive text-sm"
+									role="alert"
+								>
 									{validationErrors.statementBalance}
 								</p>
 							{/if}
@@ -441,7 +454,8 @@
 
 							<!-- Tolerance -->
 							<div class="space-y-2">
-								<Label for="tolerance">Tolerance ({selectedAccount.currency})</Label>
+								<Label for="tolerance">Tolerance ({selectedAccount.currency})</Label
+								>
 								<CalcExpressionInput
 									id="tolerance"
 									class="max-w-32"
@@ -452,7 +466,9 @@
 									decimalPlaces={2}
 									min={0}
 								/>
-								<p class="text-muted-foreground text-xs">Acceptable difference between balances</p>
+								<p class="text-muted-foreground text-xs">
+									Acceptable difference between balances
+								</p>
 							</div>
 
 							<!-- Include Pending Transactions -->
@@ -474,7 +490,8 @@
 								<div class="space-y-1">
 									<Label>Auto-resolve Small Discrepancies</Label>
 									<p class="text-muted-foreground text-xs">
-										Automatically create adjustment transactions for small discrepancies
+										Automatically create adjustment transactions for small
+										discrepancies
 									</p>
 								</div>
 								<Switch bind:checked={formData.autoResolveSmallDiscrepancies} />
@@ -537,7 +554,12 @@
 							</Button>
 
 							{#if onCancel}
-								<Button type="button" variant="outline" onclick={onCancel} disabled={isLoading}>
+								<Button
+									type="button"
+									variant="outline"
+									onclick={onCancel}
+									disabled={isLoading}
+								>
 									Cancel
 								</Button>
 							{/if}
@@ -550,7 +572,8 @@
 					<div class="flex items-center justify-between">
 						<h3 class="text-lg font-semibold">Reconciliation Complete</h3>
 						<Badge
-							variant={Math.abs(reconciliationResult.discrepancy) <= formData.tolerance
+							variant={Math.abs(reconciliationResult.discrepancy) <=
+							formData.tolerance
 								? 'default'
 								: 'destructive'}
 						>
@@ -583,8 +606,9 @@
 						<div class="col-span-2">
 							<Label class="text-muted-foreground text-sm">Balance gap</Label>
 							<p
-								class="text-lg font-semibold {Math.abs(reconciliationResult.discrepancy) >
-								formData.tolerance
+								class="text-lg font-semibold {Math.abs(
+									reconciliationResult.discrepancy
+								) > formData.tolerance
 									? 'text-destructive'
 									: 'text-green-600'}"
 							>
@@ -612,7 +636,10 @@
 												</Badge>
 											</div>
 											<p class="text-muted-foreground mt-1 text-xs">
-												Suggested: {discrepancy.suggestedAction.replace('_', ' ')}
+												Suggested: {discrepancy.suggestedAction.replace(
+													'_',
+													' '
+												)}
 											</p>
 										</AlertDescription>
 									</Alert>
@@ -623,7 +650,9 @@
 
 					<!-- Actions -->
 					<div class="flex gap-2">
-						<Button onclick={resetForm} variant="outline">Reconcile Another Account</Button>
+						<Button onclick={resetForm} variant="outline"
+							>Reconcile Another Account</Button
+						>
 					</div>
 				</div>
 			{/if}

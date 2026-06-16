@@ -64,9 +64,9 @@ describe('migration-batch-build', () => {
 		const creates = batch.operations.filter((o) => o.op === 'create_transaction');
 		expect(creates).toHaveLength(2);
 		const anchorCreate = creates.find((o) => o.transactionId && o.payload);
-		expect((anchorCreate?.payload as { after?: { automation?: string } })?.after?.automation).toBe(
-			'person-opening-balance'
-		);
+		expect(
+			(anchorCreate?.payload as { after?: { automation?: string } })?.after?.automation
+		).toBe('person-opening-balance');
 
 		const ledgerClose = creates.find(
 			(o) =>

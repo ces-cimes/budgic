@@ -224,7 +224,9 @@
 		>
 			<ul class="max-h-64 overflow-y-auto py-1">
 				{#if value.trim().length === 0}
-					<li class="px-3 py-1 text-xs text-[var(--color-text-tertiary)]">Top suggestions</li>
+					<li class="px-3 py-1 text-xs text-[var(--color-text-tertiary)]">
+						Top suggestions
+					</li>
 				{/if}
 				{#each suggestions as suggestion, index (suggestion.value)}
 					<li>
@@ -239,11 +241,13 @@
 							role="option"
 							aria-selected={index === highlightedIndex}
 						>
-							<p class="text-sm text-[var(--color-text-primary)]">{suggestion.value}</p>
+							<p class="text-sm text-[var(--color-text-primary)]">
+								{suggestion.value}
+							</p>
 							<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
-								Used {suggestion.frequency} time{suggestion.frequency === 1 ? '' : 's'} in 90 days - {formatLastUsed(
-									suggestion.lastUsed
-								)}
+								Used {suggestion.frequency} time{suggestion.frequency === 1
+									? ''
+									: 's'} in 90 days - {formatLastUsed(suggestion.lastUsed)}
 								{#if (suggestion.variationCount ?? 0) > 1}
 									- inc. {suggestion.variationCount} variations
 								{/if}

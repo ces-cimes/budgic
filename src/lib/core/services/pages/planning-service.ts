@@ -161,10 +161,14 @@ class PlanService {
 			const raw = await computeDailyAllowance();
 			const periodStart =
 				raw.periodStart instanceof Date ? raw.periodStart : new Date(raw.periodStart);
-			const deltas = await rolloverService.getAdjustmentDeltasByCategory(undefined, periodStart);
+			const deltas = await rolloverService.getAdjustmentDeltasByCategory(
+				undefined,
+				periodStart
+			);
 			let allowance = rolloverService.applyDeltasToAllowance(raw, deltas);
-			let projection: import('$lib/core/services/core/budget-service').AllowanceProjection | null =
-				null;
+			let projection:
+				| import('$lib/core/services/core/budget-service').AllowanceProjection
+				| null = null;
 			try {
 				projection = await budgetService.getAllowanceProjection();
 			} catch (e) {
@@ -172,7 +176,8 @@ class PlanService {
 			}
 			return { ...allowance, projection };
 		} catch (error) {
-			console.error('Error getting enhanced allowance:', error);
+			const { reportError } = await import('$lib/stores/error-store.svelte');
+			reportError(error instanceof Error ? error : new Error(String(error)));
 			const now = new Date();
 			const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 			const userCurrency = await this.getUserCurrency();

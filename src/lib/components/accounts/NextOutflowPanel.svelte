@@ -33,7 +33,8 @@
 						<p class="text-text-primary truncate font-medium">{row.description}</p>
 						<p class="text-text-tertiary text-xs">{row.dateLabel}</p>
 					</div>
-					<span class="text-amount text-text-secondary shrink-0">{row.amountDisplay}</span>
+					<span class="text-amount text-text-secondary shrink-0">{row.amountDisplay}</span
+					>
 				</li>
 			{/each}
 		</ul>

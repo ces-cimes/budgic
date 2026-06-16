@@ -117,8 +117,9 @@
 	}
 
 	const remainingUnclassified = $derived(
-		Object.entries(categoriesByTransactionId).filter(([, tier]) => !tier || tier === 'unclassified')
-			.length
+		Object.entries(categoriesByTransactionId).filter(
+			([, tier]) => !tier || tier === 'unclassified'
+		).length
 	);
 
 	function finishPayoffStep() {
@@ -228,14 +229,17 @@
 					</h3>
 					<p class="text-sm text-[var(--color-text-secondary)]">
 						{#if personLedgerDirectRoute.length > 0}
-							{personCloseIndex + 1} of {personLedgerCloseQueue.length}: migrate fallback ledger
-							<strong>{currentPersonClose.name}</strong> to reimbursements on a real wallet. Direct-routed
-							ledgers already went straight to their anchor wallet and do not need this step. Choose single
-							total, forgive & archive, guided, or automatic — same as on the account page.
+							{personCloseIndex + 1} of {personLedgerCloseQueue.length}: migrate
+							fallback ledger
+							<strong>{currentPersonClose.name}</strong> to reimbursements on a real wallet.
+							Direct-routed ledgers already went straight to their anchor wallet and do
+							not need this step. Choose single total, forgive & archive, guided, or automatic
+							— same as on the account page.
 						{:else}
 							{personCloseIndex + 1} of {personLedgerCloseQueue.length}: migrate
-							<strong>{currentPersonClose.name}</strong> to reimbursements on a real wallet. Choose single
-							total, forgive & archive, guided, or automatic — same as on the account page.
+							<strong>{currentPersonClose.name}</strong> to reimbursements on a real wallet.
+							Choose single total, forgive & archive, guided, or automatic — same as on
+							the account page.
 						{/if}
 					</p>
 					<PersonLedgerMigrationWizard

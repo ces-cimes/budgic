@@ -1,6 +1,7 @@
 # Service Interaction Diagrams
 
 ## Overview
+
 This document contains Mermaid diagrams showing the interactions between different services in the Budgic application.
 
 ## Service Dependency Graph
@@ -12,49 +13,49 @@ graph TD
     T[TransactionService] --> DB
     T --> A
     T --> CRS[CrossRouteSyncService]
-    
+
     B[BudgetService] --> DB
     B --> T
-    
+
     G[GoalService] --> DB
     G --> CRS
-    
+
     U[UserService] --> DB
-    
+
     %% Analytics Services
     AS[AnalyticsService] --> DB
     AS --> T
     AS --> B
-    
+
     IS[InsightsService] --> DB
     IS --> AS
     IS --> G
     IS --> B
-    
+
     CRS --> IS
     CRS --> G
     CRS --> T
     CRS --> B
-    
+
     %% Page Services
     ANS[AnalyzeService] --> AS
     ANS --> T
     ANS --> IS
-    
+
     GS[GoalsService] --> G
     GS --> AS
-    
+
     PS[PlanService] --> A
     PS --> T
     PS --> B
     PS --> CRS
-    
+
     %% Styling
     classDef coreService fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     classDef analyticsService fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     classDef pageService fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     classDef database fill:#fff3e0,stroke:#e65100,stroke-width:3px
-    
+
     class A,T,B,G,U coreService
     class AS,IS,CRS analyticsService
     class ANS,GS,PS pageService
@@ -71,7 +72,7 @@ sequenceDiagram
     participant CRS as CrossRouteSyncService
     participant IS as InsightsService
     participant DB as Database
-    
+
     UI->>PS: User Action
     PS->>CS: Process Request
     CS->>DB: Validate & Store Data
@@ -95,7 +96,7 @@ flowchart TD
     EmitSync --> GenerateInsights[Generate Insights]
     GenerateInsights --> UpdateUI[Update UI Components]
     UpdateUI --> End([Transaction Complete])
-    
+
     Error --> End
 ```
 
@@ -108,7 +109,7 @@ sequenceDiagram
     participant S2 as Service 2
     participant S3 as Service 3
     participant IS as InsightsService
-    
+
     S1->>CRS: Emit Event
     CRS->>CRS: Process Event
     CRS->>S2: Update Related Data
@@ -131,39 +132,39 @@ graph LR
         G[GoalService]
         U[UserService]
     end
-    
+
     subgraph "Analytics Services"
         AS[AnalyticsService]
         IS[InsightsService]
         CRS[CrossRouteSyncService]
     end
-    
+
     subgraph "Page Services"
         ANS[AnalyzeService]
         GS[GoalsService]
         PS[PlanService]
     end
-    
+
     subgraph "External"
         DB[(Database)]
         UI[User Interface]
     end
-    
+
     %% Connections
     A --> DB
     T --> DB
     B --> DB
     G --> DB
     U --> DB
-    
+
     AS --> DB
     IS --> DB
     CRS --> DB
-    
+
     ANS --> AS
     GS --> G
     PS --> A
-    
+
     UI --> ANS
     UI --> GS
     UI --> PS
@@ -198,22 +199,22 @@ stateDiagram-v2
     Error --> Ready
     Ready --> Stopping
     Stopping --> [*]
-    
+
     note right of Initializing
         Services initialize database connections
         and set up event listeners
     end note
-    
+
     note right of Ready
         Services are ready to handle requests
         and process operations
     end note
-    
+
     note right of Processing
         Services are actively processing
         requests and updating data
     end note
-    
+
     note right of Error
         Services handle errors gracefully
         and attempt recovery
@@ -222,4 +223,4 @@ stateDiagram-v2
 
 ---
 
-*These diagrams are automatically generated and should be updated when service architecture changes are made.*
+_These diagrams are automatically generated and should be updated when service architecture changes are made._

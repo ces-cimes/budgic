@@ -123,7 +123,11 @@
 								</div>
 							</div>
 						</div>
-						<Button variant="ghost" size="sm" onclick={() => onDownloadReport(report.id)}>
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => onDownloadReport(report.id)}
+						>
 							<Download class="h-4 w-4" />
 						</Button>
 					</div>
@@ -137,7 +141,9 @@
 			<div class="space-y-4">
 				<div class="flex items-center justify-between">
 					<div>
-						<div class="text-primary text-sm font-medium">Auto-generate monthly reports</div>
+						<div class="text-primary text-sm font-medium">
+							Auto-generate monthly reports
+						</div>
 						<div class="text-muted-foreground text-xs">
 							Generate reports automatically at month end
 						</div>
@@ -168,7 +174,9 @@
 				<div class="flex items-center justify-between">
 					<div>
 						<div class="text-primary text-sm font-medium">Report format</div>
-						<div class="text-muted-foreground text-xs">Choose default export format</div>
+						<div class="text-muted-foreground text-xs">
+							Choose default export format
+						</div>
 					</div>
 					<Button variant="outline" size="sm">
 						{settings.defaultFormat}

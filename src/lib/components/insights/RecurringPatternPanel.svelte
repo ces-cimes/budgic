@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { ResponsivePanel } from '$lib/components/ui/responsive-panel';
-	import { recurringTransactionIntelligenceService, transactionService } from '$lib/core/services';
+	import {
+		recurringTransactionIntelligenceService,
+		transactionService
+	} from '$lib/core/services';
 	import { applyRecurringPatternWaterfallTier } from '$lib/core/services/analytics/apply-recurring-pattern-waterfall-tier';
 	import { formatAmount } from '$lib/utils/currency-utils';
 	import type { RecurringPattern } from '$lib/core/services/analytics/recurring-transaction-intelligence-service';
@@ -67,7 +70,8 @@
 				? (await db.categories.get(pattern.learnedCategoryId))?.waterfallTier
 				: undefined;
 
-			const pred = await recurringTransactionIntelligenceService.predictNextOccurrence(patternId);
+			const pred =
+				await recurringTransactionIntelligenceService.predictNextOccurrence(patternId);
 			if (pred) {
 				prediction = {
 					nextDate: pred.nextOccurrenceDate,
@@ -192,7 +196,10 @@
 					</div>
 					<p class="text-foreground text-base font-semibold tabular-nums">
 						{#if prediction != null}
-							~{formatAmount(prediction.amount, pattern.metadata?.currency || userCurrency)}
+							~{formatAmount(
+								prediction.amount,
+								pattern.metadata?.currency || userCurrency
+							)}
 						{:else}
 							—
 						{/if}
@@ -204,7 +211,9 @@
 			</p>
 
 			<div>
-				<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
+				<h4
+					class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase"
+				>
 					Budget tier
 				</h4>
 				<div class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-1.5">
@@ -220,7 +229,9 @@
 							aria-label={`${chip.label}. ${chip.hint}`}
 							class={cn(
 								'min-h-11 shrink-0 gap-0 rounded-md px-3 py-0 text-xs font-semibold shadow-none',
-								isActive ? tierActiveClasses[chip.tier] : tierChipIdleClasses[chip.tier]
+								isActive
+									? tierActiveClasses[chip.tier]
+									: tierChipIdleClasses[chip.tier]
 							)}
 							onclick={() => void applyTierFromPanel(chip.tier)}
 						>
@@ -231,7 +242,9 @@
 			</div>
 
 			<div>
-				<h4 class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase">
+				<h4
+					class="text-muted-foreground mb-2 text-xs font-semibold tracking-widest uppercase"
+				>
 					Linked transactions
 				</h4>
 				{#if transactions.length === 0}
@@ -250,12 +263,22 @@
 									</span>
 									<span class="flex shrink-0 items-center gap-2">
 										<span class="text-foreground font-semibold tabular-nums">
-											{formatAmount(Math.abs(tx.amount ?? 0), tx.currency || userCurrency)}
+											{formatAmount(
+												Math.abs(tx.amount ?? 0),
+												tx.currency || userCurrency
+											)}
 										</span>
 										<span class="text-muted-foreground text-xs">
-											{formatDate(tx.clearedDate || tx.plannedDate || tx.createdAt || '')}
+											{formatDate(
+												tx.clearedDate ||
+													tx.plannedDate ||
+													tx.createdAt ||
+													''
+											)}
 										</span>
-										<ExternalLink class="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+										<ExternalLink
+											class="text-muted-foreground h-3.5 w-3.5 shrink-0"
+										/>
 									</span>
 								</button>
 							</li>

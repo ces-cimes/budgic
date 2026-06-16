@@ -120,8 +120,18 @@
 
 			{#if showDetails}
 				<div class="text-muted-foreground flex justify-between text-xs">
-					<span>Current: {formatTransactionAmount(account.currentBalance, account.currency)}</span>
-					<span>Target: {formatTransactionAmount(thresholds.optimal, account.currency)}</span>
+					<span
+						>Current: {formatTransactionAmount(
+							account.currentBalance,
+							account.currency
+						)}</span
+					>
+					<span
+						>Target: {formatTransactionAmount(
+							thresholds.optimal,
+							account.currency
+						)}</span
+					>
 				</div>
 			{/if}
 		</div>

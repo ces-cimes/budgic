@@ -227,7 +227,9 @@ class AppUsageAnalyticsService {
 		const actions = await userService.getUserActions(90);
 		const featureUsage = this.calculateFeatureUsage(actions);
 
-		const adoptedFeatures = featureUsage.filter((f) => f.usageCount >= 10).map((f) => f.feature);
+		const adoptedFeatures = featureUsage
+			.filter((f) => f.usageCount >= 10)
+			.map((f) => f.feature);
 
 		const underutilizedFeatures = featureUsage
 			.filter((f) => f.usageCount < 5 && f.percentage < 2)
@@ -235,7 +237,9 @@ class AppUsageAnalyticsService {
 
 		const recommendations: string[] = [];
 		if (underutilizedFeatures.length > 0) {
-			recommendations.push(`Consider exploring: ${underutilizedFeatures.slice(0, 3).join(', ')}`);
+			recommendations.push(
+				`Consider exploring: ${underutilizedFeatures.slice(0, 3).join(', ')}`
+			);
 		}
 
 		return {
@@ -268,7 +272,15 @@ class AppUsageAnalyticsService {
 	} {
 		const dayCounts = new Map<string, number>();
 		const hourCounts = new Map<number, number>();
-		const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+		const dayNames = [
+			'Sunday',
+			'Monday',
+			'Tuesday',
+			'Wednesday',
+			'Thursday',
+			'Friday',
+			'Saturday'
+		];
 
 		actions.forEach((action) => {
 			const date = new Date(action.timestamp);
@@ -474,7 +486,8 @@ class AppUsageAnalyticsService {
 		if (weeklyCounts.size >= 3) {
 			const counts = Array.from(weeklyCounts.values());
 			const avg = counts.reduce((sum, c) => sum + c, 0) / counts.length;
-			const variance = counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length;
+			const variance =
+				counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length;
 			const stdDev = Math.sqrt(variance);
 			const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -513,7 +526,8 @@ class AppUsageAnalyticsService {
 		if (monthlyCounts.size >= 3) {
 			const counts = Array.from(monthlyCounts.values());
 			const avg = counts.reduce((sum, c) => sum + c, 0) / counts.length;
-			const variance = counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length;
+			const variance =
+				counts.reduce((sum, c) => sum + Math.pow(c - avg, 2), 0) / counts.length;
 			const stdDev = Math.sqrt(variance);
 			const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 

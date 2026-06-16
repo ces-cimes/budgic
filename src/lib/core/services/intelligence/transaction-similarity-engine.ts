@@ -111,7 +111,11 @@ export class TransactionSimilarityEngine {
 
 		for (let i = 0; i < transactions.length; i += 1) {
 			for (let j = i + 1; j < transactions.length; j += 1) {
-				const score = this.scoreTransactionPair(transactions[i], transactions[j], config).score;
+				const score = this.scoreTransactionPair(
+					transactions[i],
+					transactions[j],
+					config
+				).score;
 				if (score >= config.threshold) {
 					adjacency.get(i)!.add(j);
 					adjacency.get(j)!.add(i);
@@ -200,7 +204,8 @@ export class TransactionSimilarityEngine {
 		return {
 			name: 'category',
 			weight,
-			compute: (a, b) => (a.categoryId && b.categoryId && a.categoryId === b.categoryId ? 1 : 0)
+			compute: (a, b) =>
+				a.categoryId && b.categoryId && a.categoryId === b.categoryId ? 1 : 0
 		};
 	}
 
@@ -223,7 +228,9 @@ export class TransactionSimilarityEngine {
 
 				const dayDelta = Math.abs(getDate(leftDate) - getDate(rightDate));
 				const sigmaDays = 5;
-				const dayOfMonthScore = Math.exp(-Math.pow(dayDelta, 2) / (2 * sigmaDays * sigmaDays));
+				const dayOfMonthScore = Math.exp(
+					-Math.pow(dayDelta, 2) / (2 * sigmaDays * sigmaDays)
+				);
 				const dayOfWeekBonus = getDay(leftDate) === getDay(rightDate) ? 0.2 : 0;
 
 				return clamp01(dayOfMonthScore * 0.8 + dayOfWeekBonus);

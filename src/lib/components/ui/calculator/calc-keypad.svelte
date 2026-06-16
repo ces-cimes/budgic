@@ -109,7 +109,9 @@
 </script>
 
 {#snippet keypadBody()}
-	<div class={cn('flex flex-col gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]', className)}>
+	<div
+		class={cn('flex flex-col gap-3 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]', className)}
+	>
 		<div
 			class="border-border bg-muted/40 min-h-[4.5rem] rounded-[var(--radius-lg)] border px-3 py-2"
 		>

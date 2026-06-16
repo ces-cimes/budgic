@@ -15,7 +15,10 @@ vi.mock('$lib/core/db', () => ({
 		autocompleteUsage: {
 			where: vi.fn((field: string) => ({
 				equals: vi.fn(() => ({
-					toArray: field === 'fieldKey' ? mocks.autocompleteUsageToArray : vi.fn(async () => [])
+					toArray:
+						field === 'fieldKey'
+							? mocks.autocompleteUsageToArray
+							: vi.fn(async () => [])
 				})),
 				below: vi.fn(() => ({
 					toArray: vi.fn(async () => [])
@@ -130,14 +133,22 @@ describe('autocompleteService description filtering', () => {
 			makeTx('i3', 'income', 'cleared', 'cat-paycheck')
 		]);
 
-		const expenseSuggestions = await autocompleteService.getSuggestionsForDescription('acme', 8, {
-			type: 'expense',
-			status: 'cleared'
-		});
-		const incomeSuggestions = await autocompleteService.getSuggestionsForDescription('acme', 8, {
-			type: 'income',
-			status: 'cleared'
-		});
+		const expenseSuggestions = await autocompleteService.getSuggestionsForDescription(
+			'acme',
+			8,
+			{
+				type: 'expense',
+				status: 'cleared'
+			}
+		);
+		const incomeSuggestions = await autocompleteService.getSuggestionsForDescription(
+			'acme',
+			8,
+			{
+				type: 'income',
+				status: 'cleared'
+			}
+		);
 
 		expect(expenseSuggestions[0]?.inferredCategoryId).toBe('cat-grocery');
 		expect(incomeSuggestions[0]?.inferredCategoryId).toBe('cat-paycheck');
@@ -153,14 +164,22 @@ describe('autocompleteService description filtering', () => {
 			makeTx('p3', 'expense', 'planned', 'cat-subscription')
 		]);
 
-		const clearedSuggestions = await autocompleteService.getSuggestionsForDescription('acme', 8, {
-			type: 'expense',
-			status: 'cleared'
-		});
-		const plannedSuggestions = await autocompleteService.getSuggestionsForDescription('acme', 8, {
-			type: 'expense',
-			status: 'planned'
-		});
+		const clearedSuggestions = await autocompleteService.getSuggestionsForDescription(
+			'acme',
+			8,
+			{
+				type: 'expense',
+				status: 'cleared'
+			}
+		);
+		const plannedSuggestions = await autocompleteService.getSuggestionsForDescription(
+			'acme',
+			8,
+			{
+				type: 'expense',
+				status: 'planned'
+			}
+		);
 
 		expect(clearedSuggestions[0]?.inferredCategoryId).toBe('cat-grocery');
 		expect(plannedSuggestions[0]?.inferredCategoryId).toBe('cat-subscription');
@@ -176,14 +195,22 @@ describe('autocompleteService description filtering', () => {
 			makeTx('i3', 'income', 'cleared', 'cat-paycheck')
 		]);
 
-		const expenseSuggestions = await autocompleteService.getSuggestionsForDescription('acme', 8, {
-			type: 'expense',
-			status: 'cleared'
-		});
-		const incomeSuggestions = await autocompleteService.getSuggestionsForDescription('acme', 8, {
-			type: 'income',
-			status: 'cleared'
-		});
+		const expenseSuggestions = await autocompleteService.getSuggestionsForDescription(
+			'acme',
+			8,
+			{
+				type: 'expense',
+				status: 'cleared'
+			}
+		);
+		const incomeSuggestions = await autocompleteService.getSuggestionsForDescription(
+			'acme',
+			8,
+			{
+				type: 'income',
+				status: 'cleared'
+			}
+		);
 
 		expect(expenseSuggestions[0]?.inferredCategoryId).toBe('cat-grocery');
 		expect(incomeSuggestions[0]?.inferredCategoryId).toBe('cat-paycheck');

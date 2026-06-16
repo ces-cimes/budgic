@@ -142,7 +142,10 @@ describe('partitioned edge cases', () => {
 describe('transactionHasExistingSplit', () => {
 	it('is true for groupId or multi-entry categoryWeights', () => {
 		expect(
-			transactionHasExistingSplit({ groupId: 'g1', categoryId: 'gro' } as unknown as Transaction)
+			transactionHasExistingSplit({
+				groupId: 'g1',
+				categoryId: 'gro'
+			} as unknown as Transaction)
 		).toBe(true);
 		expect(
 			transactionHasExistingSplit({

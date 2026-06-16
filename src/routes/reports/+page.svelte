@@ -14,7 +14,12 @@
 		AlertTriangle
 	} from '@lucide/svelte';
 
-	import { TabHeader, TabContent, TabContentWrapper, type TabConfig } from '$lib/components/shared';
+	import {
+		TabHeader,
+		TabContent,
+		TabContentWrapper,
+		type TabConfig
+	} from '$lib/components/shared';
 
 	import {
 		OverviewTab,
@@ -124,11 +129,19 @@
 				const currentDate = new Date();
 				const periodStart = new Date(
 					currentDate.getTime() -
-						(timeRange === 'month' ? 60 : timeRange === 'quarter' ? 180 : 365) * 24 * 60 * 60 * 1000
+						(timeRange === 'month' ? 60 : timeRange === 'quarter' ? 180 : 365) *
+							24 *
+							60 *
+							60 *
+							1000
 				);
 				const periodEnd = new Date(
 					currentDate.getTime() -
-						(timeRange === 'month' ? 30 : timeRange === 'quarter' ? 90 : 180) * 24 * 60 * 60 * 1000
+						(timeRange === 'month' ? 30 : timeRange === 'quarter' ? 90 : 180) *
+							24 *
+							60 *
+							60 *
+							1000
 				);
 				return txDate >= periodStart && txDate <= periodEnd;
 			});
@@ -139,7 +152,8 @@
 			previousPeriodData = {
 				...previousData,
 				transactionCount: previousPeriodTransactions.length,
-				averageTransaction: previousData.totalSpending / previousPeriodTransactions.length || 0
+				averageTransaction:
+					previousData.totalSpending / previousPeriodTransactions.length || 0
 			};
 			recentReports = [
 				{
@@ -230,7 +244,10 @@
 				<div
 					class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20"
 				>
-					<AlertTriangle class="h-8 w-8 text-red-600 dark:text-red-400" aria-hidden="true" />
+					<AlertTriangle
+						class="h-8 w-8 text-red-600 dark:text-red-400"
+						aria-hidden="true"
+					/>
 				</div>
 				<h2 class="text-foreground mb-2 text-lg font-semibold">Could not load reports</h2>
 				<p class="text-muted-foreground mb-4">{loadError}</p>
@@ -246,7 +263,11 @@
 		{:else}
 			<TabContentWrapper tabs={reportTabs} {activeTab} onTabChange={handleTabChange}>
 				{#snippet children()}
-					<TabContent tabId="overview" isActive={activeTab === 'overview'} tabs={reportTabs}>
+					<TabContent
+						tabId="overview"
+						isActive={activeTab === 'overview'}
+						tabs={reportTabs}
+					>
 						<OverviewTab
 							totalSpending={totalSpending()}
 							savingsRate={savingsRate()}
@@ -269,16 +290,25 @@
 						/>
 					</TabContent>
 
-					<TabContent tabId="categories" isActive={activeTab === 'categories'} tabs={reportTabs}>
+					<TabContent
+						tabId="categories"
+						isActive={activeTab === 'categories'}
+						tabs={reportTabs}
+					>
 						<CategoriesTab {categoryData} {userCurrency} {timeRange} {isLoading} />
 					</TabContent>
 
-					<TabContent tabId="compare" isActive={activeTab === 'compare'} tabs={reportTabs}>
+					<TabContent
+						tabId="compare"
+						isActive={activeTab === 'compare'}
+						tabs={reportTabs}
+					>
 						<CompareTab
 							timeRange={timeRange === 'week'
 								? 'month'
 								: (timeRange as 'month' | 'quarter' | 'year')}
-							onTimeRangeChange={(range) => (timeRange = range as 'month' | 'quarter' | 'year')}
+							onTimeRangeChange={(range) =>
+								(timeRange = range as 'month' | 'quarter' | 'year')}
 							{currentPeriodData}
 							{previousPeriodData}
 							{userCurrency}

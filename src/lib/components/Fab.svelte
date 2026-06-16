@@ -1,6 +1,10 @@
 <!-- src/lib/components/Fab.svelte -->
 <script lang="ts">
-	import { Button, type ButtonVariant, type ButtonSize } from '$lib/components/ui/button/index.js';
+	import {
+		Button,
+		type ButtonVariant,
+		type ButtonSize
+	} from '$lib/components/ui/button/index.js';
 	import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
 
 	type Position = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'center';

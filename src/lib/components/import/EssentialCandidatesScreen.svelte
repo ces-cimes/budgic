@@ -21,7 +21,13 @@
 	let { candidates, onApproveAll, onApproveRow, onSkipRow, onNext }: Props = $props();
 	let overrides = $state<Record<string, TierChoice>>({});
 
-	const tierOptions: TierChoice[] = ['survival', 'security', 'growth', 'lifestyle', 'unclassified'];
+	const tierOptions: TierChoice[] = [
+		'survival',
+		'security',
+		'growth',
+		'lifestyle',
+		'unclassified'
+	];
 </script>
 
 <div class="space-y-4">

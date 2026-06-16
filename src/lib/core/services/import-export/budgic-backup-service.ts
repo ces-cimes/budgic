@@ -92,7 +92,10 @@ function v1TableRows(v1: BudgicBackupV1, tableName: string): unknown[] | undefin
 function normalizeUserPreferencesRow(row: Record<string, unknown>): Record<string, unknown> {
 	const normalized = { ...row };
 	const legacyMaturity = normalized.userMaturityLevel as LegacyMaturityLevel | undefined;
-	if (legacyMaturity && (normalized.guidanceTone == null || normalized.explanationDetail == null)) {
+	if (
+		legacyMaturity &&
+		(normalized.guidanceTone == null || normalized.explanationDetail == null)
+	) {
 		const mapped = mapLegacyMaturityToGuidance(legacyMaturity);
 		if (normalized.guidanceTone == null) normalized.guidanceTone = mapped.guidanceTone;
 		if (normalized.explanationDetail == null) {

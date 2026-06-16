@@ -107,12 +107,16 @@
 
 	const dateShiftParsed = $derived(Number.parseInt(String(dateShiftInput ?? '').trim(), 10));
 	const dateShiftFormValid = $derived(
-		Number.isFinite(dateShiftParsed) && Number.isInteger(dateShiftParsed) && dateShiftParsed !== 0
+		Number.isFinite(dateShiftParsed) &&
+			Number.isInteger(dateShiftParsed) &&
+			dateShiftParsed !== 0
 	);
 	const dateSetFormValid = $derived(
 		/^\d{4}-\d{2}-\d{2}$/.test(String(fixedDateInput ?? '').trim())
 	);
-	const dateFormValid = $derived(dateBulkKind === 'shift' ? dateShiftFormValid : dateSetFormValid);
+	const dateFormValid = $derived(
+		dateBulkKind === 'shift' ? dateShiftFormValid : dateSetFormValid
+	);
 
 	const descriptionFormValid = $derived(
 		descriptionBulkKind === 'findReplace' ? descriptionFind.trim().length > 0 : true
@@ -141,7 +145,8 @@
 		if (nextOpen && action === 'currency') {
 			const list = currencyCodes;
 			selectedBulkCurrency =
-				(defaultCurrency && list.includes(defaultCurrency) ? defaultCurrency : list[0]) ?? '';
+				(defaultCurrency && list.includes(defaultCurrency) ? defaultCurrency : list[0]) ??
+				'';
 		}
 		if (nextOpen && action === 'amount') {
 			amountAdjustMode = 'fixed';
@@ -167,12 +172,14 @@
 			<AlertDialog.Header>
 				<AlertDialog.Title>Delete {selectedCount} transactions?</AlertDialog.Title>
 				<AlertDialog.Description>
-					This will soft-delete all selected transactions. Group selections include each group
-					member.
+					This will soft-delete all selected transactions. Group selections include each
+					group member.
 				</AlertDialog.Description>
 			</AlertDialog.Header>
 			<AlertDialog.Footer>
-				<AlertDialog.Cancel disabled={isProcessing} onclick={onCancel}>Cancel</AlertDialog.Cancel>
+				<AlertDialog.Cancel disabled={isProcessing} onclick={onCancel}
+					>Cancel</AlertDialog.Cancel
+				>
 				<AlertDialog.Action
 					disabled={isProcessing}
 					onclick={onConfirmDelete}
@@ -210,20 +217,22 @@
 				</Dialog.Title>
 				<Dialog.Description>
 					{#if action === 'description'}
-						Find-and-replace uses literal text (not regex). “Replace entire” overwrites every
-						selected description with the same text (empty clears the field).
+						Find-and-replace uses literal text (not regex). “Replace entire” overwrites
+						every selected description with the same text (empty clears the field).
 					{:else if action === 'dates'}
-						Shift moves existing dates by whole days (skips rows with no date in that field). Set
-						fixed assigns the same calendar day to cleared and/or planned on every row. FX may
-						recalc.
+						Shift moves existing dates by whole days (skips rows with no date in that
+						field). Set fixed assigns the same calendar day to cleared and/or planned on
+						every row. FX may recalc.
 					{:else if action === 'notes'}
-						Append, prepend, find-and-replace, or replace the whole notes or reference field (empty
-						clears when using “Set entire”). Notes use a newline when appending or prepending.
+						Append, prepend, find-and-replace, or replace the whole notes or reference
+						field (empty clears when using “Set entire”). Notes use a newline when
+						appending or prepending.
 					{:else if action === 'amount'}
-						Fixed delta, percent change, or set every row to the same amount. Transfers are skipped.
+						Fixed delta, percent change, or set every row to the same amount. Transfers
+						are skipped.
 					{:else if action === 'currency'}
-						Sets the transaction currency and recomputes account amounts from stored rates.
-						Transfers are skipped.
+						Sets the transaction currency and recomputes account amounts from stored
+						rates. Transfers are skipped.
 					{:else}
 						Apply changes to {selectedCount} selected transactions.
 					{/if}
@@ -252,10 +261,12 @@
 							type="single"
 							value={descriptionBulkKind}
 							onValueChange={(value) =>
-								value && (descriptionBulkKind = value as typeof descriptionBulkKind)}
+								value &&
+								(descriptionBulkKind = value as typeof descriptionBulkKind)}
 							class="flex flex-wrap gap-1"
 						>
-							<ToggleGroup.Item value="findReplace">Find and replace</ToggleGroup.Item>
+							<ToggleGroup.Item value="findReplace">Find and replace</ToggleGroup.Item
+							>
 							<ToggleGroup.Item value="setEntire">Replace entire</ToggleGroup.Item>
 						</ToggleGroup.Root>
 					</div>
@@ -296,7 +307,8 @@
 						<ToggleGroup.Root
 							type="single"
 							value={dateBulkKind}
-							onValueChange={(value) => value && (dateBulkKind = value as typeof dateBulkKind)}
+							onValueChange={(value) =>
+								value && (dateBulkKind = value as typeof dateBulkKind)}
 							class="flex flex-wrap gap-1"
 						>
 							<ToggleGroup.Item value="shift">Shift by days</ToggleGroup.Item>
@@ -305,7 +317,9 @@
 					</div>
 					{#if dateBulkKind === 'shift'}
 						<div class="space-y-1.5">
-							<Label.Root for="bulk-date-shift">Days to shift (negative allowed)</Label.Root>
+							<Label.Root for="bulk-date-shift"
+								>Days to shift (negative allowed)</Label.Root
+							>
 							<Input.Root
 								id="bulk-date-shift"
 								type="number"
@@ -318,7 +332,11 @@
 					{:else}
 						<div class="space-y-1.5">
 							<Label.Root for="bulk-date-fixed">Calendar date</Label.Root>
-							<Input.Root id="bulk-date-fixed" type="date" bind:value={fixedDateInput} />
+							<Input.Root
+								id="bulk-date-fixed"
+								type="date"
+								bind:value={fixedDateInput}
+							/>
 						</div>
 					{/if}
 					<div class="space-y-1.5">
@@ -360,7 +378,8 @@
 						<ToggleGroup.Root
 							type="single"
 							value={notesMode}
-							onValueChange={(value) => value && (notesMode = value as typeof notesMode)}
+							onValueChange={(value) =>
+								value && (notesMode = value as typeof notesMode)}
 							class="flex flex-wrap gap-1"
 						>
 							<ToggleGroup.Item value="append">Append</ToggleGroup.Item>
@@ -399,7 +418,11 @@
 					{:else}
 						<div class="space-y-1.5">
 							<Label.Root for="bulk-notes-text">Text to add</Label.Root>
-							<Textarea.Root id="bulk-notes-text" placeholder="Text" bind:value={notesText} />
+							<Textarea.Root
+								id="bulk-notes-text"
+								placeholder="Text"
+								bind:value={notesText}
+							/>
 						</div>
 					{/if}
 				</div>
@@ -469,8 +492,8 @@
 				<div class="space-y-3">
 					<Select.Root type="single" bind:value={selectedCategoryId}>
 						<Select.Trigger class="w-full">
-							{categories.find((category) => category.id === selectedCategoryId)?.name ||
-								'Select category'}
+							{categories.find((category) => category.id === selectedCategoryId)
+								?.name || 'Select category'}
 						</Select.Trigger>
 						<Select.Content>
 							{#each categories as category (category.id)}
@@ -523,7 +546,11 @@
 					<Button.Root
 						onclick={() =>
 							dateBulkKind === 'shift'
-								? onApplyDates({ kind: 'shift', shiftDays: dateShiftParsed, applyTo: dateApplyTo })
+								? onApplyDates({
+										kind: 'shift',
+										shiftDays: dateShiftParsed,
+										applyTo: dateApplyTo
+									})
 								: onApplyDates({
 										kind: 'set',
 										calendarDate: String(fixedDateInput ?? '').trim(),
@@ -531,7 +558,11 @@
 									})}
 						disabled={isProcessing || !dateFormValid}
 					>
-						{isProcessing ? 'Applying...' : dateBulkKind === 'shift' ? 'Shift dates' : 'Set dates'}
+						{isProcessing
+							? 'Applying...'
+							: dateBulkKind === 'shift'
+								? 'Shift dates'
+								: 'Set dates'}
 					</Button.Root>
 				{:else if action === 'notes'}
 					<Button.Root
@@ -568,7 +599,10 @@
 						{isProcessing ? 'Applying...' : 'Apply Category'}
 					</Button.Root>
 				{:else if action === 'status'}
-					<Button.Root onclick={() => onApplyStatus(selectedStatus)} disabled={isProcessing}>
+					<Button.Root
+						onclick={() => onApplyStatus(selectedStatus)}
+						disabled={isProcessing}
+					>
 						{isProcessing ? 'Applying...' : 'Apply Status'}
 					</Button.Root>
 				{/if}

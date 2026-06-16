@@ -615,7 +615,9 @@ class ExchangeRateService {
 			.first();
 
 		if (!existing) {
-			throw new Error(`Exchange rate ${fromCurrency} → ${toCurrency} not found after API update`);
+			throw new Error(
+				`Exchange rate ${fromCurrency} → ${toCurrency} not found after API update`
+			);
 		}
 
 		// Update source to mark as API-sourced
@@ -646,7 +648,9 @@ class ExchangeRateService {
 
 		// Get conversion rate from old main to new main
 		let oldToNewRate: number | null = null;
-		const directRate = allRates.find((r) => r.fromCurrency === oldMain && r.toCurrency === newMain);
+		const directRate = allRates.find(
+			(r) => r.fromCurrency === oldMain && r.toCurrency === newMain
+		);
 		if (directRate) {
 			oldToNewRate = directRate.rate;
 		} else {
@@ -678,7 +682,9 @@ class ExchangeRateService {
 			if (currency === newMain) continue;
 
 			// Get old rate (oldMain -> currency)
-			const oldRate = allRates.find((r) => r.fromCurrency === oldMain && r.toCurrency === currency);
+			const oldRate = allRates.find(
+				(r) => r.fromCurrency === oldMain && r.toCurrency === currency
+			);
 
 			let newRateValue: number | null = null;
 

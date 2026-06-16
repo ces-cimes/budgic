@@ -99,7 +99,8 @@ export async function detectImportSource(files: File[]): Promise<ImportSourceDet
 			if (budgic) return budgic;
 			return {
 				kind: 'unsupported',
-				message: 'JSON file is not a recognized Budgic backup (missing version or exportDate).'
+				message:
+					'JSON file is not a recognized Budgic backup (missing version or exportDate).'
 			};
 		}
 
@@ -111,7 +112,8 @@ export async function detectImportSource(files: File[]): Promise<ImportSourceDet
 			} catch {
 				return {
 					kind: 'unsupported',
-					message: 'Could not open file as a SQLite database. Check that the file is not corrupted.'
+					message:
+						'Could not open file as a SQLite database. Check that the file is not corrupted.'
 				};
 			}
 

@@ -25,17 +25,17 @@ The app currently does **both, inconsistently, across different layers** — and
 
 The Money Manager CSV importer applies a **light Fix pass** on the way in:
 
-| Dirty scenario | What happens |
-|---|---|
-| Malformed CSV rows (wrong column count) | **Dropped silently** — not fixed, not flagged |
-| `IS_DEL` rows | **Dropped** |
-| Invalid `DO_TYPE` | **Defaults to `expense`** |
-| Unknown account type | **Defaults to `checking`** |
-| Invalid/unparseable amount | **Defaults to `0`** — silent |
-| Unparseable date | Cascade fallback: `ZDATE → UTIME → WDATE → now()` — **silent** |
-| Missing currency | Extracted from UID string, then **defaults to `USD` with a warning** |
-| Duplicate by MM UID | **Usually skipped** on re-import; person-ledger rows now have a route-aware exception in MM import |
-| Reconciliation adjustments (type 7/8) | Tags existing transaction as `automation: 'reconciliation-adjustment'` — **mutates stored data** |
+| Dirty scenario                          | What happens                                                                                       |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Malformed CSV rows (wrong column count) | **Dropped silently** — not fixed, not flagged                                                      |
+| `IS_DEL` rows                           | **Dropped**                                                                                        |
+| Invalid `DO_TYPE`                       | **Defaults to `expense`**                                                                          |
+| Unknown account type                    | **Defaults to `checking`**                                                                         |
+| Invalid/unparseable amount              | **Defaults to `0`** — silent                                                                       |
+| Unparseable date                        | Cascade fallback: `ZDATE → UTIME → WDATE → now()` — **silent**                                     |
+| Missing currency                        | Extracted from UID string, then **defaults to `USD` with a warning**                               |
+| Duplicate by MM UID                     | **Usually skipped** on re-import; person-ledger rows now have a route-aware exception in MM import |
+| Reconciliation adjustments (type 7/8)   | Tags existing transaction as `automation: 'reconciliation-adjustment'` — **mutates stored data**   |
 
 So at the import boundary: some things are silently defaulted (approach B, but lossy), some are skipped (approach B, destructive), and the rest arrive in the DB largely as-is.
 
@@ -55,14 +55,14 @@ This is a hard **Reject** strategy (not Fix, not Infer). Anything that sneaks pa
 
 This is where the **Infer** approach dominates — and it's the most complex layer:
 
-| Service | Dirty data handled | How |
-|---|---|---|
-| `recurring-transaction-intelligence-service.ts` | Split payments, noisy descriptions, transfer legs with zero amounts, single-occurrence noise | Synthetic merges (in-memory only), IQR outlier exclusion from averages, description normalization |
-| `insights-service.ts` | Miscategorised transactions, unusual amounts | Shadow category redistribution via merchant profiles (in-memory, not persisted); z-score anomaly flagging |
-| `learning-adaptation-service.ts` | Duplicates, per-category outliers, possibly mis-categorised | Detection and reporting only — no automatic correction |
-| `prediction-service.ts` | Sparse or noisy spend history | Blends forecast with historical average when prediction "looks too low" |
-| `autocomplete-service.ts` | Inconsistent descriptions | Normalization, merchant key inference |
-| `transaction-similarity-engine.ts` | Noisy descriptions | Token normalization for clustering |
+| Service                                         | Dirty data handled                                                                           | How                                                                                                       |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `recurring-transaction-intelligence-service.ts` | Split payments, noisy descriptions, transfer legs with zero amounts, single-occurrence noise | Synthetic merges (in-memory only), IQR outlier exclusion from averages, description normalization         |
+| `insights-service.ts`                           | Miscategorised transactions, unusual amounts                                                 | Shadow category redistribution via merchant profiles (in-memory, not persisted); z-score anomaly flagging |
+| `learning-adaptation-service.ts`                | Duplicates, per-category outliers, possibly mis-categorised                                  | Detection and reporting only — no automatic correction                                                    |
+| `prediction-service.ts`                         | Sparse or noisy spend history                                                                | Blends forecast with historical average when prediction "looks too low"                                   |
+| `autocomplete-service.ts`                       | Inconsistent descriptions                                                                    | Normalization, merchant key inference                                                                     |
+| `transaction-similarity-engine.ts`              | Noisy descriptions                                                                           | Token normalization for clustering                                                                        |
 
 All of these operate on **stored data without changing it**. They produce insights despite dirtiness. This is genuine Approach A — and when done well, it's valuable.
 
@@ -112,6 +112,7 @@ This is actually an interesting precedent: when MM sends a reconciliation adjust
 **Principle**: The database stores exactly what came in; analytics are responsible for producing correct outputs regardless.
 
 **What changes**:
+
 - Import stops silently defaulting. Instead, it stores a `dataQuality` metadata field on each transaction (e.g. `{ amountInferred: true, dateInferred: true, currencyFallback: true }`).
 - Analytics read `dataQuality` and exclude or weight those transactions differently.
 - Outlier / duplicate detection is consolidated into a single shared utility used by all services.
@@ -128,6 +129,7 @@ This is actually an interesting precedent: when MM sends a reconciliation adjust
 **Principle**: Data entering the DB must be trustworthy. The import boundary is where you invest the cleaning effort.
 
 **What changes**:
+
 - Import becomes a two-phase flow: **parse → review → commit**. No silent defaults; instead, the import wizard surfaces ambiguous/defaulted rows and asks the user to confirm or correct.
 - Silent `NaN → 0` and `date → now()` fallbacks are replaced with an **import queue** of flagged rows needing human review before commit.
 - Duplicate detection is unified and run pre-commit, with the user presented a "these look like duplicates" UI step.
@@ -152,7 +154,7 @@ Neither pure option is perfect for a personal finance app where users have years
 #### Boundary: DB write layer — Validate, never coerce
 
 - Keep the strict Zod validation.
-- But ensure the import layer never sends data that *needs* coercion — i.e., import must resolve all ambiguities before hitting the DB hooks.
+- But ensure the import layer never sends data that _needs_ coercion — i.e., import must resolve all ambiguities before hitting the DB hooks.
 
 #### Boundary: Analytics layer — Infer, but with shared primitives
 
@@ -184,18 +186,18 @@ Original suggested order (all shipped):
 
 ## Reference: Code Locations
 
-| What | File |
-|---|---|
-| Silent amount/date defaults | `src/lib/core/services/import-export/money-manager-mapper.ts` |
-| Row skipping logic | `src/lib/core/services/import-export/csv-parser.ts` |
+| What                                                | File                                                                                                                                                                              |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Silent amount/date defaults                         | `src/lib/core/services/import-export/money-manager-mapper.ts`                                                                                                                     |
+| Row skipping logic                                  | `src/lib/core/services/import-export/csv-parser.ts`                                                                                                                               |
 | Duplicate skip / person-ledger reroute on re-import | `src/lib/core/services/import-export/money-manager-importer.ts`, `src/lib/core/services/person-ledger/import-routing.ts`, `src/lib/core/services/person-ledger/person-service.ts` |
-| Reconciliation mutation | `src/lib/core/services/import-export/money-manager-importer.ts` (`importReconciliationAdjustment`) |
-| DB validation hooks | `src/lib/core/db.ts` (`setupValidationHooks`) |
-| Global 2σ anomaly detection | `src/lib/core/services/analytics/insights-service.ts` (`detectAnomalies`) |
-| Per-category 3σ outlier | `src/lib/core/services/analytics/learning-adaptation-service.ts` (`detectOutliers`) |
-| IQR per-group outlier | `src/lib/core/services/analytics/recurring-transaction-intelligence-service.ts` (`iqrFilter`) |
-| Category trend sort bug | `src/lib/core/services/analytics/insights-service.ts` (amounts/dates ordering) |
-| Duplicate key: plannedDate | `src/lib/core/services/core/reconciliation-service.ts` |
-| Duplicate key: clearedDate | `src/lib/core/services/analytics/learning-adaptation-service.ts` |
-| Shadow category redistribution | `src/lib/core/services/analytics/insights-service.ts` (`applyShadowCategoryRedistribution`) |
-| Prediction blending | `src/lib/core/services/analytics/prediction-service.ts` |
+| Reconciliation mutation                             | `src/lib/core/services/import-export/money-manager-importer.ts` (`importReconciliationAdjustment`)                                                                                |
+| DB validation hooks                                 | `src/lib/core/db.ts` (`setupValidationHooks`)                                                                                                                                     |
+| Global 2σ anomaly detection                         | `src/lib/core/services/analytics/insights-service.ts` (`detectAnomalies`)                                                                                                         |
+| Per-category 3σ outlier                             | `src/lib/core/services/analytics/learning-adaptation-service.ts` (`detectOutliers`)                                                                                               |
+| IQR per-group outlier                               | `src/lib/core/services/analytics/recurring-transaction-intelligence-service.ts` (`iqrFilter`)                                                                                     |
+| Category trend sort bug                             | `src/lib/core/services/analytics/insights-service.ts` (amounts/dates ordering)                                                                                                    |
+| Duplicate key: plannedDate                          | `src/lib/core/services/core/reconciliation-service.ts`                                                                                                                            |
+| Duplicate key: clearedDate                          | `src/lib/core/services/analytics/learning-adaptation-service.ts`                                                                                                                  |
+| Shadow category redistribution                      | `src/lib/core/services/analytics/insights-service.ts` (`applyShadowCategoryRedistribution`)                                                                                       |
+| Prediction blending                                 | `src/lib/core/services/analytics/prediction-service.ts`                                                                                                                           |

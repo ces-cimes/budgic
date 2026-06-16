@@ -310,7 +310,12 @@
 
 			<!-- Graph Visualization -->
 			<div class="bg-background overflow-hidden rounded-md border">
-				<svg width={WIDTH} height={HEIGHT} viewBox="0 0 {WIDTH} {HEIGHT}" class="h-auto w-full">
+				<svg
+					width={WIDTH}
+					height={HEIGHT}
+					viewBox="0 0 {WIDTH} {HEIGHT}"
+					class="h-auto w-full"
+				>
 					<g transform="translate({panX}, {panY}) scale({scale})">
 						<!-- Edges -->
 						{#each edges as edge}
@@ -348,7 +353,9 @@
 									fill={getNodeColor(node)}
 									stroke={selectedNode === node.id ? '#FFB347' : 'white'}
 									stroke-width={selectedNode === node.id ? 3 : 2}
-									opacity={selectedNode === null || selectedNode === node.id ? 1 : 0.5}
+									opacity={selectedNode === null || selectedNode === node.id
+										? 1
+										: 0.5}
 								/>
 								<text
 									x={node.x}
@@ -360,7 +367,10 @@
 									font-weight="bold"
 								>
 									{node.transaction.amount
-										? formatAmount(node.transaction.amount, node.transaction.currency)
+										? formatAmount(
+												node.transaction.amount,
+												node.transaction.currency
+											)
 										: '—'}
 								</text>
 							</g>
@@ -412,7 +422,10 @@
 							<div>
 								<span class="text-muted-foreground">Amount:</span>
 								<span class="ml-2 font-medium">
-									{formatAmount(node.transaction.amount || 0, node.transaction.currency)}
+									{formatAmount(
+										node.transaction.amount || 0,
+										node.transaction.currency
+									)}
 								</span>
 							</div>
 							<div>

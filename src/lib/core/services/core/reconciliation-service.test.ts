@@ -330,7 +330,10 @@ describe('ReconciliationService', () => {
 		});
 
 		it('skipReconciliationForNow creates 0-delta skipped record', async () => {
-			const result = await reconciliationService.skipReconciliationForNow('account-1', 'Not now');
+			const result = await reconciliationService.skipReconciliationForNow(
+				'account-1',
+				'Not now'
+			);
 
 			expect(result).toMatchObject({
 				accountId: 'account-1',
@@ -466,9 +469,18 @@ describe('ReconciliationService', () => {
 		});
 
 		it('should calculate correct discrepancy severity', async () => {
-			const lowSeverity = (reconciliationService as any).calculateDiscrepancySeverity(0.01, 100);
-			const mediumSeverity = (reconciliationService as any).calculateDiscrepancySeverity(5, 100);
-			const highSeverity = (reconciliationService as any).calculateDiscrepancySeverity(50, 100);
+			const lowSeverity = (reconciliationService as any).calculateDiscrepancySeverity(
+				0.01,
+				100
+			);
+			const mediumSeverity = (reconciliationService as any).calculateDiscrepancySeverity(
+				5,
+				100
+			);
+			const highSeverity = (reconciliationService as any).calculateDiscrepancySeverity(
+				50,
+				100
+			);
 
 			expect(lowSeverity).toBe('low');
 			expect(mediumSeverity).toBe('medium');
@@ -625,9 +637,9 @@ describe('ReconciliationService', () => {
 		it('should throw error for non-existent account', async () => {
 			vi.mocked(accountService.getAccount).mockResolvedValue(null);
 
-			await expect(reconciliationService.getReconciliationSummary('non-existent')).rejects.toThrow(
-				'Account non-existent not found'
-			);
+			await expect(
+				reconciliationService.getReconciliationSummary('non-existent')
+			).rejects.toThrow('Account non-existent not found');
 		});
 	});
 
@@ -738,13 +750,19 @@ describe('ReconciliationService', () => {
 			const clearedTransaction = mockTransactions[0]; // status: 'cleared'
 			const pendingTransaction = mockTransactions[2]; // status: 'pending'
 
-			const isCleared = (reconciliationService as any).isTransactionReconciled(clearedTransaction, {
-				includePendingTransactions: false
-			});
+			const isCleared = (reconciliationService as any).isTransactionReconciled(
+				clearedTransaction,
+				{
+					includePendingTransactions: false
+				}
+			);
 
-			const isPending = (reconciliationService as any).isTransactionReconciled(pendingTransaction, {
-				includePendingTransactions: false
-			});
+			const isPending = (reconciliationService as any).isTransactionReconciled(
+				pendingTransaction,
+				{
+					includePendingTransactions: false
+				}
+			);
 
 			const isPendingIncluded = (reconciliationService as any).isTransactionReconciled(
 				pendingTransaction,

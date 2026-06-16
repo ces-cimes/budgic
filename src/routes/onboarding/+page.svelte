@@ -50,14 +50,17 @@
 			if (preferences.username) formData.username = preferences.username;
 			if (preferences.currency && currencies.length > 0) {
 				const currencyExists = currencies.some((c) => c.value === preferences.currency);
-				formData.currency = currencyExists ? preferences.currency : currencies[0]?.value || 'USD';
+				formData.currency = currencyExists
+					? preferences.currency
+					: currencies[0]?.value || 'USD';
 			} else if (currencies.length > 0) {
 				formData.currency = currencies[0].value;
 			}
 			if (preferences.theme) formData.theme = preferences.theme;
 			if (preferences.language) formData.language = preferences.language;
 			if (preferences.guidanceTone) formData.guidanceTone = preferences.guidanceTone;
-			if (preferences.explanationDetail) formData.explanationDetail = preferences.explanationDetail;
+			if (preferences.explanationDetail)
+				formData.explanationDetail = preferences.explanationDetail;
 		} catch (err) {
 			console.error('Error loading data:', err);
 		} finally {
@@ -227,8 +230,12 @@
 
 				<div class="squircle-4xl squircle-border squircle-fill-tertiary p-8">
 					<div class="mb-6">
-						<h1 class="text-xl font-semibold text-[var(--color-text-primary)]">{getStepTitle()}</h1>
-						<p class="mt-1 text-sm text-[var(--color-text-tertiary)]">{getStepDescription()}</p>
+						<h1 class="text-xl font-semibold text-[var(--color-text-primary)]">
+							{getStepTitle()}
+						</h1>
+						<p class="mt-1 text-sm text-[var(--color-text-tertiary)]">
+							{getStepDescription()}
+						</p>
 					</div>
 
 					{#if error}
@@ -243,32 +250,50 @@
 					{#if currentStep === 1}
 						<div class="space-y-6">
 							<div class="grid grid-cols-3 gap-3">
-								<div class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center">
+								<div
+									class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center"
+								>
 									<div
 										class="squircle-xl mx-auto mb-2 flex size-9 items-center justify-center bg-[var(--color-amber-subtle)]"
 									>
 										<BarChart2 class="size-4 text-[var(--color-amber)]" />
 									</div>
-									<p class="text-xs font-medium text-[var(--color-text-primary)]">Smart tracking</p>
-									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">Auto-categorized</p>
+									<p class="text-xs font-medium text-[var(--color-text-primary)]">
+										Smart tracking
+									</p>
+									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+										Auto-categorized
+									</p>
 								</div>
-								<div class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center">
+								<div
+									class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center"
+								>
 									<div
 										class="squircle-xl mx-auto mb-2 flex size-9 items-center justify-center bg-[var(--color-amber-subtle)]"
 									>
 										<Target class="size-4 text-[var(--color-amber)]" />
 									</div>
-									<p class="text-xs font-medium text-[var(--color-text-primary)]">Goal setting</p>
-									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">Achieve targets</p>
+									<p class="text-xs font-medium text-[var(--color-text-primary)]">
+										Goal setting
+									</p>
+									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+										Achieve targets
+									</p>
 								</div>
-								<div class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center">
+								<div
+									class="squircle-2xl squircle-border squircle-fill-surface p-4 text-center"
+								>
 									<div
 										class="squircle-xl mx-auto mb-2 flex size-9 items-center justify-center bg-[var(--color-amber-subtle)]"
 									>
 										<Lightbulb class="size-4 text-[var(--color-amber)]" />
 									</div>
-									<p class="text-xs font-medium text-[var(--color-text-primary)]">Insights</p>
-									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">Personalised</p>
+									<p class="text-xs font-medium text-[var(--color-text-primary)]">
+										Insights
+									</p>
+									<p class="mt-0.5 text-xs text-[var(--color-text-tertiary)]">
+										Personalised
+									</p>
 								</div>
 							</div>
 						</div>
@@ -276,7 +301,9 @@
 
 					{#if currentStep === 2}
 						<div class="space-y-1.5">
-							<label for="ob-username" class="text-sm font-medium text-[var(--color-text-primary)]"
+							<label
+								for="ob-username"
+								class="text-sm font-medium text-[var(--color-text-primary)]"
 								>Your name</label
 							>
 							<input
@@ -291,19 +318,23 @@
 
 					{#if currentStep === 3}
 						<div class="space-y-1.5">
-							<label for="ob-currency" class="text-sm font-medium text-[var(--color-text-primary)]"
+							<label
+								for="ob-currency"
+								class="text-sm font-medium text-[var(--color-text-primary)]"
 								>Currency</label
 							>
 							<Select.Root type="single" bind:value={formData.currency}>
 								<Select.Trigger id="ob-currency" class="w-full">
 									{formData.currency
-										? (currencies.find((c) => c.value === formData.currency)?.label ??
-											formData.currency)
+										? (currencies.find((c) => c.value === formData.currency)
+												?.label ?? formData.currency)
 										: 'Select currency'}
 								</Select.Trigger>
 								<Select.Content>
 									{#each currencies as currency}
-										<Select.Item value={currency.value}>{currency.label}</Select.Item>
+										<Select.Item value={currency.value}
+											>{currency.label}</Select.Item
+										>
 									{/each}
 								</Select.Content>
 							</Select.Root>
@@ -313,7 +344,9 @@
 					{#if currentStep === 4}
 						<div class="grid grid-cols-2 gap-3">
 							<div class="space-y-1.5">
-								<label for="ob-theme" class="text-sm font-medium text-[var(--color-text-primary)]"
+								<label
+									for="ob-theme"
+									class="text-sm font-medium text-[var(--color-text-primary)]"
 									>Theme</label
 								>
 								<Select.Root type="single" bind:value={formData.theme}>
@@ -329,7 +362,8 @@
 							<div class="space-y-1.5">
 								<label
 									for="ob-language"
-									class="text-sm font-medium text-[var(--color-text-primary)]">Language</label
+									class="text-sm font-medium text-[var(--color-text-primary)]"
+									>Language</label
 								>
 								<Select.Root type="single" bind:value={formData.language}>
 									<Select.Trigger id="ob-language" class="w-full">
@@ -349,7 +383,8 @@
 							guidanceTone={formData.guidanceTone}
 							explanationDetail={formData.explanationDetail}
 							onGuidanceToneChange={(value) => (formData.guidanceTone = value)}
-							onExplanationDetailChange={(value) => (formData.explanationDetail = value)}
+							onExplanationDetailChange={(value) =>
+								(formData.explanationDetail = value)}
 						/>
 					{/if}
 
@@ -368,8 +403,8 @@
 										Bring in past transactions
 									</p>
 									<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-										Import a CSV or file from another app. You can also add transactions manually
-										from Home later.
+										Import a CSV or file from another app. You can also add
+										transactions manually from Home later.
 									</p>
 								</div>
 							</div>

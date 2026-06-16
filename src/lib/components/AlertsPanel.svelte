@@ -91,7 +91,9 @@
 		const prefs = await userService.getUserPreferences();
 		recoveryModeActive = prefs?.recoveryModeActive === true;
 		const filterRecovery = (items: Insight[]) =>
-			recoveryModeActive ? items.filter((i) => !isRecoverySuppressedAlertType(i.type)) : items;
+			recoveryModeActive
+				? items.filter((i) => !isRecoverySuppressedAlertType(i.type))
+				: items;
 
 		unreadCount = recoveryModeActive
 			? filterRecovery(notificationsService.unreadInsights).length
@@ -269,7 +271,12 @@
 				</Drawer.Description>
 			</div>
 			{#if hasUnread}
-				<Button variant="ghost" size="sm" class="shrink-0 text-xs" onclick={handleMarkAllRead}>
+				<Button
+					variant="ghost"
+					size="sm"
+					class="shrink-0 text-xs"
+					onclick={handleMarkAllRead}
+				>
 					Mark all read
 				</Button>
 			{/if}
@@ -279,7 +286,9 @@
 			<!-- data-vaul-no-drag only on content: cards and "Earlier" section; empty area below stays draggable -->
 			<div data-vaul-no-drag>
 				{#if isLoading}
-					<div class="text-muted-foreground flex items-center justify-center py-8 text-sm">
+					<div
+						class="text-muted-foreground flex items-center justify-center py-8 text-sm"
+					>
 						Loading...
 					</div>
 				{:else if unreadInsights.length === 0 && earlierAlerts.length === 0}
@@ -301,7 +310,9 @@
 										class="border-border bg-muted/40 text-muted-foreground mb-3 rounded-lg border px-3 py-2 text-xs"
 										role="note"
 									>
-										<p class="text-foreground mb-1 font-medium">{criticalCoachmarkCopy.title}</p>
+										<p class="text-foreground mb-1 font-medium">
+											{criticalCoachmarkCopy.title}
+										</p>
 										<p>{criticalCoachmarkCopy.body}</p>
 										<Button
 											variant="ghost"
@@ -314,11 +325,15 @@
 									</div>
 								{/if}
 								<div class="space-y-3">
-									{#each criticalGroups as group (group.map((i) => i.id).join('-'))}
+									{#each criticalGroups as group (group
+										.map((i) => i.id)
+										.join('-'))}
 										{@const p = group[0]}
 										<NotificationCard
 											insights={group}
-											categoryLabel={p.categoryId ? categoryNames[p.categoryId] : undefined}
+											categoryLabel={p.categoryId
+												? categoryNames[p.categoryId]
+												: undefined}
 											goalLabel={p.goalId ? goalNames[p.goalId] : undefined}
 											displayCurrency={alertsCurrency}
 											numberLocale={alertsNumberLocale}
@@ -338,7 +353,9 @@
 									{@const p = group[0]}
 									<NotificationCard
 										insights={group}
-										categoryLabel={p.categoryId ? categoryNames[p.categoryId] : undefined}
+										categoryLabel={p.categoryId
+											? categoryNames[p.categoryId]
+											: undefined}
 										goalLabel={p.goalId ? goalNames[p.goalId] : undefined}
 										displayCurrency={alertsCurrency}
 										numberLocale={alertsNumberLocale}
@@ -354,7 +371,9 @@
 
 					{#if earlierAlerts.length > 0}
 						<details class="border-border mt-4 border-t pt-3">
-							<summary class="text-muted-foreground cursor-pointer list-none text-xs font-medium">
+							<summary
+								class="text-muted-foreground cursor-pointer list-none text-xs font-medium"
+							>
 								Earlier — {earlierAlerts.length}
 							</summary>
 							<div class="mt-2 space-y-2">
@@ -376,36 +395,57 @@
 													onclick={() => toggleEarlierExpand(insight.id)}
 													aria-expanded={expandedEarlierId === insight.id}
 												>
-													<span class="mt-0.5 shrink-0" aria-hidden="true">
+													<span
+														class="mt-0.5 shrink-0"
+														aria-hidden="true"
+													>
 														{#if dismissed}
-															<X class="h-4 w-4 text-amber-600 dark:text-amber-400" />
+															<X
+																class="h-4 w-4 text-amber-600 dark:text-amber-400"
+															/>
 														{:else}
-															<CheckCircle2 class="h-4 w-4 text-sky-600 dark:text-sky-400" />
+															<CheckCircle2
+																class="h-4 w-4 text-sky-600 dark:text-sky-400"
+															/>
 														{/if}
 													</span>
 													<div class="min-w-0 flex-1">
 														<div
 															class="mb-0.5 flex min-w-0 items-center justify-between gap-x-2 gap-y-0.5"
 														>
-															<div class="flex min-w-0 flex-wrap items-center gap-x-1.5">
+															<div
+																class="flex min-w-0 flex-wrap items-center gap-x-1.5"
+															>
 																<span
 																	class="text-[10px] font-semibold tracking-wider uppercase {dismissed
 																		? 'text-amber-700 dark:text-amber-400'
 																		: 'text-sky-700 dark:text-sky-400'}"
 																>
-																	{dismissed ? 'Dismissed' : read ? 'Read' : 'Earlier'}
+																	{dismissed
+																		? 'Dismissed'
+																		: read
+																			? 'Read'
+																			: 'Earlier'}
 																</span>
 																{#if insight.severity === 'alert' || insight.severity === 'warning'}
-																	<span class="text-muted-foreground text-[10px]">
-																		· {earlierSeverityLabel(insight.severity)}
+																	<span
+																		class="text-muted-foreground text-[10px]"
+																	>
+																		· {earlierSeverityLabel(
+																			insight.severity
+																		)}
 																	</span>
 																{/if}
 															</div>
-															<span class="text-muted-foreground shrink-0 text-[10px] tabular-nums">
+															<span
+																class="text-muted-foreground shrink-0 text-[10px] tabular-nums"
+															>
 																{formatEarlierTime(insight)}
 															</span>
 														</div>
-														<div class="text-foreground text-sm leading-snug font-medium">
+														<div
+															class="text-foreground text-sm leading-snug font-medium"
+														>
 															{insight.title}
 														</div>
 													</div>
@@ -415,10 +455,19 @@
 														<button
 															type="button"
 															class="border-border bg-background/60 text-muted-foreground inline-flex max-w-full items-center gap-0.5 rounded border px-1.5 py-0.5 text-left text-[10px] leading-tight font-medium hover:bg-black/[0.04] dark:hover:bg-white/[0.05]"
-															onclick={(e) => handleEarlierLinkClick(e, insight.actionUrl!)}
+															onclick={(e) =>
+																handleEarlierLinkClick(
+																	e,
+																	insight.actionUrl!
+																)}
 														>
-															<span class="truncate">Open linked page</span>
-															<span class="shrink-0 opacity-70" aria-hidden="true">→</span>
+															<span class="truncate"
+																>Open linked page</span
+															>
+															<span
+																class="shrink-0 opacity-70"
+																aria-hidden="true">→</span
+															>
 														</button>
 													</div>
 												{/if}
@@ -446,8 +495,13 @@
 											</div>
 										</div>
 										{#if expandedEarlierId === insight.id}
-											<div class="border-border/60 space-y-2 border-t px-3 pt-2 pb-3" role="region">
-												<p class="text-muted-foreground text-xs leading-relaxed">
+											<div
+												class="border-border/60 space-y-2 border-t px-3 pt-2 pb-3"
+												role="region"
+											>
+												<p
+													class="text-muted-foreground text-xs leading-relaxed"
+												>
 													{insight.message}
 												</p>
 											</div>

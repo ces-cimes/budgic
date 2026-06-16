@@ -81,8 +81,8 @@
 	</div>
 
 	<p class="mt-2 text-xs text-[var(--color-text-secondary)]">
-		Select transactions from the same window that belong to one receipt. Percentages use absolute
-		amounts.
+		Select transactions from the same window that belong to one receipt. Percentages use
+		absolute amounts.
 	</p>
 
 	<ul class="mt-3 space-y-2">

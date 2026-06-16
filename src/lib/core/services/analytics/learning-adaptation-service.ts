@@ -205,7 +205,15 @@ class LearningAdaptationService {
 		transactions: Transaction[]
 	): Promise<PatternDetectionResult[]> {
 		const results: PatternDetectionResult[] = [];
-		const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+		const dayNames = [
+			'sunday',
+			'monday',
+			'tuesday',
+			'wednesday',
+			'thursday',
+			'friday',
+			'saturday'
+		];
 		const dayData = new Map<string, number[]>();
 
 		// Group transactions by day of week
@@ -300,7 +308,8 @@ class LearningAdaptationService {
 		);
 		const avg = weeklyTotals.reduce((sum, amt) => sum + amt, 0) / weeklyTotals.length;
 		const variance =
-			weeklyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / weeklyTotals.length;
+			weeklyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) /
+			weeklyTotals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -371,7 +380,8 @@ class LearningAdaptationService {
 		);
 		const avg = monthlyTotals.reduce((sum, amt) => sum + amt, 0) / monthlyTotals.length;
 		const variance =
-			monthlyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / monthlyTotals.length;
+			monthlyTotals.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) /
+			monthlyTotals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -494,7 +504,9 @@ class LearningAdaptationService {
 		transactions: Transaction[]
 	): Promise<PatternDetectionResult[]> {
 		const results: PatternDetectionResult[] = [];
-		const incomeTransactions = transactions.filter((tx) => tx.type === 'income' && tx.clearedDate);
+		const incomeTransactions = transactions.filter(
+			(tx) => tx.type === 'income' && tx.clearedDate
+		);
 
 		if (incomeTransactions.length < this.MIN_PATTERN_OCCURRENCES.income_frequency) {
 			return [];
@@ -544,7 +556,8 @@ class LearningAdaptationService {
 
 		const avgInterval = intervals.reduce((sum, days) => sum + days, 0) / intervals.length;
 		const variance =
-			intervals.reduce((sum, days) => sum + Math.pow(days - avgInterval, 2), 0) / intervals.length;
+			intervals.reduce((sum, days) => sum + Math.pow(days - avgInterval, 2), 0) /
+			intervals.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avgInterval > 0 ? stdDev / avgInterval : 0;
 
@@ -608,7 +621,8 @@ class LearningAdaptationService {
 
 		const amounts = incomeTransactions.map((tx) => Math.abs(tx.amount || 0));
 		const avg = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
-		const variance = amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
+		const variance =
+			amounts.reduce((sum, amt) => sum + Math.pow(amt - avg, 2), 0) / amounts.length;
 		const stdDev = Math.sqrt(variance);
 		const coefficientOfVariation = avg > 0 ? stdDev / avg : 0;
 
@@ -630,7 +644,8 @@ class LearningAdaptationService {
 						coefficientOfVariation,
 						timeframe: `${amounts.length} paychecks`,
 						lastObserved: new Date().toISOString(),
-						firstObserved: incomeTransactions[0]?.clearedDate || new Date().toISOString()
+						firstObserved:
+							incomeTransactions[0]?.clearedDate || new Date().toISOString()
 					}),
 					isActive: true,
 					appliedToProjections: false,
@@ -748,7 +763,10 @@ class LearningAdaptationService {
 					actualAverage,
 					variance,
 					consecutiveMonths,
-					confidence: Math.min(100, Math.round((consecutiveMonths / monthlyAmounts.length) * 100)),
+					confidence: Math.min(
+						100,
+						Math.round((consecutiveMonths / monthlyAmounts.length) * 100)
+					),
 					requiresConfirmation
 				});
 			}
@@ -873,7 +891,10 @@ class LearningAdaptationService {
 				learnedFlexibility: adjustedFlexibility,
 				suggestionCount: feedbacks.length,
 				acceptanceRate,
-				confidence: Math.min(100, Math.round((feedbacks.length / this.MIN_FEEDBACK_COUNT) * 100))
+				confidence: Math.min(
+					100,
+					Math.round((feedbacks.length / this.MIN_FEEDBACK_COUNT) * 100)
+				)
 			});
 
 			// Store preference
@@ -882,7 +903,10 @@ class LearningAdaptationService {
 				categoryId,
 				key: `${categoryId}_flexibility`,
 				value: adjustedFlexibility,
-				confidence: Math.min(100, Math.round((feedbacks.length / this.MIN_FEEDBACK_COUNT) * 100)),
+				confidence: Math.min(
+					100,
+					Math.round((feedbacks.length / this.MIN_FEEDBACK_COUNT) * 100)
+				),
 				feedbackCount: feedbacks.length
 			});
 		}

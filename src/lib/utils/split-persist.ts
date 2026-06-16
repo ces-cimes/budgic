@@ -55,7 +55,8 @@ export function hydrateSplitDraft(tx: Transaction, members?: Transaction[]): Spl
 
 	if (split.kind === 'weighted') {
 		const hydrated = hydrateSplitExtrasFromCategoryWeights(
-			tx.categoryWeights ?? split.slices.map((s) => ({ categoryId: s.categoryId, weight: s.share }))
+			tx.categoryWeights ??
+				split.slices.map((s) => ({ categoryId: s.categoryId, weight: s.share }))
 		);
 		if (!hydrated) return null;
 		return {
@@ -140,7 +141,9 @@ function allocateSignedAmounts(
 		throw new Error('Exact split requires positive amounts');
 	}
 	const scaled =
-		Math.abs(sumMag - totalAbs) < 0.02 ? mags : mags.map((m) => round2((m / sumMag) * totalAbs));
+		Math.abs(sumMag - totalAbs) < 0.02
+			? mags
+			: mags.map((m) => round2((m / sumMag) * totalAbs));
 	const drift = round2(totalAbs - scaled.reduce((a, b) => a + b, 0));
 	const primaryIdx = slices.findIndex((s) => s.categoryId === primaryCategoryId);
 	const absorbIdx = primaryIdx >= 0 ? primaryIdx : 0;
@@ -223,7 +226,9 @@ async function persistPartitionedCreate(
 	const groupName = draft.groupName?.trim() || 'Split';
 	const groupId = await transactionService.createTransactionGroup(rows, groupName);
 	const members = await transactionService.getGroupTransactions(groupId);
-	const rep = members.reduce((a, b) => (Math.abs(b.amount ?? 0) > Math.abs(a.amount ?? 0) ? b : a));
+	const rep = members.reduce((a, b) =>
+		Math.abs(b.amount ?? 0) > Math.abs(a.amount ?? 0) ? b : a
+	);
 	return { transaction: rep, groupId };
 }
 

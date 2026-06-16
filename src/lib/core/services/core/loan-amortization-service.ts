@@ -13,7 +13,11 @@ export type ActiveLoanObligation = {
 };
 
 class LoanAmortizationService {
-	private computeMonthlyPayment(principal: number, annualRate: number, termMonths: number): number {
+	private computeMonthlyPayment(
+		principal: number,
+		annualRate: number,
+		termMonths: number
+	): number {
 		if (termMonths <= 0) return principal;
 		const monthlyRate = annualRate / 100 / 12;
 		if (monthlyRate === 0) return principal / termMonths;
@@ -61,7 +65,8 @@ class LoanAmortizationService {
 			.where('reference')
 			.startsWith(`loan_schedule:${account.id}:`)
 			.filter(
-				(tx) => tx.status === 'planned' && !!tx.plannedDate && new Date(tx.plannedDate) >= now
+				(tx) =>
+					tx.status === 'planned' && !!tx.plannedDate && new Date(tx.plannedDate) >= now
 			)
 			.toArray();
 		for (const tx of oldFuture) {
@@ -108,7 +113,9 @@ class LoanAmortizationService {
 
 		const futureSchedule = scheduleTxs
 			.filter((tx) => tx.plannedDate && new Date(tx.plannedDate) >= new Date())
-			.sort((a, b) => new Date(a.plannedDate!).getTime() - new Date(b.plannedDate!).getTime());
+			.sort(
+				(a, b) => new Date(a.plannedDate!).getTime() - new Date(b.plannedDate!).getTime()
+			);
 
 		let balance: number;
 		let lastScheduleDate: string | null = null;

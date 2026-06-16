@@ -90,7 +90,10 @@
 							Total surplus
 						</div>
 						<div class="text-success text-lg font-semibold">
-							{formatTransactionAmount(surplusDeficit.totalSurplus, surplusDeficit.currency)}
+							{formatTransactionAmount(
+								surplusDeficit.totalSurplus,
+								surplusDeficit.currency
+							)}
 						</div>
 					</div>
 					<div class="border-border bg-muted/30 rounded-lg border p-3">
@@ -99,7 +102,10 @@
 							Total deficit
 						</div>
 						<div class="text-destructive text-lg font-semibold">
-							{formatTransactionAmount(surplusDeficit.totalDeficit, surplusDeficit.currency)}
+							{formatTransactionAmount(
+								surplusDeficit.totalDeficit,
+								surplusDeficit.currency
+							)}
 						</div>
 					</div>
 				</div>
@@ -114,11 +120,17 @@
 									<span>
 										{#if cat.surplus > 0}
 											<span class="text-success"
-												>+{formatTransactionAmount(cat.surplus, cat.currency)}</span
+												>+{formatTransactionAmount(
+													cat.surplus,
+													cat.currency
+												)}</span
 											>
 										{:else if cat.deficit > 0}
 											<span class="text-destructive"
-												>−{formatTransactionAmount(cat.deficit, cat.currency)}</span
+												>−{formatTransactionAmount(
+													cat.deficit,
+													cat.currency
+												)}</span
 											>
 										{:else}
 											<span class="text-muted-foreground">—</span>
@@ -136,7 +148,9 @@
 						<ul class="text-muted-foreground space-y-1 text-sm">
 							{#each suggestions as s}
 								<li class="flex items-start gap-2">
-									<CheckCircle class="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
+									<CheckCircle
+										class="text-muted-foreground mt-0.5 h-4 w-4 shrink-0"
+									/>
 									<span
 										>{s.categoryName}: {s.action} ({formatTransactionAmount(
 											s.amount,

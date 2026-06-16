@@ -182,7 +182,10 @@
 					plainMetadata = JSON.parse(JSON.stringify(accountMetadata)) as AccountMetadata;
 					// Remove any undefined/null values
 					Object.keys(plainMetadata).forEach((key) => {
-						if ((plainMetadata as any)[key] === undefined || (plainMetadata as any)[key] === null) {
+						if (
+							(plainMetadata as any)[key] === undefined ||
+							(plainMetadata as any)[key] === null
+						) {
 							delete (plainMetadata as any)[key];
 						}
 					});
@@ -275,7 +278,10 @@
 				try {
 					const { userService } = await import('$lib/core/services');
 					const preferences = await userService.getUserPreferences();
-					if (preferences?.currency && currencies.some((c) => c.code === preferences.currency)) {
+					if (
+						preferences?.currency &&
+						currencies.some((c) => c.code === preferences.currency)
+					) {
 						currency = preferences.currency;
 					} else if (currencies.length > 0) {
 						currency = currencies[0].code;
@@ -386,8 +392,8 @@
 				<Label.Root for="isActive" class="font-normal">Account is active</Label.Root>
 			</div>
 			<p class="text-muted-foreground text-xs">
-				Inactive accounts won't appear in transaction forms but will be preserved for historical
-				data
+				Inactive accounts won't appear in transaction forms but will be preserved for
+				historical data
 			</p>
 		</div>
 	</FormFieldGrid>
@@ -399,8 +405,8 @@
 				Advanced Options
 			</h3>
 			<p class="text-muted-foreground mb-4 text-xs">
-				Configure account-specific settings to enable optimization features like fee avoidance,
-				credit utilization tracking, and buffer management.
+				Configure account-specific settings to enable optimization features like fee
+				avoidance, credit utilization tracking, and buffer management.
 			</p>
 		</div>
 		<FormFieldGrid>

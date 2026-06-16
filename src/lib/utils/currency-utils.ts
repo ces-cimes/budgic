@@ -89,7 +89,9 @@ export function formatAmount(amount: number | undefined | null, currencyCode: st
 		if (currencyInfo) {
 			const symbol = currencyInfo.symbol;
 			const placement = currencyInfo.placement || 'before';
-			return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
+			return placement === 'before'
+				? `${symbol}${formattedZero}`
+				: `${formattedZero}${symbol}`;
 		}
 		return formattedZero;
 	}
@@ -122,7 +124,9 @@ export function formatTransactionAmount(
 			const formattedZero = formatNumberWithGrouping(0, currencyInfo.decimalPlaces);
 			const symbol = currencyInfo.symbol;
 			const placement = currencyInfo.placement || 'before';
-			return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
+			return placement === 'before'
+				? `${symbol}${formattedZero}`
+				: `${formattedZero}${symbol}`;
 		}
 		return formatNumberWithGrouping(0, 2);
 	}
@@ -161,7 +165,9 @@ export function formatTransferAmount(
 			const formattedZero = formatNumberWithGrouping(0, currencyInfo.decimalPlaces);
 			const symbol = currencyInfo.symbol;
 			const placement = currencyInfo.placement || 'before';
-			return placement === 'before' ? `${symbol}${formattedZero}` : `${formattedZero}${symbol}`;
+			return placement === 'before'
+				? `${symbol}${formattedZero}`
+				: `${formattedZero}${symbol}`;
 		}
 		return formatNumberWithGrouping(0, 2);
 	}
@@ -380,7 +386,9 @@ function formatCompactAmount(amount: number, decimalPlaces: number): string {
 export function formatPercentage(value: number, options?: { maxDecimals?: number }): string {
 	const maxDecimals = options?.maxDecimals ?? 1;
 	const rounded = Number(
-		(Math.round(value * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals)).toFixed(maxDecimals)
+		(Math.round(value * Math.pow(10, maxDecimals)) / Math.pow(10, maxDecimals)).toFixed(
+			maxDecimals
+		)
 	);
 	const str = rounded.toFixed(maxDecimals);
 	const trimmed = str.replace(/\.?0+$/, '');

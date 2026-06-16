@@ -163,9 +163,12 @@ export async function compileAcceptedProposalsToOperations(
 							accountId: anchorAccountId,
 							amount: -amount,
 							currency: primary.currency,
-							description: primary.description || `From person ledger: ${person.displayName}`,
+							description:
+								primary.description || `From person ledger: ${person.displayName}`,
 							categoryId: primary.categoryId,
-							reimbursements: [newExpectingReimbursement(amount, primary.currency, person)],
+							reimbursements: [
+								newExpectingReimbursement(amount, primary.currency, person)
+							],
 							clearedDate
 						}
 					}
@@ -187,7 +190,8 @@ export async function compileAcceptedProposalsToOperations(
 								accountId: anchorAccountId,
 								amount,
 								currency: primary.currency,
-								description: primary.description || `Repayment: ${person.displayName}`,
+								description:
+									primary.description || `Repayment: ${person.displayName}`,
 								clearedDate
 							}
 						}
@@ -247,7 +251,9 @@ export async function compileAcceptedProposalsToOperations(
 							description: primary.description,
 							categoryId: primary.categoryId,
 							memo: primary.memo,
-							reimbursements: [newExpectingReimbursement(amount, primary.currency, person)],
+							reimbursements: [
+								newExpectingReimbursement(amount, primary.currency, person)
+							],
 							clearedDate
 						}
 					}

@@ -52,7 +52,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	return json({
 		ok: true,
 		deviceId,
-		exportDate: typeof body === 'object' && body && 'exportDate' in body ? body.exportDate : null,
+		exportDate:
+			typeof body === 'object' && body && 'exportDate' in body ? body.exportDate : null,
 		savedAt: new Date().toISOString()
 	});
 };

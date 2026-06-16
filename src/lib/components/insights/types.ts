@@ -247,7 +247,9 @@ export interface InsightsServiceInterface {
 	getInsightsByType(type: InsightType): UnifiedInsight[];
 	getInsightsBySeverity(severity: InsightSeverity): UnifiedInsight[];
 	getInsightsByCategory(category: InsightCategory): UnifiedInsight[];
-	getInsightsBySourceRoute(sourceRoute: 'plan' | 'goals' | 'analyze' | 'system'): UnifiedInsight[];
+	getInsightsBySourceRoute(
+		sourceRoute: 'plan' | 'goals' | 'analyze' | 'system'
+	): UnifiedInsight[];
 	dismissInsight(insightId: string): Promise<void>;
 	getInsightsCount(): {
 		total: number;
