@@ -61,3 +61,4 @@ extracted
 # Docs — exclude legacy and personal data
 docs/00_legacy/
 docs/sample_data/
+docs/drafts/

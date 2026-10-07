@@ -4,6 +4,10 @@ Concise map of how Budgic is wired for **roadmap and scope decisions**. For full
 
 ---
 
+> **V1 scope decisions (Jul 2026):** Recovery mode **detached** (classifier disabled, manual toggle replaces auto-detection). Fees & Accounts **display-only** (optimization/recommendation logic stripped). Import restructured as extensible path. Full record: [`../../drafts/budgic-v1-scope-decisions.md`](../../drafts/budgic-v1-scope-decisions.md).
+
+---
+
 ## Doc drift (architecture docs vs code)
 
 | Topic          | Docs say                            | Code / repo today                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
