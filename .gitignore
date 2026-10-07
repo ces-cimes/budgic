@@ -62,3 +62,11 @@ extracted
 docs/00_legacy/
 docs/sample_data/
 docs/drafts/
+
+# Agentic workflow — local only, never tracked (project-ops VCS policy)
+AGENTS.md
+docs/todos/
+docs/agentic/
+docs/analysis/
+NOTES.md
+.mimocode/
