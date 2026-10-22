@@ -15,6 +15,11 @@ export default defineConfig({
 		environment: 'happy-dom',
 		setupFiles: ['src/vitest-setup.ts'],
 		include: ['src/**/*.test.ts'],
+		// Several suites mock `$lib/core/db` through importOriginal, so most of their
+		// wall time is module loading, not assertions. Under load that blows the 5s
+		// default and the suite fails as a timeout instead of on a real assertion.
+		testTimeout: 30_000,
+		hookTimeout: 30_000,
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'html'],

@@ -91,5 +91,5 @@ describe('getAccountPace', () => {
 		expect(pace.priorPeriodSpend).toBe(50);
 		expect(pace.velocityRatio).toBe(2);
 		expect(pace.velocityLabel).toBe('faster');
-	}, 15_000); // module loading dominates under full-suite parallel load; over the 5s default
+	});
 });
