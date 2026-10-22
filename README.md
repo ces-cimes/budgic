@@ -2,15 +2,15 @@
 
 > **Personal finance management** — offline-first, category- and plan-driven.
 
-Budgic is a local-first budgeting app. It tracks accounts and transactions, runs a **unified budget with waterfall tiers**, and turns the result into a single **Safe to Spend** number plus spending insights — computed entirely on-device.
+Budgic is a local-first budgeting app. It tracks accounts and transactions, runs a **unified budget with waterfall tiers**, and turns the result into a single **Safe to Spend** number plus spending insights.
 
-Your data lives in **IndexedDB on your device**. There is no account, no cloud sync, and no telemetry. Network access is optional and limited to exchange rates when you configure it.
+Your data lives in **IndexedDB on your device**. No sign-up, no cloud sync, no telemetry. Network access is optional and only used for exchange rates.
 
 ![SvelteKit](https://img.shields.io/badge/SvelteKit-2.0-FF3E00?logo=svelte)
 ![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?logo=tailwind-css)
-![Tests](https://img.shields.io/badge/tests-441%20passing-brightgreen)
+[![Test](https://github.com/ces-cimes/budgic/actions/workflows/test.yml/badge.svg)](https://github.com/ces-cimes/budgic/actions/workflows/test.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 ## Screenshots
@@ -35,13 +35,13 @@ Your data lives in **IndexedDB on your device**. There is no account, no cloud s
 
 ## How it's built
 
-**Offline-first as the default, not a fallback.** Every read and write goes to IndexedDB through Dexie; services are plain classes behind a singleton, and the UI is a thin layer over them. That means the app is fully usable with no network, and the server is only ever a convenience (exchange rates, optional backup).
+**Offline-first.** Every read and write goes to IndexedDB through Dexie; services are plain classes behind a singleton, and the UI is a thin layer over them. The app works with no network at all, and the server is only ever a convenience — exchange rates, optional backup.
 
 **Waterfall budgeting.** Rather than treating categories as a flat list of envelopes, Budgic assigns each category to one of four tiers and funds them in priority order. The daily allowance and the "Safe to Spend" figure both fall out of that ordering, which is why the allowance math is the most heavily tested part of the codebase.
 
-**A real design system.** The UI is not stock component-library defaults — typography, colour, motion, and overlay primitives are specified in the Design Bible and implemented as Tailwind tokens.
+**A documented design system.** Typography, colour, motion, and overlay primitives come from the Design Bible and are implemented as Tailwind tokens.
 
-**Typed end to end.** Zod schemas validate at the database boundary; `svelte-check` runs clean with strict TypeScript, and `any` is disallowed outside tests via a pre-commit gate.
+**Typed end to end.** Zod schemas validate at the database boundary, and `svelte-check` runs clean under strict TypeScript. A pre-commit hook warns when a new `any` type appears.
 
 ## Tech stack
 

@@ -27,7 +27,7 @@ Data management is separate from settings — it curates the records the app rea
 
 ### Import
 
-What currently exists — the MM CSV wizard. Extended with the post-import summary described in the strategy doc: how many rows came in clean, how many had fallbacks applied, links directly to the flagged review queue.
+The MM CSV wizard, extended with the post-import summary described in the strategy doc: rows that came in clean, rows that had fallbacks applied, and a direct link to the flagged review queue.
 
 ### Review Queue
 
@@ -41,7 +41,7 @@ An audit trail of every programmatic mutation: reconciliation adjustments, user 
 
 ### Export
 
-What currently exists.
+Unchanged.
 
 ---
 

@@ -22,13 +22,13 @@ Linear's interface precision × Revolut Premium's dark warmth × Monzo's honest,
 
 ### The Unforgettable Thing
 
-**The amber number.** When you open the app, the total balance or safe-to-spend figure is rendered in a beautiful large number — warm amber in dark mode, rich and deep — that looks like it was _designed_, not just computed. That number is the soul of the interface.
+**The amber number.** When you open the app, the total balance or safe-to-spend figure is rendered in a large number — warm amber in dark mode — that looks like it was _designed_, not just computed. That number is the soul of the interface.
 
 ---
 
 ## 2. Aesthetic Direction: "Warm Dark Precision"
 
-Dark-mode first. The app breathes in a warm near-black environment where amber glows and sage green signals health. Surfaces are layered with subtle depth — not flashy glass, but honest material: elevated, muted, present.
+Dark-mode first. The app breathes in a warm near-black environment where amber glows and sage green signals health. Surfaces are layered with subtle depth — not flashy glass, but honest material.
 
 Light mode is a clean warm-white inversion. The amber stays.
 
@@ -53,7 +53,7 @@ Light mode is a clean warm-white inversion. The amber stays.
 
 ### Why This Combination
 
-Instrument Serif on a large balance number creates immediate gravitas — it signals "this number was designed, not computed." Manrope is clean and modern without being Inter. JetBrains Mono gives transaction amounts tabular precision without looking like code.
+Instrument Serif on a large balance number signals "this number was designed, not computed." Manrope is clean and modern without being Inter. JetBrains Mono gives transaction amounts tabular precision without looking like code.
 
 ### Classes
 
@@ -293,7 +293,7 @@ Mobile-first single column. Two columns only when both items are genuinely paral
 
 ### Why Squircles
 
-Standard CSS `border-radius` applies a circular arc that starts and ends abruptly at the corner tangent. A squircle (superellipse) begins its curve earlier and resolves it later, producing a corner that reads as **continuous and designed** rather than clipped. It is the shape Apple uses for app icons — the reason they feel like discrete, crafted objects rather than boxes with corners removed.
+Standard CSS `border-radius` applies a circular arc that starts and ends abruptly at the corner tangent. A squircle (superellipse) begins its curve earlier and resolves it later. The corner reads as **continuous and designed** rather than clipped. It is the shape Apple uses for app icons — the reason they feel like discrete, crafted objects rather than boxes with corners removed.
 
 Budgic uses squircles for all significant content containers. Finance data is intrinsically dense and utilitarian; the shape language is one of the few places to add craft without adding noise.
 

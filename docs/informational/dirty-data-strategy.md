@@ -15,7 +15,7 @@ There are two philosophically distinct ways to deal with imperfect financial dat
 
 **Approach B — Fix**: Clean the data at the boundary (import or input) before it enters the database. The stored record is the canonical truth; analytics can be simple because the data is reliable.
 
-The app currently does **both, inconsistently, across different layers** — and this is starting to create compounding problems. This document maps the current state honestly, then proposes a clear path forward.
+The app currently does **both, inconsistently, across different layers** — and this is starting to create compounding problems. This document maps the current state, then recommends one of three options.
 
 ---
 

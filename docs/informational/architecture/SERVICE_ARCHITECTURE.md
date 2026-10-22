@@ -2,39 +2,20 @@
 
 ## Overview
 
-The Budgic service architecture follows a **categorized, service-oriented design** that promotes maintainability, testability, and scalability. All services are organized into logical categories and follow consistent patterns for data access, validation, and error handling.
+Services are grouped into categories, and each category follows the same shape: a class with a singleton export, Zod validation at the boundary, Dexie for persistence.
 
 ## Architecture Principles
 
-### 1. **Service-Oriented Architecture (SOA)**
-
-- Each service encapsulates specific business logic
-- Services are stateless and designed for reusability
-- Clear separation of concerns between different domains
-
-### 2. **Categorized Organization**
-
-- Services are organized into logical categories for better navigation
-- Each category has a specific purpose and responsibility
-- Clear dependency hierarchy between categories
-
-### 3. **Consistent Patterns**
-
-- All services follow the same interface patterns
-- Standardized error handling and validation
-- Uniform JSDoc documentation across all services
-
-### 4. **Type Safety**
-
-- Comprehensive TypeScript types throughout
-- Zod validation schemas for all data
-- Strict type checking with no `any` types
+- **Service-oriented.** Each service owns one domain's business logic. Services are stateless and reusable.
+- **Categorized.** Services sit in logical categories, with a dependency hierarchy between the categories.
+- **Consistent.** The same interface patterns, error handling, and JSDoc on every service.
+- **Type-safe.** TypeScript throughout, Zod schemas for all data, no `any` types.
 
 ## Service Categories
 
-### 📁 **Core Services** (`src/lib/core/services/core/`)
+### **Core Services** (`src/lib/core/services/core/`)
 
-Core services handle the fundamental business logic of the application:
+Core services own the fundamental business logic:
 
 #### **AccountService**
 
@@ -89,9 +70,9 @@ Core services handle the fundamental business logic of the application:
 - **Dependencies**: Database (Dexie)
 - **Data**: User preferences, behavior analytics
 
-### 📊 **Analytics Services** (`src/lib/core/services/analytics/`)
+### **Analytics Services** (`src/lib/core/services/analytics/`)
 
-Analytics services handle data analysis, insights, and cross-route synchronization:
+Analytics services handle data analysis, insights, and cross-route sync:
 
 #### **AnalyticsService**
 
@@ -124,7 +105,7 @@ Analytics services handle data analysis, insights, and cross-route synchronizati
 - **Dependencies**: All core services, InsightsService
 - **Data**: Sync events, cross-route state
 
-### 📄 **Page Services** (`src/lib/core/services/pages/`)
+### **Page Services** (`src/lib/core/services/pages/`)
 
 Page services handle page-specific logic and data aggregation:
 
@@ -140,7 +121,7 @@ Page services handle page-specific logic and data aggregation:
 
 #### **GoalsService**
 
-- **Purpose**: Goals page comprehensive data management
+- **Purpose**: Goals page data management
 - **Key Methods**:
     - `getGoalsData()` - Get comprehensive goals data
     - `getGoalInsights()` - Generate goal-specific insights
@@ -209,8 +190,6 @@ graph TD
 
 ### 1. **Service Class Structure**
 
-All services follow this consistent pattern:
-
 ````typescript
 /**
  * ServiceName
@@ -252,8 +231,6 @@ export const serviceName = new ServiceName();
 
 ### 2. **Error Handling Pattern**
 
-All services use consistent error handling:
-
 ```typescript
 async methodName(data: unknown): Promise<Result> {
     try {
@@ -275,8 +252,6 @@ async methodName(data: unknown): Promise<Result> {
 ```
 
 ### 3. **Database Integration Pattern**
-
-All services interact with the database consistently:
 
 ```typescript
 import { db, generateUUID } from '$lib/core/db';
@@ -429,7 +404,3 @@ The `CrossRouteSyncService` enables real-time updates across different parts of 
 - Use specific error types
 - Provide meaningful error messages
 - Log errors appropriately
-
----
-
-_This documentation is maintained alongside the codebase and should be updated whenever service architecture changes are made._

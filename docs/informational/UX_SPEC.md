@@ -10,7 +10,7 @@ Version 1.0 · March 2026
 >
 > **V1 scope decisions (Jul 2026):** Recovery mode **detached** (code kept, disabled; manual toggle replaces auto-classifier). Fees & Accounts **narrowed to display-only** (no optimization/recommendation logic). Import restructured as extensible path. Alert escalation rule added for repeated Low alerts.
 
-This document captures the complete information architecture, navigation structure, page layouts, component behaviour, and design decisions for Budgic — a unified personal finance application covering past spending, present status, and future planning in a single coherent experience.
+This document captures the information architecture, navigation structure, page layouts, component behaviour, and design decisions for Budgic — a personal finance application covering past spending, present status, and future planning in one place.
 
 **The document is structured as follows:**
 
@@ -208,11 +208,11 @@ The FAB (floating action button) lives bottom-right, overlapping the nav bar on 
 
 ### **Type Picker Layout (mobile — thumb-optimised, bottom to top)**
 
-| Row (bottom → top)               | Contents                                     |
-| :------------------------------- | :------------------------------------------- | ----------------------------- |
-| Row 3 (bottom, closest to thumb) | Expense (solid red border)                   | Income (solid green border)   |
-| Row 2 (middle)                   | Planned expense (dashed red)                 | Planned income (dashed green) |
-| Row 1 (top, furthest)            | Transfer (full width, dotted neutral border) |
+| Row (bottom → top)               | Contents                                                     |
+| :------------------------------- | :----------------------------------------------------------- |
+| Row 3 (bottom, closest to thumb) | Expense (solid red border) · Income (solid green border)     |
+| Row 2 (middle)                   | Planned expense (dashed red) · Planned income (dashed green) |
+| Row 1 (top, furthest)            | Transfer (full width, dotted neutral border)                 |
 
 Visual encoding: border colour \= transaction type (red \= expense, green \= income, neutral \= transfer). Border style \= status (solid \= cleared, dashed \= planned). Adjustment is not in the picker — it is accessible inside the form via the type dropdown.
 

@@ -1,9 +1,5 @@
 # Service Interaction Diagrams
 
-## Overview
-
-This document contains Mermaid diagrams showing the interactions between different services in the Budgic application.
-
 ## Service Dependency Graph
 
 ```mermaid
@@ -223,4 +219,4 @@ stateDiagram-v2
 
 ---
 
-_These diagrams are automatically generated and should be updated when service architecture changes are made._
+_Update these when service architecture changes._
