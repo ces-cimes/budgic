@@ -241,9 +241,8 @@
 							Device ID
 						</p>
 						<p class="mt-1 text-xs text-[var(--color-text-tertiary)]">
-							Send this to the admin to enable server backup on
-							<code class="text-[var(--color-text-secondary)]">budgic.example.ru</code
-							>.
+							Send this to your backup server administrator to enable server backup
+							for this device.
 						</p>
 						<div class="mt-2 flex flex-wrap items-center gap-2">
 							<code

@@ -1,6 +1,5 @@
 /**
  * Post-add split suggestion after manual expense/income create (partitioned link only).
- * @see docs/analysis/transaction-split-unification.md § Import workflow
  */
 
 import { db, type Transaction, type UserPreferences } from '$lib/core/db';

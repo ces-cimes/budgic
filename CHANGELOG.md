@@ -1,20 +1,20 @@
 # Changelog
 
-Completed work from the features and data-integrity tracks. Most recent at top. Active work: [`1_BUGS.md`](./1_BUGS.md) · [`2_FOUNDATIONS.md`](./2_FOUNDATIONS.md) · [`3_FEATURES.md`](./3_FEATURES.md). Deep phase rationale (archived): [`data-handling-enhancement-plan.md`](../00_legacy/data-handling-enhancement-plan.md).
+Completed work from the features and data-integrity tracks. Most recent at top. Deep data-handling rationale lives in [`docs/informational/dirty-data-strategy.md`](./docs/informational/dirty-data-strategy.md).
 
 ---
 
 ## July 2026 — V1 scope decisions
 
-- [x] **V1 scope analysis** — feature audit, market analysis, and simplification decisions documented. See [`../drafts/budgic-v1-scope-decisions.md`](../drafts/budgic-v1-scope-decisions.md).
+- [x] **V1 scope analysis** — feature audit, market analysis, and simplification decisions documented.
 - [x] **Recovery mode detached** — auto-classifier disabled, suppression rules removed, dedicated UI removed. Manual toggle replaces auto-detection. Code kept, not deleted.
 - [x] **Fees & Accounts narrowed** — stripped optimization/recommendation logic, narrowed to display-only (fee risks, utilisation, interest paid).
 - [x] **Import restructured** — restructured as extensible import path (Money Manager is one source among future possibilities).
 - [x] **Alert escalation rule** — added rule for repeated Low alerts to surface beyond inline-only placement.
 - [x] **V1 scope expanded** — pulled in: alert snooze (FEAT-7), periodic auto-generated reports (FEAT-13), dependency system UI (FEAT-14). AI integration scoped as V1 (FEAT-15/16/17): BYO API key, chat surface with read-only analysis, local model path.
-- [x] **AI integration added to V1** — minimal scope: BYO API key setup, chat surface (read-only), local model path. Tool-calling and proactive nudges deferred to post-V1. See [`../drafts/budgic-ai-features.md`](../drafts/budgic-ai-features.md).
+- [x] **AI integration added to V1** — minimal scope: BYO API key setup, chat surface (read-only), local model path. Tool-calling and proactive nudges deferred to post-V1.
 - [x] **Checklists updated** — 3_FEATURES.md and 2_FOUNDATIONS.md reorganized around V1 scope. New features: Allowance explainer, Debt payoff simulator, Backup verification, Global search, AI integration (3 items). New foundation: FD-13 (AI service layer and kill switch).
-- [x] **Monetization decision** — donation-only, ungated, no AI monetization. See [`../drafts/budgic-monetization.md`](../drafts/budgic-monetization.md).
+- [x] **Monetization decision** — donation-only, ungated, no AI monetization.
 
 ---
 
@@ -30,7 +30,7 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
 
 ## May 2026 — Milestone F: Recovery arc (complete)
 
-**Gate:** [`milestone-gate-2026-05-26-f.md`](../analysis/milestone-gate-2026-05-26-f.md)
+**Gate:** recovery-arc milestone review signed off.
 
 - [x] **Financial state classifier** — `financial-state-classifier.ts`: evaluates data → `{ state: 'normal' | 'tense' | 'recovery', signals: string[] }`.
 - [x] **State persistence and manual toggle** — `recoveryModeActive` / `recoveryModeDeclined` on `UserPreferences`; Settings toggle.
@@ -135,32 +135,31 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
 ### May 22, 2026 — Close person account (Dexie)
 
 - [x] **Person ledger migration apply/rollback** — Confirming _Close person account_ no longer throws Dexie “Transaction committed too early”: apply and rollback use direct `db.*` writes inside the transaction (not `transactionService` / `accountService`, which touch other stores and async side effects); account balance recalculation runs after the transaction commits.  
-       → [`migration-apply.ts`](../../src/lib/core/services/person-ledger/migration-apply.ts) · [`migration-rollback.ts`](../../src/lib/core/services/person-ledger/migration-rollback.ts) · [`migration-apply.test.ts`](../../src/lib/core/services/person-ledger/migration-apply.test.ts)
+       → [`migration-apply.ts`](src/lib/core/services/person-ledger/migration-apply.ts) · [`migration-rollback.ts`](src/lib/core/services/person-ledger/migration-rollback.ts) · [`migration-apply.test.ts`](src/lib/core/services/person-ledger/migration-apply.test.ts)
 
 ### May 21, 2026 — Server backup restore (PWA)
 
 - [x] **Restore prompt loop fix** — `restoreFromServerIfEmpty` runs once per page load; Cancel persists `budgic_server_restore_declined`; interrupted dialog (reload during `confirm`) treated as decline; at most one post-restore `location.reload()` per session.  
-       → [`backup-sync-service.ts`](../../src/lib/core/services/import-export/backup-sync-service.ts) · [`+layout.svelte`](../../src/routes/+layout.svelte)
+       → [`backup-sync-service.ts`](src/lib/core/services/import-export/backup-sync-service.ts) · [`+layout.svelte`](src/routes/+layout.svelte)
 
 - [x] **Server backup read** — `GET /api/backup/latest` scans all `*.json` per device folder (not only `latest.json`); prefers newest backup with accounts or transactions; cross-device fallback under `BACKUP_DIR`; **404** includes `diagnostics` (`filesScanned`, `maxAccounts`, `maxTransactions`).  
-       → [`backup-read.ts`](../../src/lib/server/backup-read.ts) · [`api/backup/latest/+server.ts`](../../src/routes/api/backup/latest/+server.ts) · [`backup-payload-utils.ts`](../../src/lib/backup/backup-payload-utils.ts)
+       → [`backup-read.ts`](src/lib/server/backup-read.ts) · [`api/backup/latest/+server.ts`](src/routes/api/backup/latest/+server.ts) · [`backup-payload-utils.ts`](src/lib/backup/backup-payload-utils.ts)
 
 - [x] **Empty backup guards** — client `pushBackupToServer` no-op when local DB empty; server `POST /api/backup` skips overwriting a good backup with an empty payload; restore only offered when `backupHasUserData`.  
-       → [`backup-sync-service.ts`](../../src/lib/core/services/import-export/backup-sync-service.ts) · [`api/backup/+server.ts`](../../src/routes/api/backup/+server.ts)
+       → [`backup-sync-service.ts`](src/lib/core/services/import-export/backup-sync-service.ts) · [`api/backup/+server.ts`](src/routes/api/backup/+server.ts)
 
 - [x] **Full reset + restore state** — `resetAutoRestorePromptState()` after Data → _Full reset_ so restore can be offered again after intentional wipe.  
-       → [`data/+page.svelte`](../../src/routes/data/+page.svelte)
+       → [`data/+page.svelte`](src/routes/data/+page.svelte)
 
 - [x] **Backup sync init** — `initBackupSyncOnce()` registers Dexie hooks once (avoids duplicate hooks on remount).  
-       → [`backup-sync-service.ts`](../../src/lib/core/services/import-export/backup-sync-service.ts)
+       → [`backup-sync-service.ts`](src/lib/core/services/import-export/backup-sync-service.ts)
 
-- [x] **Tests** — `backup-sync-service.test.ts`, `backup-read.test.ts`, `backup-payload-utils.test.ts`.  
-       → [`PWA_PRIVATE_TESTING.md`](./PWA_PRIVATE_TESTING.md) · [`BUDGIC_VPS_REFERENCE.md`](./BUDGIC_VPS_REFERENCE.md) updated for deploy testing
+- [x] **Tests** — `backup-sync-service.test.ts`, `backup-read.test.ts`, `backup-payload-utils.test.ts`.
 
 ### May 21, 2026 — B-Split Phase 5 (hardening)
 
 - [x] **B-Split Phase 5** — Post-review fixes before Milestone C: `expandForCategoryAttribution` + prediction multi-category regression; `persistPartitionedUpdate` member sync (create/delete rows); `allocateSignedAmounts` primary absorbs drift; Exact→Approximate confirm on partitioned edit; optional ReviewSession/goal-precision via `persistSplit`.  
-       → [`transaction-split.ts`](../../src/lib/utils/transaction-split.ts) · [`prediction-service.ts`](../../src/lib/core/services/analytics/prediction-service.ts) · [`split-persist.ts`](../../src/lib/utils/split-persist.ts) · [`SplitEditor.svelte`](../../src/lib/components/transactions/SplitEditor.svelte)
+       → [`transaction-split.ts`](src/lib/utils/transaction-split.ts) · [`prediction-service.ts`](src/lib/core/services/analytics/prediction-service.ts) · [`split-persist.ts`](src/lib/utils/split-persist.ts) · [`SplitEditor.svelte`](src/lib/components/transactions/SplitEditor.svelte)
 
 ### May 18, 2026 — Import
 
@@ -175,29 +174,28 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
 
 ### Plan, patterns, import & performance
 
-- [x] **Allowance binding / consistency — analysis complete** — root causes identified, reframe decided; implementation tracked in Milestone D (allowance rewrite).  
-       → [`docs/analysis/allowance-reframe.md`](../analysis/allowance-reframe.md)
+- [x] **Allowance binding / consistency — analysis complete** — root causes identified, reframe decided; implementation tracked in Milestone D (allowance rewrite).
 
-- [x] **Savings hints from variability** — pure util [`category-savings-variability.ts`](../../src/lib/utils/category-savings-variability.ts) (CV + headroom, ≥3 months, divergence skip); `predictionService.getSavingsVariabilityCategoryRows()` + `insightsService` emits `savings_opportunity` insights (per-category for Budget inline badges + overview); floor v1 = survival excluded + headroom/prefs slack + `predicted > budget×1.15` excluded.  
-       → [`category-savings-variability.ts`](../../src/lib/utils/category-savings-variability.ts) · [`prediction-service.ts`](../../src/lib/core/services/analytics/prediction-service.ts) · [`insights-service.ts`](../../src/lib/core/services/analytics/insights-service.ts) · [`BudgetTab.svelte`](../../src/lib/components/budget/tabs/BudgetTab.svelte)
+- [x] **Savings hints from variability** — pure util [`category-savings-variability.ts`](src/lib/utils/category-savings-variability.ts) (CV + headroom, ≥3 months, divergence skip); `predictionService.getSavingsVariabilityCategoryRows()` + `insightsService` emits `savings_opportunity` insights (per-category for Budget inline badges + overview); floor v1 = survival excluded + headroom/prefs slack + `predicted > budget×1.15` excluded.  
+       → [`category-savings-variability.ts`](src/lib/utils/category-savings-variability.ts) · [`prediction-service.ts`](src/lib/core/services/analytics/prediction-service.ts) · [`insights-service.ts`](src/lib/core/services/analytics/insights-service.ts) · [`BudgetTab.svelte`](src/lib/components/budget/tabs/BudgetTab.svelte)
 
-- [x] **Patterns tab + Allowance: performance on large DBs** — **Instrumentation (dev):** [`plan-perf-debug.ts`](../../src/lib/utils/plan-perf-debug.ts) — `planAllowanceCache` hit/miss, week-annotation lookup + `detectPatterns(365,3)` ms, `transactions:snapshot` hit/miss (prediction + autocomplete), recurring canonical tier (memory / IndexedDB / cold / coalesced). **Queries:** `analyzeSpendingPatternsAsync` uses indexed `clearedDate` range; Phase8 metrics use ~4-month `clearedDate` slice; Patterns tab drops `getAllTransactions()` in favour of `getTransactionsByDateRange` + earliest-cleared `orderBy('clearedDate').first()`; `getPhase8PatternsSurfaceMetrics` avoids duplicate `detectPatterns(120,3)`; recurring RTI unchanged.  
-       → [`plan-perf-debug.ts`](../../src/lib/utils/plan-perf-debug.ts) · [`plan/+page.svelte`](../../src/routes/plan/+page.svelte) · [`prediction-service.ts`](../../src/lib/core/services/analytics/prediction-service.ts)
+- [x] **Patterns tab + Allowance: performance on large DBs** — **Instrumentation (dev):** [`plan-perf-debug.ts`](src/lib/utils/plan-perf-debug.ts) — `planAllowanceCache` hit/miss, week-annotation lookup + `detectPatterns(365,3)` ms, `transactions:snapshot` hit/miss (prediction + autocomplete), recurring canonical tier (memory / IndexedDB / cold / coalesced). **Queries:** `analyzeSpendingPatternsAsync` uses indexed `clearedDate` range; Phase8 metrics use ~4-month `clearedDate` slice; Patterns tab drops `getAllTransactions()` in favour of `getTransactionsByDateRange` + earliest-cleared `orderBy('clearedDate').first()`; `getPhase8PatternsSurfaceMetrics` avoids duplicate `detectPatterns(120,3)`; recurring RTI unchanged.  
+       → [`plan-perf-debug.ts`](src/lib/utils/plan-perf-debug.ts) · [`plan/+page.svelte`](src/routes/plan/+page.svelte) · [`prediction-service.ts`](src/lib/core/services/analytics/prediction-service.ts)
 
-- [x] **Patterns tab: mobile UX** — List: one tappable row per pattern (opens sheet); tier as small badge via [`recurring-tier-presets.ts`](../../src/lib/insights/recurring-tier-presets.ts); direction glyphs `aria-hidden` + `sr-only`. Sheet: budget tier = shadcn `Button` (`variant="outline"`, `size="sm"`) with tier colours; writes through [`apply-recurring-pattern-waterfall-tier.ts`](../../src/lib/core/services/analytics/apply-recurring-pattern-waterfall-tier.ts).  
-       → [`PatternsTabContent.svelte`](../../src/lib/components/insights/PatternsTabContent.svelte) · [`RecurringPatternSheet.svelte`](../../src/lib/components/insights/RecurringPatternSheet.svelte)
+- [x] **Patterns tab: mobile UX** — List: one tappable row per pattern (opens sheet); tier as small badge via [`recurring-tier-presets.ts`](src/lib/insights/recurring-tier-presets.ts); direction glyphs `aria-hidden` + `sr-only`. Sheet: budget tier = shadcn `Button` (`variant="outline"`, `size="sm"`) with tier colours; writes through [`apply-recurring-pattern-waterfall-tier.ts`](src/lib/core/services/analytics/apply-recurring-pattern-waterfall-tier.ts).  
+       → [`PatternsTabContent.svelte`](src/lib/components/insights/PatternsTabContent.svelte) · `RecurringPatternSheet.svelte`
 
 - [x] **Reconciliation: badge instead of inline alert** — Data nav badge via `accountNeedsReconciliationAttention`; account detail row replaced with neutral "Open in Data"; Data tab: auto-reconcile shortcut `performAutomaticReconciliation` using `getLedgerBalance`.  
-       → [`navigation-store.svelte.ts`](../../src/lib/stores/navigation-store.svelte.ts) · [`accounts/[id]/+page.svelte`](../../src/routes/accounts/[id]/+page.svelte) · [`DataReconciliationTab.svelte`](../../src/lib/components/data/DataReconciliationTab.svelte)
+       → [`navigation-store.svelte.ts`](src/lib/stores/navigation-store.svelte.ts) · [`accounts/[id]/+page.svelte`](src/routes/accounts/[id]/+page.svelte) · [`DataReconciliationTab.svelte`](src/lib/components/data/DataReconciliationTab.svelte)
 
 - [x] **Import: currency detection in wizard** — Pre-import heuristic maps MM currency UIDs to Budgic currencies; `ImportCurrencyReviewDialog.svelte`; import wizard gated by ≥3 unclassified txs and unclassified spend share > 20%.  
-       → [`mm-currency-review-detect.ts`](../../src/lib/core/services/import-export/mm-currency-review-detect.ts) · [`money-manager-importer.ts`](../../src/lib/core/services/import-export/money-manager-importer.ts) · [`src/routes/data/+page.svelte`](../../src/routes/data/+page.svelte)
+       → [`mm-currency-review-detect.ts`](src/lib/core/services/import-export/mm-currency-review-detect.ts) · [`money-manager-importer.ts`](src/lib/core/services/import-export/money-manager-importer.ts) · [`src/routes/data/+page.svelte`](src/routes/data/+page.svelte)
 
 - [x] **Import: reimport merge strategy** — `skip | replace | merge` branch on `mmUid` match; merge policy: import owns amount/date/FX; user owns category/notes/tags/status; optional conflict list in import report.  
        → `money-manager-importer.ts` ~line 698
 
-- [x] **Import: partial data clear** — _Clear transaction data_ and _Full reset_ presets on `/data`; shared logic in [`data-reset-presets.ts`](../../src/lib/core/data-reset-presets.ts); dev `clearAllData()` delegates to full reset + reseed.  
-       → [`src/routes/data/+page.svelte`](../../src/routes/data/+page.svelte) · [`data-reset-presets.ts`](../../src/lib/core/data-reset-presets.ts)
+- [x] **Import: partial data clear** — _Clear transaction data_ and _Full reset_ presets on `/data`; shared logic in [`data-reset-presets.ts`](src/lib/core/data-reset-presets.ts); dev `clearAllData()` delegates to full reset + reseed.  
+       → [`src/routes/data/+page.svelte`](src/routes/data/+page.svelte) · [`data-reset-presets.ts`](src/lib/core/data-reset-presets.ts)
 
 ---
 
@@ -205,34 +203,28 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
 
 ### Import wizard & automation (data-handling phase 4)
 
-- [x] **Import Wizard** — post-import flow for > 20% unclassified spend; 4 screens: summary → essential candidates → uncertain patterns → payoff  
-       → [`intelligent-allowance-and-data-quality.md Part 7`](../00_legacy/intelligent-allowance-and-data-quality.md)
+- [x] **Import Wizard** — post-import flow for > 20% unclassified spend; 4 screens: summary → essential candidates → uncertain patterns → payoff
 
-- [x] **Essential detection classification candidates** — ranked by allowance impact; uses `TransactionSimilarityEngine`  
-       → same doc, Parts 6 + 11
+- [x] **Essential detection classification candidates** — ranked by allowance impact; uses `TransactionSimilarityEngine`
 
-- [x] **Person account migration prompt** — post-import: surface transactions from person accounts for reimbursement tagging or gift classification  
-       → same doc, Part 2b
+- [x] **Person account migration prompt** — post-import: surface transactions from person accounts for reimbursement tagging or gift classification
 
-- [x] **Automation noise heuristics** — round-up pair detection + daily micro-interest aggregation at import  
-       → same doc, Parts 5 + 10c
+- [x] **Automation noise heuristics** — round-up pair detection + daily micro-interest aggregation at import
 
 ### Data hub & review queue (data-handling phase 3)
 
 - [x] **`/data` route** — promoted from `settings/data`; nav `group: 'more'`; sections: Import, Review Queue, Corrections Log, Export  
-       → [`data-quality-ux.md §A /data Route`](../informational/data-quality-ux.md)
+       → [`data-quality-ux.md §A /data Route`](docs/informational/data-quality-ux.md)
 
 - [x] **Review queue** — Edit / Confirm / Dismiss actions on `importQuality`-flagged rows  
-       → [`data-quality-ux.md §A /data Route`](../informational/data-quality-ux.md)
+       → [`data-quality-ux.md §A /data Route`](docs/informational/data-quality-ux.md)
 
-- [x] **Post-import summary screen** — count of clean / inferred / zero-amount rows; link to review queue  
-       → [`data-handling-enhancement-plan.md §3.3`](../00_legacy/data-handling-enhancement-plan.md)
+- [x] **Post-import summary screen** — count of clean / inferred / zero-amount rows; link to review queue
 
 - [x] **Move reconciliation to `/data`** — nav badge via `countKey: 'reconciliation'`; coral banner removed from accounts; double-counting bug fixed  
-       → [`data-quality-ux.md §Route-Level Tensions`](../informational/data-quality-ux.md)
+       → [`data-quality-ux.md §Route-Level Tensions`](docs/informational/data-quality-ux.md)
 
-- [x] **`DataCorrection` record type** — Dexie table + immutable audit log; wired from transaction updates, reconciliation, automation  
-       → [`data-handling-enhancement-plan.md §3.4`](../00_legacy/data-handling-enhancement-plan.md)
+- [x] **`DataCorrection` record type** — Dexie table + immutable audit log; wired from transaction updates, reconciliation, automation
 
 ### Allowance confidence & ambient UX (data-handling phase 2)
 
@@ -240,16 +232,15 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
        → `budget-service.ts` · `AllowanceVisualization.svelte`
 
 - [x] **Temporal boundary on Plan week view + cash flow chart** — today→future seam; solid historical + dashed projected segments  
-       → [`data-quality-ux.md §Route-Level Tensions`](../informational/data-quality-ux.md)
+       → [`data-quality-ux.md §Route-Level Tensions`](docs/informational/data-quality-ux.md)
 
 - [x] **Distinguish predicted vs manual budget amounts** — allowance vs planned-transaction copy clarified on Home/Plan  
-       → [`data-quality-ux.md §Route-Level Tensions`](../informational/data-quality-ux.md)
+       → [`data-quality-ux.md §Route-Level Tensions`](docs/informational/data-quality-ux.md)
 
-- [x] **Ambient quality dot on transaction rows** — `importQuality` dot + inline notes on edit; banner links to `/transactions?quality=flagged`  
-       → [`data-handling-enhancement-plan.md §2.3`](../00_legacy/data-handling-enhancement-plan.md)
+- [x] **Ambient quality dot on transaction rows** — `importQuality` dot + inline notes on edit; banner links to `/transactions?quality=flagged`
 
 - [x] **"Suggested" chip on autocomplete fields** — muted pill across description, amount, category, date, transfer, notes, tags, merchant split  
-       → [`data-quality-ux.md §Ambient Signals`](../informational/data-quality-ux.md) · `transactions/add/[...id]/+page.svelte`
+       → [`data-quality-ux.md §Ambient Signals`](docs/informational/data-quality-ux.md) · `transactions/add/[...id]/+page.svelte`
 
 - [x] **Patterns tab: confidence progress bar** — `% classified` block; tap opens classification flow  
        → `PatternsTabContent.svelte`
@@ -258,10 +249,10 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
        → `PatternsTabContent.svelte`
 
 - [x] **Per-card confidence dots on recurring patterns** — 1/2/3 dots by `calculatePatternConfidence`; capped/omitted on unconfirmed data  
-       → [`data-quality-ux.md §Ambient Signals`](../informational/data-quality-ux.md) · `recurring-transaction-intelligence-service.ts`
+       → [`data-quality-ux.md §Ambient Signals`](docs/informational/data-quality-ux.md) · `recurring-transaction-intelligence-service.ts`
 
 - [x] **Suppress low-data insights labels** — trend direction gated on data volume; Reports Highlights footnote weight  
-       → [`data-quality-ux.md §Ambient Signals`](../informational/data-quality-ux.md)
+       → [`data-quality-ux.md §Ambient Signals`](docs/informational/data-quality-ux.md)
 
 ### Foundational data model (data-handling phase 1)
 
@@ -272,18 +263,17 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
        → `money-manager-importer.ts` · `category-utils.ts` · `transactions/add/[...id]/+page.svelte`
 
 - [x] **Add `importQuality` metadata tagging** — `amountInferred`, `dateInferred`, `currencyFallback` on import  
-       → [`data-handling-enhancement-plan.md §1.2`](../00_legacy/data-handling-enhancement-plan.md) · `db.ts` · `money-manager-mapper.ts`
+       → `db.ts` · `money-manager-mapper.ts`
 
 - [x] **Add `automation` tag infrastructure** — enum + DO_TYPE 7/8 routing + post-import `automation-detector`  
        → `db.ts` · `money-manager-importer.ts`
 
-- [x] **Unify outlier/duplicate detection** — shared `DataQualityUtils` across insights, learning, recurring, reconciliation  
-       → [`data-handling-enhancement-plan.md §1.4`](../00_legacy/data-handling-enhancement-plan.md)
+- [x] **Unify outlier/duplicate detection** — shared `DataQualityUtils` across insights, learning, recurring, reconciliation
 
 ### Before MVP (Phase 0)
 
 - [x] **Fix insights trend sort** — `amounts` reordered with `sortedDates`  
-       → [`dirty-data-strategy.md §4`](../informational/dirty-data-strategy.md) · `insights-service.ts`
+       → [`dirty-data-strategy.md §4`](docs/informational/dirty-data-strategy.md) · `insights-service.ts`
 
 - [x] **Fix `autoResolveSmallDiscrepancy`** — direct balance update + `balanceAdjustmentApplied`; no adjustment transaction  
        → `reconciliation-service.ts`
@@ -304,16 +294,16 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
        → `db.ts` v29
 
 - [x] **Plan page: loading/refreshing UX** — Budget and Goals tabs gated by `isPlanDataLoading` skeletons.  
-       → [`currency-handling-followups.md §6`](../00_legacy/currency-handling-followups.md) · `plan/+page.svelte`
+       → `plan/+page.svelte`
 
 - [x] **Reimbursement netting in category spend** — `calculateCategorySpending` takes `reimbursementMode`; optimistic proportional netting matches confidence loop.  
-       → [`currency-handling-followups.md §5`](../00_legacy/currency-handling-followups.md) · `budget-service.ts`
+       → `budget-service.ts`
 
 - [x] **Category spend vs budget period** — `Category.budgetPeriod` (`monthly`|`weekly`|`biweekly`); v29 migration; `getCategoryBudgetPeriodStart` + per-category window in `calculateCategorySpending`.  
-       → [`currency-handling-followups.md §4`](../00_legacy/currency-handling-followups.md) · `budget-service.ts`
+       → `budget-service.ts`
 
 - [x] **Missing FX pairs** — `exchange-rate-service.convertAmountWithQuality` + stale DB fallback; category rows show `~` + tooltip; raw pair shows amber badge.  
-       → [`currency-handling-followups.md §2`](../00_legacy/currency-handling-followups.md) · `exchange-rate-service.ts` · `budget-service.ts`
+       → `exchange-rate-service.ts` · `budget-service.ts`
 
 ---
 
@@ -322,20 +312,16 @@ Completed work from the features and data-integrity tracks. Most recent at top. 
 ### Category splits & UX
 
 - [x] **Sheet audit** — `DialogDrawer` extended (`sheetSideDesktop`, `sheetContentClass`); migrated: `FilterSheet`, `CurrencySelectionSheet`, `UpdateBalanceSheet`, `AutomationAggregationCard`, add-transaction currency, `settings/currency` drawers.  
-       → [`UX_SPEC.md`](../informational/UX_SPEC.md)
+       → [`UX_SPEC.md`](docs/informational/UX_SPEC.md)
 
-- [x] **Category picker in quick-add** — unified `SearchableSelect` (blend-score ranked, budget chips); `CategoryTreePicker` removed; soft-split picker via `DialogDrawer` (was previously broken).  
-       → [`probabilistic-category-splits.md`](../00_legacy/probabilistic-category-splits.md)
+- [x] **Category picker in quick-add** — unified `SearchableSelect` (blend-score ranked, budget chips); `CategoryTreePicker` removed; soft-split picker via `DialogDrawer` (was previously broken).
 
-- [x] **Transaction form: audit soft split + exact split flows** — "+ add another category" opens picker sheet; presets enlarged; custom split uses ±5% steppers; split block under description with sticky bottom.  
-       → [`probabilistic-category-splits.md Part 2`](../00_legacy/probabilistic-category-splits.md)
+- [x] **Transaction form: audit soft split + exact split flows** — "+ add another category" opens picker sheet; presets enlarged; custom split uses ±5% steppers; split block under description with sticky bottom.
 
-- [x] **Goal-relative precision nudge after save** — Part 5: `Goal.linkedCategoryIds` + `DialogDrawer` nudge after single-category cleared expense; composite dismissal key; `merchantProfileService.applyNegativeCategoryHint` on No.  
-       → [`probabilistic-category-splits.md Part 5`](../00_legacy/probabilistic-category-splits.md)
+- [x] **Goal-relative precision nudge after save** — Part 5: `Goal.linkedCategoryIds` + `DialogDrawer` nudge after single-category cleared expense; composite dismissal key; `merchantProfileService.applyNegativeCategoryHint` on No.
 
 ### Deferred items shipped early (splits, calculator)
 
-- [x] **3- and 4-way category splits** — `splitExtras: { categoryId, weight }[]`; primary weight is residual; slider for two categories, ±5% steppers for three–four; cap four total; helpers in [`soft-split-extras.ts`](../../src/lib/utils/soft-split-extras.ts).
+- [x] **3- and 4-way category splits** — `splitExtras: { categoryId, weight }[]`; primary weight is residual; slider for two categories, ±5% steppers for three–four; cap four total; helpers in [`soft-split-extras.ts`](src/lib/utils/soft-split-extras.ts).
 
-- [x] **Calculator dialog** — mobile amount entry.  
-       → [`deferred/calculator-dialog-component.md`](./deferred/calculator-dialog-component.md)
+- [x] **Calculator dialog** — mobile amount entry.

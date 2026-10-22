@@ -7,7 +7,7 @@
  * (`allowance-calculation.ts`) — not in this module.
  *
  * **Calendar-month caveat:** two recurring payments in one month (e.g. rent on 1st and 30th) can
- * inflate monthly totals and CV; v1 does not normalize billing periods (see `docs/analysis/allowance-signals-and-savings-hints.md`).
+ * inflate monthly totals and CV; v1 does not normalize billing periods.
  */
 
 /** Minimum count of calendar months with attributed spend (see prediction MIN_MONTHS). */

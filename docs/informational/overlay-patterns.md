@@ -76,4 +76,4 @@ Raw `Drawer` overlays may use `*Panel` when the name reflects product language (
 ## Related
 
 - UX principle: context, not context-switch — secondary flows open as sheets/modals rather than navigating away ([`UX_SPEC.md` §1.2](./UX_SPEC.md#12--design-principles))
-- Cursor rule (dev): [`.cursor/rules/ux-heuristics.mdc`](../../.cursor/rules/ux-heuristics.mdc) §3 overlay choice
+- Dev heuristic §3 (overlay choice): prefer the lightest primitive that fits the flow.

@@ -53,8 +53,9 @@ describe('getAccountPace', () => {
 
 	it('computes MTD vs prior-month window spend', async () => {
 		const now = new Date();
-		const thisMonth = new Date(now.getFullYear(), now.getMonth(), 5);
-		const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 5);
+		// Day 1, not a fixed day: on the 1st-4th a day-5 fixture is future-dated and MTD reads 0.
+		const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+		const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 		const txs: Transaction[] = [
 			{
 				id: '1',
@@ -90,5 +91,5 @@ describe('getAccountPace', () => {
 		expect(pace.priorPeriodSpend).toBe(50);
 		expect(pace.velocityRatio).toBe(2);
 		expect(pace.velocityLabel).toBe('faster');
-	});
+	}, 15_000); // module loading dominates under full-suite parallel load; over the 5s default
 });

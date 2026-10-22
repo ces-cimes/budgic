@@ -3,7 +3,7 @@
  *
  * B-Split boundary: detect + link stay **exact (groupId)** — never auto-convert linked
  * groups to `categoryWeights`. Eligibility aligns with `transactionHasExistingSplit` on
- * retrospective apply. See docs/analysis/transaction-split-unification.md § Import workflow.
+ * retrospective apply.
  */
 import { generateUUID, type Transaction } from '$lib/core/db';
 

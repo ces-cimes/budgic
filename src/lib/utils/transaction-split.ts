@@ -1,6 +1,5 @@
 /**
  * Canonical read model for transaction splits (weighted vs partitioned).
- * @see docs/analysis/transaction-split-unification.md
  */
 
 import type { Category, CategoryConfidence, Transaction } from '$lib/core/db';

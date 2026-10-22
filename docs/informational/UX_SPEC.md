@@ -4,11 +4,11 @@ UX & Information Architecture Specification
 
 Version 1.0 · March 2026
 
-> **May 2026:** Canonical UX spec. Route and surface drift vs code: prefer [`architecture/STRATEGIC_SYSTEM_MAP.md`](./architecture/STRATEGIC_SYSTEM_MAP.md). Shipped data-quality UX: [`data-quality-ux.md`](./data-quality-ux.md) + [`../actionable/CHANGELOG.md`](../actionable/CHANGELOG.md). Page-header back navigation: §9.5. Overlay patterns: §9.6.
+> **May 2026:** Canonical UX spec. Route and surface drift vs code: prefer [`architecture/STRATEGIC_SYSTEM_MAP.md`](./architecture/STRATEGIC_SYSTEM_MAP.md). Shipped data-quality UX: [`data-quality-ux.md`](./data-quality-ux.md) + [`CHANGELOG.md`](../../CHANGELOG.md). Page-header back navigation: §9.5. Overlay patterns: §9.6.
 >
-> **Product decisions (May 21, 2026):** Present zone = **Home only**; allowance three-tier glance model; Insights Patterns = advisory/Past; Optimize tab → **Fees & Accounts**; alerts = **attention-worthy** (Critical+High on Home); ex-maturity → **guidance + detail** (presentation-only, no gating). Full record: [`../analysis/product-coherence-2026-05.md`](../analysis/product-coherence-2026-05.md).
+> **Product decisions (May 21, 2026):** Present zone = **Home only**; allowance three-tier glance model; Insights Patterns = advisory/Past; Optimize tab → **Fees & Accounts**; alerts = **attention-worthy** (Critical+High on Home); ex-maturity → **guidance + detail** (presentation-only, no gating).
 >
-> **V1 scope decisions (Jul 2026):** Recovery mode **detached** (code kept, disabled; manual toggle replaces auto-classifier). Fees & Accounts **narrowed to display-only** (no optimization/recommendation logic). Import restructured as extensible path. Alert escalation rule added for repeated Low alerts. Full record: [`../drafts/budgic-v1-scope-decisions.md`](../drafts/budgic-v1-scope-decisions.md).
+> **V1 scope decisions (Jul 2026):** Recovery mode **detached** (code kept, disabled; manual toggle replaces auto-classifier). Fees & Accounts **narrowed to display-only** (no optimization/recommendation logic). Import restructured as extensible path. Alert escalation rule added for repeated Low alerts.
 
 This document captures the complete information architecture, navigation structure, page layouts, component behaviour, and design decisions for Budgic — a unified personal finance application covering past spending, present status, and future planning in a single coherent experience.
 
@@ -71,7 +71,7 @@ The primary target audience is financially-aware users who want real control. **
 | **Guidance** (tone)  | Coachmark frequency, suggestion phrasing          | Feature access    |
 | **Detail** (density) | Tooltips, inline explanations, collapsed sections | Nav items or tabs |
 
-**Implementation note (May 2026):** Shipped May 25, 2026 — `guidanceTone` + `explanationDetail` on `UserPreferences` (db v32); onboarding step 5 + Profile; legacy `userMaturityLevel` mapped on read/upgrade. **No tab or route gating** (Optimize / Fees & Accounts visible to all). Remaining coachmarks/nudges not yet wired to prefs — see [`../actionable/CHECKLIST_FEATURES.md`](../actionable/CHECKLIST_FEATURES.md) Milestone E · **Guidance prefs: wire remaining coachmarks & nudges**.
+**Implementation note (May 2026):** Shipped May 25, 2026 — `guidanceTone` + `explanationDetail` on `UserPreferences` (db v32); onboarding step 5 + Profile; legacy `userMaturityLevel` mapped on read/upgrade. **No tab or route gating** (Optimize / Fees & Accounts visible to all). Remaining coachmarks/nudges not yet wired to prefs — **Guidance prefs: wire remaining coachmarks & nudges**.
 
 # **2 · Navigation Architecture**
 

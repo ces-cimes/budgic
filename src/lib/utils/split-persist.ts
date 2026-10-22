@@ -1,6 +1,5 @@
 /**
  * Write model for transaction splits (counterpart to resolveSplit).
- * @see docs/analysis/transaction-split-unification.md
  */
 
 import type { CategoryConfidence, Transaction } from '$lib/core/db';

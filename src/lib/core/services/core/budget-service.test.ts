@@ -30,6 +30,10 @@ vi.mock('$lib/core/db', async () => {
 
 import { db } from '$lib/core/db';
 
+// getBudgetSummary's confidence window is a rolling trailing 90 days from now,
+// so fixtures must be relative — a pinned date silently falls out of the window.
+const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString();
+
 describe('budgetService detectCreditPaymentTransfers', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
@@ -89,7 +93,7 @@ describe('budgetService reimbursement allowance mode', () => {
 				amount: -100,
 				currency: 'USD',
 				categoryId: 'cat-lifestyle',
-				clearedDate: '2026-04-01T00:00:00.000Z',
+				clearedDate: daysAgo(3),
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null,
@@ -129,7 +133,7 @@ describe('budgetService reimbursement allowance mode', () => {
 				amount: -100,
 				currency: 'USD',
 				categoryId: 'cat-lifestyle',
-				clearedDate: '2026-04-02T00:00:00.000Z',
+				clearedDate: daysAgo(2),
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null,
@@ -170,7 +174,7 @@ describe('budgetService reimbursement allowance mode', () => {
 				amount: -250,
 				currency: 'USD',
 				categoryId: 'cat-lifestyle',
-				clearedDate: '2026-04-08T00:00:00.000Z',
+				clearedDate: daysAgo(3),
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),
 				deletedAt: null
@@ -182,7 +186,7 @@ describe('budgetService reimbursement allowance mode', () => {
 				accountId: 'checking-1',
 				amount: -250,
 				currency: 'USD',
-				clearedDate: '2026-04-09T00:00:00.000Z',
+				clearedDate: daysAgo(2),
 				transferDetails: { toAccountId: 'credit-1', transferAmount: 250, feeAmount: 0 },
 				createdAt: new Date().toISOString(),
 				updatedAt: new Date().toISOString(),

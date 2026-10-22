@@ -14,3 +14,23 @@ coverage/
 # Capacitor / native shells — synced web bundles, not hand-edited source
 android/app/src/main/assets/
 ios/App/App/public/
+
+# Inlang — generated at build time, not hand-edited source
+project.inlang/.meta.json
+project.inlang/README.md
+
+# Android build output (Gradle)
+android/app/build/
+android/build/
+android/.gradle/
+
+# Agent runtime state and local-only workflow files, never tracked
+.mimocode/
+.opencode/
+.cursor/
+docs/todos/
+docs/agentic/
+docs/analysis/
+docs/drafts/
+docs/00_legacy/
+docs/sample_data/

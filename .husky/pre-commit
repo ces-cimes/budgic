@@ -12,7 +12,7 @@ if [ -n "$STAGED_FILES" ]; then
     echo "❌ PRETTIER FAILURES"
     echo "   Run: npx prettier --write <failed-files>"
     echo ""
-    echo "$PRETTIER_OUT" | grep "warn" | head -5
+    echo "$PRETTIER_OUT" | grep "warn"
     echo ""
     exit 1
   fi
@@ -69,8 +69,8 @@ if [ "$NEW_ANY" -gt 0 ]; then
 fi
 
 # 5. BUGS.md non-empty warning (WARN)
-if [ -f "docs/actionable/1_BUGS.md" ]; then
-  UNCHECKED=$(grep -c "^\- \[ \]" docs/actionable/1_BUGS.md 2>/dev/null)
+if [ -f "docs/todos/1_BUGS.md" ]; then
+  UNCHECKED=$(grep -c "^\- \[ \]" docs/todos/1_BUGS.md 2>/dev/null)
   if [ "$UNCHECKED" -gt 0 ]; then
     echo "  ⚠️  1_BUGS.md has $UNCHECKED unchecked items"
   fi

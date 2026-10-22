@@ -4,7 +4,7 @@ Concise map of how Budgic is wired for **roadmap and scope decisions**. For full
 
 ---
 
-> **V1 scope decisions (Jul 2026):** Recovery mode **detached** (classifier disabled, manual toggle replaces auto-detection). Fees & Accounts **display-only** (optimization/recommendation logic stripped). Import restructured as extensible path. Full record: [`../../drafts/budgic-v1-scope-decisions.md`](../../drafts/budgic-v1-scope-decisions.md).
+> **V1 scope decisions (Jul 2026):** Recovery mode **detached** (classifier disabled, manual toggle replaces auto-detection). Fees & Accounts **display-only** (optimization/recommendation logic stripped). Import restructured as extensible path.
 
 ---
 
@@ -46,7 +46,7 @@ What each area is **for** in product terms (aligned with [UX_SPEC](../UX_SPEC.md
 
 ### Home (`/`) — Present zone
 
-> **May 2026:** Present zone = **Home only** (not Insights). Allowance **three-tier model**: sidebar widget (desktop T1) · Home `AllowanceSummary` (T2 glance) · Plan Allowance tab (T3). Add **spending pace** widget (week health; shared locale week pref). Home **Needs attention** = Critical + High per [`product-coherence-2026-05.md`](../../analysis/product-coherence-2026-05.md).
+> **May 2026:** Present zone = **Home only** (not Insights). Allowance **three-tier model**: sidebar widget (desktop T1) · Home `AllowanceSummary` (T2 glance) · Plan Allowance tab (T3). Add **spending pace** widget (week health; shared locale week pref). Home **Needs attention** = Critical + High.
 
 - **Daily anchor** (“How am I doing right now?”): quick glance vs short session vs post-log confirmation.
 - **Hero:** time-aware greeting, **total balance** (tap → accounts), **allowance T2** (simplified glance; tier bar per UX §3.1.1).

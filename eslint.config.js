@@ -54,7 +54,7 @@ export default ts.config(
 			}
 		}
 	},
-	// Intentional ESLint allowlist (see docs/actionable/CHECKLIST_FEATURES.md — lint item).
+	// Intentional ESLint allowlist.
 	// Prettier is the hard gate; rules below stay off so `npm run lint` passes while legacy
 	// debt is fixed incrementally. Re-enable one rule at a time when ready.
 	{

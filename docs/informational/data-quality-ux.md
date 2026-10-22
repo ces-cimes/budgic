@@ -3,7 +3,7 @@
 **Status**: Living UX reference (core surfaces shipped — May 2026)  
 **Companion to**: [`dirty-data-strategy.md`](./dirty-data-strategy.md)  
 **Date**: April 2026  
-**Shipped work:** [`../actionable/CHANGELOG.md`](../actionable/CHANGELOG.md) · Remaining polish: [`../actionable/CHECKLIST_FEATURES.md`](../actionable/CHECKLIST_FEATURES.md) (e.g. Milestone E)
+**Shipped work:** [`CHANGELOG.md`](../../CHANGELOG.md)
 
 ---
 
@@ -81,7 +81,7 @@ For **shadow category redistribution** (where the app infers a different categor
 
 When a budget category's predicted spend is based on sparse or noisy history, the forecast bar or number could be rendered with a slightly less saturated color + an info icon. Hovering: _"Limited history — prediction less certain."_ Categories with rich clean history render in full confidence.
 
-For per-category budget divergence (when predicted spend exceeds budget by >15%): surface as a gentle annotation on the budget line — _"typically ₽X — ₽Y over your budget"_ — rather than the budget showing a spike the user has to mentally explain. Tracked in [`CHECKLIST_FEATURES.md`](../actionable/CHECKLIST_FEATURES.md) Milestone I (IDEAS backlog).
+For per-category budget divergence (when predicted spend exceeds budget by >15%): surface as a gentle annotation on the budget line — _"typically ₽X — ₽Y over your budget"_ — rather than the budget showing a spike the user has to mentally explain. Captured as an idea — not yet implemented.
 
 ---
 
@@ -100,7 +100,7 @@ The goal is that after a few weeks of use, the user has developed an intuitive f
 
 ## Related checklist items
 
-Open work that extends this doc (see [`CHECKLIST_FEATURES.md`](../actionable/CHECKLIST_FEATURES.md)):
+Open work that extends this doc:
 
 - **Autocomplete filter by transaction type and status** (Milestone E) — suggestion-confidence; "suggested" chip less authoritative when match is weak
 - **Patterns tab tier buttons on mobile** (Milestone E) — compact cards + confidence dots
@@ -142,7 +142,7 @@ Most routes don't need restructuring — they need the ambient signal layer desc
 
 **Shipped:** Patterns tab confidence dots and progress bar; suppressed low-data trend labels; Reports Highlights footnote weight; `~` on recurring amounts.
 
-**Open:** Spending pulse card confidence gating; broader extension of confidence signals to Reports/Trends (see [`contextual-intelligence-surfaces.md`](../analysis/contextual-intelligence-surfaces.md) for proposals).
+**Open:** Spending pulse card confidence gating; broader extension of confidence signals to Reports/Trends.
 
 ### Routes that are fine as-is
 

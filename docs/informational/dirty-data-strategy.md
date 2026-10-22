@@ -3,7 +3,7 @@
 **Status**: Canonical strategy reference (Phases 0–4 implemented — May 2026)  
 **Scope**: Import pipeline, input validation, analytics layer  
 **Date**: April 2026  
-**Shipped work:** [`../actionable/CHANGELOG.md`](../actionable/CHANGELOG.md) (data integrity section) · UX surface: [`data-quality-ux.md`](./data-quality-ux.md)
+**Shipped work:** [`CHANGELOG.md`](../../CHANGELOG.md) (data integrity section) · UX surface: [`data-quality-ux.md`](./data-quality-ux.md)
 
 ---
 
@@ -173,7 +173,7 @@ Neither pure option is perfect for a personal finance app where users have years
 
 ## Priority / implementation order (historical)
 
-The hybrid approach below was adopted and implemented through import wizard and automation work (April–May 2026). For completion status, see [`../actionable/CHANGELOG.md`](../actionable/CHANGELOG.md).
+The hybrid approach below was adopted and implemented through import wizard and automation work (April–May 2026). For completion status, see [`CHANGELOG.md`](../../CHANGELOG.md).
 
 Original suggested order (all shipped):
 
